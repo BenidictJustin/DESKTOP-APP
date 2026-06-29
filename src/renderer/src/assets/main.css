@@ -1,0 +1,79 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-sig-green: #80CC2A;
+  --color-navy-blue: #030E69;
+  --color-canvas-white: #ffffff;
+  --color-surface-soft: #f3f4f6;
+  --color-ink: #111827;
+  --color-charcoal: #374151;
+  --color-muted: #6b7280;
+  
+  --font-sans: 'Poppins', 'Inter', sans-serif;
+  --font-poppins: 'Poppins', 'Inter', sans-serif;
+  
+  --radius-hero: 32px;
+}
+
+/* Base custom styles to complement Tailwind utility classes */
+html, body {
+  font-family: 'Poppins', 'Inter', sans-serif;
+  background-color: #f3f4f6;
+  color: #111827;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f3f4f6;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Custom styles for Tiptap editor */
+.ProseMirror {
+  outline: none;
+  min-height: 250px;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.ProseMirror p {
+  margin-bottom: 8px;
+}
+
+.ProseMirror ul {
+  list-style-type: disc;
+  padding-left: 20px;
+  margin-bottom: 8px;
+}
+
+.ProseMirror ol {
+  list-style-type: decimal;
+  padding-left: 20px;
+  margin-bottom: 8px;
+}
+
+.ProseMirror strong {
+  font-weight: bold;
+}
+
+.ProseMirror em {
+  font-style: italic;
+}
