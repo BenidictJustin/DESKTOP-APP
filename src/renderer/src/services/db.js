@@ -725,7 +725,7 @@ export const addDonor = async (donor) => {
     const newDonor = {
       ...donor,
       id: 'donor-' + Math.random().toString(36).substr(2, 9),
-      createdAt: new Date().toISOString()
+      createdAt: donor.createdAt || new Date().toISOString()
     };
     donors.push(newDonor);
     saveLocalData(LOCAL_STORAGE_KEYS.DONORS, donors);
@@ -733,9 +733,45 @@ export const addDonor = async (donor) => {
   } else {
     const docRef = await addDoc(collection(fdb, 'donors'), {
       ...donor,
-      createdAt: Timestamp.now()
+      createdAt: donor.createdAt ? Timestamp.fromDate(new Date(donor.createdAt)) : Timestamp.now()
     });
     return { ...donor, id: docRef.id };
+  }
+};
+
+export const updateDonor = async (donorId, updates) => {
+  if (isDemoMode) {
+    const donors = getLocalData(LOCAL_STORAGE_KEYS.DONORS);
+    const idx = donors.findIndex(d => d.id === donorId);
+    if (idx !== -1) {
+      donors[idx] = {
+        ...donors[idx],
+        ...updates,
+        updatedAt: new Date().toISOString()
+      };
+      saveLocalData(LOCAL_STORAGE_KEYS.DONORS, donors);
+      return donors[idx];
+    }
+    throw new Error("Donor not found");
+  } else {
+    const dbUpdates = { ...updates, updatedAt: Timestamp.now() };
+    if (updates.createdAt) {
+      dbUpdates.createdAt = Timestamp.fromDate(new Date(updates.createdAt));
+    }
+    await updateDoc(doc(fdb, 'donors', donorId), dbUpdates);
+    return { id: donorId, ...updates };
+  }
+};
+
+export const deleteDonor = async (donorId) => {
+  if (isDemoMode) {
+    const donors = getLocalData(LOCAL_STORAGE_KEYS.DONORS);
+    const filtered = donors.filter(d => d.id !== donorId);
+    saveLocalData(LOCAL_STORAGE_KEYS.DONORS, filtered);
+    return true;
+  } else {
+    await deleteDoc(doc(fdb, 'donors', donorId));
+    return true;
   }
 };
 

@@ -3,7 +3,7 @@ import {
   getUsers, registerUser, updateUser, deleteUser, updateCoordinatorStatus, getResetRequests, handleResetRequest,
   getOrganizations, addOrganization, updateOrganization, deleteOrganization,
   getInventory, addInventoryItem, updateInventoryItem, deleteInventoryItem,
-  getDonors, addDonor, getDonations, addDonation,
+  getDonors, addDonor, updateDonor, deleteDonor, getDonations, addDonation,
   getEvents, addEvent, updateEvent,
   getReports, updateReport, getInventoryTransactions, logInventoryTransaction,
   addReport, uploadPhoto
@@ -62,11 +62,15 @@ export default function AdminDashboard({ user, onLogout }) {
   // Form inputs
   // Coordinator Registration form
   const [coordName, setCoordName] = useState('');
+  const [coordFirstName, setCoordFirstName] = useState('');
+  const [coordLastName, setCoordLastName] = useState('');
   const [coordEmail, setCoordEmail] = useState('');
   const [coordUsername, setCoordUsername] = useState('');
   const [coordPassword, setCoordPassword] = useState('');
+  const [coordConfirmPassword, setCoordConfirmPassword] = useState('');
   const [coordOrgId, setCoordOrgId] = useState('');
   const [coordRole, setCoordRole] = useState('department_coordinator'); // department_coordinator vs office_coordinator
+  const [coordErrors, setCoordErrors] = useState({});
 
   // Inventory Item Form
   const [itemEditing, setItemEditing] = useState(null); // null means adding
@@ -288,6 +292,9 @@ export default function AdminDashboard({ user, onLogout }) {
   const [donorType, setDonorType] = useState('external_sponsor');
   const [donorEmail, setDonorEmail] = useState('');
   const [donorPhone, setDonorPhone] = useState('');
+  const [editingDonor, setEditingDonor] = useState(null);
+  const [donorRegistrationDate, setDonorRegistrationDate] = useState(new Date().toISOString().split('T')[0]);
+  const [donorSearchQuery, setDonorSearchQuery] = useState('');
 
   // Donation form
   const [donDonorId, setDonDonorId] = useState('');
@@ -390,37 +397,99 @@ export default function AdminDashboard({ user, onLogout }) {
   // Save User (Create or Update)
   const handleSaveUser = async (e) => {
     e.preventDefault();
-    if (!coordName || !coordEmail || !coordUsername) {
-      const fields = [];
-      if (!coordName) fields.push('coordName');
-      if (!coordEmail) fields.push('coordEmail');
-      if (!coordUsername) fields.push('coordUsername');
-      triggerValidationError(
-        "User Registration Error",
-        "Coordinator name, email address, and username are required.",
-        fields,
-        "Please fill out all the marked coordinator account details before establishing the profile."
-      );
-      return;
+    
+    const errors = {};
+    
+    // 1. First Name Validation
+    if (!coordFirstName.trim()) {
+      errors.coordFirstName = 'First name is required.';
     }
-    if (!editingUser && !coordPassword) {
-      triggerValidationError(
-        "User Registration Error",
-        "Temporary password is required for new accounts.",
-        ['coordPassword'],
-        "Enter a secure temporary password that the coordinator can use for their initial login."
-      );
+    
+    // 2. Last Name Validation
+    if (!coordLastName.trim()) {
+      errors.coordLastName = 'Last name is required.';
+    }
+    
+    // 3. Email Validation
+    if (!coordEmail.trim()) {
+      errors.coordEmail = 'Email is required.';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(coordEmail.trim())) {
+      errors.coordEmail = 'Please enter a valid email address.';
+    }
+    
+    // 4. Role Validation
+    if (!coordRole) {
+      errors.coordRole = 'Role is required.';
+    }
+    
+    // 5. Assigned Department Validation (only if Role is department_coordinator)
+    if (coordRole === 'department_coordinator' && !coordOrgId) {
+      errors.coordOrgId = 'Assigned department is required.';
+    }
+    
+    // 6. Password & Confirm Password Validation
+    const passwordRequired = !editingUser;
+    if (passwordRequired) {
+      if (!coordPassword) {
+        errors.coordPassword = 'Password is required.';
+      } else {
+        if (coordPassword.length < 8) {
+          errors.coordPassword = 'Password must be at least 8 characters long.';
+        } else if (!/[A-Z]/.test(coordPassword)) {
+          errors.coordPassword = 'Password must contain at least 1 uppercase letter.';
+        } else if (!/[a-z]/.test(coordPassword)) {
+          errors.coordPassword = 'Password must contain at least 1 lowercase letter.';
+        } else if (!/[0-9]/.test(coordPassword)) {
+          errors.coordPassword = 'Password must contain at least 1 number.';
+        } else if (!/[^A-Za-z0-9]/.test(coordPassword)) {
+          errors.coordPassword = 'Password must contain at least 1 special character.';
+        }
+      }
+      
+      if (!coordConfirmPassword) {
+        errors.coordConfirmPassword = 'Confirm password is required.';
+      } else if (coordConfirmPassword !== coordPassword) {
+        errors.coordConfirmPassword = 'Passwords do not match.';
+      }
+    } else {
+      // Editing Mode - Password is optional, but if entered it must follow complexity rules
+      if (coordPassword) {
+        if (coordPassword.length < 8) {
+          errors.coordPassword = 'Password must be at least 8 characters long.';
+        } else if (!/[A-Z]/.test(coordPassword)) {
+          errors.coordPassword = 'Password must contain at least 1 uppercase letter.';
+        } else if (!/[a-z]/.test(coordPassword)) {
+          errors.coordPassword = 'Password must contain at least 1 lowercase letter.';
+        } else if (!/[0-9]/.test(coordPassword)) {
+          errors.coordPassword = 'Password must contain at least 1 number.';
+        } else if (!/[^A-Za-z0-9]/.test(coordPassword)) {
+          errors.coordPassword = 'Password must contain at least 1 special character.';
+        }
+        
+        if (!coordConfirmPassword) {
+          errors.coordConfirmPassword = 'Confirm password is required when changing password.';
+        } else if (coordConfirmPassword !== coordPassword) {
+          errors.coordConfirmPassword = 'Passwords do not match.';
+        }
+      }
+    }
+    
+    setCoordErrors(errors);
+    if (Object.keys(errors).length > 0) {
       return;
     }
 
     setLoading(true);
     try {
+      const fullName = `${coordFirstName.trim()} ${coordLastName.trim()}`;
+      const username = coordUsername || coordEmail.split('@')[0] || '';
       const assignedOrg = coordRole === 'department_coordinator' ? coordOrgId : null;
+      
       if (editingUser) {
         const payload = {
-          name: coordName,
+          name: fullName,
           email: coordEmail,
-          username: coordUsername,
+          username: username,
           role: coordRole,
           organizationId: assignedOrg
         };
@@ -428,20 +497,24 @@ export default function AdminDashboard({ user, onLogout }) {
           payload.password = coordPassword;
         }
         await updateUser(editingUser.uid, payload);
-        triggerSuccess(`Account successfully updated for ${coordName}.`);
+        triggerSuccess(`Account successfully updated for ${fullName}.`);
       } else {
-        await registerUser(coordEmail, coordUsername, coordPassword, coordName, coordRole, assignedOrg);
-        triggerSuccess(`Account successfully established for ${coordName}.`);
+        await registerUser(coordEmail, username, coordPassword, fullName, coordRole, assignedOrg);
+        triggerSuccess(`Account successfully established for ${fullName}.`);
       }
 
       // Reset form
       setEditingUser(null);
       setCoordName('');
+      setCoordFirstName('');
+      setCoordLastName('');
       setCoordEmail('');
       setCoordUsername('');
       setCoordPassword('');
+      setCoordConfirmPassword('');
       setCoordOrgId('');
       setCoordRole('department_coordinator');
+      setCoordErrors({});
       loadData();
     } catch (err) {
       triggerError(err.message);
@@ -820,7 +893,7 @@ export default function AdminDashboard({ user, onLogout }) {
     });
   };
 
-  // Donor Create
+  // Donor CRUD Handlers
   const handleCreateDonor = async (e) => {
     e.preventDefault();
     if (!donorName) {
@@ -835,22 +908,91 @@ export default function AdminDashboard({ user, onLogout }) {
 
     setLoading(true);
     try {
-      await addDonor({
-        name: donorName,
-        type: donorType,
-        contactEmail: donorEmail,
-        contactPhone: donorPhone
-      });
-      triggerSuccess(`Donor logged: ${donorName}.`);
+      if (editingDonor) {
+        await updateDonor(editingDonor.id, {
+          name: donorName,
+          type: donorType,
+          contactEmail: donorEmail,
+          contactPhone: donorPhone,
+          createdAt: donorRegistrationDate ? new Date(donorRegistrationDate).toISOString() : new Date().toISOString()
+        });
+        triggerSuccess(`Donor profile updated: ${donorName}.`);
+        setEditingDonor(null);
+      } else {
+        await addDonor({
+          name: donorName,
+          type: donorType,
+          contactEmail: donorEmail,
+          contactPhone: donorPhone,
+          createdAt: donorRegistrationDate ? new Date(donorRegistrationDate).toISOString() : new Date().toISOString()
+        });
+        triggerSuccess(`Donor logged: ${donorName}.`);
+      }
       setDonorName('');
       setDonorEmail('');
       setDonorPhone('');
+      setDonorType('external_sponsor');
+      setDonorRegistrationDate(new Date().toISOString().split('T')[0]);
       loadData();
     } catch (err) {
       triggerError(err.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCancelDonorEdit = () => {
+    setEditingDonor(null);
+    setDonorName('');
+    setDonorType('external_sponsor');
+    setDonorEmail('');
+    setDonorPhone('');
+    setDonorRegistrationDate(new Date().toISOString().split('T')[0]);
+    clearFieldValError('donorName');
+  };
+
+  const handleEditDonorClick = (donor) => {
+    setEditingDonor(donor);
+    setDonorName(donor.name || '');
+    setDonorType(donor.type || 'external_sponsor');
+    setDonorEmail(donor.contactEmail || '');
+    setDonorPhone(donor.contactPhone || '');
+    if (donor.createdAt) {
+      try {
+        const dateStr = new Date(donor.createdAt).toISOString().split('T')[0];
+        setDonorRegistrationDate(dateStr);
+      } catch (err) {
+        setDonorRegistrationDate(new Date().toISOString().split('T')[0]);
+      }
+    } else {
+      setDonorRegistrationDate(new Date().toISOString().split('T')[0]);
+    }
+    clearFieldValError('donorName');
+  };
+
+  const handleDeleteDonor = async (donorId) => {
+    const donor = donorsList.find(d => d.id === donorId);
+    if (!donor) return;
+
+    setConfirmDialog({
+      title: "Delete Donor Profile",
+      message: `Are you sure you want to delete ${donor.name}? This will permanently remove the donor profile.`,
+      onConfirm: async () => {
+        setLoading(true);
+        try {
+          await deleteDonor(donorId);
+          triggerSuccess(`Donor ${donor.name} successfully deleted.`);
+          if (editingDonor?.id === donorId) {
+            handleCancelDonorEdit();
+          }
+          loadData();
+        } catch (err) {
+          triggerError(err.message);
+        } finally {
+          setLoading(false);
+        }
+      }
+    });
   };
 
   // Donation item change
@@ -903,8 +1045,6 @@ export default function AdminDashboard({ user, onLogout }) {
       const isAlreadyGrouped = ['pack', 'packs', 'box', 'boxes', 'bundle', 'bundles'].includes(unitLower);
 
       if (!item.name) fields.push(`donItem-${idx}-name`);
-      if (!item.category) fields.push(`donItem-${idx}-category`);
-      if (!item.unit) fields.push(`donItem-${idx}-unit`);
       if (!item.quantity) fields.push(`donItem-${idx}-quantity`);
       if (!isSchoolSupplies && !item.expiryDate) fields.push(`donItem-${idx}-expiryDate`);
       if (isAlreadyGrouped && !item.piecesPerUnit) fields.push(`donItem-${idx}-piecesPerUnit`);
@@ -917,8 +1057,6 @@ export default function AdminDashboard({ user, onLogout }) {
       const fieldName = match[2];
 
       if (fieldName === 'name') errMsg = `Item Name is required for Item #${itemNum}.`;
-      else if (fieldName === 'category') errMsg = `Category is required for Item #${itemNum}.`;
-      else if (fieldName === 'unit') errMsg = `Unit is required for Item #${itemNum}.`;
       else if (fieldName === 'quantity') errMsg = `Quantity is required for Item #${itemNum}.`;
       else if (fieldName === 'expiryDate') errMsg = `Expiration Date is required for Item #${itemNum} (non-school supplies).`;
       else if (fieldName === 'piecesPerUnit') errMsg = `Pieces per Unit is required for Item #${itemNum} since the Unit is grouped.`;
@@ -2911,7 +3049,21 @@ export default function AdminDashboard({ user, onLogout }) {
                   <div className="space-y-6">
                     {/* Donor form */}
                     <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
-                      <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3">Log Donor Profile</h3>
+                      <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+                        <h3 className="font-bold text-navy-blue text-sm">
+                          {editingDonor ? 'Edit Donor Profile' : 'Log Donor Profile'}
+                        </h3>
+                        {editingDonor && (
+                          <button
+                            type="button"
+                            onClick={handleCancelDonorEdit}
+                            className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                            title="Cancel Edit"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                       <form onSubmit={handleCreateDonor} className="space-y-3">
                         <div>
                           <label className="block text-gray-700 text-xs font-semibold mb-1">Donor Name</label>
@@ -2932,7 +3084,7 @@ export default function AdminDashboard({ user, onLogout }) {
                           <select
                             value={donorType}
                             onChange={(e) => setDonorType(e.target.value)}
-                            className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none"
+                            className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none font-semibold text-navy-blue"
                             style={{ height: '40px' }}
                           >
                             <option value="external_sponsor">External Sponsor</option>
@@ -2947,7 +3099,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             value={donorEmail}
                             onChange={(e) => setDonorEmail(e.target.value)}
                             placeholder="sponsor@gmail.com"
-                            className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none"
+                            className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none font-semibold text-navy-blue"
                             style={{ height: '40px' }}
                           />
                         </div>
@@ -2958,20 +3110,149 @@ export default function AdminDashboard({ user, onLogout }) {
                             value={donorPhone}
                             onChange={(e) => setDonorPhone(e.target.value)}
                             placeholder="09123456789"
-                            className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none"
+                            className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none font-semibold text-navy-blue"
+                            style={{ height: '40px' }}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-gray-700 text-xs font-semibold mb-1">Date of Registration</label>
+                          <input
+                            type="date"
+                            value={donorRegistrationDate}
+                            onChange={(e) => setDonorRegistrationDate(e.target.value)}
+                            className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none font-semibold text-navy-blue"
                             style={{ height: '40px' }}
                           />
                         </div>
 
-                        <button
-                          type="submit"
-                          disabled={loading}
-                          className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer"
-                          style={{ height: '40px' }}
-                        >
-                          Save Donor
-                        </button>
+                        {editingDonor ? (
+                          <div className="grid grid-cols-2 gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={handleCancelDonorEdit}
+                              className="w-full bg-gray-100 text-gray-700 rounded-full text-xs font-semibold py-2 px-4 hover:bg-gray-200 transition cursor-pointer"
+                              style={{ height: '40px' }}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="submit"
+                              disabled={loading}
+                              className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer"
+                              style={{ height: '40px' }}
+                            >
+                              Update Profile
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer pt-1"
+                            style={{ height: '40px' }}
+                          >
+                            Save Donor
+                          </button>
+                        )}
                       </form>
+                    </div>
+
+                    {/* Registered Donors Directory */}
+                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4 flex flex-col max-h-[500px]">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between justify-start gap-2 border-b border-gray-100 pb-3">
+                        <h3 className="font-bold text-navy-blue text-sm">
+                          Registered Donors
+                        </h3>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            placeholder="Search donors..."
+                            value={donorSearchQuery}
+                            onChange={(e) => setDonorSearchQuery(e.target.value)}
+                            className="pl-8 pr-3 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded-full focus:outline-none text-navy-blue font-medium w-full sm:w-40 focus:ring-2 focus:ring-navy-blue/15"
+                          />
+                          <Search className="absolute left-2.5 top-2 w-3 h-3 text-gray-400" />
+                        </div>
+                      </div>
+
+                      <div className="overflow-y-auto space-y-3 pr-1" style={{ maxHeight: '350px' }}>
+                        {(() => {
+                          const filtered = donorsList.filter(d => 
+                            d.name.toLowerCase().includes(donorSearchQuery.toLowerCase()) ||
+                            d.type.toLowerCase().includes(donorSearchQuery.toLowerCase()) ||
+                            (d.contactEmail && d.contactEmail.toLowerCase().includes(donorSearchQuery.toLowerCase())) ||
+                            (d.contactPhone && d.contactPhone.toLowerCase().includes(donorSearchQuery.toLowerCase()))
+                          );
+
+                          if (filtered.length === 0) {
+                            return (
+                              <div className="text-center py-6 text-gray-400 text-xs">
+                                No registered donors found.
+                              </div>
+                            );
+                          }
+
+                          return filtered.map(d => {
+                            // Format Type Badge Color
+                            let badgeClass = "bg-gray-100 text-gray-600 border-gray-200/50";
+                            let typeLabel = "Donor";
+                            if (d.type === 'external_sponsor') {
+                              badgeClass = "bg-blue-50 text-blue-600 border-blue-100";
+                              typeLabel = "External Sponsor";
+                            } else if (d.type === 'internal_department') {
+                              badgeClass = "bg-purple-50 text-purple-600 border-purple-100";
+                              typeLabel = "School Dept";
+                            } else if (d.type === 'individual') {
+                              badgeClass = "bg-orange-50 text-orange-600 border-orange-100";
+                              typeLabel = "Individual";
+                            }
+
+                            // Format date of registration
+                            let regDate = 'Unknown';
+                            if (d.createdAt) {
+                              try {
+                                regDate = new Date(d.createdAt).toLocaleDateString();
+                              } catch (e) {}
+                            }
+
+                            return (
+                              <div key={d.id} className="p-3 border border-gray-100 rounded-2xl hover:bg-gray-50/50 transition flex justify-between items-start space-x-3 shadow-xs">
+                                <div className="space-y-1 min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <span className="font-bold text-navy-blue text-xs truncate max-w-[150px]" title={d.name}>
+                                      {d.name}
+                                    </span>
+                                    <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded-md border font-bold ${badgeClass}`}>
+                                      {typeLabel}
+                                    </span>
+                                  </div>
+                                  <div className="text-[10px] text-gray-500 font-medium">
+                                    {d.contactEmail && <div className="truncate">{d.contactEmail}</div>}
+                                    {d.contactPhone && <div>{d.contactPhone}</div>}
+                                    <div className="text-[9px] text-gray-400 mt-0.5">Reg: {regDate}</div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-1 flex-shrink-0">
+                                  <button
+                                    onClick={() => handleEditDonorClick(d)}
+                                    className="p-1 text-navy-blue hover:bg-navy-blue/5 rounded-lg cursor-pointer inline-flex items-center"
+                                    title="Edit Donor Profile"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteDonor(d.id)}
+                                    className="p-1 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer inline-flex items-center"
+                                    title="Delete Donor Profile"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
                     </div>
                   </div>
 
@@ -3123,6 +3404,9 @@ export default function AdminDashboard({ user, onLogout }) {
                                                         }
                                                         setDonItems(list);
                                                         clearFieldValError(`donItem-${idx}-name`);
+                                                        clearFieldValError(`donItem-${idx}-quantity`);
+                                                        clearFieldValError(`donItem-${idx}-expiryDate`);
+                                                        clearFieldValError(`donItem-${idx}-piecesPerUnit`);
                                                         setActiveDonItemSuggestionsIdx(null);
                                                       }}
                                                       className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left animate-fade-in"
@@ -3162,10 +3446,23 @@ export default function AdminDashboard({ user, onLogout }) {
                                         }, 200)}
                                         onChange={(e) => handleDonItemChange(idx, 'category', e.target.value)}
                                         placeholder="Select or type category"
-                                        className={`w-full pl-2.5 pr-10 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes(`donItem-${idx}-category`) ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                        className="w-full pl-2.5 pr-16 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
                                         style={{ height: '40px' }}
                                       />
                                       <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
+                                        {item.category && (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              handleDonItemChange(idx, 'category', '');
+                                              prevDonCategoryRef.current = { idx, value: '' };
+                                            }}
+                                            className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5"
+                                            tabIndex={-1}
+                                          >
+                                            <X className="w-3.5 h-3.5" />
+                                          </button>
+                                        )}
                                         <div className="pointer-events-none text-gray-400">
                                           <ChevronRight className="w-4 h-4 transform rotate-90" />
                                         </div>
@@ -3182,7 +3479,6 @@ export default function AdminDashboard({ user, onLogout }) {
                                                   handleDonItemChange(idx, 'category', cat);
                                                   prevDonCategoryRef.current = { idx, value: cat };
                                                   setActiveDonItemCategoryIdx(null);
-                                                  clearFieldValError(`donItem-${idx}-category`);
                                                 }}
                                                 className="flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
                                               >
@@ -3226,7 +3522,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                         }, 200)}
                                         onChange={(e) => handleDonItemChange(idx, 'unit', e.target.value)}
                                         placeholder="Select or type unit"
-                                        className={`w-full pl-2.5 pr-10 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes(`donItem-${idx}-unit`) ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                        className="w-full pl-2.5 pr-16 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
                                         style={{ height: '40px' }}
                                       />
                                       <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
@@ -3259,7 +3555,6 @@ export default function AdminDashboard({ user, onLogout }) {
                                                   handleDonItemChange(idx, 'unit', u);
                                                   prevDonUnitRef.current = { idx, value: u };
                                                   setActiveDonItemUnitIdx(null);
-                                                  clearFieldValError(`donItem-${idx}-unit`);
                                                 }}
                                                 className="flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
                                               >
@@ -3336,23 +3631,27 @@ export default function AdminDashboard({ user, onLogout }) {
                                     </div>
                                   </div>
 
-                                  {/* Expiration Date */}
-                                  <div>
-                                    <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                      Expiration Date {!isSchoolSupplies && <span className="text-red-500">*</span>}
-                                    </label>
-                                    <input
-                                      type="date"
-                                      value={item.expiryDate ? item.expiryDate.split('T')[0] : ''}
-                                      disabled={isSchoolSupplies}
-                                      onChange={(e) => {
-                                        handleDonItemChange(idx, 'expiryDate', e.target.value);
-                                        clearFieldValError(`donItem-${idx}-expiryDate`);
-                                      }}
-                                      className={`w-full px-2 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 disabled:bg-gray-100 disabled:text-gray-400 font-semibold ${validationError?.fields.includes(`donItem-${idx}-expiryDate`) ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                      style={{ height: '40px' }}
-                                    />
-                                  </div>
+                                  {/* Pieces per Unit (if Unit is already pack/box/bundle) */}
+                                  {isAlreadyGrouped && (
+                                    <div className="animate-fade-in">
+                                      <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                        Pieces per Unit <span className="text-red-500">*</span>
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={item.piecesPerUnit}
+                                        onChange={(e) => {
+                                          if (/^\d*$/.test(e.target.value)) {
+                                            handleDonItemChange(idx, 'piecesPerUnit', e.target.value);
+                                            clearFieldValError(`donItem-${idx}-piecesPerUnit`);
+                                          }
+                                        }}
+                                        placeholder="e.g. 12"
+                                        className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes(`donItem-${idx}-piecesPerUnit`) ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                        style={{ height: '40px' }}
+                                      />
+                                    </div>
+                                  )}
 
                                   {/* Group Stock Option (only if Quantity >= 12 and Unit is not pack/box/bundle) */}
                                   {!isNaN(parsedQty) && parsedQty >= 12 && !isAlreadyGrouped && (
@@ -3412,27 +3711,23 @@ export default function AdminDashboard({ user, onLogout }) {
                                     </>
                                   )}
 
-                                  {/* Pieces per Unit (if Unit is already pack/box/bundle) */}
-                                  {isAlreadyGrouped && (
-                                    <div className="animate-fade-in">
-                                      <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                        Pieces per Unit <span className="text-red-500">*</span>
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={item.piecesPerUnit}
-                                        onChange={(e) => {
-                                          if (/^\d*$/.test(e.target.value)) {
-                                            handleDonItemChange(idx, 'piecesPerUnit', e.target.value);
-                                            clearFieldValError(`donItem-${idx}-piecesPerUnit`);
-                                          }
-                                        }}
-                                        placeholder="e.g. 12"
-                                        className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes(`donItem-${idx}-piecesPerUnit`) ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                        style={{ height: '40px' }}
-                                      />
-                                    </div>
-                                  )}
+                                  {/* Expiration Date */}
+                                  <div>
+                                    <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                      Expiration Date {!isSchoolSupplies && <span className="text-red-500">*</span>}
+                                    </label>
+                                    <input
+                                      type="date"
+                                      value={item.expiryDate ? item.expiryDate.split('T')[0] : ''}
+                                      disabled={isSchoolSupplies}
+                                      onChange={(e) => {
+                                        handleDonItemChange(idx, 'expiryDate', e.target.value);
+                                        clearFieldValError(`donItem-${idx}-expiryDate`);
+                                      }}
+                                      className={`w-full px-2 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 disabled:bg-gray-100 disabled:text-gray-400 font-semibold ${validationError?.fields.includes(`donItem-${idx}-expiryDate`) ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                      style={{ height: '40px' }}
+                                    />
+                                  </div>
                                 </div>
                               </div>
                             );
@@ -4342,79 +4637,83 @@ export default function AdminDashboard({ user, onLogout }) {
 
                     <form onSubmit={handleSaveUser} className="space-y-3">
                       <div>
-                        <label className="block text-gray-700 text-xs font-semibold mb-1">User Role Category</label>
+                        <label className="block text-gray-700 text-xs font-semibold mb-1">Role</label>
                         <select
                           value={coordRole}
-                          onChange={(e) => setCoordRole(e.target.value)}
-                          className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none"
+                          onChange={(e) => {
+                            const newRole = e.target.value;
+                            setCoordRole(newRole);
+                            if (newRole !== 'department_coordinator') {
+                              setCoordOrgId('');
+                            }
+                            setCoordErrors(prev => {
+                              const copy = { ...prev };
+                              delete copy.coordRole;
+                              if (newRole !== 'department_coordinator') {
+                                delete copy.coordOrgId;
+                              }
+                              return copy;
+                            });
+                          }}
+                          className={`w-full px-2 text-xs bg-white border rounded-xl focus:outline-none ${coordErrors.coordRole ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
                           style={{ height: '40px' }}
                         >
-                          <option value="department_coordinator">Department Coordinator</option>
+                          <option value="admin">Admin</option>
                           <option value="office_coordinator">Office Coordinator</option>
-                          <option value="admin">Administrator</option>
+                          <option value="department_coordinator">Other Department Coordinator</option>
                         </select>
+                        {coordErrors.coordRole && (
+                          <p className="text-red-500 text-[10px] mt-1 font-semibold">{coordErrors.coordRole}</p>
+                        )}
                       </div>
 
-                      <div>
-                        <label className="block text-gray-700 text-xs font-semibold mb-1">Full Name</label>
-                        <input
-                          type="text"
-                          value={coordName}
-                          onChange={(e) => {
-                            setCoordName(e.target.value);
-                            clearFieldValError('coordName');
-                          }}
-                          placeholder="e.g. Prof. Alan Turing"
-                          className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('coordName') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                          style={{ height: '40px' }}
-                        />
-                      </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">Email</label>
-                          <input
-                            type="email"
-                            value={coordEmail}
-                            onChange={(e) => {
-                              setCoordEmail(e.target.value);
-                              clearFieldValError('coordEmail');
-                            }}
-                            placeholder="turing@dct.edu.ph"
-                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('coordEmail') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                            style={{ height: '40px' }}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">Username</label>
+                          <label className="block text-gray-700 text-xs font-semibold mb-1">First Name</label>
                           <input
                             type="text"
-                            value={coordUsername}
+                            value={coordFirstName}
                             onChange={(e) => {
-                              setCoordUsername(e.target.value);
-                              clearFieldValError('coordUsername');
+                              setCoordFirstName(e.target.value);
+                              if (coordErrors.coordFirstName) {
+                                setCoordErrors(prev => {
+                                  const copy = { ...prev };
+                                  delete copy.coordFirstName;
+                                  return copy;
+                                });
+                              }
                             }}
-                            placeholder="alanturing"
-                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('coordUsername') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                            placeholder="e.g. Alan"
+                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${coordErrors.coordFirstName ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
                             style={{ height: '40px' }}
                           />
+                          {coordErrors.coordFirstName && (
+                            <p className="text-red-500 text-[10px] mt-1 font-semibold">{coordErrors.coordFirstName}</p>
+                          )}
                         </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-gray-700 text-xs font-semibold mb-1">
-                          {editingUser ? 'New Password (leave blank to keep current)' : 'Temporary Password'}
-                        </label>
-                        <input
-                          type="password"
-                          value={coordPassword}
-                          onChange={(e) => {
-                            setCoordPassword(e.target.value);
-                            clearFieldValError('coordPassword');
-                          }}
-                          placeholder="••••••••"
-                          className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('coordPassword') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                          style={{ height: '40px' }}
-                        />
+                        <div>
+                          <label className="block text-gray-700 text-xs font-semibold mb-1">Last Name</label>
+                          <input
+                            type="text"
+                            value={coordLastName}
+                            onChange={(e) => {
+                              setCoordLastName(e.target.value);
+                              if (coordErrors.coordLastName) {
+                                setCoordErrors(prev => {
+                                  const copy = { ...prev };
+                                  delete copy.coordLastName;
+                                  return copy;
+                                });
+                              }
+                            }}
+                            placeholder="e.g. Turing"
+                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${coordErrors.coordLastName ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                            style={{ height: '40px' }}
+                          />
+                          {coordErrors.coordLastName && (
+                            <p className="text-red-500 text-[10px] mt-1 font-semibold">{coordErrors.coordLastName}</p>
+                          )}
+                        </div>
                       </div>
 
                       {coordRole === 'department_coordinator' && (
@@ -4422,8 +4721,17 @@ export default function AdminDashboard({ user, onLogout }) {
                           <label className="block text-gray-700 text-xs font-semibold mb-1">Assigned Department</label>
                           <select
                             value={coordOrgId}
-                            onChange={(e) => setCoordOrgId(e.target.value)}
-                            className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none"
+                            onChange={(e) => {
+                              setCoordOrgId(e.target.value);
+                              if (coordErrors.coordOrgId) {
+                                setCoordErrors(prev => {
+                                  const copy = { ...prev };
+                                  delete copy.coordOrgId;
+                                  return copy;
+                                });
+                              }
+                            }}
+                            className={`w-full px-2 text-xs bg-white border rounded-xl focus:outline-none ${coordErrors.coordOrgId ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
                             style={{ height: '40px' }}
                           >
                             <option value="">-- Choose Org --</option>
@@ -4431,6 +4739,85 @@ export default function AdminDashboard({ user, onLogout }) {
                               <option key={o.id} value={o.id}>{o.name} ({o.abbreviation})</option>
                             ))}
                           </select>
+                          {coordErrors.coordOrgId && (
+                            <p className="text-red-500 text-[10px] mt-1 font-semibold">{coordErrors.coordOrgId}</p>
+                          )}
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-gray-700 text-xs font-semibold mb-1">Email</label>
+                        <input
+                          type="email"
+                          value={coordEmail}
+                          onChange={(e) => {
+                            setCoordEmail(e.target.value);
+                            if (coordErrors.coordEmail) {
+                              setCoordErrors(prev => {
+                                const copy = { ...prev };
+                                delete copy.coordEmail;
+                                return copy;
+                              });
+                            }
+                          }}
+                          placeholder="turing@dct.edu.ph"
+                          className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${coordErrors.coordEmail ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                          style={{ height: '40px' }}
+                        />
+                        {coordErrors.coordEmail && (
+                          <p className="text-red-500 text-[10px] mt-1 font-semibold">{coordErrors.coordEmail}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-gray-700 text-xs font-semibold mb-1">
+                          {editingUser ? 'New Password (leave blank to keep current)' : 'Password'}
+                        </label>
+                        <input
+                          type="password"
+                          value={coordPassword}
+                          onChange={(e) => {
+                            setCoordPassword(e.target.value);
+                            if (coordErrors.coordPassword) {
+                              setCoordErrors(prev => {
+                                const copy = { ...prev };
+                                delete copy.coordPassword;
+                                return copy;
+                              });
+                            }
+                          }}
+                          placeholder="••••••••"
+                          className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${coordErrors.coordPassword ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                          style={{ height: '40px' }}
+                        />
+                        {coordErrors.coordPassword && (
+                          <p className="text-red-500 text-[10px] mt-1 font-semibold">{coordErrors.coordPassword}</p>
+                        )}
+                      </div>
+
+                      {(!editingUser || coordPassword.length > 0) && (
+                        <div>
+                          <label className="block text-gray-700 text-xs font-semibold mb-1">Confirm Password</label>
+                          <input
+                            type="password"
+                            value={coordConfirmPassword}
+                            onChange={(e) => {
+                              setCoordConfirmPassword(e.target.value);
+                              if (coordErrors.coordConfirmPassword) {
+                                setCoordErrors(prev => {
+                                  const copy = { ...prev };
+                                  delete copy.coordConfirmPassword;
+                                  return copy;
+                                });
+                              }
+                            }}
+                            placeholder="••••••••"
+                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${coordErrors.coordConfirmPassword ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                            style={{ height: '40px' }}
+                          />
+                          {coordErrors.coordConfirmPassword && (
+                            <p className="text-red-500 text-[10px] mt-1 font-semibold">{coordErrors.coordConfirmPassword}</p>
+                          )}
                         </div>
                       )}
 
@@ -4441,11 +4828,15 @@ export default function AdminDashboard({ user, onLogout }) {
                             onClick={() => {
                               setEditingUser(null);
                               setCoordName('');
+                              setCoordFirstName('');
+                              setCoordLastName('');
                               setCoordEmail('');
                               setCoordUsername('');
                               setCoordPassword('');
+                              setCoordConfirmPassword('');
                               setCoordOrgId('');
                               setCoordRole('department_coordinator');
+                              setCoordErrors({});
                             }}
                             className="flex-1 bg-gray-100 hover:bg-gray-200 text-navy-blue rounded-full text-xs font-semibold py-2 px-4 transition cursor-pointer"
                             style={{ height: '40px' }}
@@ -4504,12 +4895,26 @@ export default function AdminDashboard({ user, onLogout }) {
                                     type="button"
                                     onClick={() => {
                                       setEditingUser(u);
-                                      setCoordName(u.name);
-                                      setCoordEmail(u.email);
-                                      setCoordUsername(u.username);
+                                      const nameParts = (u.name || '').trim().split(' ');
+                                      let first = '';
+                                      let last = '';
+                                      if (nameParts.length > 1) {
+                                        last = nameParts.pop();
+                                        first = nameParts.join(' ');
+                                      } else {
+                                        first = u.name || '';
+                                        last = '';
+                                      }
+                                      setCoordFirstName(first);
+                                      setCoordLastName(last);
+                                      setCoordName(u.name || '');
+                                      setCoordEmail(u.email || '');
+                                      setCoordUsername(u.username || '');
                                       setCoordPassword('');
+                                      setCoordConfirmPassword('');
                                       setCoordRole(u.role);
                                       setCoordOrgId(u.organizationId || '');
+                                      setCoordErrors({});
                                     }}
                                     className="py-1 px-2.5 rounded-full text-[10px] font-semibold border bg-white border-gray-200 text-navy-blue hover:bg-gray-50 transition cursor-pointer"
                                   >

@@ -63,7 +63,7 @@ To develop a module for Reports. This module will allow the Coordinator of CES t
 To develop a module for Inventory Management. This module helps the Admin of CES manage inventory. It records stock items and inventory reports, helping track available items and keeping inventory records organized.
 
 ##### 1.3.2.5 Donor Management Module
-To develop a module for Donor Management. This module will allow the Admin of CES to record donor details such as the donor’s name, date of donation, donated items, and the expiration date of consumable items. It will help keep track of all donations for events and community service activities.
+To develop a module for Donor Management. This module will allow the Admin of CES to record donor details such as the donor’s name, date of registration, type (Individual, External Organization, School Department), contact info, date of donation, donated items, and the expiration date of consumable items. It will help keep track of all donor profiles and donations for events and community service activities.
 
 ##### 1.3.2.6 Events Management Module
 To develop a module for Events Management. This module helps the Admin of CES add and manage events. It includes task management, report writing, and other event details. This helps organize events, follow tasks, and keep records for all CES activities.
@@ -107,7 +107,7 @@ The Event Management Module allows the Admin to record and manage CES events. Th
 The Organization Management Module allows the Admin to manage the organizations and departments under the CES. This involves the management of organization profiles, departments, events, and activities per department and month.
 
 ###### 1.4.1.1.8 Donor Management Module
-The Donor Management Module allows the admin to save the details of Donor Information and Donations. This includes the type of donor, date of donation, purpose, and description. The system maintains a history of all donations.
+The Donor Management Module allows the admin to save, view, update, and delete details of Donor profiles (Create, Read, Update, Delete) and record donation batches. Admins can save a donor's name, contact details, donor type (Individual, External Organization, School Department), and date of registration, and search registered sponsor profiles in a directory list. This module also records the type of donor, date of donation, purpose, and description, maintaining a detailed audit history of all contributions.
 
 ###### 1.4.1.1.9 Report Management Module
 The Report Management Module allows the Admin to view submitted narrative reports and generate formatted reports based on the CES standard format. Reports can be previewed, printed, or exported through PDF and Word files for documentation purposes.

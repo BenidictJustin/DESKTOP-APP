@@ -160,7 +160,7 @@ This document tracks development progress. Mark tasks as `[ ]` (uncompleted), `[
 
 - [x] **Donor profile log**
   - **User Story**: As an Admin, I want to log donor profiles of different types (individual, organization, department) so that we have an organized contact directory of our sponsors.
-  - **Details**: CRUD form to save Donor Name, Contact details, Donor Type (Individual, External Organization, School Department), and date of registration.
+  - **Details**: Full CRUD form to save, update, delete, search, and manage Donor Name, Contact details, Donor Type (Individual, External Organization, School Department), and date of registration.
 
 - [x] **Donation batch receipt logger**
   - **User Story**: As an Admin, I want to log donation batches specifying the quantity and purpose of items received so that we have a transparent audit history of all contributions.

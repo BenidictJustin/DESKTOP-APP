@@ -58,7 +58,7 @@ The system supports three user roles:
 - **Organization Management:** Manage profiles of academic departments and organizations, tracking their assigned events and activities.
 
 #### 2.2.4 Donor & Donation Management
-- **Donor Directory:** Maintain records of donor profiles, types, and donation dates.
+- **Donor Directory:** Complete CRUD management (Create, Read, Update, Delete) of donor profiles. Maintain, edit, and search records of donor name, contact details, type (Individual, External Sponsor, School Department), and date of registration.
 - **Donation History:** Track historical items donated, purpose, and distribution status.
 
 #### 2.2.5 Report Review & Generation
