@@ -7,7 +7,7 @@ import {
   getEvents, addEvent, updateEvent,
   getReports, updateReport, getInventoryTransactions, logInventoryTransaction,
   addReport, uploadPhoto
-} from '../services/db';
+} from '../../services/db';
 import {
   Users, Package, Gift, Calendar, FileText, Info, LogOut,
   Plus, Edit2, Trash2, Check, X, ShieldAlert, Download, Clock, ArrowRight,
@@ -310,6 +310,11 @@ export default function AdminDashboard({ user, onLogout }) {
   const [orgDesc, setOrgDesc] = useState('');
   const [editingOrg, setEditingOrg] = useState(null); // null means registering, object means updating
   const [orgSearchQuery, setOrgSearchQuery] = useState('');
+  const [selectedOrgSubTab, setSelectedOrgSubTab] = useState('organization');
+  const [isAddOrgModalOpen, setIsAddOrgModalOpen] = useState(false);
+  const [isAddDeptModalOpen, setIsAddDeptModalOpen] = useState(false);
+  const [deptLogo, setDeptLogo] = useState('');
+  const [deptCoordinatorId, setDeptCoordinatorId] = useState('');
 
   // Organization Activity Tracker States
   const [trackerDeptFilter, setTrackerDeptFilter] = useState('all');
@@ -1141,10 +1146,10 @@ export default function AdminDashboard({ user, onLogout }) {
       if (!orgName) fields.push('orgName');
       if (!orgAbbr) fields.push('orgAbbr');
       triggerValidationError(
-        editingOrg ? "Department Update Error" : "Department Registration Error",
-        "ID Code, Department Name, and Abbreviation are required.",
+        editingOrg ? "Profile Update Error" : "Profile Registration Error",
+        "ID Code, Name, and Abbreviation are required.",
         fields,
-        "Enter a unique Slug ID Code, the full Department Name, and its standard Abbreviation before saving."
+        "Enter a unique Slug ID Code, the full Name, and its standard Abbreviation before saving."
       );
       return;
     }
@@ -1153,22 +1158,55 @@ export default function AdminDashboard({ user, onLogout }) {
     try {
       if (editingOrg) {
         // If updating
-        await updateOrganization(editingOrg.id, { 
+        const determinedType = editingOrg.type || 'department';
+        const updates = { 
           name: orgName, 
           abbreviation: orgAbbr, 
-          description: orgDesc 
-        });
-        triggerSuccess(`Department Profile updated: ${orgName}.`);
+          description: orgDesc,
+          type: determinedType
+        };
+        if (determinedType === 'department') {
+          updates.logo = deptLogo || null;
+          updates.coordinatorId = deptCoordinatorId || null;
+        }
+        await updateOrganization(editingOrg.id, updates);
+
+        // Update user organization links
+        if (determinedType === 'department' && deptCoordinatorId) {
+          await updateUser(deptCoordinatorId, { organizationId: editingOrg.id });
+        }
+        triggerSuccess(`Profile updated: ${orgName}.`);
         setEditingOrg(null);
       } else {
         // If registering new
-        await addOrganization({ id: orgId, name: orgName, abbreviation: orgAbbr, description: orgDesc });
-        triggerSuccess(`Department Profile registered: ${orgName}.`);
+        const determinedType = selectedOrgSubTab === 'department' ? 'department' : 'organization';
+        const newOrg = { 
+          id: orgId, 
+          name: orgName, 
+          abbreviation: orgAbbr, 
+          description: orgDesc,
+          type: determinedType
+        };
+        if (determinedType === 'department') {
+          newOrg.logo = deptLogo || null;
+          newOrg.coordinatorId = deptCoordinatorId || null;
+        }
+        await addOrganization(newOrg);
+
+        // Update user organization links
+        if (determinedType === 'department' && deptCoordinatorId) {
+          await updateUser(deptCoordinatorId, { organizationId: orgId });
+        }
+        triggerSuccess(`${determinedType === 'department' ? 'Department' : 'Organization'} Profile registered: ${orgName}.`);
       }
       setOrgId('');
       setOrgName('');
       setOrgAbbr('');
       setOrgDesc('');
+      setDeptLogo('');
+      setDeptCoordinatorId('');
+      setIsAddOrgModalOpen(false);
+      setIsAddDeptModalOpen(false);
       loadData();
     } catch (err) {
       triggerError(err.message);
@@ -1183,9 +1221,16 @@ export default function AdminDashboard({ user, onLogout }) {
     setOrgName(org.name);
     setOrgAbbr(org.abbreviation);
     setOrgDesc(org.description || '');
+    setDeptLogo(org.logo || '');
+    setDeptCoordinatorId(org.coordinatorId || '');
     clearFieldValError('orgId');
     clearFieldValError('orgName');
     clearFieldValError('orgAbbr');
+    if (org.type === 'organization') {
+      setIsAddOrgModalOpen(true);
+    } else {
+      setIsAddDeptModalOpen(true);
+    }
   };
 
   const handleCancelOrgEdit = () => {
@@ -1194,9 +1239,13 @@ export default function AdminDashboard({ user, onLogout }) {
     setOrgName('');
     setOrgAbbr('');
     setOrgDesc('');
+    setDeptLogo('');
+    setDeptCoordinatorId('');
     clearFieldValError('orgId');
     clearFieldValError('orgName');
     clearFieldValError('orgAbbr');
+    setIsAddOrgModalOpen(false);
+    setIsAddDeptModalOpen(false);
   };
 
   const handleDeleteOrg = async (orgId) => {
@@ -1204,21 +1253,25 @@ export default function AdminDashboard({ user, onLogout }) {
     if (!org) return;
 
     setConfirmDialog({
-      title: "Delete Department Profile",
-      message: `Are you sure you want to delete ${org.name}? This will permanently remove the department profile.`,
+      title: `Delete ${org.type === 'organization' ? 'Organization' : 'Department'} Profile`,
+      message: `Are you sure you want to delete ${org.name}? This will permanently remove the profile.`,
       onConfirm: async () => {
         setLoading(true);
         try {
           await deleteOrganization(orgId);
-          triggerSuccess(`Department ${org.name} successfully deleted.`);
+          triggerSuccess(`${org.type === 'organization' ? 'Organization' : 'Department'} ${org.name} successfully deleted.`);
           if (editingOrg?.id === orgId) {
             handleCancelOrgEdit();
+          }
+          if (selectedOrgSubTab === orgId) {
+            setSelectedOrgSubTab(org.type === 'organization' ? 'organization' : 'department');
           }
           loadData();
         } catch (err) {
           triggerError(err.message);
         } finally {
           setLoading(false);
+          setConfirmDialog(null);
         }
       }
     });
@@ -3232,7 +3285,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                     <div className="text-[9px] text-gray-400 mt-0.5">Reg: {regDate}</div>
                                   </div>
                                 </div>
-                                <div className="flex items-center space-x-1 flex-shrink-0">
+                                <div className="flex items-center space-x-1 shrink-0">
                                   <button
                                     onClick={() => handleEditDonorClick(d)}
                                     className="p-1 text-navy-blue hover:bg-navy-blue/5 rounded-lg cursor-pointer inline-flex items-center"
@@ -4047,136 +4100,252 @@ export default function AdminDashboard({ user, onLogout }) {
             {activeTab === 'organization' && user.role === 'admin' && (
               <div className="space-y-6 animate-fade-in">
                 {/* Organization Header Dashboard */}
-                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center md:justify-between justify-start gap-4">
+                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between justify-start gap-4">
                   <div>
                     <h1 className="text-2xl font-bold text-navy-blue flex items-center gap-2">
                       <FolderOpen className="w-6 h-6 text-sig-green" /> Organization & Departments
                     </h1>
                     <p className="text-gray-500 text-xs mt-1">Configure academic organization profiles and track their outreach activities under the Dominican College of Tarlac (DCT).</p>
                   </div>
+
+                  {/* Top-Right Add Buttons */}
+                  {selectedOrgSubTab === 'organization' && (
+                    <button
+                      onClick={() => {
+                        handleCancelOrgEdit();
+                        setIsAddOrgModalOpen(true);
+                      }}
+                      className="flex items-center gap-2 bg-navy-blue text-white text-xs font-semibold px-4 py-2.5 rounded-full border-b-2 border-sig-green hover:bg-navy-blue/90 transition cursor-pointer self-start sm:self-auto"
+                    >
+                      <Plus className="w-4 h-4" /> Add Organization
+                    </button>
+                  )}
+                  {selectedOrgSubTab === 'department' && (
+                    <button
+                      onClick={() => {
+                        handleCancelOrgEdit();
+                        setIsAddDeptModalOpen(true);
+                      }}
+                      className="flex items-center gap-2 bg-navy-blue text-white text-xs font-semibold px-4 py-2.5 rounded-full border-b-2 border-sig-green hover:bg-navy-blue/90 transition cursor-pointer self-start sm:self-auto"
+                    >
+                      <Plus className="w-4 h-4" /> Add Department
+                    </button>
+                  )}
                 </div>
 
-                {/* KPI Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 flex items-center space-x-4">
-                    <div className="p-3.5 bg-navy-blue/5 rounded-2xl">
-                      <Users className="w-5 h-5 text-navy-blue" />
-                    </div>
-                    <div>
-                      <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">Total Departments</p>
-                      <h3 className="text-xl font-bold text-navy-blue">{orgsList.length}</h3>
-                    </div>
-                  </div>
-                  <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 flex items-center space-x-4">
-                    <div className="p-3.5 bg-sig-green/10 rounded-2xl">
-                      <Calendar className="w-5 h-5 text-sig-green" />
-                    </div>
-                    <div>
-                      <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">Scheduled Events</p>
-                      <h3 className="text-xl font-bold text-navy-blue">
-                        {eventsList.filter(e => e.status !== 'completed').length} Active
-                      </h3>
-                    </div>
-                  </div>
-                  <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 flex items-center space-x-4">
-                    <div className="p-3.5 bg-green-50 rounded-2xl">
-                      <Check className="w-5 h-5 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">Completed Activities</p>
-                      <h3 className="text-xl font-bold text-navy-blue">
-                        {eventsList.filter(e => e.status === 'completed').length} Total
-                      </h3>
-                    </div>
-                  </div>
+                {/* Sub Navigation Bar */}
+                <div className="flex border-b border-gray-200 overflow-x-auto whitespace-nowrap scrollbar-none gap-2">
+                  <button
+                    onClick={() => {
+                      setSelectedOrgSubTab('organization');
+                      handleCancelOrgEdit();
+                    }}
+                    className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+                      selectedOrgSubTab === 'organization'
+                        ? 'border-sig-green text-navy-blue'
+                        : 'border-transparent text-gray-400 hover:text-navy-blue'
+                    }`}
+                  >
+                    <FolderOpen className="w-4 h-4" /> Organization
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedOrgSubTab('department');
+                      handleCancelOrgEdit();
+                    }}
+                    className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+                      selectedOrgSubTab === 'department'
+                        ? 'border-sig-green text-navy-blue'
+                        : 'border-transparent text-gray-400 hover:text-navy-blue'
+                    }`}
+                  >
+                    <Users className="w-4 h-4" /> Department
+                  </button>
+                  {orgsList.filter(o => o.type === 'organization').map(org => (
+                    <button
+                      key={org.id}
+                      onClick={() => {
+                        setSelectedOrgSubTab(org.id);
+                        handleCancelOrgEdit();
+                      }}
+                      className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+                        selectedOrgSubTab === org.id
+                          ? 'border-sig-green text-navy-blue'
+                          : 'border-transparent text-gray-400 hover:text-navy-blue'
+                      }`}
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-sig-green" /> {org.name}
+                    </button>
+                  ))}
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Left Column: Form Builder */}
-                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4 h-fit">
-                    <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3 flex items-center justify-between">
-                      <span>{editingOrg ? 'Update Department Profile' : 'Register Department Profile'}</span>
-                      {editingOrg && (
-                        <button
-                          onClick={handleCancelOrgEdit}
-                          className="text-xs text-red-500 hover:text-red-700 font-semibold cursor-pointer"
-                        >
-                          Cancel
-                        </button>
-                      )}
-                    </h3>
-                    <form onSubmit={handleCreateOrg} className="space-y-3">
-                      <div>
-                        <label className="block text-gray-700 text-xs font-semibold mb-1">Slug ID Code (unique)</label>
-                        <input
-                          type="text"
-                          value={orgId}
-                          disabled={editingOrg !== null}
-                          onChange={(e) => {
-                            setOrgId(e.target.value);
-                            clearFieldValError('orgId');
-                          }}
-                          placeholder="dept-cba, dept-cs"
-                          className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${editingOrg ? 'opacity-65 bg-gray-50 border-gray-200' : validationError?.fields.includes('orgId') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                          style={{ height: '40px' }}
-                        />
+                {/* KPI Cards for General tabs */}
+                {(selectedOrgSubTab === 'organization' || selectedOrgSubTab === 'department') && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 flex items-center space-x-4">
+                      <div className="p-3.5 bg-navy-blue/5 rounded-2xl">
+                        {selectedOrgSubTab === 'department' ? (
+                          <Users className="w-5 h-5 text-navy-blue" />
+                        ) : (
+                          <FolderOpen className="w-5 h-5 text-navy-blue" />
+                        )}
                       </div>
                       <div>
-                        <label className="block text-gray-700 text-xs font-semibold mb-1">Department Name</label>
-                        <input
-                          type="text"
-                          value={orgName}
-                          onChange={(e) => {
-                            setOrgName(e.target.value);
-                            clearFieldValError('orgName');
-                          }}
-                          placeholder="College of Computer Studies"
-                          className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('orgName') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                          style={{ height: '40px' }}
-                        />
+                        <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">
+                          Total {selectedOrgSubTab === 'department' ? 'Departments' : 'Organizations'}
+                        </p>
+                        <h3 className="text-xl font-bold text-navy-blue">
+                          {selectedOrgSubTab === 'department' 
+                            ? orgsList.filter(o => o.type === 'department' || !o.type).length 
+                            : orgsList.filter(o => o.type === 'organization').length}
+                        </h3>
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 flex items-center space-x-4">
+                      <div className="p-3.5 bg-sig-green/10 rounded-2xl">
+                        <Calendar className="w-5 h-5 text-sig-green" />
                       </div>
                       <div>
-                        <label className="block text-gray-700 text-xs font-semibold mb-1">Abbreviation</label>
-                        <input
-                          type="text"
-                          value={orgAbbr}
-                          onChange={(e) => {
-                            setOrgAbbr(e.target.value);
-                            clearFieldValError('orgAbbr');
-                          }}
-                          placeholder="CCS"
-                          className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('orgAbbr') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                          style={{ height: '40px' }}
-                        />
+                        <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">Scheduled Events</p>
+                        <h3 className="text-xl font-bold text-navy-blue">
+                          {eventsList.filter(e => {
+                            const o = orgsList.find(org => org.id === e.assignedOrganizationId);
+                            const isMatch = selectedOrgSubTab === 'department' 
+                              ? (!o || o.type === 'department' || !o.type)
+                              : (o && o.type === 'organization');
+                            return isMatch && e.status !== 'completed';
+                          }).length} Active
+                        </h3>
+                      </div>
+                    </div>
+                    <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 flex items-center space-x-4">
+                      <div className="p-3.5 bg-green-50 rounded-2xl">
+                        <Check className="w-5 h-5 text-green-600" />
                       </div>
                       <div>
-                        <label className="block text-gray-700 text-xs font-semibold mb-1">Description</label>
-                        <textarea
-                          value={orgDesc}
-                          onChange={(e) => setOrgDesc(e.target.value)}
-                          placeholder="IT Literacy Extension services"
-                          className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-medium text-navy-blue h-20 resize-none"
-                        />
+                        <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">Completed Activities</p>
+                        <h3 className="text-xl font-bold text-navy-blue">
+                          {eventsList.filter(e => {
+                            const o = orgsList.find(org => org.id === e.assignedOrganizationId);
+                            const isMatch = selectedOrgSubTab === 'department' 
+                              ? (!o || o.type === 'department' || !o.type)
+                              : (o && o.type === 'organization');
+                            return isMatch && e.status === 'completed';
+                          }).length} Total
+                        </h3>
                       </div>
-
-                      <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer flex items-center justify-center gap-1.5"
-                        style={{ height: '40px' }}
-                      >
-                        {editingOrg ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
-                        {editingOrg ? 'Update Department' : 'Save Department'}
-                      </button>
-                    </form>
+                    </div>
                   </div>
+                )}
 
-                  {/* Right Column: Searchable Department Directory Table */}
-                  <div className="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between justify-start gap-3 border-b border-gray-100 pb-3">
-                      <h3 className="font-bold text-navy-blue text-sm">
-                        Registered Departments Directory
-                      </h3>
+                {/* Organization Tab View (Card Grid Layout) */}
+                {selectedOrgSubTab === 'organization' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                      <h3 className="font-bold text-navy-blue text-sm">Registered Organizations Directory</h3>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Search organizations..."
+                          value={orgSearchQuery}
+                          onChange={(e) => setOrgSearchQuery(e.target.value)}
+                          className="pl-8 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-full focus:outline-none text-navy-blue font-medium w-48 sm:w-60 focus:ring-2 focus:ring-navy-blue/15"
+                        />
+                        <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-gray-400" />
+                      </div>
+                    </div>
+
+                    {(() => {
+                      const filtered = orgsList.filter(o => o.type === 'organization').filter(o =>
+                        o.id.toLowerCase().includes(orgSearchQuery.toLowerCase()) ||
+                        o.name.toLowerCase().includes(orgSearchQuery.toLowerCase()) ||
+                        o.abbreviation.toLowerCase().includes(orgSearchQuery.toLowerCase()) ||
+                        (o.description || '').toLowerCase().includes(orgSearchQuery.toLowerCase())
+                      );
+
+                      if (filtered.length === 0) {
+                        return <p className="text-center py-10 text-gray-400 text-xs font-semibold">No organizations registered yet.</p>;
+                      }
+
+                      return (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                          {filtered.map(org => {
+                            const coord = usersList.find(u => u.organizationId === org.id);
+                            return (
+                              <div key={org.id} className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition duration-200">
+                                <div className="space-y-4">
+                                  <div className="flex items-start justify-between">
+                                    <div className="p-3 bg-sig-green/10 rounded-2xl">
+                                      <Sparkles className="w-6 h-6 text-sig-green" />
+                                    </div>
+                                    <span className="text-[10px] font-mono text-gray-500 bg-gray-50 px-2 py-1 rounded-md">
+                                      {org.id}
+                                    </span>
+                                  </div>
+
+                                  <div>
+                                    <h3 className="text-lg font-bold text-navy-blue line-clamp-1" title={org.name}>
+                                      {org.name}
+                                    </h3>
+                                    <p className="text-xs font-semibold text-navy-blue/70 mt-0.5">
+                                      Abbreviation: <span className="font-bold text-navy-blue">{org.abbreviation}</span>
+                                    </p>
+                                  </div>
+
+                                  <p className="text-xs text-gray-500 font-medium line-clamp-2 leading-relaxed h-8" title={org.description}>
+                                    {org.description || 'No description provided.'}
+                                  </p>
+
+                                  <div className="pt-3 border-t border-gray-50 flex items-center justify-between text-[11px] font-medium text-gray-600">
+                                    <div>
+                                      <span className="text-gray-400">Coordinator:</span>{' '}
+                                      <span className="font-semibold text-navy-blue">
+                                        {coord ? coord.name : 'Unassigned'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between">
+                                  <button
+                                    onClick={() => setSelectedOrgSubTab(org.id)}
+                                    className="px-3 py-1.5 bg-navy-blue/5 hover:bg-navy-blue/10 text-navy-blue text-xs font-bold rounded-xl transition cursor-pointer"
+                                  >
+                                    View Tab
+                                  </button>
+
+                                  <div className="flex items-center space-x-2">
+                                    <button
+                                      onClick={() => handleEditOrgClick(org)}
+                                      className="p-1.5 text-navy-blue hover:bg-navy-blue/5 rounded-xl cursor-pointer"
+                                      title="Edit"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteOrg(org.id)}
+                                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-xl cursor-pointer"
+                                      title="Delete"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* Department Tab View (Table Layout) */}
+                {/* Department Tab View (Card Grid Layout) */}
+                {selectedOrgSubTab === 'department' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                      <h3 className="font-bold text-navy-blue text-sm">Registered Departments Directory</h3>
                       <div className="relative">
                         <input
                           type="text"
@@ -4189,64 +4358,490 @@ export default function AdminDashboard({ user, onLogout }) {
                       </div>
                     </div>
 
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="border-b border-gray-100 bg-gray-50 text-[10px] uppercase font-bold text-gray-500">
-                            <th className="py-3 px-3">Slug Code</th>
-                            <th className="py-3 px-3">Department Name</th>
-                            <th className="py-3 px-2">Abbr</th>
-                            <th className="py-3 px-3">Description</th>
-                            <th className="py-3 px-3 text-right">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50 text-xs">
-                          {(() => {
-                            const filtered = orgsList.filter(o => 
-                              o.id.toLowerCase().includes(orgSearchQuery.toLowerCase()) ||
-                              o.name.toLowerCase().includes(orgSearchQuery.toLowerCase()) ||
-                              o.abbreviation.toLowerCase().includes(orgSearchQuery.toLowerCase()) ||
-                              (o.description || '').toLowerCase().includes(orgSearchQuery.toLowerCase())
-                            );
-                            if (filtered.length === 0) {
-                              return (
-                                <tr>
-                                  <td colSpan="5" className="text-center py-6 text-gray-400">No departments found matching your search.</td>
-                                </tr>
-                              );
-                            }
-                            return filtered.map(org => (
-                              <tr key={org.id} className="hover:bg-gray-50/50 transition">
-                                <td className="py-3 px-3 font-semibold text-navy-blue">{org.id}</td>
-                                <td className="py-3 px-3 font-medium text-gray-800">{org.name}</td>
-                                <td className="py-3 px-2 text-navy-blue font-bold">{org.abbreviation}</td>
-                                <td className="py-3 px-3 text-gray-500 max-w-[200px] truncate" title={org.description}>
-                                  {org.description || 'No description'}
-                                </td>
-                                <td className="py-3 px-3 text-right space-x-2 whitespace-nowrap">
+                    {(() => {
+                      const filtered = orgsList.filter(o => o.type === 'department' || !o.type).filter(o =>
+                        o.id.toLowerCase().includes(orgSearchQuery.toLowerCase()) ||
+                        o.name.toLowerCase().includes(orgSearchQuery.toLowerCase()) ||
+                        o.abbreviation.toLowerCase().includes(orgSearchQuery.toLowerCase()) ||
+                        (o.description || '').toLowerCase().includes(orgSearchQuery.toLowerCase())
+                      );
+
+                      if (filtered.length === 0) {
+                        return <p className="text-center py-10 text-gray-400 text-xs font-semibold">No departments registered yet.</p>;
+                      }
+
+                      return (
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                          {filtered.map(org => {
+                            return (
+                              <div
+                                key={org.id}
+                                onClick={() => setSelectedOrgSubTab(org.id)}
+                                className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center hover:shadow-md hover:border-sig-green/45 transition duration-200 cursor-pointer group space-y-4 relative"
+                              >
+                                {/* Logo Display */}
+                                <div className="w-20 h-20 rounded-2xl border border-gray-100 bg-gray-50/50 flex items-center justify-center overflow-hidden shadow-inner group-hover:scale-105 transition-all duration-200">
+                                  {org.logo ? (
+                                    <img src={org.logo} alt={`${org.name} logo`} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <span className="text-xl font-bold text-navy-blue/70">{org.abbreviation}</span>
+                                  )}
+                                </div>
+
+                                <div>
+                                  <h4 className="text-xs font-bold text-navy-blue group-hover:text-sig-green transition-all duration-200 line-clamp-2 leading-tight px-1">
+                                    {org.name}
+                                  </h4>
+                                  <span className="text-[10px] font-mono text-gray-400 mt-1 block uppercase">
+                                    {org.abbreviation}
+                                  </span>
+                                </div>
+
+                                {/* Absolute controls to edit/delete to not disrupt clicking details */}
+                                <div className="absolute top-2 right-2 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-all duration-200" onClick={(e) => e.stopPropagation()}>
                                   <button
                                     onClick={() => handleEditOrgClick(org)}
-                                    className="p-1 text-navy-blue hover:bg-navy-blue/5 rounded cursor-pointer inline-flex items-center"
-                                    title="Edit Profile"
+                                    className="p-1 text-navy-blue hover:bg-navy-blue/5 rounded-lg cursor-pointer"
+                                    title="Edit"
                                   >
-                                    <Edit2 className="w-3.5 h-3.5" />
+                                    <Edit2 className="w-3 h-3" />
                                   </button>
                                   <button
                                     onClick={() => handleDeleteOrg(org.id)}
-                                    className="p-1 text-red-500 hover:bg-red-50 rounded cursor-pointer inline-flex items-center"
-                                    title="Delete Department"
+                                    className="p-1 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"
+                                    title="Delete"
                                   >
-                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <Trash2 className="w-3 h-3" />
                                   </button>
-                                </td>
-                              </tr>
-                            ));
-                          })()}
-                        </tbody>
-                      </table>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* Specific Organization / Department Tab Panel Content */}
+                {selectedOrgSubTab !== 'organization' && selectedOrgSubTab !== 'department' && (
+                  (() => {
+                    const selectedOrgObj = orgsList.find(o => o.id === selectedOrgSubTab);
+                    if (!selectedOrgObj) return <p className="text-center py-10 text-gray-400">Profile not found.</p>;
+                    
+                    const isDept = selectedOrgObj.type === 'department';
+                    const coord = usersList.find(u => u.uid === selectedOrgObj.coordinatorId || u.organizationId === selectedOrgObj.id);
+
+                    // Filters for events
+                    const ongoingActivities = eventsList.filter(e => e.assignedOrganizationId === selectedOrgObj.id && e.status === 'ongoing');
+                    const upcomingActivities = eventsList.filter(e => e.assignedOrganizationId === selectedOrgObj.id && e.status === 'scheduled');
+                    const completedActivities = eventsList.filter(e => e.assignedOrganizationId === selectedOrgObj.id && e.status === 'completed');
+
+                    return (
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* Left Column: Profile Details Card */}
+                        <div className="lg:col-span-2 space-y-6">
+                          <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col space-y-4">
+                            <div className="border-b border-gray-100 pb-3 flex items-center justify-between">
+                              <h3 className="font-bold text-navy-blue text-sm flex items-center gap-2">
+                                {isDept ? (
+                                  <Users className="w-4 h-4 text-sig-green" />
+                                ) : (
+                                  <Sparkles className="w-4 h-4 text-sig-green" />
+                                )}
+                                {isDept ? 'Department Profile Details' : 'Organization Profile Details'}
+                              </h3>
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => {
+                                    handleEditOrgClick(selectedOrgObj);
+                                  }}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-navy-blue/5 hover:bg-navy-blue/10 text-navy-blue text-xs font-semibold rounded-xl transition cursor-pointer"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" /> Edit Profile
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteOrg(selectedOrgObj.id)}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 text-xs font-semibold rounded-xl transition cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" /> Delete {isDept ? 'Department' : 'Organization'}
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
+                              {isDept && (
+                                <div className="w-24 h-24 rounded-3xl border border-gray-100 bg-gray-50 flex items-center justify-center overflow-hidden shadow-inner shrink-0">
+                                  {selectedOrgObj.logo ? (
+                                    <img src={selectedOrgObj.logo} alt={`${selectedOrgObj.name} logo`} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <span className="text-2xl font-bold text-navy-blue/70">{selectedOrgObj.abbreviation}</span>
+                                  )}
+                                </div>
+                              )}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
+                                <div>
+                                  <p className="text-[10px] uppercase font-bold text-gray-400">{isDept ? 'Department Name' : 'Organization Name'}</p>
+                                  <p className="text-sm font-semibold text-navy-blue mt-0.5">{selectedOrgObj.name}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] uppercase font-bold text-gray-400">Abbreviation</p>
+                                  <p className="text-sm font-semibold text-navy-blue mt-0.5">{selectedOrgObj.abbreviation}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] uppercase font-bold text-gray-400">ID / Slug Code</p>
+                                  <p className="text-xs font-mono text-gray-600 mt-0.5 bg-gray-50 px-2 py-1 rounded-md w-fit">{selectedOrgObj.id}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] uppercase font-bold text-gray-400">{isDept ? 'Department Coordinator' : 'Assigned Coordinator'}</p>
+                                  <p className="text-xs font-semibold text-navy-blue mt-0.5">
+                                    {coord ? `${coord.name} (${coord.email || coord.username})` : 'No coordinator assigned'}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="pt-4 border-t border-gray-50">
+                              <p className="text-[10px] uppercase font-bold text-gray-400">Description</p>
+                              <p className="text-xs text-gray-600 mt-1 leading-relaxed font-medium">
+                                {selectedOrgObj.description || 'No description provided.'}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Ongoing and Upcoming Activities lists */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Ongoing Activities */}
+                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
+                              <h4 className="font-bold text-navy-blue text-xs border-b border-gray-100 pb-2 flex items-center justify-between">
+                                <span>Ongoing Activities</span>
+                                <span className="bg-amber-100 text-amber-800 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase">
+                                  {ongoingActivities.length} Active
+                                </span>
+                              </h4>
+                              {ongoingActivities.length === 0 ? (
+                                <p className="text-center py-6 text-gray-400 text-xs font-medium">No ongoing activities.</p>
+                              ) : (
+                                <div className="space-y-3">
+                                  {ongoingActivities.map(act => (
+                                    <div key={act.id} className="p-3 bg-gray-50/50 border border-gray-100 rounded-2xl flex justify-between items-center">
+                                      <div>
+                                        <p className="text-xs font-bold text-navy-blue">{act.title}</p>
+                                        <p className="text-[10px] text-gray-400 font-medium">{act.date} • {act.location}</p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Upcoming Activities */}
+                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
+                              <h4 className="font-bold text-navy-blue text-xs border-b border-gray-100 pb-2 flex items-center justify-between">
+                                <span>Upcoming Activities</span>
+                                <span className="bg-blue-100 text-blue-800 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase">
+                                  {upcomingActivities.length} Scheduled
+                                </span>
+                              </h4>
+                              {upcomingActivities.length === 0 ? (
+                                <p className="text-center py-6 text-gray-400 text-xs font-medium">No upcoming activities.</p>
+                              ) : (
+                                <div className="space-y-3">
+                                  {upcomingActivities.map(act => (
+                                    <div key={act.id} className="p-3 bg-gray-50/50 border border-gray-100 rounded-2xl flex justify-between items-center">
+                                      <div>
+                                        <p className="text-xs font-bold text-navy-blue">{act.title}</p>
+                                        <p className="text-[10px] text-gray-400 font-medium">{act.date} • {act.location}</p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right Column: Return directory & quick actions */}
+                        <div className="space-y-6">
+                          <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between h-48">
+                            <div>
+                              <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-2 mb-2">Outreach Actions</h3>
+                              <p className="text-gray-500 text-xs">Manage outreach activities and view schedule summaries for this profile.</p>
+                            </div>
+                            <button
+                              onClick={() => setSelectedOrgSubTab(isDept ? 'department' : 'organization')}
+                              className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer flex items-center justify-center gap-1.5"
+                            >
+                              Return to {isDept ? 'Department Directory' : 'Organization Directory'}
+                            </button>
+                          </div>
+
+                          {/* Quick statistics */}
+                          <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
+                            <h4 className="font-bold text-navy-blue text-xs border-b border-gray-100 pb-2">Outreach Statistics</h4>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="bg-navy-blue/5 p-3 rounded-2xl flex flex-col justify-between h-20">
+                                <span className="text-[9px] font-bold text-navy-blue uppercase">Total Scheduled</span>
+                                <span className="text-xl font-bold text-navy-blue">{upcomingActivities.length + ongoingActivities.length}</span>
+                              </div>
+                              <div className="bg-sig-green/10 p-3 rounded-2xl flex flex-col justify-between h-20">
+                                <span className="text-[9px] font-bold text-navy-blue uppercase">Completed Outreach</span>
+                                <span className="text-xl font-bold text-navy-blue">{completedActivities.length}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()
+                )}
+
+                {/* ADD / EDIT ORGANIZATION MODAL */}
+                {isAddOrgModalOpen && (
+                  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-xs">
+                    <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 animate-scale-up space-y-4">
+                      <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                        <h3 className="font-bold text-navy-blue text-base">
+                          {editingOrg ? 'Update Organization Profile' : 'Register New Organization'}
+                        </h3>
+                        <button
+                          onClick={handleCancelOrgEdit}
+                          className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 cursor-pointer"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                      <form onSubmit={handleCreateOrg} className="space-y-4">
+                        <div>
+                          <label className="block text-gray-700 text-xs font-semibold mb-1">Slug ID Code (unique)</label>
+                          <input
+                            type="text"
+                            value={orgId}
+                            disabled={editingOrg !== null}
+                            onChange={(e) => {
+                              setOrgId(e.target.value);
+                              clearFieldValError('orgId');
+                            }}
+                            placeholder="org-ssc, org-redcross"
+                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${editingOrg ? 'opacity-65 bg-gray-50 border-gray-200' : validationError?.fields.includes('orgId') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                            style={{ height: '40px' }}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-gray-700 text-xs font-semibold mb-1">Organization Name</label>
+                          <input
+                            type="text"
+                            value={orgName}
+                            onChange={(e) => {
+                              setOrgName(e.target.value);
+                              clearFieldValError('orgName');
+                            }}
+                            placeholder="Supreme Student Council"
+                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('orgName') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                            style={{ height: '40px' }}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-gray-700 text-xs font-semibold mb-1">Abbreviation</label>
+                          <input
+                            type="text"
+                            value={orgAbbr}
+                            onChange={(e) => {
+                              setOrgAbbr(e.target.value);
+                              clearFieldValError('orgAbbr');
+                            }}
+                            placeholder="SSC"
+                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('orgAbbr') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                            style={{ height: '40px' }}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-gray-700 text-xs font-semibold mb-1">Description</label>
+                          <textarea
+                            value={orgDesc}
+                            onChange={(e) => setOrgDesc(e.target.value)}
+                            placeholder="Student leadership and outreach programs"
+                            className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-medium text-navy-blue h-20 resize-none"
+                          />
+                        </div>
+
+                        <div className="flex items-center space-x-2 pt-2 border-t border-gray-100">
+                          <button
+                            type="button"
+                            onClick={handleCancelOrgEdit}
+                            className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition cursor-pointer text-center"
+                            style={{ height: '40px' }}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={loading}
+                            className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer flex items-center justify-center gap-1.5"
+                            style={{ height: '40px' }}
+                          >
+                            {editingOrg ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                            {editingOrg ? 'Save Changes' : 'Save Organization'}
+                          </button>
+                        </div>
+                      </form>
                     </div>
                   </div>
-                </div>
+                )}
+
+                {/* ADD / EDIT DEPARTMENT MODAL */}
+                {isAddDeptModalOpen && (
+                  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-xs">
+                    <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 animate-scale-up space-y-4">
+                      <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                        <h3 className="font-bold text-navy-blue text-base">
+                          {editingOrg ? 'Update Department Profile' : 'Register New Department'}
+                        </h3>
+                        <button
+                          onClick={handleCancelOrgEdit}
+                          className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 cursor-pointer"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                      <form onSubmit={handleCreateOrg} className="space-y-4">
+                        <div>
+                          <label className="block text-gray-700 text-xs font-semibold mb-1">Slug ID Code (unique)</label>
+                          <input
+                            type="text"
+                            value={orgId}
+                            disabled={editingOrg !== null}
+                            onChange={(e) => {
+                              setOrgId(e.target.value);
+                              clearFieldValError('orgId');
+                            }}
+                            placeholder="dept-cba, dept-cs"
+                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${editingOrg ? 'opacity-65 bg-gray-50 border-gray-200' : validationError?.fields.includes('orgId') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                            style={{ height: '40px' }}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-gray-700 text-xs font-semibold mb-1">Department Name</label>
+                          <input
+                            type="text"
+                            value={orgName}
+                            onChange={(e) => {
+                              setOrgName(e.target.value);
+                              clearFieldValError('orgName');
+                            }}
+                            placeholder="College of Business Administration"
+                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('orgName') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                            style={{ height: '40px' }}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-gray-700 text-xs font-semibold mb-1">Abbreviation</label>
+                          <input
+                            type="text"
+                            value={orgAbbr}
+                            onChange={(e) => {
+                              setOrgAbbr(e.target.value);
+                              clearFieldValError('orgAbbr');
+                            }}
+                            placeholder="CBA"
+                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('orgAbbr') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                            style={{ height: '40px' }}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-gray-700 text-xs font-semibold mb-1">Description</label>
+                          <textarea
+                            value={orgDesc}
+                            onChange={(e) => setOrgDesc(e.target.value)}
+                            placeholder="IT Literacy Extension services"
+                            className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-medium text-navy-blue h-20 resize-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-gray-700 text-xs font-semibold mb-1">Department Logo</label>
+                          <div className="flex items-center space-x-4">
+                            <div className="w-16 h-16 rounded-2xl border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
+                              {deptLogo ? (
+                                <img src={deptLogo} alt="Logo preview" className="w-full h-full object-cover" />
+                              ) : (
+                                <Users className="w-8 h-8 text-gray-400" />
+                              )}
+                            </div>
+                            <label
+                              htmlFor="dept-logo-upload"
+                              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-navy-blue text-xs font-bold rounded-xl transition cursor-pointer"
+                            >
+                              Upload Logo
+                            </label>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onloadend = () => {
+                                    setDeptLogo(reader.result);
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                              className="hidden"
+                              id="dept-logo-upload"
+                            />
+                            {deptLogo && (
+                              <button
+                                type="button"
+                                onClick={() => setDeptLogo('')}
+                                className="text-red-500 text-xs font-bold cursor-pointer"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-gray-700 text-xs font-semibold mb-1">Assign Coordinator</label>
+                          <select
+                            value={deptCoordinatorId}
+                            onChange={(e) => setDeptCoordinatorId(e.target.value)}
+                            className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                            style={{ height: '40px' }}
+                          >
+                            <option value="">Unassigned</option>
+                            {usersList.filter(u => u.role === 'department_coordinator' || u.role === 'coordinator').map(u => (
+                              <option key={u.uid} value={u.uid}>
+                                {u.name} ({u.username})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="flex items-center space-x-2 pt-2 border-t border-gray-100">
+                          <button
+                            type="button"
+                            onClick={handleCancelOrgEdit}
+                            className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition cursor-pointer text-center"
+                            style={{ height: '40px' }}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={loading}
+                            className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer flex items-center justify-center gap-1.5"
+                            style={{ height: '40px' }}
+                          >
+                            {editingOrg ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                            {editingOrg ? 'Save Changes' : 'Save Department'}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                )}
 
                 {/* Events & Activities Tracking Section */}
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-6">
@@ -4260,16 +4855,32 @@ export default function AdminDashboard({ user, onLogout }) {
 
                     <div className="flex flex-wrap items-center gap-2">
                       {/* Department Select Filter */}
-                      <select
-                        value={trackerDeptFilter}
-                        onChange={(e) => setTrackerDeptFilter(e.target.value)}
-                        className="p-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none font-semibold text-navy-blue focus:ring-2 focus:ring-navy-blue/15"
-                      >
-                        <option value="all">All Departments</option>
-                        {orgsList.map(o => (
-                          <option key={o.id} value={o.id}>{o.abbreviation}</option>
-                        ))}
-                      </select>
+                      {selectedOrgSubTab === 'department' && (
+                        <select
+                          value={trackerDeptFilter}
+                          onChange={(e) => setTrackerDeptFilter(e.target.value)}
+                          className="p-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none font-semibold text-navy-blue focus:ring-2 focus:ring-navy-blue/15"
+                        >
+                          <option value="all">All Departments</option>
+                          {orgsList.filter(o => o.type === 'department' || !o.type).map(o => (
+                            <option key={o.id} value={o.id}>{o.abbreviation}</option>
+                          ))}
+                        </select>
+                      )}
+
+                      {/* Organization Select Filter */}
+                      {selectedOrgSubTab === 'organization' && (
+                        <select
+                          value={trackerDeptFilter}
+                          onChange={(e) => setTrackerDeptFilter(e.target.value)}
+                          className="p-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none font-semibold text-navy-blue focus:ring-2 focus:ring-navy-blue/15"
+                        >
+                          <option value="all">All Organizations</option>
+                          {orgsList.filter(o => o.type === 'organization').map(o => (
+                            <option key={o.id} value={o.id}>{o.abbreviation}</option>
+                          ))}
+                        </select>
+                      )}
 
                       {/* Month Filter */}
                       <select
@@ -4313,7 +4924,7 @@ export default function AdminDashboard({ user, onLogout }) {
                         <tr className="border-b border-gray-100 bg-gray-50 text-[10px] uppercase font-bold text-gray-500">
                           <th className="py-3 px-3">Date</th>
                           <th className="py-3 px-3">Outreach / Event Name</th>
-                          <th className="py-3 px-3">Department</th>
+                          <th className="py-3 px-3">{selectedOrgSubTab === 'department' ? 'Department' : 'Organization'}</th>
                           <th className="py-3 px-3">Location</th>
                           <th className="py-3 px-3">Event Status</th>
                           <th className="py-3 px-3">Narrative Report</th>
@@ -4322,7 +4933,20 @@ export default function AdminDashboard({ user, onLogout }) {
                       <tbody className="divide-y divide-gray-50 text-xs">
                         {(() => {
                           const list = eventsList.filter(evt => {
-                            if (trackerDeptFilter !== 'all' && evt.assignedOrganizationId !== trackerDeptFilter) return false;
+                            const matchedDept = orgsList.find(o => o.id === evt.assignedOrganizationId);
+                            if (selectedOrgSubTab === 'department') {
+                              // Show only departments
+                              if (matchedDept && matchedDept.type === 'organization') return false;
+                              if (trackerDeptFilter !== 'all' && evt.assignedOrganizationId !== trackerDeptFilter) return false;
+                            } else if (selectedOrgSubTab === 'organization') {
+                              // Show only organizations
+                              if (!matchedDept || matchedDept.type !== 'organization') return false;
+                              if (trackerDeptFilter !== 'all' && evt.assignedOrganizationId !== trackerDeptFilter) return false;
+                            } else {
+                              // Specific organization tab selected - show only events assigned to it
+                              if (evt.assignedOrganizationId !== selectedOrgSubTab) return false;
+                            }
+
                             if (trackerMonthFilter !== 'all') {
                               try {
                                 const m = new Date(evt.scheduleDate).getMonth();
@@ -4667,7 +5291,7 @@ export default function AdminDashboard({ user, onLogout }) {
                         )}
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-3">
                         <div>
                           <label className="block text-gray-700 text-xs font-semibold mb-1">First Name</label>
                           <input

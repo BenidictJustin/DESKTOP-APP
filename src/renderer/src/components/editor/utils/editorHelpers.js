@@ -1,3 +1,5 @@
+import JSZip from 'jszip';
+
 /**
  * Shared helper functions for the document editor.
  */
@@ -222,4 +224,122 @@ export function handleReplaceAll(editor, findText, replaceText) {
   const escaped = findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const newHtml = html.replace(new RegExp(escaped, 'g'), replaceText);
   editor.commands.setContent(newHtml);
+}
+
+/** Parse docx layout, margins, paper size, orientation, headers, and footers. */
+export async function parseDocxLayout(arrayBuffer) {
+  try {
+    const zip = await JSZip.loadAsync(arrayBuffer);
+    
+    let paperKey = 'A4';
+    let orientation = 'portrait';
+    let marginKey = 'Normal';
+    let headerText = '';
+    let footerText = '';
+    let showHeader = false;
+    let showFooter = false;
+
+    // 1. Parse document.xml for page size and margins
+    const docFile = zip.file('word/document.xml');
+    if (docFile) {
+      const docXmlStr = await docFile.async('text');
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(docXmlStr, 'application/xml');
+      
+      const sectPrs = xmlDoc.getElementsByTagName('w:sectPr');
+      if (sectPrs && sectPrs.length > 0) {
+        const sectPr = sectPrs[sectPrs.length - 1]; // get final section properties
+        
+        // Page Size
+        const pgSzs = sectPr.getElementsByTagName('w:pgSz');
+        if (pgSzs && pgSzs.length > 0) {
+          const pgSz = pgSzs[0];
+          const wVal = parseInt(pgSz.getAttribute('w:w')) || 12240;
+          const hVal = parseInt(pgSz.getAttribute('w:h')) || 15840;
+          const orientVal = pgSz.getAttribute('w:orient') || 'portrait';
+          
+          orientation = orientVal;
+          
+          const aspect = wVal / hVal;
+          if (Math.abs(wVal - 12240) < 500 && Math.abs(hVal - 15840) < 500) {
+            paperKey = 'Letter';
+          } else if (Math.abs(wVal - 11906) < 500 && Math.abs(hVal - 16838) < 500) {
+            paperKey = 'A4';
+          } else if (hVal > 18000) {
+            paperKey = 'Legal';
+          } else {
+            paperKey = Math.abs(aspect - (8.5 / 11)) < Math.abs(aspect - (210 / 297)) ? 'Letter' : 'A4';
+          }
+        }
+        
+        // Margins
+        const pgMars = sectPr.getElementsByTagName('w:pgMar');
+        if (pgMars && pgMars.length > 0) {
+          const pgMar = pgMars[0];
+          const topVal = parseInt(pgMar.getAttribute('w:top')) || 1440;
+          
+          if (Math.abs(topVal - 1440) < 200) marginKey = 'Normal';
+          else if (Math.abs(topVal - 720) < 200) marginKey = 'Narrow';
+          else if (Math.abs(topVal - 1080) < 200) marginKey = 'Moderate';
+          else if (Math.abs(topVal - 1920) < 200) marginKey = 'Wide';
+          else marginKey = 'Normal';
+        }
+      }
+    }
+
+    const extractTextFromXml = (xmlStr) => {
+      try {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlStr, 'application/xml');
+        const textNodes = xmlDoc.getElementsByTagName('w:t');
+        let result = '';
+        for (let i = 0; i < textNodes.length; i++) {
+          result += textNodes[i].textContent;
+        }
+        return result.trim();
+      } catch (e) {
+        console.error('Error extracting text from xml:', e);
+        return '';
+      }
+    };
+
+    const files = Object.keys(zip.files);
+    
+    // Look for any header files
+    const headerFileNames = files.filter(f => f.startsWith('word/header') && f.endsWith('.xml'));
+    for (const hfName of headerFileNames) {
+      const xmlStr = await zip.files[hfName].async('text');
+      const txt = extractTextFromXml(xmlStr);
+      if (txt) {
+        headerText = txt;
+        showHeader = true;
+        break;
+      }
+    }
+
+    // Look for any footer files
+    const footerFileNames = files.filter(f => f.startsWith('word/footer') && f.endsWith('.xml'));
+    for (const ffName of footerFileNames) {
+      const xmlStr = await zip.files[ffName].async('text');
+      const txt = extractTextFromXml(xmlStr);
+      if (txt) {
+        footerText = txt.replace(/PAGE|page|\{\s*PAGE\s*\}/g, '').trim();
+        showFooter = true;
+        break;
+      }
+    }
+
+    return {
+      paperKey,
+      orientation,
+      marginKey,
+      headerText,
+      footerText,
+      showHeader,
+      showFooter,
+    };
+  } catch (err) {
+    console.error('Failed to parse docx layout:', err);
+    return null;
+  }
 }

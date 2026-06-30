@@ -35,7 +35,12 @@ export function getEditorExtensions() {
     Color.configure({ types: ['textStyle'] }),
     FontSize,
     Highlight.configure({ multicolor: true }),
-    TiptapImage.configure({ inline: false, allowBase64: true }),
+    TiptapImage.configure({
+      inline: false,
+      allowBase64: true,
+      acceptMimes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+      multiple: false,
+    }),
     Table.configure({ resizable: true }),
     TableRow,
     TableCell,

@@ -12,6 +12,9 @@ export default defineConfig({
         '@renderer': resolve('src/renderer/src')
       }
     },
-    plugins: [tailwindcss(), react()]
+    plugins: [tailwindcss(), react()],
+    optimizeDeps: {
+      exclude: ['reactjs-tiptap-editor']
+    }
   }
 })

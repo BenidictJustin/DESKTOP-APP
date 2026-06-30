@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   getEvents, getReports, addReport, updateReport, uploadPhoto, getOrganizations 
-} from '../services/db';
+} from '../../services/db';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { 

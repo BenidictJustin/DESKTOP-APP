@@ -1,5 +1,6 @@
-import React from 'react';
-import { X, AlertTriangle } from 'lucide-react';
+import { X, AlertTriangle, Upload } from 'lucide-react';
+import mammoth from 'mammoth';
+import { parseDocxLayout } from '../utils/editorHelpers';
 
 /**
  * FindReplaceDialog — Modal for find & replace functionality.
@@ -262,8 +263,55 @@ export function TemplatesDialog({
   onDuplicateTemplate,
   onSetDefaultTemplate,
   defaultTemplateId,
+  onImportTemplate,
 }) {
   if (!show) return null;
+
+  const handleImportDocx = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const arrayBuffer = event.target.result;
+      try {
+        const layout = await parseDocxLayout(arrayBuffer);
+        const result = await mammoth.convertToHtml({ arrayBuffer }, {
+          convertImage: mammoth.images.imgElement((image) => {
+            return image.readAsBase64String().then((base64String) => {
+              return {
+                src: `data:${image.contentType};base64,${base64String}`
+              };
+            });
+          })
+        });
+        const html = result.value;
+        
+        let tplName = file.name.replace(/\.[^/.]+$/, "");
+        const enteredName = window.prompt("Import Template — Enter Template Name:", tplName);
+        if (enteredName === null) return;
+        if (enteredName.trim()) tplName = enteredName.trim();
+
+        onImportTemplate({
+          name: tplName,
+          html,
+          paperKey: layout?.paperKey || 'A4',
+          orientation: layout?.orientation || 'portrait',
+          marginKey: layout?.marginKey || 'Normal',
+          lineSpacing: "1.5",
+          showHeader: !!layout?.showHeader,
+          showFooter: !!layout?.showFooter,
+          headerText: layout?.headerText || '',
+          footerText: layout?.footerText || '',
+        });
+      } catch (err) {
+        console.error("Error parsing .docx template:", err);
+        alert("Failed to parse the .docx template. Please check the file format.");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = '';
+  };
 
   // Preset definitions
   const presets = [
@@ -491,7 +539,19 @@ export function TemplatesDialog({
           <div>
             <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center justify-between">
               <span>My Custom Templates</span>
-              <span className="text-[9px] font-normal lowercase italic">Created from existing documents</span>
+              <div className="flex items-center gap-3">
+                <span className="text-[9px] font-normal lowercase italic text-gray-400">Created from existing documents</span>
+                <label className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider bg-navy-blue hover:bg-blue-800 text-white px-2.5 py-1 rounded-full cursor-pointer transition shadow-xs">
+                  <Upload className="w-2.5 h-2.5" />
+                  Import .docx
+                  <input
+                    type="file"
+                    accept=".docx"
+                    onChange={handleImportDocx}
+                    className="hidden"
+                  />
+                </label>
+              </div>
             </h4>
             
             {templates.length === 0 ? (

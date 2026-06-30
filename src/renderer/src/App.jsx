@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { listenToAuthChanges, logout } from './services/db';
 import Login from './components/Login';
-import AdminDashboard from './components/AdminDashboard';
-import CoordinatorDashboard from './components/CoordinatorDashboard';
-import OfficeCoordinatorDashboard from './components/OfficeCoordinatorDashboard';
+import AdminDashboard from './modules/admin/AdminDashboard';
+import CoordinatorDashboard from './modules/department-coordinator/CoordinatorDashboard';
+import OfficeCoordinatorDashboard from './modules/office-coordinator/OfficeCoordinatorDashboard';
 
 function App() {
   const [user, setUser] = useState(null);

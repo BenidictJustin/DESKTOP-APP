@@ -2,12 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   getReports, addReport, updateReport,
   getOrganizations, getEvents,
-} from '../services/db';
+} from '../../services/db';
 import {
   LayoutDashboard, FileText, FolderOpen, LogOut, Plus,
   Edit3, AlertTriangle, Check,
 } from 'lucide-react';
-import TextEditor from './editor/TextEditor';
+import TextEditor from '../../components/editor/TextEditor';
 
 // ─── Status Badge helper ───────────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {

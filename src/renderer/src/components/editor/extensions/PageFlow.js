@@ -30,15 +30,32 @@ export const PageFlow = Extension.create({
       footerText: '',
       showHeader: false,
       showFooter: false,
+      onPageChange: null,
+    };
+  },
+
+  addStorage() {
+    return {
+      options: {
+        paperKey: 'A4',
+        orientation: 'portrait',
+        marginKey: 'Normal',
+        headerText: '',
+        footerText: '',
+        showHeader: false,
+        showFooter: false,
+        onPageChange: null,
+      }
     };
   },
 
   addCommands() {
     return {
       updatePageFlowOptions: (options) => ({ tr, dispatch }) => {
-        this.options = { ...this.options, ...options };
+        this.storage.options = { ...this.storage.options, ...options };
         if (dispatch) {
           tr.setMeta('pageFlowUpdate', true);
+          dispatch(tr);
         }
         return true;
       }
@@ -56,6 +73,10 @@ export const PageFlow = Extension.create({
             return DecorationSet.empty;
           },
           apply(tr, value, oldState, newState) {
+            const meta = tr.getMeta(pageFlowKey);
+            if (meta) {
+              return meta;
+            }
             const hasUpdate = tr.docChanged || tr.getMeta('pageFlowUpdate');
             if (hasUpdate) {
               // Mark state as needing recalculation
@@ -70,22 +91,45 @@ export const PageFlow = Extension.create({
           }
         },
         view(editorView) {
+          let lastCallback = null;
           let lastDocVersion = null;
-          let lastOptions = JSON.stringify(extension.options);
+          let lastOptions = null;
+          let lastSelectionFrom = null;
+          let lastDomHeight = null;
 
           const recalculate = () => {
-            if (!editorView || !editorView.dom) return;
+            if (!editorView || !editorView.dom || !editorView.docView) return;
             const currentDoc = editorView.state.doc;
-            const currentOptionsStr = JSON.stringify(extension.options);
+            const currentOptionsStr = JSON.stringify({
+              paperKey: extension.storage.options.paperKey,
+              orientation: extension.storage.options.orientation,
+              marginKey: extension.storage.options.marginKey,
+              headerText: extension.storage.options.headerText,
+              footerText: extension.storage.options.footerText,
+              showHeader: extension.storage.options.showHeader,
+              showFooter: extension.storage.options.showFooter,
+            });
+            const cursorFrom = editorView.state.selection?.from || 0;
+            const callbackChanged = lastCallback !== extension.storage.options.onPageChange;
+            const currentHeight = editorView.dom.scrollHeight;
             
-            // Check if version or options changed
-            if (lastDocVersion === currentDoc && lastOptions === currentOptionsStr) {
+            // Check if version, options, selection, callback, or visual DOM height changed
+            if (
+              lastDocVersion === currentDoc &&
+              lastOptions === currentOptionsStr &&
+              lastSelectionFrom === cursorFrom &&
+              lastDomHeight === currentHeight &&
+              !callbackChanged
+            ) {
               return;
             }
             lastDocVersion = currentDoc;
             lastOptions = currentOptionsStr;
+            lastSelectionFrom = cursorFrom;
+            lastCallback = extension.storage.options.onPageChange;
+            lastDomHeight = currentHeight;
 
-            const options = extension.options;
+            const options = extension.storage.options;
             const paper = PAPER[options.paperKey] || PAPER.A4;
             const pageHeight = options.orientation === 'landscape' ? paper.w : paper.h;
             const margin = MARGINS[options.marginKey] || 96;
@@ -96,8 +140,20 @@ export const PageFlow = Extension.create({
             let pageNum = 1;
             
             // Selection cursor tracking
-            const cursorFrom = editorView.state.selection?.from || 0;
             let cursorPage = 1;
+
+            const getScale = (el) => {
+              let parent = el;
+              while (parent) {
+                if (parent.style.transform && parent.style.transform.includes('scale')) {
+                  const match = parent.style.transform.match(/scale\(([^)]+)\)/);
+                  if (match) return parseFloat(match[1]) || 1;
+                }
+                parent = parent.parentElement;
+              }
+              return 1;
+            };
+            const scale = getScale(editorView.dom);
 
             editorView.state.doc.forEach((node, offset) => {
               const dom = editorView.nodeDOM(offset);
@@ -106,7 +162,7 @@ export const PageFlow = Extension.create({
                 const marginTop = parseFloat(style.marginTop) || 0;
                 const marginBottom = parseFloat(style.marginBottom) || 0;
                 const rect = dom.getBoundingClientRect();
-                const height = rect.height + marginTop + marginBottom;
+                const height = (rect.height / scale) + marginTop + marginBottom;
 
                 // Track cursor page
                 if (offset <= cursorFrom) {
@@ -123,24 +179,15 @@ export const PageFlow = Extension.create({
                   widgetEl.style.boxSizing = 'border-box';
                   widgetEl.style.userSelect = 'none';
 
-                   widgetEl.innerHTML = `
+                    widgetEl.innerHTML = `
                     <!-- Page N Bottom Margin Area (covers bottom margin, transparent) -->
-                    <div style="height: ${remainingSpace + margin}px; position: relative; box-sizing: border-box;">
-                      <div class="page-footer-rendered" style="position: absolute; bottom: 16px; left: 0; right: 0; display: flex; justify-content: space-between; font-size: 10px; color: #9ca3af; font-family: sans-serif; border-top: 1px dashed #e5e7eb; padding-top: 6px;">
-                        <span>${options.showFooter ? options.footerText : ''}</span>
-                        <span>Page ${pageNum}</span>
-                      </div>
-                    </div>
+                    <div style="height: ${remainingSpace + margin}px; box-sizing: border-box;"></div>
 
                     <!-- Visual page break gap (transparent, lets gray workspace background show through) -->
                     <div style="height: 36px; box-sizing: border-box;"></div>
 
                     <!-- Page N+1 Top Margin Area (covers top margin, transparent) -->
-                    <div style="height: ${margin}px; position: relative; box-sizing: border-box;">
-                      <div class="page-header-rendered" style="position: absolute; top: 16px; left: 0; right: 0; font-size: 10px; color: #9ca3af; font-family: sans-serif; border-bottom: 1px dashed #e5e7eb; padding-bottom: 6px;">
-                        <span>${options.showHeader ? options.headerText : ''}</span>
-                      </div>
-                    </div>
+                    <div style="height: ${margin}px; box-sizing: border-box;"></div>
                   `;
 
                   decorations.push(Decoration.widget(offset, widgetEl, {
@@ -178,11 +225,24 @@ export const PageFlow = Extension.create({
             editorView.dispatch(editorView.state.tr.setMeta(pageFlowKey, decoset));
           };
 
+          // Recalculate when images finish loading inside editor view
+          const handleImageLoad = () => {
+            recalculate();
+          };
+          if (editorView.dom) {
+            editorView.dom.addEventListener('load', handleImageLoad, true);
+          }
+
           setTimeout(recalculate, 100);
 
           return {
             update(view, prevState) {
               requestAnimationFrame(recalculate);
+            },
+            destroy() {
+              if (editorView.dom) {
+                editorView.dom.removeEventListener('load', handleImageLoad, true);
+              }
             }
           };
         }

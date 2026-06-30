@@ -17,9 +17,14 @@ import CommentsPanel from './ui/CommentsPanel';
 import NavigationPane from './ui/NavigationPane';
 import { FindReplaceDialog, WordCountDialog, OpenReportDialog, DocPropertiesDialog, TemplatesDialog } from './ui/Dialogs';
 import { DropdownWrapper } from './ui/DropdownWrapper';
+import { RichTextProvider } from 'reactjs-tiptap-editor';
+import 'reactjs-tiptap-editor/style.css';
+import mammoth from 'mammoth';
+import JSZip from 'jszip';
 import {
   handleExportPDF, handleExportDOCX, handleExportTXT,
   handleFind as doFind, handleReplaceAll as doReplaceAll,
+  parseDocxLayout,
 } from './utils/editorHelpers';
 
 /**
@@ -54,6 +59,8 @@ export default function TextEditor({
   // StatusBadge component
   StatusBadge,
 }) {
+  const [hasBeenEdited, setHasBeenEdited] = useState(false);
+
   // ── Editor ──
   const editor = useEditor({
     extensions: getEditorExtensions(),
@@ -65,7 +72,16 @@ export default function TextEditor({
         class: 'focus:outline-none',
       },
     },
+    onCreate: ({ editor: ed }) => {
+      if (ed.getText().trim()) {
+        setHasBeenEdited(true);
+      }
+    },
+    onFocus: () => {
+      setHasBeenEdited(true);
+    },
     onUpdate: ({ editor: ed }) => {
+      setHasBeenEdited(true);
       const txt = ed.getText();
       const words = txt.trim() ? txt.trim().split(/\s+/).length : 0;
       setWordCount(words);
@@ -111,6 +127,8 @@ export default function TextEditor({
   const [showDocProps, setShowDocProps] = useState(false);
   const [showComments, setShowComments] = useState(false);
 
+
+
   // ── Find & Replace ──
   const [findText, setFindText] = useState('');
   const [replaceText, setReplaceText] = useState('');
@@ -122,6 +140,7 @@ export default function TextEditor({
   // ── Refs ──
   const canvasRef = useRef(null);
   const imageInputRef = useRef(null);
+  const docxInputRef = useRef(null);
   const fileMenuRef = useRef(null);
   const autoSaveTimer = useRef(null);
 
@@ -188,13 +207,18 @@ export default function TextEditor({
     if (tpl.footerText !== undefined) setFooterText(tpl.footerText);
 
     if (editor) {
+      if (setWorkspaceIsReadOnly) setWorkspaceIsReadOnly(false);
+      editor.setEditable(true);
       editor.commands.setContent(tpl.html || '<p></p>');
+      
       if (tpl.fontFamily) {
         editor.commands.setFontFamily(tpl.fontFamily);
       }
       if (tpl.fontSize) {
         editor.commands.setFontSize(tpl.fontSize);
       }
+
+      editor.chain().focus('start').run();
       
       // Update options immediately inside extension view
       setTimeout(() => {
@@ -209,10 +233,11 @@ export default function TextEditor({
             showFooter: !!tpl.showFooter,
           });
         }
+        editor.chain().focus('start').run();
       }, 80);
     }
     setShowTemplatesModal(false);
-  }, [editor]);
+  }, [editor, setWorkspaceIsReadOnly]);
 
   // ── Load Default Template on Load for new document ──
   useEffect(() => {
@@ -364,6 +389,105 @@ export default function TextEditor({
       localStorage.setItem('dommunity_default_template_id', id);
     }
   }, [defaultTemplateId]);
+  const handleImportTemplate = useCallback((tplData) => {
+    const newTpl = {
+      id: 'tpl-' + Math.random().toString(36).substr(2, 9),
+      createdAt: new Date().toISOString(),
+      ...tplData,
+    };
+    setCustomTemplates(prev => {
+      const updated = [...prev, newTpl];
+      localStorage.setItem('dommunity_doc_templates', JSON.stringify(updated));
+      return updated;
+    });
+    alert(`Template "${tplData.name}" imported successfully!`);
+  }, []);
+
+  // ── Open local .docx — load directly into editor ──
+  const handleOpenLocalDocx = useCallback((e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const arrayBuffer = event.target.result;
+      try {
+        const [layout, result] = await Promise.all([
+          parseDocxLayout(arrayBuffer),
+          mammoth.convertToHtml({ arrayBuffer }, {
+            convertImage: mammoth.images.imgElement((image) => {
+              return image.readAsBase64String().then((base64String) => {
+                return {
+                  src: `data:${image.contentType};base64,${base64String}`
+                };
+              });
+            })
+          }),
+        ]);
+        const html = result.value;
+
+        if (editor) {
+          // Put the editor in edit mode immediately
+          if (setWorkspaceIsReadOnly) setWorkspaceIsReadOnly(false);
+          editor.setEditable(true);
+
+          // Update active document title
+          if (setWorkspaceReportTitle) {
+            setWorkspaceReportTitle(file.name.replace(/\.[^/.]+$/, ''));
+          }
+
+          // Reset report ID so it is loaded as the active new draft
+          if (setWorkspaceReportId) {
+            setWorkspaceReportId(null);
+          }
+
+          const paper = layout?.paperKey || 'A4';
+          const orient = layout?.orientation || 'portrait';
+          const margin = layout?.marginKey || 'Normal';
+          const sHeader = !!layout?.showHeader;
+          const sFooter = !!layout?.showFooter;
+          const headerTxt = layout?.headerText || '';
+          const footerTxt = layout?.footerText || '';
+
+          setPaperKey(paper);
+          setOrientation(orient);
+          setMarginKey(margin);
+          setLineSpacing('1.5');
+          setColumns(1);
+          setShowHeader(sHeader);
+          setShowFooter(sFooter);
+          setHeaderText(headerTxt);
+          setFooterText(footerTxt);
+
+          editor.commands.setContent(html || '<p></p>');
+          editor.chain().focus('start').run();
+
+          setTimeout(() => {
+            if (editor.commands.updatePageFlowOptions) {
+              editor.commands.updatePageFlowOptions({
+                paperKey: paper,
+                orientation: orient,
+                marginKey: margin,
+                lineSpacing: '1.5',
+                showHeader: sHeader,
+                showFooter: sFooter,
+                headerText: headerTxt,
+                footerText: footerTxt,
+              });
+            }
+            editor.chain().focus('start').run();
+          }, 80);
+
+          setHasBeenEdited(true);
+        }
+      } catch (err) {
+        console.error('Error loading .docx into editor:', err);
+        alert('Failed to open the document. Please check the file format.');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = '';
+  }, [editor, setWorkspaceIsReadOnly, setWorkspaceReportTitle, setWorkspaceReportId]);
 
   // ── Save handler wrapper ──
   const handleSave = useCallback(async (status, silent = false) => {
@@ -443,7 +567,7 @@ export default function TextEditor({
   // ── File menu actions ──
   const fileMenuItems = [
     { icon: Plus, l: 'New Document…', fn: () => setShowTemplatesModal(true) },
-    { icon: FolderOpen, l: 'Open…', fn: () => setShowOpenModal(true) },
+    { icon: FolderOpen, l: 'Open…', fn: () => docxInputRef.current?.click() },
     { icon: Save, l: 'Save Draft (Ctrl+S)', fn: () => handleSave('draft') },
     { icon: Save, l: 'Save as Template…', fn: () => handleSaveAsTemplate() },
     { icon: Send, l: 'Submit to Admin', fn: () => handleSave('submitted') },
@@ -467,7 +591,8 @@ export default function TextEditor({
   const docTitle = workspaceReportTitle || eventsList.find(x => x.id === workspaceReportEventId)?.name || 'Document1';
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <RichTextProvider editor={editor}>
+      <div className="flex flex-col h-full overflow-hidden">
 
       {/* ── Title Bar ── */}
       <div className="bg-navy-blue text-white flex items-center justify-between px-4 py-1.5 shrink-0">
@@ -594,6 +719,7 @@ export default function TextEditor({
           showFooter={showFooter} footerText={footerText} setFooterText={setFooterText}
           workspaceIsReadOnly={workspaceIsReadOnly} trackChanges={trackChanges}
           totalPages={totalPages}
+          hasBeenEdited={hasBeenEdited}
         />
       </div>
 
@@ -655,7 +781,16 @@ export default function TextEditor({
         onDuplicateTemplate={handleDuplicateTemplate}
         onSetDefaultTemplate={handleSetDefaultTemplate}
         defaultTemplateId={defaultTemplateId}
+        onImportTemplate={handleImportTemplate}
       />
-    </div>
+      <input
+        type="file"
+        ref={docxInputRef}
+        accept=".docx"
+        style={{ display: 'none' }}
+        onChange={handleOpenLocalDocx}
+      />
+      </div>
+    </RichTextProvider>
   );
 }

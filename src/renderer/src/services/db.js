@@ -27,9 +27,10 @@ const LOCAL_STORAGE_KEYS = {
 // Initial Seed Data for Demo Mode
 const SEED_DATA = {
   ORGANIZATIONS: [
-    { id: 'dept-cba', name: 'College of Business Administration', abbreviation: 'CBA', description: 'Business and entrepreneurial extension projects.', coordinatorId: 'user-cba', createdAt: new Date().toISOString() },
-    { id: 'dept-cs', name: 'College of Computer Studies', abbreviation: 'CCS', description: 'IT literacy and tech support programs.', coordinatorId: 'user-cs', createdAt: new Date().toISOString() },
-    { id: 'dept-coed', name: 'College of Education', abbreviation: 'COED', description: 'Literacy, tutoring, and youth mentoring outreach.', coordinatorId: null, createdAt: new Date().toISOString() }
+    { id: 'dept-cba', name: 'College of Business Administration', abbreviation: 'CBA', description: 'Business and entrepreneurial extension projects.', coordinatorId: 'user-cba', type: 'department', createdAt: new Date().toISOString() },
+    { id: 'dept-cs', name: 'College of Computer Studies', abbreviation: 'CCS', description: 'IT literacy and tech support programs.', coordinatorId: 'user-cs', type: 'department', createdAt: new Date().toISOString() },
+    { id: 'dept-coed', name: 'College of Education', abbreviation: 'COED', description: 'Literacy, tutoring, and youth mentoring outreach.', coordinatorId: null, type: 'department', createdAt: new Date().toISOString() },
+    { id: 'org-ssc', name: 'Supreme Student Council', abbreviation: 'SSC', description: 'Student body outreach and advocacy programs.', coordinatorId: null, type: 'organization', createdAt: new Date().toISOString() }
   ],
   USERS: [
     { uid: 'user-admin', username: 'admin', email: 'faithful@dct.edu.ph', name: 'Faithful Anne F. Arugay', role: 'admin', organizationId: null, createdAt: new Date().toISOString() },
@@ -477,7 +478,8 @@ export const addOrganization = async (org) => {
     const orgs = getLocalData(LOCAL_STORAGE_KEYS.ORGANIZATIONS);
     const newOrg = {
       ...org,
-      coordinatorId: null,
+      coordinatorId: org.coordinatorId || null,
+      logo: org.logo || null,
       createdAt: new Date().toISOString()
     };
     orgs.push(newOrg);
@@ -486,7 +488,8 @@ export const addOrganization = async (org) => {
   } else {
     await setDoc(doc(fdb, 'organizations', org.id), {
       ...org,
-      coordinatorId: null,
+      coordinatorId: org.coordinatorId || null,
+      logo: org.logo || null,
       createdAt: new Date()
     });
     return org;
