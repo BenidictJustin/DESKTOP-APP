@@ -19,6 +19,7 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import SearchableDropdown from '../../components/SearchableDropdown';
 
 export default function AdminDashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -56,8 +57,18 @@ export default function AdminDashboard({ user, onLogout }) {
   const allCategories = [...new Set([...defaultCategories, ...inventoryList.map(i => (i.category || '').trim().toLowerCase())])].filter(Boolean);
   const activeCategories = allCategories.filter(cat => !deletedCategories.includes(cat.toLowerCase().trim()));
 
+  const [deletedUnits, setDeletedUnits] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dommunity_deleted_units');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const defaultUnits = ['pieces', 'cans', 'packs', 'boxes', 'bundles', 'bars'];
   const allUnits = [...new Set([...defaultUnits, ...inventoryList.map(i => (i.unit || '').trim().toLowerCase())])].filter(Boolean);
+  const activeUnits = allUnits.filter(u => !deletedUnits.includes(u.toLowerCase().trim()));
 
   // Form inputs
   // Coordinator Registration form
@@ -69,6 +80,8 @@ export default function AdminDashboard({ user, onLogout }) {
   const [coordPassword, setCoordPassword] = useState('');
   const [coordConfirmPassword, setCoordConfirmPassword] = useState('');
   const [coordOrgId, setCoordOrgId] = useState('');
+  const [isDeptSearchOpen, setIsDeptSearchOpen] = useState(false);
+  const [deptSearchVal, setDeptSearchVal] = useState('');
   const [coordRole, setCoordRole] = useState('department_coordinator'); // department_coordinator vs office_coordinator
   const [coordErrors, setCoordErrors] = useState({});
 
@@ -107,6 +120,7 @@ export default function AdminDashboard({ user, onLogout }) {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isReleaseModalOpen, setIsReleaseModalOpen] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
 
   // States for donation batch item dropdown inputs
   const [activeDonItemSuggestionsIdx, setActiveDonItemSuggestionsIdx] = useState(null);
@@ -272,19 +286,39 @@ export default function AdminDashboard({ user, onLogout }) {
 
   const handleDeleteCategory = (catToDelete) => {
     const catLower = catToDelete.toLowerCase().trim();
-    setConfirmDialog({
-      title: "Delete Category",
-      message: `Are you sure you want to permanently delete the category "${catToDelete}" from the dropdown list?`,
-      onConfirm: () => {
-        const updated = [...deletedCategories, catLower];
-        setDeletedCategories(updated);
-        localStorage.setItem('dommunity_deleted_categories', JSON.stringify(updated));
-        triggerSuccess(`Category "${catToDelete}" has been permanently deleted from the list.`);
-        if (itemCategory.toLowerCase().trim() === catLower) {
-          setItemCategory('');
-        }
-      }
-    });
+    const updated = [...deletedCategories, catLower];
+    setDeletedCategories(updated);
+    localStorage.setItem('dommunity_deleted_categories', JSON.stringify(updated));
+    triggerSuccess(`Category "${catToDelete}" has been permanently deleted from the list.`);
+
+    // Clear selections matching the deleted category
+    if (prevAddCategoryRef.current.toLowerCase().trim() === catLower) {
+      prevAddCategoryRef.current = '';
+    }
+    if (prevEditCategoryRef.current.toLowerCase().trim() === catLower) {
+      prevEditCategoryRef.current = '';
+    }
+    if (itemCategory.toLowerCase().trim() === catLower) {
+      setItemCategory('');
+    }
+  };
+
+  const handleDeleteUnit = (unitToDelete) => {
+    const unitLower = unitToDelete.toLowerCase().trim();
+    const updated = [...deletedUnits, unitLower];
+    setDeletedUnits(updated);
+    localStorage.setItem('dommunity_deleted_units', JSON.stringify(updated));
+
+    // Clear selections matching the deleted unit
+    if (prevAddUnitRef.current.toLowerCase().trim() === unitLower) {
+      prevAddUnitRef.current = '';
+    }
+    if (prevEditUnitRef.current.toLowerCase().trim() === unitLower) {
+      prevEditUnitRef.current = '';
+    }
+    if (itemUnit.toLowerCase().trim() === unitLower) {
+      setItemUnit('');
+    }
   };
 
   // Donor form
@@ -402,36 +436,36 @@ export default function AdminDashboard({ user, onLogout }) {
   // Save User (Create or Update)
   const handleSaveUser = async (e) => {
     e.preventDefault();
-    
+
     const errors = {};
-    
+
     // 1. First Name Validation
     if (!coordFirstName.trim()) {
       errors.coordFirstName = 'First name is required.';
     }
-    
+
     // 2. Last Name Validation
     if (!coordLastName.trim()) {
       errors.coordLastName = 'Last name is required.';
     }
-    
+
     // 3. Email Validation
     if (!coordEmail.trim()) {
       errors.coordEmail = 'Email is required.';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(coordEmail.trim())) {
       errors.coordEmail = 'Please enter a valid email address.';
     }
-    
+
     // 4. Role Validation
     if (!coordRole) {
       errors.coordRole = 'Role is required.';
     }
-    
+
     // 5. Assigned Department Validation (only if Role is department_coordinator)
     if (coordRole === 'department_coordinator' && !coordOrgId) {
       errors.coordOrgId = 'Assigned department is required.';
     }
-    
+
     // 6. Password & Confirm Password Validation
     const passwordRequired = !editingUser;
     if (passwordRequired) {
@@ -450,7 +484,7 @@ export default function AdminDashboard({ user, onLogout }) {
           errors.coordPassword = 'Password must contain at least 1 special character.';
         }
       }
-      
+
       if (!coordConfirmPassword) {
         errors.coordConfirmPassword = 'Confirm password is required.';
       } else if (coordConfirmPassword !== coordPassword) {
@@ -470,7 +504,7 @@ export default function AdminDashboard({ user, onLogout }) {
         } else if (!/[^A-Za-z0-9]/.test(coordPassword)) {
           errors.coordPassword = 'Password must contain at least 1 special character.';
         }
-        
+
         if (!coordConfirmPassword) {
           errors.coordConfirmPassword = 'Confirm password is required when changing password.';
         } else if (coordConfirmPassword !== coordPassword) {
@@ -478,7 +512,7 @@ export default function AdminDashboard({ user, onLogout }) {
         }
       }
     }
-    
+
     setCoordErrors(errors);
     if (Object.keys(errors).length > 0) {
       return;
@@ -489,7 +523,7 @@ export default function AdminDashboard({ user, onLogout }) {
       const fullName = `${coordFirstName.trim()} ${coordLastName.trim()}`;
       const username = coordUsername || coordEmail.split('@')[0] || '';
       const assignedOrg = coordRole === 'department_coordinator' ? coordOrgId : null;
-      
+
       if (editingUser) {
         const payload = {
           name: fullName,
@@ -518,6 +552,8 @@ export default function AdminDashboard({ user, onLogout }) {
       setCoordPassword('');
       setCoordConfirmPassword('');
       setCoordOrgId('');
+      setDeptSearchVal('');
+      setIsDeptSearchOpen(false);
       setCoordRole('department_coordinator');
       setCoordErrors({});
       loadData();
@@ -1043,7 +1079,7 @@ export default function AdminDashboard({ user, onLogout }) {
     // Comprehensive validation for donation items in the batch
     const fields = [];
     let errMsg = "";
-    
+
     donItems.forEach((item, idx) => {
       const isSchoolSupplies = (item.category || '').toLowerCase().trim() === 'school supplies';
       const unitLower = (item.unit || '').toLowerCase().trim();
@@ -1159,9 +1195,9 @@ export default function AdminDashboard({ user, onLogout }) {
       if (editingOrg) {
         // If updating
         const determinedType = editingOrg.type || 'department';
-        const updates = { 
-          name: orgName, 
-          abbreviation: orgAbbr, 
+        const updates = {
+          name: orgName,
+          abbreviation: orgAbbr,
           description: orgDesc,
           type: determinedType
         };
@@ -1180,10 +1216,10 @@ export default function AdminDashboard({ user, onLogout }) {
       } else {
         // If registering new
         const determinedType = selectedOrgSubTab === 'department' ? 'department' : 'organization';
-        const newOrg = { 
-          id: orgId, 
-          name: orgName, 
-          abbreviation: orgAbbr, 
+        const newOrg = {
+          id: orgId,
+          name: orgName,
+          abbreviation: orgAbbr,
           description: orgDesc,
           type: determinedType
         };
@@ -1297,6 +1333,7 @@ export default function AdminDashboard({ user, onLogout }) {
     setEvtLoc(evt.location || '');
     setEvtOrgId(evt.assignedOrganizationId || '');
     setEvtStatus(evt.status || 'planned');
+    setIsEventModalOpen(true);
     clearFieldValError('evtName');
     clearFieldValError('evtDate');
     clearFieldValError('evtOrgId');
@@ -1351,6 +1388,7 @@ export default function AdminDashboard({ user, onLogout }) {
       setEvtLoc('');
       setEvtOrgId('');
       setEvtStatus('planned');
+      setIsEventModalOpen(false);
       loadData();
     } catch (err) {
       triggerError(err.message);
@@ -1473,11 +1511,11 @@ export default function AdminDashboard({ user, onLogout }) {
               { id: 'events', label: 'Events', icon: Calendar },
               { id: 'organization', label: 'Organization', icon: FolderOpen },
               { id: 'donations', label: 'Donor', icon: Gift },
-              { 
-                id: 'reports', 
-                label: 'Reports Review', 
-                icon: FileText, 
-                badge: reportsList.filter(r => r.status === 'submitted').length 
+              {
+                id: 'reports',
+                label: 'Reports Review',
+                icon: FileText,
+                badge: reportsList.filter(r => r.status === 'submitted').length
               },
               { id: 'accounts', label: 'User Accounts', icon: Users }
             ].map(tab => (
@@ -1629,7 +1667,7 @@ export default function AdminDashboard({ user, onLogout }) {
                 {/* Header section */}
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
                   <h1 className="text-2xl font-bold text-navy-blue">CES Administrative Dashboard</h1>
-                  <p className="text-gray-500 text-xs mt-1">Overview of Community Extension & Services operations, coordinator accounts, and live alerts.</p>
+
                 </div>
 
                 {/* Quick Stats Grid */}
@@ -2218,9 +2256,23 @@ export default function AdminDashboard({ user, onLogout }) {
                                         prevAddCategoryRef.current = cat;
                                         setShowAddCategoryDropdown(false);
                                       }}
-                                      className="flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
+                                      className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
                                     >
                                       <span className="truncate">{cat}</span>
+                                      <button
+                                        type="button"
+                                        onMouseDown={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                        }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteCategory(cat);
+                                        }}
+                                        className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
                                     </div>
                                   ))}
                                 {activeCategories.filter(cat => !itemCategory || cat.toLowerCase().includes(itemCategory.toLowerCase())).length === 0 && (
@@ -2278,7 +2330,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             </div>
                             {showAddUnitDropdown && (
                               <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                {allUnits
+                                {activeUnits
                                   .filter(u => !itemUnit || u.toLowerCase().includes(itemUnit.toLowerCase()))
                                   .map(u => (
                                     <div
@@ -2289,12 +2341,26 @@ export default function AdminDashboard({ user, onLogout }) {
                                         prevAddUnitRef.current = u;
                                         setShowAddUnitDropdown(false);
                                       }}
-                                      className="flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
+                                      className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
                                     >
                                       <span className="truncate">{u}</span>
+                                      <button
+                                        type="button"
+                                        onMouseDown={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                        }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteUnit(u);
+                                        }}
+                                        className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
                                     </div>
                                   ))}
-                                {allUnits.filter(u => !itemUnit || u.toLowerCase().includes(itemUnit.toLowerCase())).length === 0 && (
+                                {activeUnits.filter(u => !itemUnit || u.toLowerCase().includes(itemUnit.toLowerCase())).length === 0 && (
                                   <div
                                     onMouseDown={(e) => e.preventDefault()}
                                     onClick={() => setShowAddUnitDropdown(false)}
@@ -2548,9 +2614,23 @@ export default function AdminDashboard({ user, onLogout }) {
                                         prevEditCategoryRef.current = cat;
                                         setShowEditCategoryDropdown(false);
                                       }}
-                                      className="flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
+                                      className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
                                     >
                                       <span className="truncate">{cat}</span>
+                                      <button
+                                        type="button"
+                                        onMouseDown={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                        }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteCategory(cat);
+                                        }}
+                                        className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
                                     </div>
                                   ))}
                                 {activeCategories.filter(cat => !itemCategory || cat.toLowerCase().includes(itemCategory.toLowerCase())).length === 0 && (
@@ -2608,7 +2688,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             </div>
                             {showEditUnitDropdown && (
                               <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                {allUnits
+                                {activeUnits
                                   .filter(u => !itemUnit || u.toLowerCase().includes(itemUnit.toLowerCase()))
                                   .map(u => (
                                     <div
@@ -2619,12 +2699,26 @@ export default function AdminDashboard({ user, onLogout }) {
                                         prevEditUnitRef.current = u;
                                         setShowEditUnitDropdown(false);
                                       }}
-                                      className="flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
+                                      className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
                                     >
                                       <span className="truncate">{u}</span>
+                                      <button
+                                        type="button"
+                                        onMouseDown={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                        }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteUnit(u);
+                                        }}
+                                        className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
                                     </div>
                                   ))}
-                                {allUnits.filter(u => !itemUnit || u.toLowerCase().includes(itemUnit.toLowerCase())).length === 0 && (
+                                {activeUnits.filter(u => !itemUnit || u.toLowerCase().includes(itemUnit.toLowerCase())).length === 0 && (
                                   <div
                                     onMouseDown={(e) => e.preventDefault()}
                                     onClick={() => setShowEditUnitDropdown(false)}
@@ -3230,7 +3324,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
                       <div className="overflow-y-auto space-y-3 pr-1" style={{ maxHeight: '350px' }}>
                         {(() => {
-                          const filtered = donorsList.filter(d => 
+                          const filtered = donorsList.filter(d =>
                             d.name.toLowerCase().includes(donorSearchQuery.toLowerCase()) ||
                             d.type.toLowerCase().includes(donorSearchQuery.toLowerCase()) ||
                             (d.contactEmail && d.contactEmail.toLowerCase().includes(donorSearchQuery.toLowerCase())) ||
@@ -3265,7 +3359,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             if (d.createdAt) {
                               try {
                                 regDate = new Date(d.createdAt).toLocaleDateString();
-                              } catch (e) {}
+                              } catch (e) { }
                             }
 
                             return (
@@ -3317,20 +3411,17 @@ export default function AdminDashboard({ user, onLogout }) {
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="block text-gray-700 text-xs font-semibold mb-1">Source Donor</label>
-                          <select
+                          <SearchableDropdown
                             value={donDonorId}
-                            onChange={(e) => {
-                              setDonDonorId(e.target.value);
+                            onChange={(val) => {
+                              setDonDonorId(val);
                               clearFieldValError('donDonorId');
                             }}
-                            className={`w-full px-2 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('donDonorId') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                            style={{ height: '40px' }}
-                          >
-                            <option value="">-- Choose Donor --</option>
-                            {donorsList.map(d => (
-                              <option key={d.id} value={d.id}>{d.name} ({d.type.replace('_', ' ')})</option>
-                            ))}
-                          </select>
+                            options={donorsList.map(d => ({ id: d.id, name: `${d.name} (${d.type.replace('_', ' ')})` }))}
+                            onDelete={(d) => handleDeleteDonor(d.id)}
+                            placeholder="Type to filter donors..."
+                            className={validationError?.fields.includes('donDonorId') ? 'border-red-500 ring-2 ring-red-500/10' : ''}
+                          />
                         </div>
                         <div>
                           <label className="block text-gray-700 text-xs font-semibold mb-1">Donation Date</label>
@@ -3598,7 +3689,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                       </div>
                                       {activeDonItemUnitIdx === idx && (
                                         <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                          {allUnits
+                                          {activeUnits
                                             .filter(u => !item.unit || u.toLowerCase().includes(item.unit.toLowerCase()))
                                             .map(u => (
                                               <div
@@ -3614,7 +3705,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                                 <span className="truncate">{u}</span>
                                               </div>
                                             ))}
-                                          {allUnits.filter(u => !item.unit || u.toLowerCase().includes(item.unit.toLowerCase())).length === 0 && (
+                                          {activeUnits.filter(u => !item.unit || u.toLowerCase().includes(item.unit.toLowerCase())).length === 0 && (
                                             <div
                                               onMouseDown={(e) => e.preventDefault()}
                                               onClick={() => setActiveDonItemUnitIdx(null)}
@@ -3846,123 +3937,156 @@ export default function AdminDashboard({ user, onLogout }) {
               </div>
             )}
 
-            {/* ==================================================== */}
-            {/* EVENTS & SCHEDULER TAB PANEL */}
-            {/* ==================================================== */}
             {activeTab === 'events' && user.role === 'admin' && (
               <div className="space-y-6 animate-fade-in">
-                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-                  <h1 className="text-2xl font-bold text-navy-blue">Event Scheduler</h1>
+                {/* Header section with top action bar button */}
+                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between">
+                  <div>
+                    <h1 className="text-2xl font-bold text-navy-blue">Event Scheduler</h1>
+                  </div>
+                  <div className="flex space-x-2 mt-4 md:mt-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingEvent(null);
+                        setEvtName('');
+                        setEvtDesc('');
+                        setEvtDate('');
+                        setEvtLoc('');
+                        setEvtOrgId('');
+                        setEvtStatus('planned');
+                        setIsEventModalOpen(true);
+                      }}
+                      className="px-4 py-2 bg-white border border-gray-200 text-navy-blue hover:bg-gray-50 transition rounded-full text-xs font-semibold shadow-sm flex items-center space-x-1.5 cursor-pointer animate-fade-in"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Schedule Outreach Event</span>
+                    </button>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Event board scheduler form */}
-                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 h-fit">
-                    <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3 mb-4">
-                      {editingEvent ? 'Edit Outreach Event' : 'Schedule Outreach Event'}
-                    </h3>
+                {/* List of planned events (Full Width Content Board) */}
+                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+                  <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3 mb-4">Scheduled Events & Status Board</h3>
 
-                    <form onSubmit={handleCreateEvent} className="space-y-4">
-                      <div>
-                        <label className="block text-gray-700 text-xs font-semibold mb-1">Event Name</label>
-                        <input
-                          type="text"
-                          value={evtName}
-                          onChange={(e) => {
-                            setEvtName(e.target.value);
-                            clearFieldValError('evtName');
-                          }}
-                          placeholder="Basic Computer Literacy, Relief Gift-Giving"
-                          className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('evtName') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                          style={{ height: '40px' }}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-gray-700 text-xs font-semibold mb-1">Description</label>
-                        <textarea
-                          value={evtDesc}
-                          onChange={(e) => setEvtDesc(e.target.value)}
-                          placeholder="Brief narrative of the event purpose..."
-                          className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none resize-none"
-                          rows="3"
-                        ></textarea>
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-4">
-                        <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">Scheduled Date & Time</label>
-                          <input
-                            type="datetime-local"
-                            value={evtDate}
-                            onChange={(e) => {
-                              setEvtDate(e.target.value);
-                              clearFieldValError('evtDate');
-                            }}
-                            className={`w-full px-2 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('evtDate') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                            style={{ height: '40px' }}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">Target Location</label>
-                          <input
-                            type="text"
-                            value={evtLoc}
-                            onChange={(e) => setEvtLoc(e.target.value)}
-                            placeholder="Brgy. Tibag, Tarlac"
-                            className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none"
-                            style={{ height: '40px' }}
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-gray-700 text-xs font-semibold mb-1">Assigned Department (Co-organizer)</label>
-                        <select
-                          value={evtOrgId}
-                          onChange={(e) => {
-                            setEvtOrgId(e.target.value);
-                            clearFieldValError('evtOrgId');
-                          }}
-                          className={`w-full px-2 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('evtOrgId') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                          style={{ height: '40px' }}
-                        >
-                          <option value="">-- Choose Assigned Org --</option>
-                          {orgsList.map(o => (
-                            <option key={o.id} value={o.id}>{o.name} ({o.abbreviation})</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {editingEvent && (
-                        <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">Status</label>
-                          <select
-                            value={evtStatus}
-                            onChange={(e) => setEvtStatus(e.target.value)}
-                            className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
-                            style={{ height: '40px' }}
-                          >
-                            <option value="planned">Planned</option>
-                            <option value="completed">Completed</option>
-                            <option value="cancelled">Cancelled</option>
-                          </select>
-                        </div>
-                      )}
-
-                      <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border-b-2 border-sig-green hover:bg-navy-blue/95 transition flex items-center justify-center cursor-pointer"
-                        style={{ height: '42px' }}
+                  {/* Search & Month Filter Controls */}
+                  <div className="flex flex-col sm:flex-row gap-3 mb-6">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search events by name, description, venue..."
+                        value={eventSearchQuery}
+                        onChange={(e) => setEventSearchQuery(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-medium text-navy-blue"
+                        style={{ height: '38px' }}
+                      />
+                    </div>
+                    <div className="relative w-full sm:w-48">
+                      <select
+                        value={eventMonthFilter}
+                        onChange={(e) => setEventMonthFilter(e.target.value)}
+                        className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                        style={{ height: '38px' }}
                       >
-                        {editingEvent ? 'Update Outreach Event' : 'Schedule Monthly Event'}
-                      </button>
+                        <option value="">All Months</option>
+                        <option value="0">January</option>
+                        <option value="1">February</option>
+                        <option value="2">March</option>
+                        <option value="3">April</option>
+                        <option value="4">May</option>
+                        <option value="5">June</option>
+                        <option value="6">July</option>
+                        <option value="7">August</option>
+                        <option value="8">September</option>
+                        <option value="9">October</option>
+                        <option value="10">November</option>
+                        <option value="11">December</option>
+                      </select>
+                    </div>
+                  </div>
 
-                      {editingEvent && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {(() => {
+                      const filtered = eventsList.filter(evt => {
+                        const matchesSearch =
+                          evt.name.toLowerCase().includes(eventSearchQuery.toLowerCase()) ||
+                          (evt.description && evt.description.toLowerCase().includes(eventSearchQuery.toLowerCase())) ||
+                          (evt.location && evt.location.toLowerCase().includes(eventSearchQuery.toLowerCase()));
+
+                        let matchesMonth = true;
+                        if (eventMonthFilter !== '') {
+                          const dateObj = new Date(evt.scheduleDate);
+                          matchesMonth = dateObj.getMonth() === parseInt(eventMonthFilter);
+                        }
+
+                        return matchesSearch && matchesMonth;
+                      });
+
+                      if (filtered.length === 0) {
+                        return (
+                          <div className="col-span-3 text-center py-12 text-gray-400 text-xs font-semibold">
+                            {eventsList.length === 0 ? "No scheduled outreach events." : "No events match your search or filter criteria."}
+                          </div>
+                        );
+                      }
+
+                      return filtered.map(evt => {
+                        const org = orgsList.find(o => o.id === evt.assignedOrganizationId);
+                        return (
+                          <div key={evt.id} className="border border-gray-100 p-5 rounded-2xl bg-gray-50/50 hover:bg-white hover:border-sig-green/30 transition duration-200 flex flex-col justify-between">
+                            <div>
+                              <div className="flex justify-between items-start mb-2">
+                                <span className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${evt.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                  evt.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                                    evt.status === 'planned' ? 'bg-blue-100 text-blue-800' :
+                                      'bg-gray-100 text-gray-800'
+                                  }`}>
+                                  {evt.status}
+                                </span>
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-[10px] text-navy-blue font-bold tracking-wider">{org ? org.abbreviation : 'All'}</span>
+                                  <button
+                                    onClick={() => handleEditClick(evt)}
+                                    className="text-navy-blue hover:text-sig-green transition p-1 rounded hover:bg-gray-100 cursor-pointer"
+                                    title="Edit Event"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                              <h4 className="font-bold text-navy-blue text-sm mb-1 leading-tight">{evt.name}</h4>
+                              <p className="text-gray-500 text-xs leading-relaxed line-clamp-2 mb-3">{evt.description}</p>
+                            </div>
+
+                            <div className="border-t border-gray-100 pt-3 space-y-1.5 text-[10px] text-gray-400">
+                              <div className="flex items-center space-x-1.5">
+                                <Clock className="w-3.5 h-3.5 text-navy-blue" />
+                                <span>{new Date(evt.scheduleDate).toLocaleString()}</span>
+                              </div>
+                              <div className="flex items-center space-x-1.5">
+                                <MapPin className="w-3.5 h-3.5 text-sig-green" />
+                                <span className="truncate">{evt.location}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+
+                {/* SCHEDULE / EDIT OUTREACH EVENT MODAL */}
+                {isEventModalOpen && (
+                  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-xs">
+                    <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 animate-scale-up space-y-4">
+                      <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                        <h3 className="font-bold text-navy-blue text-base">
+                          {editingEvent ? 'Edit Outreach Event' : 'Schedule Outreach Event'}
+                        </h3>
                         <button
-                          type="button"
                           onClick={() => {
+                            setIsEventModalOpen(false);
                             setEditingEvent(null);
                             setEvtName('');
                             setEvtDesc('');
@@ -3971,126 +4095,128 @@ export default function AdminDashboard({ user, onLogout }) {
                             setEvtOrgId('');
                             setEvtStatus('planned');
                           }}
-                          className="w-full bg-gray-100 text-gray-700 rounded-full text-xs font-semibold py-2 px-4 hover:bg-gray-200 transition flex items-center justify-center cursor-pointer"
-                          style={{ height: '42px' }}
+                          className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 cursor-pointer"
                         >
-                          Cancel Edit
+                          <X className="w-5 h-5" />
                         </button>
-                      )}
-                    </form>
-                  </div>
-
-                  {/* List of planned events */}
-                  <div className="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-                    <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3 mb-4">Scheduled Events & Status Board</h3>
-
-                    {/* Search & Month Filter Controls */}
-                    <div className="flex flex-col sm:flex-row gap-3 mb-6">
-                      <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input
-                          type="text"
-                          placeholder="Search events by name, description, venue..."
-                          value={eventSearchQuery}
-                          onChange={(e) => setEventSearchQuery(e.target.value)}
-                          className="w-full pl-9 pr-4 py-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-medium text-navy-blue"
-                          style={{ height: '38px' }}
-                        />
                       </div>
-                      <div className="relative w-full sm:w-48">
-                        <select
-                          value={eventMonthFilter}
-                          onChange={(e) => setEventMonthFilter(e.target.value)}
-                          className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
-                          style={{ height: '38px' }}
-                        >
-                          <option value="">All Months</option>
-                          <option value="0">January</option>
-                          <option value="1">February</option>
-                          <option value="2">March</option>
-                          <option value="3">April</option>
-                          <option value="4">May</option>
-                          <option value="5">June</option>
-                          <option value="6">July</option>
-                          <option value="7">August</option>
-                          <option value="8">September</option>
-                          <option value="9">October</option>
-                          <option value="10">November</option>
-                          <option value="11">December</option>
-                        </select>
-                      </div>
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {(() => {
-                        const filtered = eventsList.filter(evt => {
-                          const matchesSearch =
-                            evt.name.toLowerCase().includes(eventSearchQuery.toLowerCase()) ||
-                            (evt.description && evt.description.toLowerCase().includes(eventSearchQuery.toLowerCase())) ||
-                            (evt.location && evt.location.toLowerCase().includes(eventSearchQuery.toLowerCase()));
+                      <form onSubmit={handleCreateEvent} className="space-y-4">
+                        <div>
+                          <label className="block text-gray-700 text-xs font-semibold mb-1">Event Name</label>
+                          <input
+                            type="text"
+                            value={evtName}
+                            onChange={(e) => {
+                              setEvtName(e.target.value);
+                              clearFieldValError('evtName');
+                            }}
+                            placeholder="Basic Computer Literacy, Relief Gift-Giving"
+                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('evtName') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                            style={{ height: '40px' }}
+                          />
+                        </div>
 
-                          let matchesMonth = true;
-                          if (eventMonthFilter !== '') {
-                            const dateObj = new Date(evt.scheduleDate);
-                            matchesMonth = dateObj.getMonth() === parseInt(eventMonthFilter);
-                          }
+                        <div>
+                          <label className="block text-gray-700 text-xs font-semibold mb-1">Description</label>
+                          <textarea
+                            value={evtDesc}
+                            onChange={(e) => setEvtDesc(e.target.value)}
+                            placeholder="Brief narrative of the event purpose..."
+                            className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none resize-none font-semibold text-navy-blue"
+                            rows="3"
+                          ></textarea>
+                        </div>
 
-                          return matchesSearch && matchesMonth;
-                        });
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-gray-700 text-xs font-semibold mb-1">Scheduled Date & Time</label>
+                            <input
+                              type="datetime-local"
+                              value={evtDate}
+                              onChange={(e) => {
+                                setEvtDate(e.target.value);
+                                clearFieldValError('evtDate');
+                              }}
+                              className={`w-full px-2 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('evtDate') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                              style={{ height: '40px' }}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-gray-700 text-xs font-semibold mb-1">Target Location</label>
+                            <input
+                              type="text"
+                              value={evtLoc}
+                              onChange={(e) => setEvtLoc(e.target.value)}
+                              placeholder="Brgy. Tibag, Tarlac"
+                              className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none font-semibold text-navy-blue"
+                              style={{ height: '40px' }}
+                            />
+                          </div>
+                        </div>
 
-                        if (filtered.length === 0) {
-                          return (
-                            <div className="col-span-2 text-center py-12 text-gray-400 text-xs">
-                              {eventsList.length === 0 ? "No scheduled outreach events." : "No events match your search or filter criteria."}
-                            </div>
-                          );
-                        }
+                        <div>
+                          <label className="block text-gray-700 text-xs font-semibold mb-1">Assigned Department (Co-organizer)</label>
+                          <SearchableDropdown
+                            value={evtOrgId}
+                            onChange={(val) => {
+                              setEvtOrgId(val);
+                              clearFieldValError('evtOrgId');
+                            }}
+                            options={orgsList}
+                            onDelete={(o) => handleDeleteOrg(o.id)}
+                            placeholder="Type to filter co-organizers..."
+                            className={validationError?.fields.includes('evtOrgId') ? 'border-red-500 ring-2 ring-red-500/10' : ''}
+                          />
+                        </div>
 
-                        return filtered.map(evt => {
-                          const org = orgsList.find(o => o.id === evt.assignedOrganizationId);
-                          return (
-                            <div key={evt.id} className="border border-gray-100 p-5 rounded-2xl bg-gray-50/50 hover:bg-white hover:border-sig-green/30 transition duration-200 flex flex-col justify-between">
-                              <div>
-                                <div className="flex justify-between items-start mb-2">
-                                  <span className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${evt.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                      evt.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                                        evt.status === 'planned' ? 'bg-blue-100 text-blue-800' :
-                                          'bg-gray-100 text-gray-800'
-                                    }`}>
-                                    {evt.status}
-                                  </span>
-                                  <div className="flex items-center space-x-2">
-                                    <span className="text-[10px] text-navy-blue font-bold tracking-wider">{org ? org.abbreviation : 'All'}</span>
-                                    <button
-                                      onClick={() => handleEditClick(evt)}
-                                      className="text-navy-blue hover:text-sig-green transition p-1 rounded hover:bg-gray-100 cursor-pointer"
-                                      title="Edit Event"
-                                    >
-                                      <Edit2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                </div>
-                                <h4 className="font-bold text-navy-blue text-sm mb-1 leading-tight">{evt.name}</h4>
-                                <p className="text-gray-500 text-xs leading-relaxed line-clamp-2 mb-3">{evt.description}</p>
-                              </div>
+                        {editingEvent && (
+                          <div>
+                            <label className="block text-gray-700 text-xs font-semibold mb-1">Status</label>
+                            <select
+                              value={evtStatus}
+                              onChange={(e) => setEvtStatus(e.target.value)}
+                              className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                              style={{ height: '40px' }}
+                            >
+                              <option value="planned">Planned</option>
+                              <option value="completed">Completed</option>
+                              <option value="cancelled">Cancelled</option>
+                            </select>
+                          </div>
+                        )}
 
-                              <div className="border-t border-gray-100 pt-3 space-y-1.5 text-[10px] text-gray-400">
-                                <div className="flex items-center space-x-1.5">
-                                  <Clock className="w-3.5 h-3.5 text-navy-blue" />
-                                  <span>{new Date(evt.scheduleDate).toLocaleString()}</span>
-                                </div>
-                                <div className="flex items-center space-x-1.5">
-                                  <MapPin className="w-3.5 h-3.5 text-sig-green" />
-                                  <span className="truncate">{evt.location}</span>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        });
-                      })()}
+                        <div className="flex items-center space-x-2 pt-2 border-t border-gray-100">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsEventModalOpen(false);
+                              setEditingEvent(null);
+                              setEvtName('');
+                              setEvtDesc('');
+                              setEvtDate('');
+                              setEvtLoc('');
+                              setEvtOrgId('');
+                              setEvtStatus('planned');
+                            }}
+                            className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition cursor-pointer text-center"
+                            style={{ height: '40px' }}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={loading}
+                            className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer flex items-center justify-center gap-1.5"
+                            style={{ height: '40px' }}
+                          >
+                            {editingEvent ? 'Save Changes' : 'Schedule Event'}
+                          </button>
+                        </div>
+                      </form>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
 
@@ -4140,11 +4266,10 @@ export default function AdminDashboard({ user, onLogout }) {
                       setSelectedOrgSubTab('organization');
                       handleCancelOrgEdit();
                     }}
-                    className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
-                      selectedOrgSubTab === 'organization'
+                    className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${selectedOrgSubTab === 'organization'
                         ? 'border-sig-green text-navy-blue'
                         : 'border-transparent text-gray-400 hover:text-navy-blue'
-                    }`}
+                      }`}
                   >
                     <FolderOpen className="w-4 h-4" /> Organization
                   </button>
@@ -4153,11 +4278,10 @@ export default function AdminDashboard({ user, onLogout }) {
                       setSelectedOrgSubTab('department');
                       handleCancelOrgEdit();
                     }}
-                    className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
-                      selectedOrgSubTab === 'department'
+                    className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${selectedOrgSubTab === 'department'
                         ? 'border-sig-green text-navy-blue'
                         : 'border-transparent text-gray-400 hover:text-navy-blue'
-                    }`}
+                      }`}
                   >
                     <Users className="w-4 h-4" /> Department
                   </button>
@@ -4168,11 +4292,10 @@ export default function AdminDashboard({ user, onLogout }) {
                         setSelectedOrgSubTab(org.id);
                         handleCancelOrgEdit();
                       }}
-                      className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
-                        selectedOrgSubTab === org.id
+                      className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${selectedOrgSubTab === org.id
                           ? 'border-sig-green text-navy-blue'
                           : 'border-transparent text-gray-400 hover:text-navy-blue'
-                      }`}
+                        }`}
                     >
                       <Sparkles className="w-3.5 h-3.5 text-sig-green" /> {org.name}
                     </button>
@@ -4195,8 +4318,8 @@ export default function AdminDashboard({ user, onLogout }) {
                           Total {selectedOrgSubTab === 'department' ? 'Departments' : 'Organizations'}
                         </p>
                         <h3 className="text-xl font-bold text-navy-blue">
-                          {selectedOrgSubTab === 'department' 
-                            ? orgsList.filter(o => o.type === 'department' || !o.type).length 
+                          {selectedOrgSubTab === 'department'
+                            ? orgsList.filter(o => o.type === 'department' || !o.type).length
                             : orgsList.filter(o => o.type === 'organization').length}
                         </h3>
                       </div>
@@ -4210,7 +4333,7 @@ export default function AdminDashboard({ user, onLogout }) {
                         <h3 className="text-xl font-bold text-navy-blue">
                           {eventsList.filter(e => {
                             const o = orgsList.find(org => org.id === e.assignedOrganizationId);
-                            const isMatch = selectedOrgSubTab === 'department' 
+                            const isMatch = selectedOrgSubTab === 'department'
                               ? (!o || o.type === 'department' || !o.type)
                               : (o && o.type === 'organization');
                             return isMatch && e.status !== 'completed';
@@ -4227,7 +4350,7 @@ export default function AdminDashboard({ user, onLogout }) {
                         <h3 className="text-xl font-bold text-navy-blue">
                           {eventsList.filter(e => {
                             const o = orgsList.find(org => org.id === e.assignedOrganizationId);
-                            const isMatch = selectedOrgSubTab === 'department' 
+                            const isMatch = selectedOrgSubTab === 'department'
                               ? (!o || o.type === 'department' || !o.type)
                               : (o && o.type === 'organization');
                             return isMatch && e.status === 'completed';
@@ -4428,7 +4551,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   (() => {
                     const selectedOrgObj = orgsList.find(o => o.id === selectedOrgSubTab);
                     if (!selectedOrgObj) return <p className="text-center py-10 text-gray-400">Profile not found.</p>;
-                    
+
                     const isDept = selectedOrgObj.type === 'department';
                     const coord = usersList.find(u => u.uid === selectedOrgObj.coordinatorId || u.organizationId === selectedOrgObj.id);
 
@@ -4804,19 +4927,15 @@ export default function AdminDashboard({ user, onLogout }) {
 
                         <div>
                           <label className="block text-gray-700 text-xs font-semibold mb-1">Assign Coordinator</label>
-                          <select
+                          <SearchableDropdown
                             value={deptCoordinatorId}
-                            onChange={(e) => setDeptCoordinatorId(e.target.value)}
-                            className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
-                            style={{ height: '40px' }}
-                          >
-                            <option value="">Unassigned</option>
-                            {usersList.filter(u => u.role === 'department_coordinator' || u.role === 'coordinator').map(u => (
-                              <option key={u.uid} value={u.uid}>
-                                {u.name} ({u.username})
-                              </option>
-                            ))}
-                          </select>
+                            onChange={(val) => setDeptCoordinatorId(val)}
+                            options={usersList
+                              .filter(u => u.role === 'department_coordinator' || u.role === 'coordinator')
+                              .map(u => ({ id: u.uid, name: `${u.name} (${u.username})`, original: u }))}
+                            onDelete={(u) => handleDeleteUser(u)}
+                            placeholder="Type to filter coordinators..."
+                          />
                         </div>
 
                         <div className="flex items-center space-x-2 pt-2 border-t border-gray-100">
@@ -5000,25 +5119,23 @@ export default function AdminDashboard({ user, onLogout }) {
                                   {evt.location || 'No location'}
                                 </td>
                                 <td className="py-3.5 px-3">
-                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                                    evt.status === 'completed' 
-                                      ? 'bg-green-50 text-green-600' 
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${evt.status === 'completed'
+                                      ? 'bg-green-50 text-green-600'
                                       : 'bg-yellow-50 text-yellow-600'
-                                  }`}>
+                                    }`}>
                                     {evt.status}
                                   </span>
                                 </td>
                                 <td className="py-3.5 px-3">
                                   {relatedReport ? (
-                                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                                      relatedReport.status === 'approved' 
-                                        ? 'bg-sig-green/20 text-navy-blue' 
+                                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${relatedReport.status === 'approved'
+                                        ? 'bg-sig-green/20 text-navy-blue'
                                         : relatedReport.status === 'returned'
-                                        ? 'bg-red-50 text-red-500'
-                                        : relatedReport.status === 'submitted'
-                                        ? 'bg-blue-50 text-blue-500'
-                                        : 'bg-gray-50 text-gray-500'
-                                    }`}>
+                                          ? 'bg-red-50 text-red-500'
+                                          : relatedReport.status === 'submitted'
+                                            ? 'bg-blue-50 text-blue-500'
+                                            : 'bg-gray-50 text-gray-500'
+                                      }`}>
                                       {relatedReport.status}
                                     </span>
                                   ) : (
@@ -5343,10 +5460,10 @@ export default function AdminDashboard({ user, onLogout }) {
                       {coordRole === 'department_coordinator' && (
                         <div>
                           <label className="block text-gray-700 text-xs font-semibold mb-1">Assigned Department</label>
-                          <select
+                          <SearchableDropdown
                             value={coordOrgId}
-                            onChange={(e) => {
-                              setCoordOrgId(e.target.value);
+                            onChange={(val) => {
+                              setCoordOrgId(val);
                               if (coordErrors.coordOrgId) {
                                 setCoordErrors(prev => {
                                   const copy = { ...prev };
@@ -5355,14 +5472,11 @@ export default function AdminDashboard({ user, onLogout }) {
                                 });
                               }
                             }}
-                            className={`w-full px-2 text-xs bg-white border rounded-xl focus:outline-none ${coordErrors.coordOrgId ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                            style={{ height: '40px' }}
-                          >
-                            <option value="">-- Choose Org --</option>
-                            {orgsList.map(o => (
-                              <option key={o.id} value={o.id}>{o.name} ({o.abbreviation})</option>
-                            ))}
-                          </select>
+                            options={orgsList.filter(o => o.type === 'department' || !o.type)}
+                            onDelete={(o) => handleDeleteOrg(o.id)}
+                            placeholder="Type to filter departments..."
+                            className={coordErrors.coordOrgId ? 'border-red-500 ring-2 ring-red-500/10' : ''}
+                          />
                           {coordErrors.coordOrgId && (
                             <p className="text-red-500 text-[10px] mt-1 font-semibold">{coordErrors.coordOrgId}</p>
                           )}
@@ -5459,6 +5573,8 @@ export default function AdminDashboard({ user, onLogout }) {
                               setCoordPassword('');
                               setCoordConfirmPassword('');
                               setCoordOrgId('');
+                              setDeptSearchVal('');
+                              setIsDeptSearchOpen(false);
                               setCoordRole('department_coordinator');
                               setCoordErrors({});
                             }}
@@ -5538,6 +5654,8 @@ export default function AdminDashboard({ user, onLogout }) {
                                       setCoordConfirmPassword('');
                                       setCoordRole(u.role);
                                       setCoordOrgId(u.organizationId || '');
+                                      const matchedOrg = orgsList.find(o => o.id === u.organizationId);
+                                      setDeptSearchVal(matchedOrg ? matchedOrg.name : '');
                                       setCoordErrors({});
                                     }}
                                     className="py-1 px-2.5 rounded-full text-[10px] font-semibold border bg-white border-gray-200 text-navy-blue hover:bg-gray-50 transition cursor-pointer"
@@ -5618,7 +5736,7 @@ export default function AdminDashboard({ user, onLogout }) {
               <div>
                 <strong className="text-navy-blue">Activity Details:</strong>
                 <p className="text-xs font-semibold text-gray-800">
-                  {exportingReport.activityDate ? new Date(exportingReport.activityDate).toLocaleDateString() : ''} 
+                  {exportingReport.activityDate ? new Date(exportingReport.activityDate).toLocaleDateString() : ''}
                   {exportingReport.location ? ` @ ${exportingReport.location}` : ''}
                 </p>
               </div>

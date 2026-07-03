@@ -7,7 +7,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { 
   FileText, Calendar, Info, LogOut, Check, Save, Send, AlertTriangle, 
   Upload, Image as ImageIcon, MessageSquare, Edit3, Eye, Clock, Plus, HelpCircle
-} from 'lucide-react';
+} from 'lucide-react';import SearchableDropdown from '../../components/SearchableDropdown';
 
 export default function CoordinatorDashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('editor');
@@ -443,63 +443,61 @@ export default function CoordinatorDashboard({ user, onLogout }) {
                   <div className="space-y-3.5">
                     <div>
                       <label className="block text-gray-700 text-xs font-semibold mb-1">Document Academic Year</label>
-                      <select
+                      <SearchableDropdown
                         value={reportAY}
                         disabled={isReadOnly}
-                        onChange={(e) => setReportAY(e.target.value)}
-                        className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15"
-                        style={{ height: '40px' }}
-                      >
-                        <option value="2025-2026">AY 2025-2026</option>
-                        <option value="2026-2027">AY 2026-2027</option>
-                        <option value="2027-2028">AY 2027-2028</option>
-                      </select>
+                        onChange={(val) => setReportAY(val)}
+                        options={[
+                          { id: '2025-2026', name: 'AY 2025-2026' },
+                          { id: '2026-2027', name: 'AY 2026-2027' },
+                          { id: '2027-2028', name: 'AY 2027-2028' }
+                        ]}
+                        placeholder="Academic Year..."
+                      />
                     </div>
 
                     <div>
                       <label className="block text-gray-700 text-xs font-semibold mb-1">Semester</label>
-                      <select
+                      <SearchableDropdown
                         value={reportSem}
                         disabled={isReadOnly}
-                        onChange={(e) => setReportSem(e.target.value)}
-                        className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15"
-                        style={{ height: '40px' }}
-                      >
-                        <option value="1st Semester">1st Semester</option>
-                        <option value="2nd Semester">2nd Semester</option>
-                        <option value="Summer">Summer Term</option>
-                      </select>
+                        onChange={(val) => setReportSem(val)}
+                        options={[
+                          { id: '1st Semester', name: '1st Semester' },
+                          { id: '2nd Semester', name: '2nd Semester' },
+                          { id: 'Summer', name: 'Summer Term' }
+                        ]}
+                        placeholder="Semester..."
+                      />
                     </div>
 
                     <div>
                       <label className="block text-gray-700 text-xs font-semibold mb-1">Report Category</label>
-                      <select
+                      <SearchableDropdown
                         value={reportType}
                         disabled={isReadOnly}
-                        onChange={(e) => setReportType(e.target.value)}
-                        className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15"
-                        style={{ height: '40px' }}
-                      >
-                        <option value="outreach">Community Outreach</option>
-                        <option value="blood_donation">Blood Donation Drive</option>
-                        <option value="department_program">Department Extension Program</option>
-                      </select>
+                        onChange={(val) => setReportType(val)}
+                        options={[
+                          { id: 'outreach', name: 'Community Outreach' },
+                          { id: 'blood_donation', name: 'Blood Donation Drive' },
+                          { id: 'department_program', name: 'Department Extension Program' }
+                        ]}
+                        placeholder="Report Category..."
+                      />
                     </div>
 
                     <div>
                       <label className="block text-gray-700 text-xs font-semibold mb-1">Select Scheduled Event</label>
-                      <select
+                      <SearchableDropdown
                         value={reportEventId}
                         disabled={isReadOnly}
-                        onChange={(e) => setReportEventId(e.target.value)}
-                        className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15"
-                        style={{ height: '40px' }}
-                      >
-                        <option value="">-- Select Event --</option>
-                        {eventsList.map(e => (
-                          <option key={e.id} value={e.id}>{e.name} ({new Date(e.scheduleDate).toLocaleDateString()})</option>
-                        ))}
-                      </select>
+                        onChange={(val) => setReportEventId(val)}
+                        options={eventsList.map(e => ({
+                          id: e.id,
+                          name: `${e.title || e.name} (${new Date(e.scheduleDate || e.date).toLocaleDateString()})`
+                        }))}
+                        placeholder="Select Event..."
+                      />
                     </div>
                   </div>
 

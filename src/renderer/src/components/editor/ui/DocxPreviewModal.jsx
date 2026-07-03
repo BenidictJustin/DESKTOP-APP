@@ -3,7 +3,7 @@ import { X, Edit3, FileText, Loader } from "lucide-react";
 import { renderAsync } from "docx-preview";
 
 /**
- * DocxPreviewModal — Renders an imported .docx file with full page-by-page
+ * DocxPreviewModal ï¿½ Renders an imported .docx file with full page-by-page
  * layout fidelity using docx-preview. Includes an "Edit in Editor" button
  * which loads the editable version via mammoth into the main canvas.
  */
@@ -39,7 +39,7 @@ export default function DocxPreviewModal({ show, arrayBuffer, fileName, onClose,
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex flex-col" style={{ background: "#1a1a2e" }}>
+    <div className="fixed inset-0 z-9999 flex flex-col" style={{ background: "#1a1a2e" }}>
       {/* Header bar */}
       <div
         className="flex items-center justify-between shrink-0 px-5 py-3 border-b"
@@ -54,7 +54,7 @@ export default function DocxPreviewModal({ show, arrayBuffer, fileName, onClose,
               {fileName || "Document Preview"}
             </p>
             <p className="text-[10px]" style={{ color: "rgba(147,197,253,0.6)" }}>
-              Read-only preview — layout matches original
+              Read-only preview ï¿½ layout matches original
             </p>
           </div>
         </div>

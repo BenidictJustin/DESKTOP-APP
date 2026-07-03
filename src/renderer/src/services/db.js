@@ -159,7 +159,10 @@ const saveLocalData = (key, data) => localStorage.setItem(key, JSON.stringify(da
 export const login = async (email, password) => {
   if (isDemoMode) {
     const users = getLocalData(LOCAL_STORAGE_KEYS.USERS);
-    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    const user = users.find(u => 
+      u.email.toLowerCase() === email.toLowerCase() || 
+      (u.username && u.username.toLowerCase() === email.toLowerCase())
+    );
     
     // Simulate passwords: we will check simple passwords matches
     // admin -> adminpassword, office -> coordinatorpassword, cba -> cbapassword, cs -> cspassword
@@ -169,6 +172,7 @@ export const login = async (email, password) => {
       else if (user.role === 'office_coordinator' && password === 'coordinatorpassword') valid = true;
       else if (user.organizationId === 'dept-cba' && password === 'cbapassword') valid = true;
       else if (user.organizationId === 'dept-cs' && password === 'cspassword') valid = true;
+      else if (user.password && password === user.password) valid = true;
       else if (password === 'password') valid = true; // generic backup password
     }
     
@@ -256,6 +260,7 @@ export const registerUser = async (email, username, password, name, role, organi
       uid: newUid,
       username,
       email,
+      password,
       name,
       role,
       organizationId,

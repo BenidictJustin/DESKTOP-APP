@@ -89,6 +89,36 @@ export default function TextEditor({
     },
   });
 
+  const [activeEditingArea, setActiveEditingArea] = useState('body'); // 'body' | 'header' | 'footer'
+
+  const headerEditor = useEditor({
+    extensions: getEditorExtensions().filter(ext => ext.name !== 'pageFlow'),
+    content: '<p></p>',
+    editable: true,
+    editorProps: {
+      attributes: {
+        class: 'focus:outline-none text-[10px] text-gray-800 font-sans',
+      },
+    },
+    onUpdate: ({ editor: ed }) => {
+      setHeaderText(ed.getHTML());
+    },
+  });
+
+  const footerEditor = useEditor({
+    extensions: getEditorExtensions().filter(ext => ext.name !== 'pageFlow'),
+    content: '<p></p>',
+    editable: true,
+    editorProps: {
+      attributes: {
+        class: 'focus:outline-none text-[10px] text-gray-800 font-sans',
+      },
+    },
+    onUpdate: ({ editor: ed }) => {
+      setFooterText(ed.getHTML());
+    },
+  });
+
   // ── Editor Config State ──
   const [activeRibbonTab, setActiveRibbonTab] = useState('Home');
   const [showFileMenu, setShowFileMenu] = useState(false);
@@ -119,6 +149,7 @@ export default function TextEditor({
   // ── Page Count States ──
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [docxBuffer, setDocxBuffer] = useState(null);
 
   // ── Modals ──
   const [showFindReplace, setShowFindReplace] = useState(false);
@@ -146,8 +177,17 @@ export default function TextEditor({
 
   // ── Sync editor editable state ──
   useEffect(() => {
-    if (editor) editor.setEditable(!workspaceIsReadOnly);
-  }, [workspaceIsReadOnly, editor]);
+    const isReadOnly = !!workspaceIsReadOnly;
+    if (editor) {
+      editor.setEditable(!isReadOnly && activeEditingArea === 'body');
+    }
+    if (headerEditor) {
+      headerEditor.setEditable(!isReadOnly && activeEditingArea === 'header');
+    }
+    if (footerEditor) {
+      footerEditor.setEditable(!isReadOnly && activeEditingArea === 'footer');
+    }
+  }, [editor, headerEditor, footerEditor, workspaceIsReadOnly, activeEditingArea]);
 
   // ── Expose editor to parent for resetForm/openReport ──
   useEffect(() => {
@@ -203,8 +243,21 @@ export default function TextEditor({
     if (tpl.columns) setColumns(tpl.columns || 1);
     setShowHeader(!!tpl.showHeader);
     setShowFooter(!!tpl.showFooter);
-    if (tpl.headerText !== undefined) setHeaderText(tpl.headerText);
-    if (tpl.footerText !== undefined) setFooterText(tpl.footerText);
+    setDocxBuffer(null);
+    if (tpl.headerText !== undefined) {
+      setHeaderText(tpl.headerText);
+      headerEditor?.commands.setContent(tpl.headerText);
+    } else {
+      setHeaderText('');
+      headerEditor?.commands.setContent('<p></p>');
+    }
+    if (tpl.footerText !== undefined) {
+      setFooterText(tpl.footerText);
+      footerEditor?.commands.setContent(tpl.footerText);
+    } else {
+      setFooterText('');
+      footerEditor?.commands.setContent('<p></p>');
+    }
 
     if (editor) {
       if (setWorkspaceIsReadOnly) setWorkspaceIsReadOnly(false);
@@ -237,7 +290,7 @@ export default function TextEditor({
       }, 80);
     }
     setShowTemplatesModal(false);
-  }, [editor, setWorkspaceIsReadOnly]);
+  }, [editor, headerEditor, footerEditor, setWorkspaceIsReadOnly]);
 
   // ── Load Default Template on Load for new document ──
   useEffect(() => {
@@ -307,7 +360,7 @@ export default function TextEditor({
         }
       }
     }
-  }, [editor, workspaceReportId]);
+  }, [editor, workspaceReportId, handleSelectTemplate]);
 
   // ── Template CRUD actions ──
   const handleSaveAsTemplate = useCallback(() => {
@@ -331,7 +384,7 @@ export default function TextEditor({
       showFooter,
       headerText,
       footerText,
-      html: editor.getHTML(),
+      html: docxBuffer ? (document.querySelector('.docx-editor-container')?.innerHTML || '') : editor.getHTML(),
       fontFamily: currentFont,
       fontSize: currentSize,
     };
@@ -454,30 +507,7 @@ export default function TextEditor({
           setMarginKey(margin);
           setLineSpacing('1.5');
           setColumns(1);
-          setShowHeader(sHeader);
-          setShowFooter(sFooter);
-          setHeaderText(headerTxt);
-          setFooterText(footerTxt);
-
-          editor.commands.setContent(html || '<p></p>');
-          editor.chain().focus('start').run();
-
-          setTimeout(() => {
-            if (editor.commands.updatePageFlowOptions) {
-              editor.commands.updatePageFlowOptions({
-                paperKey: paper,
-                orientation: orient,
-                marginKey: margin,
-                lineSpacing: '1.5',
-                showHeader: sHeader,
-                showFooter: sFooter,
-                headerText: headerTxt,
-                footerText: footerTxt,
-              });
-            }
-            editor.chain().focus('start').run();
-          }, 80);
-
+          setDocxBuffer(arrayBuffer);
           setHasBeenEdited(true);
         }
       } catch (err) {
@@ -487,18 +517,24 @@ export default function TextEditor({
     };
     reader.readAsArrayBuffer(file);
     e.target.value = '';
-  }, [editor, setWorkspaceIsReadOnly, setWorkspaceReportTitle, setWorkspaceReportId]);
+  }, [editor, headerEditor, footerEditor, setWorkspaceIsReadOnly, setWorkspaceReportTitle, setWorkspaceReportId]);
 
   // ── Save handler wrapper ──
   const handleSave = useCallback(async (status, silent = false) => {
     if (!editor) return;
-    const html = editor.getHTML();
+    let html = '';
+    if (docxBuffer) {
+      const container = document.querySelector('.docx-editor-container');
+      html = container ? container.innerHTML : '';
+    } else {
+      html = editor.getHTML();
+    }
     if (!html || html === '<p></p>') {
       if (!silent) alert('Please write some content before saving.');
       return;
     }
     await onSave(status, html, silent);
-  }, [editor, onSave]);
+  }, [editor, docxBuffer, onSave]);
 
   // ── AutoSave ──
   useEffect(() => {
@@ -588,6 +624,12 @@ export default function TextEditor({
     setShowOpenModal(false);
   }, [editor, onOpenReport]);
 
+  const activeEditor = (activeEditingArea === 'header' && headerEditor) 
+    ? headerEditor 
+    : (activeEditingArea === 'footer' && footerEditor) 
+      ? footerEditor 
+      : editor;
+
   const docTitle = workspaceReportTitle || eventsList.find(x => x.id === workspaceReportEventId)?.name || 'Document1';
 
   return (
@@ -660,11 +702,11 @@ export default function TextEditor({
       {/* ── Ribbon Toolbar Content ── */}
       <div className="bg-white border-b border-gray-200 px-3 py-2 shrink-0 overflow-visible z-30">
         {activeRibbonTab === 'Home' && (
-          <RibbonHome editor={editor} lineSpacing={lineSpacing} setLineSpacing={setLineSpacing} onOpenFindReplace={() => setShowFindReplace(true)} />
+          <RibbonHome editor={activeEditor} lineSpacing={lineSpacing} setLineSpacing={setLineSpacing} onOpenFindReplace={() => setShowFindReplace(true)} />
         )}
         {activeRibbonTab === 'Insert' && (
           <RibbonInsert
-            editor={editor} imageInputRef={imageInputRef}
+            editor={activeEditor} imageInputRef={imageInputRef}
             showHeader={showHeader} setShowHeader={setShowHeader}
             showFooter={showFooter} setShowFooter={setShowFooter}
             onOpenComments={() => { setShowComments(true); setActiveRibbonTab('Review'); }}
@@ -672,7 +714,7 @@ export default function TextEditor({
         )}
         {activeRibbonTab === 'Layout' && (
           <RibbonLayout
-            editor={editor}
+            editor={activeEditor}
             marginKey={marginKey} setMarginKey={setMarginKey}
             orientation={orientation} setOrientation={setOrientation}
             paperKey={paperKey} setPaperKey={setPaperKey}
@@ -683,7 +725,7 @@ export default function TextEditor({
         )}
         {activeRibbonTab === 'Review' && (
           <RibbonReview
-            editor={editor}
+            editor={activeEditor}
             showComments={showComments} setShowComments={setShowComments}
             trackChanges={trackChanges} setTrackChanges={setTrackChanges}
             onOpenWordCount={() => setShowWordCount(true)}
@@ -703,7 +745,7 @@ export default function TextEditor({
 
       {/* ── Editor Body ── */}
       <div className="flex flex-1 overflow-hidden">
-        <NavigationPane show={showNavPane} editor={editor} />
+        <NavigationPane show={showNavPane} editor={activeEditor} />
         <CommentsPanel
           show={showComments} onClose={() => setShowComments(false)}
           comments={comments} setComments={setComments}
@@ -720,11 +762,21 @@ export default function TextEditor({
           workspaceIsReadOnly={workspaceIsReadOnly} trackChanges={trackChanges}
           totalPages={totalPages}
           hasBeenEdited={hasBeenEdited}
+          activeEditingArea={activeEditingArea}
+          setActiveEditingArea={setActiveEditingArea}
+          headerEditor={headerEditor}
+          footerEditor={footerEditor}
+          docxBuffer={docxBuffer}
+          setDocxBuffer={setDocxBuffer}
+          setTotalPages={setTotalPages}
+          setCurrentPage={setCurrentPage}
+          setWordCount={setWordCount}
+          setCharCount={setCharCount}
         />
       </div>
 
       {/* ── Floating Toolbar ── */}
-      <FloatingToolbar editor={editor} />
+      <FloatingToolbar editor={activeEditor} />
 
       {/* ── Status Bar ── */}
       <StatusBar

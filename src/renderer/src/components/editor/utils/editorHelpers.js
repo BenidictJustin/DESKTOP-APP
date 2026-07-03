@@ -287,43 +287,29 @@ export async function parseDocxLayout(arrayBuffer) {
       }
     }
 
-    const extractTextFromXml = (xmlStr) => {
-      try {
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xmlStr, 'application/xml');
-        const textNodes = xmlDoc.getElementsByTagName('w:t');
-        let result = '';
-        for (let i = 0; i < textNodes.length; i++) {
-          result += textNodes[i].textContent;
-        }
-        return result.trim();
-      } catch (e) {
-        console.error('Error extracting text from xml:', e);
-        return '';
-      }
-    };
-
     const files = Object.keys(zip.files);
     
-    // Look for any header files
+    // Look for any header files and parse with high fidelity relationships
     const headerFileNames = files.filter(f => f.startsWith('word/header') && f.endsWith('.xml'));
     for (const hfName of headerFileNames) {
       const xmlStr = await zip.files[hfName].async('text');
-      const txt = extractTextFromXml(xmlStr);
-      if (txt) {
-        headerText = txt;
+      const relsMap = await getRelsMap(zip, hfName);
+      const html = await parseXmlToHtml(xmlStr, zip, relsMap);
+      if (html && html.trim() && html !== '<p>&nbsp;</p>') {
+        headerText = html;
         showHeader = true;
         break;
       }
     }
 
-    // Look for any footer files
+    // Look for any footer files and parse with high fidelity relationships
     const footerFileNames = files.filter(f => f.startsWith('word/footer') && f.endsWith('.xml'));
     for (const ffName of footerFileNames) {
       const xmlStr = await zip.files[ffName].async('text');
-      const txt = extractTextFromXml(xmlStr);
-      if (txt) {
-        footerText = txt.replace(/PAGE|page|\{\s*PAGE\s*\}/g, '').trim();
+      const relsMap = await getRelsMap(zip, ffName);
+      const html = await parseXmlToHtml(xmlStr, zip, relsMap);
+      if (html && html.trim() && html !== '<p>&nbsp;</p>') {
+        footerText = html;
         showFooter = true;
         break;
       }
@@ -343,3 +329,314 @@ export async function parseDocxLayout(arrayBuffer) {
     return null;
   }
 }
+
+/** 
+ * Resolves relationship properties mapping rId to image files specifically for a given XML file path.
+ */
+export async function getRelsMap(zip, xmlPath) {
+  const relsMap = {};
+  const parts = xmlPath.split('/');
+  const fileName = parts.pop();
+  const relsPath = parts.join('/') + '/_rels/' + fileName + '.rels';
+  
+  const relsFile = zip.file(relsPath);
+  if (relsFile) {
+    const xmlStr = await relsFile.async('text');
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlStr, 'application/xml');
+    const rels = xmlDoc.getElementsByTagName('Relationship');
+    for (let i = 0; i < rels.length; i++) {
+      const id = rels[i].getAttribute('Id');
+      const target = rels[i].getAttribute('Target');
+      relsMap[id] = target;
+    }
+  }
+  return relsMap;
+}
+
+/**
+ * Parses any Open XML section (body, header, footer) and converts it to HTML.
+ */
+export async function parseXmlToHtml(xmlStr, zip, relsMap) {
+  const parser = new DOMParser();
+  const xmlDoc = parser.parseFromString(xmlStr, 'application/xml');
+  
+  const rootNode = xmlDoc.getElementsByTagName('w:body')[0] || 
+                   xmlDoc.getElementsByTagName('w:hdr')[0] || 
+                   xmlDoc.getElementsByTagName('w:ftr')[0];
+  
+  if (!rootNode) return '';
+
+  const getBase64Image = async (target) => {
+    let path = target;
+    if (!path.startsWith('word/')) {
+      path = 'word/' + path;
+    }
+    const file = zip.file(path);
+    if (!file) return '';
+    const buffer = await file.async('uint8array');
+    let binary = '';
+    const len = buffer.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(buffer[i]);
+    }
+    const base64 = window.btoa(binary);
+    let mime = 'image/png';
+    if (path.endsWith('.jpeg') || path.endsWith('.jpg')) mime = 'image/jpeg';
+    else if (path.endsWith('.gif')) mime = 'image/gif';
+    else if (path.endsWith('.webp')) mime = 'image/webp';
+    return `data:${mime};base64,${base64}`;
+  };
+
+  const processNode = async (node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return node.textContent;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return '';
+    }
+
+    const tagName = node.tagName || node.localName;
+
+    // Table Row
+    if (tagName === 'w:tr') {
+      let trHtml = '';
+      for (let i = 0; i < node.childNodes.length; i++) {
+        trHtml += await processNode(node.childNodes[i]);
+      }
+      return `<tr>${trHtml}</tr>`;
+    }
+
+    // Table Cell
+    if (tagName === 'w:tc') {
+      let tcHtml = '';
+      for (let i = 0; i < node.childNodes.length; i++) {
+        tcHtml += await processNode(node.childNodes[i]);
+      }
+      let cellStyle = 'border: 1px solid #c0c0c0; padding: 6px 10px; text-align: left; vertical-align: top;';
+      const tcPr = node.getElementsByTagName('w:tcPr')[0];
+      if (tcPr) {
+        const shd = tcPr.getElementsByTagName('w:shd')[0];
+        if (shd) {
+          const fill = shd.getAttribute('w:fill');
+          if (fill && fill !== 'auto') {
+            cellStyle += ` background-color: #${fill};`;
+          }
+        }
+        const tcW = tcPr.getElementsByTagName('w:tcW')[0];
+        if (tcW) {
+          const wVal = parseInt(tcW.getAttribute('w:w'));
+          if (wVal) {
+            cellStyle += ` width: ${Math.round(wVal / 15)}px;`;
+          }
+        }
+      }
+      return `<td style="${cellStyle}">${tcHtml}</td>`;
+    }
+
+    // Table
+    if (tagName === 'w:tbl') {
+      let tblHtml = '';
+      for (let i = 0; i < node.childNodes.length; i++) {
+        tblHtml += await processNode(node.childNodes[i]);
+      }
+      return `<table style="border-collapse: collapse; width: 100%; margin: 12px 0; border: 1px solid #c0c0c0;">${tblHtml}</table>`;
+    }
+
+    // Paragraph
+    if (tagName === 'w:p') {
+      let styles = 'margin-bottom: 8px;';
+      const pPr = node.getElementsByTagName('w:pPr')[0];
+      if (pPr) {
+        const jc = pPr.getElementsByTagName('w:jc')[0];
+        if (jc) {
+          const align = jc.getAttribute('w:val');
+          if (align) styles += ` text-align: ${align};`;
+        }
+        const spacing = pPr.getElementsByTagName('w:spacing')[0];
+        if (spacing) {
+          const line = parseInt(spacing.getAttribute('w:line'));
+          if (line) {
+            styles += ` line-height: ${line / 240};`;
+          }
+        }
+      }
+
+      let pContent = '';
+      for (let i = 0; i < node.childNodes.length; i++) {
+        const child = node.childNodes[i];
+        if (child.tagName !== 'w:pPr') {
+          pContent += await processNode(child);
+        }
+      }
+      
+      return `<p style="${styles}">${pContent || '&nbsp;'}</p>`;
+    }
+
+    // Run (formatted text)
+    if (tagName === 'w:r') {
+      let runStyles = '';
+      const rPr = node.getElementsByTagName('w:rPr')[0];
+      let isBold = false;
+      let isItalic = false;
+      let isUnderline = false;
+
+      if (rPr) {
+        const sz = rPr.getElementsByTagName('w:sz')[0];
+        if (sz) {
+          const sizeVal = parseInt(sz.getAttribute('w:val')) || 22;
+          runStyles += ` font-size: ${Math.round(sizeVal * 0.5 * 1.33)}px;`;
+        }
+        const color = rPr.getElementsByTagName('w:color')[0];
+        if (color) {
+          const colorVal = color.getAttribute('w:val');
+          if (colorVal && colorVal !== 'auto') {
+            runStyles += ` color: #${colorVal};`;
+          }
+        }
+        const rFonts = rPr.getElementsByTagName('w:rFonts')[0];
+        if (rFonts) {
+          const fontVal = rFonts.getAttribute('w:ascii') || rFonts.getAttribute('w:hAnsi');
+          if (fontVal) {
+            runStyles += ` font-family: '${fontVal}', sans-serif;`;
+          }
+        }
+        const b = rPr.getElementsByTagName('w:b')[0];
+        if (b && b.getAttribute('w:val') !== 'false' && b.getAttribute('w:val') !== '0') {
+          isBold = true;
+        }
+        const it = rPr.getElementsByTagName('w:i')[0];
+        if (it && it.getAttribute('w:val') !== 'false' && it.getAttribute('w:val') !== '0') {
+          isItalic = true;
+        }
+        const u = rPr.getElementsByTagName('w:u')[0];
+        if (u && u.getAttribute('w:val') !== 'none') {
+          isUnderline = true;
+        }
+      }
+
+      let runContent = '';
+      for (let i = 0; i < node.childNodes.length; i++) {
+        const child = node.childNodes[i];
+        if (child.tagName !== 'w:rPr') {
+          runContent += await processNode(child);
+        }
+      }
+
+      if (!runContent && !node.getElementsByTagName('w:drawing').length) return '';
+
+      let out = runContent;
+      if (isBold) out = `<strong>${out}</strong>`;
+      if (isItalic) out = `<em>${out}</em>`;
+      if (isUnderline) out = `<u>${out}</u>`;
+      if (runStyles) {
+        out = `<span style="${runStyles}">${out}</span>`;
+      }
+      return out;
+    }
+
+    if (tagName === 'w:t') {
+      return node.textContent;
+    }
+
+    if (tagName === 'w:tab') {
+      return '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;';
+    }
+
+    if (tagName === 'w:drawing' || tagName === 'w:graphic' || tagName === 'w:pict') {
+      const blips = node.getElementsByTagName('a:blip');
+      let embedId = '';
+      if (blips && blips.length > 0) {
+        embedId = blips[0].getAttribute('r:embed') || blips[0].getAttribute('r:id');
+      }
+      if (!embedId) {
+        const imageData = node.getElementsByTagName('v:imagedata');
+        if (imageData && imageData.length > 0) {
+          embedId = imageData[0].getAttribute('r:id') || imageData[0].getAttribute('r:href');
+        }
+      }
+      if (embedId && relsMap[embedId]) {
+        const b64 = await getBase64Image(relsMap[embedId]);
+        if (b64) {
+          let imgStyle = 'max-width: 100%; height: auto; display: inline-block; vertical-align: middle;';
+          const extent = node.getElementsByTagName('wp:extent')[0];
+          if (extent) {
+            const cx = parseInt(extent.getAttribute('cx'));
+            const cy = parseInt(extent.getAttribute('cy'));
+            if (cx && cy) {
+              const wPx = Math.round(cx / 9525);
+              const hPx = Math.round(cy / 9525);
+              imgStyle = `width: ${wPx}px; height: ${hPx}px; object-fit: contain; display: inline-block; vertical-align: middle;`;
+            }
+          } else {
+            const shape = node.getElementsByTagName('v:shape')[0];
+            if (shape) {
+              const styleAttr = shape.getAttribute('style');
+              if (styleAttr) {
+                const wMatch = styleAttr.match(/width:\s*([\d\.]+)(pt|px|in)/i);
+                const hMatch = styleAttr.match(/height:\s*([\d\.]+)(pt|px|in)/i);
+                let wVal = '';
+                let hVal = '';
+                if (wMatch) {
+                  const val = parseFloat(wMatch[1]);
+                  const unit = wMatch[2].toLowerCase();
+                  wVal = unit === 'pt' ? `${Math.round(val * 1.33)}px` : unit === 'in' ? `${Math.round(val * 96)}px` : `${val}px`;
+                }
+                if (hMatch) {
+                  const val = parseFloat(hMatch[1]);
+                  const unit = hMatch[2].toLowerCase();
+                  hVal = unit === 'pt' ? `${Math.round(val * 1.33)}px` : unit === 'in' ? `${Math.round(val * 96)}px` : `${val}px`;
+                }
+                if (wVal && hVal) {
+                  imgStyle = `width: ${wVal}; height: ${hVal}; object-fit: contain; display: inline-block; vertical-align: middle;`;
+                }
+              }
+            }
+          }
+          return `<img src="${b64}" style="${imgStyle}" />`;
+        }
+      }
+    }
+
+    if (tagName === 'w:hyperlink') {
+      const linkId = node.getAttribute('r:id');
+      const href = linkId && relsMap[linkId] ? relsMap[linkId] : '#';
+      let linkHtml = '';
+      for (let i = 0; i < node.childNodes.length; i++) {
+        linkHtml += await processNode(node.childNodes[i]);
+      }
+      return `<a href="${href}" class="doc-link" style="color: #2563eb; text-decoration: underline;">${linkHtml}</a>`;
+    }
+
+    let html = '';
+    for (let i = 0; i < node.childNodes.length; i++) {
+      html += await processNode(node.childNodes[i]);
+    }
+    return html;
+  };
+
+  let finalHtml = '';
+  for (let i = 0; i < rootNode.childNodes.length; i++) {
+    const child = rootNode.childNodes[i];
+    if (child.tagName !== 'w:sectPr') {
+      finalHtml += await processNode(child);
+    }
+  }
+
+  return finalHtml;
+}
+
+/** 
+ * High-fidelity client-side DOCX parser.
+ * Reads Open XML relationships, document nodes, tables, paragraph styles, colors, and inline drawings,
+ * and converts them directly into HTML with inline styles.
+ */
+export async function docxToHtml(arrayBuffer) {
+  const zip = await JSZip.loadAsync(arrayBuffer);
+  const relsMap = await getRelsMap(zip, 'word/document.xml');
+  const docFile = zip.file('word/document.xml');
+  if (!docFile) throw new Error('Not a valid word document XML');
+  const xmlStr = await docFile.async('text');
+  return parseXmlToHtml(xmlStr, zip, relsMap);
+}
+

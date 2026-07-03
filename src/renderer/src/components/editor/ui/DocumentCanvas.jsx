@@ -1,7 +1,8 @@
-import React from 'react';
-import { EditorContent } from '@tiptap/react';
-import { Check } from 'lucide-react';
-import { PAPER, MARGINS } from '../constants';
+import React, { useEffect, useRef } from "react";
+import { EditorContent } from "@tiptap/react";
+import { Check } from "lucide-react";
+import { renderAsync } from "docx-preview";
+import { PAPER, MARGINS } from "../constants";
 
 /**
  * DocumentCanvas — Renders dynamic Microsoft Word-style page sheets.
@@ -20,10 +21,20 @@ export default function DocumentCanvas({
   trackChanges,
   totalPages = 1,
   hasBeenEdited = false,
+  activeEditingArea = "body",
+  setActiveEditingArea,
+  headerEditor,
+  footerEditor,
+  docxBuffer,
+  setDocxBuffer,
+  setTotalPages,
+  setCurrentPage,
+  setWordCount,
+  setCharCount,
 }) {
   const paper = PAPER[paperKey] || PAPER.Letter;
-  const docW = orientation === 'landscape' ? paper.h : paper.w;
-  const docH = orientation === 'landscape' ? paper.w : paper.h;
+  const docW = orientation === "landscape" ? paper.h : paper.w;
+  const docH = orientation === "landscape" ? paper.w : paper.h;
   const pad = MARGINS[marginKey] || 96;
   const gapH = 36; // Constant page gap height (matching visual page breaks)
 
@@ -31,98 +42,277 @@ export default function DocumentCanvas({
   const canvasHeight = docH * totalPages + gapH * (totalPages - 1);
   const totalHeight = canvasHeight + (showRuler ? 20 : 0);
 
+  const docxRef = useRef(null);
+
+  // Exit header/footer mode with Escape key
+  useEffect(() => {
+    if (activeEditingArea === "body") return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setActiveEditingArea("body");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeEditingArea, setActiveEditingArea]);
+
+  // Live count updater for DOCX text content
+  const updateDocxCounts = () => {
+    if (!docxRef.current) return;
+    const text = docxRef.current.innerText || "";
+    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+    if (setWordCount) setWordCount(words);
+    if (setCharCount) setCharCount(text.length);
+  };
+
+  // Load and render docx natively using docx-preview
+  useEffect(() => {
+    if (!docxBuffer || !docxRef.current) return;
+    docxRef.current.innerHTML = "";
+    renderAsync(docxBuffer, docxRef.current, null, {
+      breakPages: true,
+      renderHeaders: true,
+      renderFooters: true,
+      renderFootnotes: true,
+      renderEndnotes: true,
+      ignoreLastRenderedPageBreak: false,
+      inWrapper: true,
+      useBase64URL: true,
+    }).then(() => {
+      const pages = docxRef.current.querySelectorAll("section.docx");
+      if (setTotalPages) {
+        setTotalPages(pages.length || 1);
+      }
+      
+      // Compute initial counts
+      updateDocxCounts();
+
+      // Make all pages editable
+      pages.forEach((page) => {
+        page.setAttribute("contenteditable", "true");
+        page.style.outline = "none";
+        page.style.boxShadow = "0 8px 30px rgba(0,0,0,0.15)";
+        page.style.marginBottom = "24px";
+        page.style.background = "#ffffff";
+        page.style.position = "relative";
+        
+        // Listen to inline editing to update count status bar in real-time
+        page.addEventListener("input", updateDocxCounts);
+      });
+    }).catch((err) => {
+      console.error("docx-preview error in canvas:", err);
+    });
+  }, [docxBuffer]);
+
+  // Track page navigation scrolling for DOCX workspace
+  const handleDocxScroll = (e) => {
+    if (!docxBuffer) return;
+    const container = e.currentTarget;
+    const pages = container.querySelectorAll("section.docx");
+    const containerTop = container.getBoundingClientRect().top;
+    
+    let activePage = 1;
+    for (let i = 0; i < pages.length; i++) {
+      const pageRect = pages[i].getBoundingClientRect();
+      if (pageRect.top - containerTop < container.clientHeight / 2) {
+        activePage = i + 1;
+      }
+    }
+    if (setCurrentPage) {
+      setCurrentPage(activePage);
+    }
+  };
+
+  // If native DOCX workspace is active, render docx-preview container directly
+  if (docxBuffer) {
+    return (
+      <div 
+        onScroll={handleDocxScroll}
+        className="flex-1 overflow-y-auto bg-gray-300 py-6 px-4 flex flex-col items-center select-text relative w-full h-full"
+      >
+        <div style={{
+          width: docW,
+          zoom: zoom / 100,
+          outline: "none",
+        }}>
+          <div 
+            ref={docxRef} 
+            className="docx-editor-container select-text" 
+            style={{ outline: "none" }} 
+          />
+        </div>
+        
+        <style>{`
+          .docx-wrapper {
+            background: transparent !important;
+            padding: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            gap: ${gapH}px !important;
+            overflow: visible !important;
+            height: auto !important;
+            position: relative !important;
+            min-height: 100% !important;
+          }
+          .docx-wrapper > section.docx {
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15) !important;
+            border: 1px solid #c0c0c0 !important;
+            margin: 0 auto !important;
+            background: #ffffff !important;
+          }
+        `}</style>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex-1 overflow-y-auto bg-gray-300 py-6 px-4 flex flex-col items-center select-text">
+    <div className="flex-1 overflow-y-auto bg-gray-300 py-6 px-4 flex flex-col items-center select-text relative">
+      
+      {/* -- Header & Footer sticky toolbar notification -- */}
+      {activeEditingArea !== "body" && (
+        <div className="sticky top-0 left-0 right-0 z-[100] w-full max-w-2xl bg-blue-600 text-white px-4 py-2 flex items-center justify-between rounded-lg shadow-lg mb-4 animate-in fade-in slide-in-from-top-4 duration-200">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-white animate-pulse" />
+            <span className="text-xs font-semibold">
+              Header & Footer Tools — Editing {activeEditingArea === "header" ? "Header" : "Footer"}
+            </span>
+          </div>
+          <button
+            onClick={() => setActiveEditingArea("body")}
+            className="bg-white text-blue-600 hover:bg-blue-50 px-3 py-1 rounded-md text-[10px] font-bold transition cursor-pointer shadow-xs"
+          >
+            Close Header and Footer
+          </button>
+        </div>
+      )}
+
       {/* Scaled container for zooming */}
       <div style={{
         width: docW * (zoom / 100),
         minHeight: totalHeight * (zoom / 100),
-        overflow: 'visible',
-        position: 'relative',
+        overflow: "visible",
+        position: "relative",
       }}>
         <div style={{
-          position: 'absolute',
+          position: "absolute",
           top: 0,
-          left: '50%',
+          left: "50%",
           transform: `translate(-50%, 0) scale(${zoom / 100})`,
-          transformOrigin: 'top center',
+          transformOrigin: "top center",
           width: docW,
-          outline: 'none',
+          outline: "none",
         }}>
-          {/* ── Horizontal Ruler ── */}
+          {/* -- Horizontal Ruler -- */}
           {showRuler && (
             <div
               className="bg-linear-to-b from-gray-50 to-gray-100 border border-gray-300 h-5 flex items-center relative select-none shrink-0"
-              style={{ width: docW, marginBottom: '2px' }}
+              style={{ width: docW, marginBottom: "2px" }}
             >
               <div className="absolute left-0 h-full bg-gray-200/80 border-r border-gray-300" style={{ width: pad }} />
               <div className="absolute right-0 h-full bg-gray-200/80 border-l border-gray-300" style={{ width: pad }} />
               {Array.from({ length: 8 }, (_, i) => (
                 <div key={i} className="absolute flex flex-col items-center" style={{ left: pad + i * ((docW - 2 * pad) / 7) }}>
                   <div className="h-2 w-px bg-gray-400" />
-                  <span className="text-[7px] text-gray-500">{i === 0 ? '' : `${i}"`}</span>
+                  <span className="text-[7px] text-gray-500">{i === 0 ? "" : `${i}"`}</span>
                 </div>
               ))}
             </div>
           )}
 
           {/* Wrapper housing the background page sheets and the editor content */}
-          <div style={{ width: docW, height: canvasHeight, position: 'relative' }}>
+          <div style={{ width: docW, height: canvasHeight, position: "relative" }}>
             
-            {/* ── Page Background Sheets (Physical Paper Shadow Cards) ── */}
+            {/* -- Page Background Sheets (Physical Paper Shadow Cards) -- */}
             <div className="absolute inset-0 pointer-events-none select-none flex flex-col items-center">
               {Array.from({ length: totalPages }).map((_, i) => {
                 const pageNum = i + 1;
                 return (
                   <div
                     key={i}
-                    className="bg-white shadow-xl border border-gray-300/70 rounded-xs shrink-0 relative"
+                    className="bg-white shadow-xl border border-gray-300/70 rounded-xs shrink-0 relative pointer-events-auto"
                     style={{
                       width: docW,
                       height: docH,
                       marginBottom: gapH,
                     }}
                   >
-                    {/* ── Page Header ── */}
+                    {/* Double-click zone to trigger Header Edit */}
+                    <div
+                      className="absolute top-0 left-0 right-0 cursor-text z-40 hover:bg-blue-50/20 transition"
+                      style={{ height: `${pad}px` }}
+                      onDoubleClick={() => {
+                        if (!workspaceIsReadOnly) setActiveEditingArea("header");
+                      }}
+                      title="Double click to edit Header"
+                    />
+
+                    {/* Double-click zone to trigger Footer Edit */}
+                    <div
+                      className="absolute bottom-0 left-0 right-0 cursor-text z-40 hover:bg-blue-50/20 transition"
+                      style={{ height: `${pad}px` }}
+                      onDoubleClick={() => {
+                        if (!workspaceIsReadOnly) setActiveEditingArea("footer");
+                      }}
+                      title="Double click to edit Footer"
+                    />
+
+                    {/* -- Page Header -- */}
                     {showHeader && (
                       <div
-                        className="absolute left-0 right-0 pointer-events-none"
+                        className="absolute left-0 right-0 z-50 px-4"
                         style={{
-                          top: '16px',
+                          top: "16px",
                           paddingLeft: pad,
                           paddingRight: pad,
-                          fontSize: '10px',
-                          color: '#9ca3af',
-                          fontFamily: 'sans-serif',
-                          borderBottom: '1px dashed #e5e7eb',
-                          paddingBottom: '6px',
-                          boxSizing: 'border-box',
+                          boxSizing: "border-box",
                         }}
                       >
-                        <span>{headerText}</span>
+                        {activeEditingArea === "header" && pageNum === 1 ? (
+                          <div className="relative">
+                            <div className="w-full bg-blue-50/70 border border-dashed border-blue-400 text-gray-800 text-[10px] px-2 py-1 rounded-sm focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans min-h-[20px] select-text">
+                              {headerEditor && <EditorContent editor={headerEditor} />}
+                            </div>
+                            <span className="absolute -top-3.5 right-1 text-[8px] text-blue-500 font-bold uppercase tracking-wider select-none">Header</span>
+                          </div>
+                        ) : (
+                          <div 
+                            className="text-[10px] text-gray-400 font-sans border-b border-dashed border-transparent hover:border-gray-300 cursor-pointer pb-1"
+                            onClick={() => { if (!workspaceIsReadOnly) setActiveEditingArea("header"); }}
+                            dangerouslySetInnerHTML={{ __html: headerText || "Click to add header" }}
+                          />
+                        )}
                       </div>
                     )}
 
-                    {/* ── Page Footer ── */}
+                    {/* -- Page Footer -- */}
                     {showFooter && (
                       <div
-                        className="absolute left-0 right-0 pointer-events-none"
+                        className="absolute left-0 right-0 z-50 px-4"
                         style={{
-                          bottom: '16px',
+                          bottom: "16px",
                           paddingLeft: pad,
                           paddingRight: pad,
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          fontSize: '10px',
-                          color: '#9ca3af',
-                          fontFamily: 'sans-serif',
-                          borderTop: '1px dashed #e5e7eb',
-                          paddingTop: '6px',
-                          boxSizing: 'border-box',
+                          boxSizing: "border-box",
                         }}
                       >
-                        <span>{footerText}</span>
-                        <span>Page {pageNum}</span>
+                        {activeEditingArea === "footer" && pageNum === 1 ? (
+                          <div className="relative bg-blue-50/70 border border-dashed border-blue-400 rounded-sm p-1 flex items-center justify-between gap-4 select-text">
+                            <div className="bg-transparent text-gray-800 text-[10px] px-2 py-0.5 focus:outline-none flex-1 font-sans min-h-[20px]">
+                              {footerEditor && <EditorContent editor={footerEditor} />}
+                            </div>
+                            <span className="text-[10px] text-gray-400 font-sans px-2">Page {pageNum}</span>
+                            <span className="absolute -top-3.5 right-1 text-[8px] text-blue-500 font-bold uppercase tracking-wider select-none">Footer</span>
+                          </div>
+                        ) : (
+                          <div 
+                            className="flex justify-between items-center text-[10px] text-gray-400 font-sans border-t border-dashed border-transparent hover:border-gray-300 cursor-pointer pt-1"
+                            onClick={() => { if (!workspaceIsReadOnly) setActiveEditingArea("footer"); }}
+                          >
+                            <span dangerouslySetInnerHTML={{ __html: footerText || "Click to add footer" }} />
+                            <span>Page {pageNum}</span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -130,17 +320,26 @@ export default function DocumentCanvas({
               })}
             </div>
 
-            {/* ── Transparent Editor Canvas overlaying sheets ── */}
+            {/* -- Transparent Editor Canvas overlaying sheets -- */}
             <div
               ref={canvasRef}
               onClick={(e) => {
                 const target = e.target;
-                if (target === canvasRef.current || target.classList.contains('doc-page') ||
-                    (!target.closest('.ProseMirror') && target.closest('.doc-page-container'))) {
-                  editor?.commands.focus('end');
+                if (target === canvasRef.current || target.classList.contains("doc-page") ||
+                    (!target.closest(".ProseMirror") && target.closest(".doc-page-container"))) {
+                  if (activeEditingArea === "body") {
+                    editor?.commands.focus("end");
+                  } else {
+                    setActiveEditingArea("body");
+                  }
                 }
               }}
-              className={`relative doc-page-container ${showGridlines ? 'bg-grid' : ''}`}
+              onDoubleClick={() => {
+                if (activeEditingArea !== "body") {
+                  setActiveEditingArea("body");
+                }
+              }}
+              className={`relative doc-page-container ${showGridlines ? "bg-grid" : ""}`}
               style={{
                 width: docW,
                 minHeight: canvasHeight,
@@ -148,9 +347,12 @@ export default function DocumentCanvas({
                 paddingBottom: pad,
                 paddingLeft: pad,
                 paddingRight: pad,
-                cursor: 'text',
-                background: 'transparent',
-                boxSizing: 'border-box',
+                cursor: activeEditingArea === "body" ? "text" : "pointer",
+                background: "transparent",
+                boxSizing: "border-box",
+                opacity: activeEditingArea !== "body" ? 0.35 : 1,
+                pointerEvents: activeEditingArea !== "body" ? "none" : "auto",
+                transition: "opacity 0.2s ease-in-out",
               }}
             >
               {workspaceIsReadOnly && (
@@ -169,71 +371,67 @@ export default function DocumentCanvas({
                     width: 100% !important;
                     overflow: hidden !important;
                   }
-                  .reactjs-tiptap-editor .ProseMirror.ProseMirror.ProseMirror {
+                  .ProseMirror {
                     padding: 0 !important;
                     background-color: transparent !important;
                     background-image: none !important;
-                    min-height: ${docH - pad * 2}px !important;
                     outline: none;
                     font-size: 13px;
                     line-height: ${lineSpacing};
                     color: #1f2937;
                     font-family: 'Calibri', sans-serif;
+                  }
+                  .reactjs-tiptap-editor .ProseMirror.ProseMirror.ProseMirror {
+                    min-height: ${docH - pad * 2}px !important;
                     column-count: ${columns};
                     column-gap: 32px;
                   }
                  .doc-page .ProseMirror {
                    min-height: ${docH - pad * 2}px;
-                   outline: none;
-                   font-size: 13px;
-                   line-height: ${lineSpacing};
-                   color: #1f2937;
-                   font-family: 'Calibri', sans-serif;
                    column-count: ${columns};
                    column-gap: 32px;
                  }
-                 .doc-page .ProseMirror p { margin-bottom: 8px; }
-                 .doc-page .ProseMirror h1 { font-size: 24px; font-weight: 700; margin-bottom: 12px; color: #111827; }
-                 .doc-page .ProseMirror h2 { font-size: 18px; font-weight: 700; margin-bottom: 10px; color: #1f2937; }
-                 .doc-page .ProseMirror h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; color: #374151; }
-                 .doc-page .ProseMirror h4 { font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #374151; }
-                 .doc-page .ProseMirror h5 { font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #4b5563; }
-                 .doc-page .ProseMirror ul { list-style: disc; padding-left: 22px; margin-bottom: 8px; }
-                 .doc-page .ProseMirror ol { list-style: decimal; padding-left: 22px; margin-bottom: 8px; }
-                 .doc-page .ProseMirror li p { margin-bottom: 2px; }
-                 .doc-page .ProseMirror ul[data-type="taskList"] { list-style: none; padding-left: 4px; }
-                 .doc-page .ProseMirror ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 6px; }
-                 .doc-page .ProseMirror ul[data-type="taskList"] li > label { margin-top: 2px; cursor: pointer; }
-                 .doc-page .ProseMirror blockquote {
+                 .ProseMirror p { margin-bottom: 8px; }
+                 .ProseMirror h1 { font-size: 24px; font-weight: 700; margin-bottom: 12px; color: #111827; }
+                 .ProseMirror h2 { font-size: 18px; font-weight: 700; margin-bottom: 10px; color: #1f2937; }
+                 .ProseMirror h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; color: #374151; }
+                 .ProseMirror h4 { font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #374151; }
+                 .ProseMirror h5 { font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #4b5563; }
+                 .ProseMirror ul { list-style: disc; padding-left: 22px; margin-bottom: 8px; }
+                 .ProseMirror ol { list-style: decimal; padding-left: 22px; margin-bottom: 8px; }
+                 .ProseMirror li p { margin-bottom: 2px; }
+                 .ProseMirror ul[data-type="taskList"] { list-style: none; padding-left: 4px; }
+                 .ProseMirror ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 6px; }
+                 .ProseMirror ul[data-type="taskList"] li > label { margin-top: 2px; cursor: pointer; }
+                 .ProseMirror blockquote {
                    border-left: 3px solid #d1d5db; padding-left: 14px;
                    margin: 0 0 8px; color: #6b7280; font-style: italic;
                  }
-                 .doc-page .ProseMirror img {
-                   max-width: 100%; height: auto; display: block;
-                   margin: 8px auto; border-radius: 2px;
+                 .ProseMirror img {
+                   max-width: 100%; height: auto;
                  }
-                 .doc-page .ProseMirror table {
+                 .ProseMirror table {
                    border-collapse: collapse; width: 100%; margin: 12px 0;
                    table-layout: auto;
                  }
-                 .doc-page .ProseMirror th,
-                 .doc-page .ProseMirror td {
+                 .ProseMirror th,
+                 .ProseMirror td {
                    border: 1px solid #c0c0c0; padding: 6px 10px;
                    font-size: 12px; text-align: left; position: relative;
                  }
-                 .doc-page .ProseMirror th { background: #f3f4f6; font-weight: 600; }
-                 .doc-page .ProseMirror tr:nth-child(even) td { background: #fafafa; }
-                 .doc-page .ProseMirror .selectedCell { background: #d4e4ff !important; }
-                 .doc-page .ProseMirror .column-resize-handle {
+                 .ProseMirror th { background: #f3f4f6; font-weight: 600; }
+                 .ProseMirror tr:nth-child(even) td { background: #fafafa; }
+                 .ProseMirror .selectedCell { background: #d4e4ff !important; }
+                 .ProseMirror .column-resize-handle {
                    position: absolute; right: -2px; top: 0; bottom: 0;
                    width: 4px; background: #2563eb; cursor: col-resize;
                    pointer-events: auto; z-index: 20;
                  }
-                 .doc-page .ProseMirror hr { border: none; border-top: 1px solid #d1d5db; margin: 14px 0; }
-                 .doc-page .ProseMirror mark { padding: 1px 2px; border-radius: 2px; }
-                 .doc-page .ProseMirror a.doc-link { color: #2563eb; text-decoration: underline; cursor: pointer; }
-                 .doc-page .ProseMirror sub { font-size: 0.75em; }
-                 .doc-page .ProseMirror sup { font-size: 0.75em; }
+                 .ProseMirror hr { border: none; border-top: 1px solid #d1d5db; margin: 14px 0; }
+                 .ProseMirror mark { padding: 1px 2px; border-radius: 2px; }
+                 .ProseMirror a.doc-link { color: #2563eb; text-decoration: underline; cursor: pointer; }
+                 .ProseMirror sub { font-size: 0.75em; }
+                 .ProseMirror sup { font-size: 0.75em; }
                  .doc-page:not(.has-been-edited) .ProseMirror p.is-editor-empty:first-child::before {
                    color: #adb5bd;
                    content: attr(data-placeholder);
@@ -246,7 +444,7 @@ export default function DocumentCanvas({
                      background-image: linear-gradient(#e5e7eb 1px, transparent 1px), linear-gradient(90deg, #e5e7eb 1px, transparent 1px);
                      background-size: 20px 20px;
                    }
-                 ` : ''}
+                 ` : ""}
                  ${showLineNumbers ? `
                    .doc-page .ProseMirror { counter-reset: line; }
                    .doc-page .ProseMirror p::before {
@@ -255,20 +453,20 @@ export default function DocumentCanvas({
                      display: inline-block; width: 28px; margin-right: 8px;
                      color: #9ca3af; font-size: 10px; user-select: none;
                    }
-                 ` : ''}
+                 ` : ""}
                  ${trackChanges ? `
                    .doc-page .ProseMirror *:not(h1):not(h2):not(h3) {
                      text-decoration-color: #16a34a;
                    }
-                 ` : ''}
+                 ` : ""}
                  @media print {
                    body > * { display: none !important; }
                    .doc-page-container { display: block !important; }
                  }
                `}</style>
  
-               <div className={`doc-page ${hasBeenEdited ? 'has-been-edited' : ''}`}>
-                 <EditorContent editor={editor} className="outline-none" />
+               <div className={`doc-page ${hasBeenEdited ? "has-been-edited" : ""}`}>
+                 {editor && <EditorContent editor={editor} className="outline-none" />}
                </div>
             </div>
           </div>
