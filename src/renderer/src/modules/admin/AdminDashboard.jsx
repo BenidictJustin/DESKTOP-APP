@@ -6,7 +6,7 @@ import {
   getDonors, addDonor, updateDonor, deleteDonor, getDonations, addDonation,
   getEvents, addEvent, updateEvent,
   getReports, updateReport, getInventoryTransactions, logInventoryTransaction,
-  addReport, uploadPhoto
+  addReport, uploadPhoto, getFormRequests, updateFormRequest
 } from '../../services/db';
 import {
   Users, Package, Gift, Calendar, FileText, Info, LogOut,
@@ -34,6 +34,7 @@ export default function AdminDashboard({ user, onLogout }) {
   const [eventsList, setEventsList] = useState([]);
   const [reportsList, setReportsList] = useState([]);
   const [resetRequests, setResetRequests] = useState([]);
+  const [formRequestsList, setFormRequestsList] = useState([]);
 
   // Loading & error handling states
   const [loading, setLoading] = useState(false);
@@ -370,6 +371,13 @@ export default function AdminDashboard({ user, onLogout }) {
   const [selectedReport, setSelectedReport] = useState(null);
   const [feedbackNote, setFeedbackNote] = useState('');
 
+  // Form Requests states
+  const [formRequestSearchQuery, setFormRequestSearchQuery] = useState('');
+  const [formRequestStatusFilter, setFormRequestStatusFilter] = useState('');
+  const [formRequestTypeFilter, setFormRequestTypeFilter] = useState('');
+  const [selectedFormRequest, setSelectedFormRequest] = useState(null);
+  const [adminRequestNotes, setAdminRequestNotes] = useState('');
+
 
 
   // Sync data from DB
@@ -383,6 +391,7 @@ export default function AdminDashboard({ user, onLogout }) {
       const ev = await getEvents();
       const rep = await getReports();
       const reset = await getResetRequests();
+      const fr = await getFormRequests();
 
       setUsersList(u);
       setOrgsList(o);
@@ -392,6 +401,7 @@ export default function AdminDashboard({ user, onLogout }) {
       setEventsList(ev);
       setReportsList(rep);
       setResetRequests(reset);
+      setFormRequestsList(fr);
     } catch (err) {
       console.error("Failed to fetch dashboard data:", err);
     }
@@ -1423,6 +1433,22 @@ export default function AdminDashboard({ user, onLogout }) {
     }
   };
 
+  // Form Request decision update handler
+  const handleUpdateFormRequest = async (reqId, status, notes) => {
+    setLoading(true);
+    try {
+      await updateFormRequest(reqId, { status, adminNotes: notes || '' });
+      triggerSuccess(`Form request updated successfully to ${status}.`);
+      setSelectedFormRequest(null);
+      setAdminRequestNotes('');
+      loadData();
+    } catch (err) {
+      triggerError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Format and export Inventory Report as PDF
   const exportInventoryPDF = () => {
     const input = document.getElementById('inventory-table-container');
@@ -1516,6 +1542,12 @@ export default function AdminDashboard({ user, onLogout }) {
                 label: 'Reports Review',
                 icon: FileText,
                 badge: reportsList.filter(r => r.status === 'submitted').length
+              },
+              {
+                id: 'form-requests',
+                label: 'Form Requests',
+                icon: FileSymlink,
+                badge: formRequestsList.filter(r => r.status === 'Pending').length
               },
               { id: 'accounts', label: 'User Accounts', icon: Users }
             ].map(tab => (
@@ -5460,23 +5492,83 @@ export default function AdminDashboard({ user, onLogout }) {
                       {coordRole === 'department_coordinator' && (
                         <div>
                           <label className="block text-gray-700 text-xs font-semibold mb-1">Assigned Department</label>
-                          <SearchableDropdown
-                            value={coordOrgId}
-                            onChange={(val) => {
-                              setCoordOrgId(val);
-                              if (coordErrors.coordOrgId) {
-                                setCoordErrors(prev => {
-                                  const copy = { ...prev };
-                                  delete copy.coordOrgId;
-                                  return copy;
-                                });
-                              }
-                            }}
-                            options={orgsList.filter(o => o.type === 'department' || !o.type)}
-                            onDelete={(o) => handleDeleteOrg(o.id)}
-                            placeholder="Type to filter departments..."
-                            className={coordErrors.coordOrgId ? 'border-red-500 ring-2 ring-red-500/10' : ''}
-                          />
+                          <div className="relative">
+                            <input
+                              type="text"
+                              value={deptSearchVal}
+                              onChange={(e) => {
+                                setDeptSearchVal(e.target.value);
+                                setCoordOrgId(e.target.value);
+                                setIsDeptSearchOpen(true);
+                                if (coordErrors.coordOrgId) {
+                                  setCoordErrors(prev => {
+                                    const copy = { ...prev };
+                                    delete copy.coordOrgId;
+                                    return copy;
+                                  });
+                                }
+                              }}
+                              onFocus={() => setIsDeptSearchOpen(true)}
+                              onBlur={() => {
+                                setTimeout(() => setIsDeptSearchOpen(false), 250);
+                              }}
+                              placeholder="Select or type department..."
+                              className={`w-full px-3 py-2 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${coordErrors.coordOrgId ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                              style={{ height: '40px' }}
+                            />
+
+                            {isDeptSearchOpen && (
+                              <div className="absolute left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-lg z-50 divide-y divide-gray-50">
+                                {orgsList
+                                  .filter(o => o.type === 'department' || !o.type)
+                                  .filter(o => {
+                                    if (!deptSearchVal) return true;
+                                    const term = deptSearchVal.toLowerCase();
+                                    return o.name.toLowerCase().includes(term) || o.abbreviation.toLowerCase().includes(term);
+                                  })
+                                  .map(o => (
+                                    <div
+                                      key={o.id}
+                                      onMouseDown={(e) => e.preventDefault()}
+                                      onClick={() => {
+                                        setCoordOrgId(o.id);
+                                        setDeptSearchVal(o.name);
+                                        setIsDeptSearchOpen(false);
+                                      }}
+                                      className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
+                                    >
+                                      <span className="truncate">{o.name} ({o.abbreviation})</span>
+
+                                      <button
+                                        type="button"
+                                        onMouseDown={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                        }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteOrg(o.id);
+                                        }}
+                                        className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                {orgsList
+                                  .filter(o => o.type === 'department' || !o.type)
+                                  .filter(o => {
+                                    if (!deptSearchVal) return true;
+                                    const term = deptSearchVal.toLowerCase();
+                                    return o.name.toLowerCase().includes(term) || o.abbreviation.toLowerCase().includes(term);
+                                  }).length === 0 && (
+                                    <div className="p-2.5 text-xs text-gray-400 text-left font-semibold">
+                                      No matching departments found.
+                                    </div>
+                                  )}
+                              </div>
+                            )}
+                          </div>
                           {coordErrors.coordOrgId && (
                             <p className="text-red-500 text-[10px] mt-1 font-semibold">{coordErrors.coordOrgId}</p>
                           )}
@@ -5623,7 +5715,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                   <span className="text-[10px] text-gray-400 font-normal">{u.email}</span>
                                 </td>
                                 <td className="py-3 px-2 text-gray-500 capitalize">{u.role.replace('_', ' ')}</td>
-                                <td className="py-3 px-2 font-medium">{org ? org.abbreviation : u.role === 'admin' ? 'System Admin' : 'CES Office'}</td>
+                                <td className="py-3 px-2 font-medium">{org ? org.abbreviation : u.organizationId ? u.organizationId : u.role === 'admin' ? 'System Admin' : 'CES Office'}</td>
                                 <td className="py-3 px-2">
                                   <span className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${u.status === 'inactive' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'
                                     }`}>
@@ -5655,7 +5747,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                       setCoordRole(u.role);
                                       setCoordOrgId(u.organizationId || '');
                                       const matchedOrg = orgsList.find(o => o.id === u.organizationId);
-                                      setDeptSearchVal(matchedOrg ? matchedOrg.name : '');
+                                      setDeptSearchVal(matchedOrg ? matchedOrg.name : u.organizationId || '');
                                       setCoordErrors({});
                                     }}
                                     className="py-1 px-2.5 rounded-full text-[10px] font-semibold border bg-white border-gray-200 text-navy-blue hover:bg-gray-50 transition cursor-pointer"
@@ -5692,6 +5784,335 @@ export default function AdminDashboard({ user, onLogout }) {
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* ==================================================== */}
+            {/* FORM REQUESTS TAB PANEL */}
+            {/* ==================================================== */}
+            {activeTab === 'form-requests' && user.role === 'admin' && (
+              <div className="space-y-6 animate-fade-in">
+                {/* Header card */}
+                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between">
+                  <div>
+                    <h1 className="text-2xl font-bold text-navy-blue flex items-center gap-2">
+                      <FileSymlink className="w-6 h-6 text-sig-green" /> Form Requests Manager
+                    </h1>
+                    <p className="text-xs text-gray-400 font-semibold mt-1">
+                      Manage and review all logistics, transportation, budget, and outreach requests from departments.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Filter & Search Bar */}
+                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
+                  <div className="flex flex-col md:flex-row gap-3">
+                    {/* Search Field */}
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search by purpose, coordinator, notes..."
+                        value={formRequestSearchQuery}
+                        onChange={(e) => setFormRequestSearchQuery(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                        style={{ height: '38px' }}
+                      />
+                    </div>
+
+                    {/* Filter Status */}
+                    <div className="relative w-full md:w-48">
+                      <select
+                        value={formRequestStatusFilter}
+                        onChange={(e) => setFormRequestStatusFilter(e.target.value)}
+                        className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                        style={{ height: '38px' }}
+                      >
+                        <option value="">All Statuses</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Rejected">Rejected</option>
+                        <option value="Completed">Completed</option>
+                      </select>
+                    </div>
+
+                    {/* Filter Form Title / Request Type */}
+                    <div className="relative w-full md:w-56">
+                      <select
+                        value={formRequestTypeFilter}
+                        onChange={(e) => setFormRequestTypeFilter(e.target.value)}
+                        className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                        style={{ height: '38px' }}
+                      >
+                        <option value="">All Request Types</option>
+                        <option value="Community Outreach Activity Request Form">Community Outreach</option>
+                        <option value="Funding and Budget Request Form">Funding & Budget</option>
+                        <option value="Logistics and Equipment Request Form">Logistics & Equipment</option>
+                        <option value="Transportation Request Form">Transportation</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Requests Table */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-gray-100 bg-gray-50 text-[10px] uppercase font-bold text-gray-500">
+                          <th className="py-3 px-3">Department & Coordinator</th>
+                          <th className="py-3 px-2">Request Type</th>
+                          <th className="py-3 px-2">Target Date</th>
+                          <th className="py-3 px-2">Status</th>
+                          <th className="py-3 px-2">Urgency</th>
+                          <th className="py-3 px-2">Date Submitted</th>
+                          <th className="py-3 px-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50 text-xs">
+                        {(() => {
+                          const filtered = formRequestsList.filter(req => {
+                            // Search filter
+                            const coordinator = usersList.find(u => u.uid === req.coordinatorId);
+                            const dept = orgsList.find(o => o.id === req.organizationId);
+                            const deptName = dept ? dept.name : (req.organizationId || '');
+                            const coordName = coordinator ? coordinator.name : '';
+                            
+                            const matchesSearch =
+                              req.purpose.toLowerCase().includes(formRequestSearchQuery.toLowerCase()) ||
+                              (req.notes && req.notes.toLowerCase().includes(formRequestSearchQuery.toLowerCase())) ||
+                              deptName.toLowerCase().includes(formRequestSearchQuery.toLowerCase()) ||
+                              coordName.toLowerCase().includes(formRequestSearchQuery.toLowerCase()) ||
+                              req.formTitle.toLowerCase().includes(formRequestSearchQuery.toLowerCase());
+
+                            // Status filter
+                            const matchesStatus = formRequestStatusFilter === '' || req.status === formRequestStatusFilter;
+
+                            // Request type filter
+                            const matchesType = formRequestTypeFilter === '' || req.formTitle === formRequestTypeFilter;
+
+                            return matchesSearch && matchesStatus && matchesType;
+                          });
+
+                          if (filtered.length === 0) {
+                            return (
+                              <tr>
+                                <td colSpan="7" className="text-center py-12 text-gray-400 text-xs font-semibold">
+                                  No form requests found.
+                                </td>
+                              </tr>
+                            );
+                          }
+
+                          return filtered.map(req => {
+                            const coordinator = usersList.find(u => u.uid === req.coordinatorId);
+                            const dept = orgsList.find(o => o.id === req.organizationId);
+                            const formattedDate = new Date(req.createdAt).toLocaleDateString(undefined, {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            });
+
+                            return (
+                              <tr key={req.id} className="hover:bg-gray-50/50 transition">
+                                <td className="py-3.5 px-3 font-semibold text-navy-blue">
+                                  <div>{dept ? dept.name : (req.organizationId || 'CES')}</div>
+                                  <span className="text-[10px] text-gray-400 font-normal">By: {coordinator ? coordinator.name : 'Unknown Coordinator'}</span>
+                                </td>
+                                <td className="py-3.5 px-2 text-gray-700 font-semibold">{req.formTitle}</td>
+                                <td className="py-3.5 px-2 text-navy-blue font-semibold">{new Date(req.targetDate).toLocaleDateString()}</td>
+                                <td className="py-3.5 px-2">
+                                  <span className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase border ${
+                                    req.status === 'Approved' ? 'bg-green-50 text-green-700 border-green-200' :
+                                    req.status === 'Rejected' ? 'bg-red-50 text-red-700 border-red-200' :
+                                    req.status === 'Completed' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                    'bg-yellow-50 text-yellow-700 border-yellow-200'
+                                  }`}>
+                                    {req.status}
+                                  </span>
+                                </td>
+                                <td className="py-3.5 px-2">
+                                  {req.isUrgent ? (
+                                    <span className="inline-block text-[9px] font-bold px-1.5 py-0.2 rounded bg-red-100 text-red-800 uppercase animate-pulse">Urgent</span>
+                                  ) : (
+                                    <span className="text-gray-400 text-[10px] font-semibold">Normal</span>
+                                  )}
+                                </td>
+                                <td className="py-3.5 px-2 text-gray-400 font-medium">{formattedDate}</td>
+                                <td className="py-3.5 px-3 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedFormRequest(req);
+                                      setAdminRequestNotes(req.adminNotes || '');
+                                    }}
+                                    className="py-1 px-3 bg-white border border-gray-200 text-navy-blue hover:bg-gray-50 transition rounded-full text-[10px] font-bold cursor-pointer inline-flex items-center space-x-1"
+                                  >
+                                    <Eye className="w-3 h-3" />
+                                    <span>Review</span>
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          });
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* FORM REQUEST REVIEW MODAL */}
+                {selectedFormRequest && (
+                  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-xs">
+                    <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl border border-gray-100 animate-scale-up space-y-4 max-h-[90vh] overflow-y-auto">
+                      <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                        <div>
+                          <h3 className="font-bold text-navy-blue text-base">
+                            Review Form Request
+                          </h3>
+                          <p className="text-[10px] text-gray-400 font-semibold">{selectedFormRequest.formTitle}</p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setSelectedFormRequest(null);
+                            setAdminRequestNotes('');
+                          }}
+                          className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 cursor-pointer"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      {/* Request details info grid */}
+                      <div className="grid grid-cols-2 gap-4 text-xs">
+                        <div className="col-span-2 bg-gray-50/50 p-3 rounded-2xl border border-gray-100 space-y-2">
+                          <div className="flex justify-between">
+                            <span className="text-gray-400 font-semibold">Department:</span>
+                            <span className="text-navy-blue font-bold">
+                              {orgsList.find(o => o.id === selectedFormRequest.organizationId)?.name || selectedFormRequest.organizationId || 'CES'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400 font-semibold">Submitted By:</span>
+                            <span className="text-navy-blue font-bold">
+                              {usersList.find(u => u.uid === selectedFormRequest.coordinatorId)?.name || 'Unknown Coordinator'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400 font-semibold">Date Submitted:</span>
+                            <span className="text-navy-blue font-bold">
+                              {new Date(selectedFormRequest.createdAt).toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400 font-semibold">Target Action Date:</span>
+                            <span className="text-navy-blue font-bold">{new Date(selectedFormRequest.targetDate).toLocaleDateString()}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400 font-semibold">Urgency Status:</span>
+                            <span className={selectedFormRequest.isUrgent ? "text-red-600 font-bold" : "text-navy-blue font-bold"}>
+                              {selectedFormRequest.isUrgent ? "Urgent Priority" : "Normal Priority"}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400 font-semibold">Current Status:</span>
+                            <span className={`font-bold uppercase ${
+                              selectedFormRequest.status === 'Approved' ? 'text-green-600' :
+                              selectedFormRequest.status === 'Rejected' ? 'text-red-600' :
+                              selectedFormRequest.status === 'Completed' ? 'text-blue-600' :
+                              'text-yellow-600'
+                            }`}>
+                              {selectedFormRequest.status}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="col-span-2 space-y-1">
+                          <strong className="text-navy-blue font-bold block">Purpose & Justification:</strong>
+                          <p className="text-gray-600 font-semibold bg-gray-50/20 p-3 rounded-xl border border-gray-100 whitespace-pre-wrap leading-relaxed">
+                            {selectedFormRequest.purpose}
+                          </p>
+                        </div>
+
+                        {selectedFormRequest.notes && (
+                          <div className="col-span-2 space-y-1">
+                            <strong className="text-navy-blue font-bold block">Additional Notes / Logistics Items:</strong>
+                            <p className="text-gray-600 font-semibold bg-gray-50/20 p-3 rounded-xl border border-gray-100 whitespace-pre-wrap leading-relaxed">
+                              {selectedFormRequest.notes}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Admin Action Comments block */}
+                        <div className="col-span-2 space-y-1.5 pt-2 border-t border-gray-100">
+                          <label className="block text-navy-blue font-bold text-xs mb-1">
+                            Reviewer Feedback / Decision Notes
+                          </label>
+                          <textarea
+                            value={adminRequestNotes}
+                            onChange={(e) => setAdminRequestNotes(e.target.value)}
+                            placeholder="Add administrative review notes, instructions, or rejection reasons here..."
+                            className="w-full p-3 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 resize-none font-semibold text-navy-blue"
+                            rows="3"
+                          ></textarea>
+                        </div>
+                      </div>
+
+                      {/* Modal controls */}
+                      <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-gray-100">
+                        <div className="flex-1 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateFormRequest(selectedFormRequest.id, 'Approved', adminRequestNotes)}
+                            disabled={loading}
+                            className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-full text-xs font-semibold py-2 px-3 transition cursor-pointer flex items-center justify-center gap-1"
+                            style={{ height: '38px' }}
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Approve</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateFormRequest(selectedFormRequest.id, 'Rejected', adminRequestNotes)}
+                            disabled={loading}
+                            className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-full text-xs font-semibold py-2 px-3 transition cursor-pointer flex items-center justify-center gap-1"
+                            style={{ height: '38px' }}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            <span>Reject</span>
+                          </button>
+                        </div>
+
+                        <div className="flex gap-2">
+                          {/* Manual Status Selector */}
+                          <div className="relative">
+                            <select
+                              value={selectedFormRequest.status}
+                              onChange={(e) => handleUpdateFormRequest(selectedFormRequest.id, e.target.value, adminRequestNotes)}
+                              className="px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-full focus:outline-none font-semibold text-navy-blue cursor-pointer"
+                              style={{ height: '38px' }}
+                            >
+                              <option value="Pending">Set Status: Pending</option>
+                              <option value="Approved">Set Status: Approved</option>
+                              <option value="Rejected">Set Status: Rejected</option>
+                              <option value="Completed">Set Status: Completed</option>
+                            </select>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedFormRequest(null);
+                              setAdminRequestNotes('');
+                            }}
+                            className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition cursor-pointer"
+                            style={{ height: '38px' }}
+                          >
+                            Close
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

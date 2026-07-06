@@ -21,7 +21,9 @@ const LOCAL_STORAGE_KEYS = {
   EVENTS: 'dommunity_events',
   REPORTS: 'dommunity_reports',
   LOGGED_IN_USER: 'dommunity_current_user',
-  RESET_REQUESTS: 'dommunity_reset_requests'
+  RESET_REQUESTS: 'dommunity_reset_requests',
+  PUBLISHED_FORMS: 'dommunity_published_forms',
+  FORM_REQUESTS: 'dommunity_form_requests'
 };
 
 // Initial Seed Data for Demo Mode
@@ -126,7 +128,49 @@ const SEED_DATA = {
       updatedAt: new Date(2026, 6, 14).toISOString()
     }
   ],
-  RESET_REQUESTS: []
+  RESET_REQUESTS: [],
+  PUBLISHED_FORMS: [
+    {
+      id: 'form-1',
+      title: 'Community Outreach Approval Form',
+      description: 'Submit this form to request administrative approval for conducting community outreach activities in partner communities.',
+      category: 'Approval',
+      keywords: ['outreach', 'permission', 'approval', 'community'],
+      createdAt: new Date().toISOString()
+    },
+    {
+      id: 'form-2',
+      title: 'Funding and Budget Request Form',
+      description: 'Request financial assistance or budget allocation from the CES Office for department extension projects and materials purchase.',
+      category: 'Financial',
+      keywords: ['funding', 'budget', 'money', 'financial', 'expenses'],
+      createdAt: new Date().toISOString()
+    },
+    {
+      id: 'form-3',
+      title: 'Logistics and Equipment Request Form',
+      description: 'Request support materials, chairs, tables, sound systems, or clean-up drive materials for scheduled community events.',
+      category: 'Logistics',
+      keywords: ['logistics', 'equipment', 'materials', 'supplies', 'chairs', 'tables'],
+      createdAt: new Date().toISOString()
+    },
+    {
+      id: 'form-4',
+      title: 'Speaker/Facilitator Invitation Form',
+      description: 'Submit lecturer profile, topic details, and event outlines to invite external facilitators or speakers to university seminars.',
+      category: 'Guest Speakers',
+      keywords: ['speaker', 'facilitator', 'lecturer', 'invitation', 'seminar'],
+      createdAt: new Date().toISOString()
+    },
+    {
+      id: 'form-5',
+      title: 'Transportation Request Form',
+      description: 'Request university vehicles (vans or buses) to transport volunteers, staff, and logistics to community extension sites.',
+      category: 'Transportation',
+      keywords: ['transportation', 'vehicle', 'van', 'bus', 'travel', 'trip'],
+      createdAt: new Date().toISOString()
+    }
+  ]
 };
 
 // Initialize Local Storage helper
@@ -140,6 +184,12 @@ const initLocalStorage = () => {
     localStorage.setItem(LOCAL_STORAGE_KEYS.EVENTS, JSON.stringify(SEED_DATA.EVENTS));
     localStorage.setItem(LOCAL_STORAGE_KEYS.REPORTS, JSON.stringify(SEED_DATA.REPORTS));
     localStorage.setItem(LOCAL_STORAGE_KEYS.RESET_REQUESTS, JSON.stringify(SEED_DATA.RESET_REQUESTS));
+  }
+  if (!localStorage.getItem(LOCAL_STORAGE_KEYS.PUBLISHED_FORMS)) {
+    localStorage.setItem(LOCAL_STORAGE_KEYS.PUBLISHED_FORMS, JSON.stringify(SEED_DATA.PUBLISHED_FORMS));
+  }
+  if (!localStorage.getItem(LOCAL_STORAGE_KEYS.FORM_REQUESTS)) {
+    localStorage.setItem(LOCAL_STORAGE_KEYS.FORM_REQUESTS, JSON.stringify([]));
   }
 };
 
@@ -557,21 +607,23 @@ const sortInventory = (items) => {
 
   active.sort(sortFunc);
   
-  // Tag the topmost recommended item for release for each unique Item Name!
-  const itemNames = [...new Set(active.map(i => i.name.toLowerCase().trim()))];
-  const recommendedIds = {};
-  
-  itemNames.forEach(name => {
-    const itemsWithName = active.filter(i => i.name.toLowerCase().trim() === name && !i.hasBeenReleased);
-    if (itemsWithName.length > 0) {
-      recommendedIds[name] = itemsWithName[0].id; // The sorted first one is recommended
-    }
-  });
+  const today = new Date();
+  const maxRecommendedDate = new Date();
+  maxRecommendedDate.setMonth(today.getMonth() + 5);
 
-  const finalItems = [...active, ...expired, ...outOfStock].map(item => ({
-    ...item,
-    isRecommendedForRelease: recommendedIds[item.name.toLowerCase().trim()] === item.id
-  }));
+  const finalItems = [...active, ...expired, ...outOfStock].map(item => {
+    let recommended = false;
+    if (item.expiryDate && item.quantity > 0 && item.status !== 'expired') {
+      const expDate = new Date(item.expiryDate);
+      if (expDate >= today && expDate <= maxRecommendedDate) {
+        recommended = true;
+      }
+    }
+    return {
+      ...item,
+      isRecommendedForRelease: recommended
+    };
+  });
 
   return finalItems;
 };
@@ -1218,6 +1270,117 @@ export const deleteOrganization = async (orgId) => {
   } else {
     await deleteDoc(doc(fdb, 'organizations', orgId));
     return true;
+  }
+};
+
+// --- FORMS & REQUESTS SERVICES ---
+
+export const getPublishedForms = async () => {
+  if (isDemoMode) {
+    let forms = getLocalData(LOCAL_STORAGE_KEYS.PUBLISHED_FORMS);
+    if (!forms || forms.length === 0) {
+      forms = SEED_DATA.PUBLISHED_FORMS;
+      saveLocalData(LOCAL_STORAGE_KEYS.PUBLISHED_FORMS, forms);
+    }
+    return forms;
+  } else {
+    try {
+      const qSnap = await getDocs(collection(fdb, 'published_forms'));
+      if (qSnap.empty) {
+        return SEED_DATA.PUBLISHED_FORMS;
+      }
+      return qSnap.docs.map(d => ({
+        ...d.data(),
+        id: d.id,
+        createdAt: d.data().createdAt?.toDate ? d.data().createdAt.toDate().toISOString() : d.data().createdAt
+      }));
+    } catch (e) {
+      console.warn("Failed fetching published forms from Firestore, falling back to seed data:", e);
+      return SEED_DATA.PUBLISHED_FORMS;
+    }
+  }
+};
+
+export const getFormRequests = async (orgId) => {
+  if (isDemoMode) {
+    const list = getLocalData(LOCAL_STORAGE_KEYS.FORM_REQUESTS) || [];
+    return orgId ? list.filter(r => r.organizationId === orgId) : list;
+  } else {
+    try {
+      let q = collection(fdb, 'form_requests');
+      if (orgId) {
+        q = query(q, where('organizationId', '==', orgId));
+      }
+      const qSnap = await getDocs(q);
+      const list = [];
+      qSnap.forEach(snap => {
+        const d = snap.data();
+        list.push({
+          id: snap.id,
+          ...d,
+          createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : d.createdAt,
+          updatedAt: d.updatedAt?.toDate ? d.updatedAt.toDate().toISOString() : d.updatedAt
+        });
+      });
+      return list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    } catch (e) {
+      console.warn("Failed fetching form requests from Firestore, returning local data:", e);
+      const list = getLocalData(LOCAL_STORAGE_KEYS.FORM_REQUESTS) || [];
+      return orgId ? list.filter(r => r.organizationId === orgId) : list;
+    }
+  }
+};
+
+export const addFormRequest = async (requestPayload, userId) => {
+  const request = {
+    ...requestPayload,
+    coordinatorId: userId,
+    status: 'Pending',
+    adminNotes: '',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  if (isDemoMode) {
+    const list = getLocalData(LOCAL_STORAGE_KEYS.FORM_REQUESTS) || [];
+    const newReq = {
+      id: 'req-' + Math.random().toString(36).substr(2, 9),
+      ...request
+    };
+    list.push(newReq);
+    saveLocalData(LOCAL_STORAGE_KEYS.FORM_REQUESTS, list);
+    return newReq;
+  } else {
+    const docRef = await addDoc(collection(fdb, 'form_requests'), {
+      ...request,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now()
+    });
+    return { ...request, id: docRef.id };
+  }
+};
+
+export const updateFormRequest = async (reqId, updates) => {
+  if (isDemoMode) {
+    const list = getLocalData(LOCAL_STORAGE_KEYS.FORM_REQUESTS) || [];
+    const idx = list.findIndex(r => r.id === reqId);
+    if (idx !== -1) {
+      list[idx] = {
+        ...list[idx],
+        ...updates,
+        updatedAt: new Date().toISOString()
+      };
+      saveLocalData(LOCAL_STORAGE_KEYS.FORM_REQUESTS, list);
+      return list[idx];
+    }
+    throw new Error("Form request not found.");
+  } else {
+    const docRef = doc(fdb, 'form_requests', reqId);
+    await updateDoc(docRef, {
+      ...updates,
+      updatedAt: Timestamp.now()
+    });
+    return { id: reqId, ...updates };
   }
 };
 

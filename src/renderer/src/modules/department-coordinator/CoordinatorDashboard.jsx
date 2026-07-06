@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  getEvents, getReports, addReport, updateReport, uploadPhoto, getOrganizations 
+  getEvents, getReports, addReport, updateReport, uploadPhoto, getOrganizations,
+  getPublishedForms, getFormRequests, addFormRequest
 } from '../../services/db';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { 
   FileText, Calendar, Info, LogOut, Check, Save, Send, AlertTriangle, 
-  Upload, Image as ImageIcon, MessageSquare, Edit3, Eye, Clock, Plus, HelpCircle
+  Upload, Image as ImageIcon, MessageSquare, Edit3, Eye, Clock, Plus, HelpCircle,
+  ClipboardList, Search
 } from 'lucide-react';import SearchableDropdown from '../../components/SearchableDropdown';
 
 export default function CoordinatorDashboard({ user, onLogout }) {
@@ -16,6 +18,20 @@ export default function CoordinatorDashboard({ user, onLogout }) {
   const [eventsList, setEventsList] = useState([]);
   const [reportsList, setReportsList] = useState([]);
   const [orgsList, setOrgsList] = useState([]);
+  
+  // Forms & Requests state
+  const [formsList, setFormsList] = useState([]);
+  const [requestsList, setRequestsList] = useState([]);
+  const [formSubTab, setFormSubTab] = useState('browse'); // 'browse' vs 'history'
+  const [formsSearch, setFormsSearch] = useState('');
+  
+  // Modal request state
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [selectedForm, setSelectedForm] = useState(null);
+  const [requestPurpose, setRequestPurpose] = useState('');
+  const [requestTargetDate, setRequestTargetDate] = useState('');
+  const [requestNotes, setRequestNotes] = useState('');
+  const [requestIsUrgent, setRequestIsUrgent] = useState(false);
   
   // Action notifications
   const [errorMsg, setErrorMsg] = useState('');
@@ -52,8 +68,12 @@ export default function CoordinatorDashboard({ user, onLogout }) {
       const ev = await getEvents();
       const rep = await getReports();
       const orgs = await getOrganizations();
+      const forms = await getPublishedForms();
+      const reqs = await getFormRequests(user.organizationId);
       
       setOrgsList(orgs);
+      setFormsList(forms);
+      setRequestsList(reqs);
 
       // Filter events scoped to the coordinator's assigned organization
       const deptEvents = ev.filter(e => e.assignedOrganizationId === user.organizationId);
@@ -232,7 +252,8 @@ export default function CoordinatorDashboard({ user, onLogout }) {
           <nav className="p-4 space-y-1">
             {[
               { id: 'editor', label: 'Report Workspace', icon: FileText },
-              { id: 'history', label: 'Reports Directory', icon: Clock }
+              { id: 'history', label: 'Reports Directory', icon: Clock },
+              { id: 'forms', label: 'Forms & Requests', icon: ClipboardList }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -618,6 +639,221 @@ export default function CoordinatorDashboard({ user, onLogout }) {
           </div>
         )}
 
+        {/* ==================================================== */}
+        {/* FORMS & REQUESTS TAB PANEL */}
+        {/* ==================================================== */}
+        {activeTab === 'forms' && (
+          <div className="space-y-6 animate-fade-in w-full">
+            {/* Header section */}
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-navy-blue">Forms & Requests</h1>
+                <p className="text-gray-500 text-xs mt-1">Browse official extension office forms, submit requests, and monitor processing status.</p>
+              </div>
+              
+              {/* Sub tabs */}
+              <div className="flex items-center space-x-2 mt-4 md:mt-0 bg-gray-50 p-1 rounded-full border border-gray-100 self-start md:self-auto">
+                <button
+                  onClick={() => setFormSubTab('browse')}
+                  className={`px-4 py-1.5 rounded-full text-xs font-semibold transition duration-200 cursor-pointer ${
+                    formSubTab === 'browse'
+                      ? 'bg-sig-green text-navy-blue shadow-sm'
+                      : 'text-gray-600 hover:text-navy-blue'
+                  }`}
+                >
+                  Available Forms
+                </button>
+                <button
+                  onClick={() => setFormSubTab('history')}
+                  className={`px-4 py-1.5 rounded-full text-xs font-semibold transition duration-200 cursor-pointer ${
+                    formSubTab === 'history'
+                      ? 'bg-sig-green text-navy-blue shadow-sm'
+                      : 'text-gray-600 hover:text-navy-blue'
+                  }`}
+                >
+                  My Requests ({requestsList.length})
+                </button>
+              </div>
+            </div>
+
+            {/* BROWSE SUB-TAB */}
+            {formSubTab === 'browse' && (
+              <div className="space-y-6">
+                {/* Search and control bar */}
+                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <h2 className="text-sm font-bold text-navy-blue">List of Forms</h2>
+                  <div className="relative w-full md:w-80">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search by title or keyword..."
+                      value={formsSearch}
+                      onChange={(e) => setFormsSearch(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 text-xs bg-gray-50 border border-gray-100 rounded-full focus:outline-none focus:ring-2 focus:ring-sig-green/30 font-medium text-navy-blue placeholder-gray-400 transition"
+                      style={{ height: '38px' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Scrollable list of form cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[600px] overflow-y-auto pr-2">
+                  {formsList
+                    .filter(form => {
+                      if (!formsSearch) return true;
+                      const query = formsSearch.toLowerCase();
+                      return (
+                        form.title.toLowerCase().includes(query) ||
+                        form.description.toLowerCase().includes(query) ||
+                        form.category.toLowerCase().includes(query) ||
+                        form.keywords.some(kw => kw.toLowerCase().includes(query))
+                      );
+                    })
+                    .map(form => (
+                      <div
+                        key={form.id}
+                        className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between hover:border-sig-green/30 hover:shadow-md transition duration-200"
+                      >
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] bg-navy-blue/5 text-navy-blue font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                              {form.category}
+                            </span>
+                            <span className="text-[9px] text-gray-400 font-semibold">
+                              Code: {form.id.toUpperCase()}
+                            </span>
+                          </div>
+                          <h3 className="text-sm font-bold text-navy-blue">{form.title}</h3>
+                          <p className="text-xs text-gray-500 leading-relaxed line-clamp-3">
+                            {form.description}
+                          </p>
+                          {/* Display keywords */}
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {form.keywords.map((kw, i) => (
+                              <span key={i} className="text-[8px] text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">
+                                #{kw}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="pt-4 mt-4 border-t border-gray-50 flex justify-end">
+                          <button
+                            onClick={() => {
+                              setSelectedForm(form);
+                              setIsRequestModalOpen(true);
+                              setRequestPurpose('');
+                              setRequestTargetDate('');
+                              setRequestNotes('');
+                              setRequestIsUrgent(false);
+                            }}
+                            className="bg-navy-blue text-white rounded-full text-xs font-semibold py-1.5 px-5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer flex items-center space-x-1"
+                          >
+                            <Send className="w-3 h-3 animate-none" />
+                            <span>Request Form</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                  {formsList.filter(form => {
+                    if (!formsSearch) return true;
+                    const query = formsSearch.toLowerCase();
+                    return (
+                      form.title.toLowerCase().includes(query) ||
+                      form.description.toLowerCase().includes(query) ||
+                      form.category.toLowerCase().includes(query) ||
+                      form.keywords.some(kw => kw.toLowerCase().includes(query))
+                    );
+                  }).length === 0 && (
+                    <div className="col-span-full bg-white rounded-3xl p-8 border border-gray-100 text-center text-gray-400 text-xs font-semibold">
+                      No administrative forms match your search criteria.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* REQUEST HISTORY SUB-TAB */}
+            {formSubTab === 'history' && (
+              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
+                <h2 className="text-sm font-bold text-navy-blue border-b border-gray-100 pb-3 mb-2">My Department Requests</h2>
+                
+                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                  {requestsList.map(req => (
+                    <div
+                      key={req.id}
+                      className="p-5 bg-gray-50/50 rounded-2xl border border-gray-100 hover:border-sig-green/20 hover:bg-white transition duration-200 flex flex-col md:flex-row md:items-start justify-between gap-4"
+                    >
+                      <div className="space-y-2.5 max-w-xl">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`text-[9px] font-bold uppercase px-2.5 py-0.5 rounded-full ${
+                            req.status === 'Approved' ? 'bg-green-100 text-green-800' :
+                            req.status === 'Pending' ? 'bg-amber-100 text-amber-800' :
+                            req.status === 'Rejected' ? 'bg-red-100 text-red-800' :
+                            'bg-blue-100 text-blue-800' // Completed
+                          }`}>
+                            {req.status}
+                          </span>
+                          {req.isUrgent && (
+                            <span className="text-[9px] font-bold bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3 text-rose-600" />
+                              Urgent
+                            </span>
+                          )}
+                          <span className="text-[10px] text-gray-400 font-medium">
+                            Requested: {new Date(req.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+
+                        <div>
+                          <h4 className="font-bold text-navy-blue text-sm">{req.formTitle}</h4>
+                          <p className="text-xs text-gray-600 font-semibold mt-1">
+                            Purpose: <span className="font-normal text-gray-500">{req.purpose}</span>
+                          </p>
+                          {req.notes && (
+                            <p className="text-xs text-gray-600 font-semibold mt-1">
+                              Additional Info: <span className="font-normal text-gray-500">{req.notes}</span>
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center text-[10px] text-gray-400 gap-4 font-medium">
+                          <span>Target Date: {new Date(req.targetDate).toLocaleDateString()}</span>
+                          {req.updatedAt && req.status !== 'Pending' && (
+                            <span>Updated: {new Date(req.updatedAt).toLocaleDateString()}</span>
+                          )}
+                        </div>
+
+                        {req.adminNotes && (
+                          <div className="p-3 bg-amber-50/50 border border-amber-100 rounded-xl text-xs mt-2">
+                            <div className="font-bold text-amber-800 flex items-center gap-1">
+                              <MessageSquare className="w-3.5 h-3.5 text-amber-600" />
+                              <span>CES Admin Remarks:</span>
+                            </div>
+                            <p className="text-gray-600 mt-1 font-medium leading-relaxed">{req.adminNotes}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col items-end shrink-0 justify-between h-full">
+                        <span className="text-[10px] text-gray-400 font-semibold">
+                          ID: {req.id.toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+
+                  {requestsList.length === 0 && (
+                    <div className="text-center py-12 text-gray-400 text-xs font-semibold">
+                      Your department hasn't submitted any form requests yet.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
           </div>
 
           {/* Right Sidebar Widget Panel */}
@@ -736,6 +972,147 @@ export default function CoordinatorDashboard({ user, onLogout }) {
 
         </div>
       </main>
+
+      {/* Interactive Request Form Modal */}
+      {isRequestModalOpen && selectedForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-blue/40 backdrop-blur-xs animate-fade-in p-4">
+          <div className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-xl border border-gray-100 flex flex-col space-y-4 max-h-[90vh] overflow-y-auto animate-scale-in">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div>
+                <h3 className="font-bold text-navy-blue text-sm">Submit Form Request</h3>
+                <p className="text-gray-400 text-[10px] mt-0.5">Please provide request details for administrative review.</p>
+              </div>
+              <button
+                onClick={() => setIsRequestModalOpen(false)}
+                className="text-gray-400 hover:text-navy-blue transition cursor-pointer text-sm p-1 rounded-full hover:bg-gray-50 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Form Fields */}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-gray-700 text-xs font-semibold mb-1">Target Form</label>
+                <input
+                  type="text"
+                  disabled
+                  value={selectedForm.title}
+                  className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl font-bold text-navy-blue"
+                  style={{ height: '40px' }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-700 text-xs font-semibold mb-1">Purpose / Justification <span className="text-red-500">*</span></label>
+                <textarea
+                  placeholder="Explain why this form/resource is being requested..."
+                  value={requestPurpose}
+                  onChange={(e) => setRequestPurpose(e.target.value)}
+                  className="w-full p-3 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue min-h-[80px]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-700 text-xs font-semibold mb-1">Target Date <span className="text-red-500">*</span></label>
+                  <input
+                    type="date"
+                    value={requestTargetDate}
+                    onChange={(e) => setRequestTargetDate(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue font-poppins"
+                    style={{ height: '40px' }}
+                  />
+                </div>
+
+                <div className="flex items-center pt-5">
+                  <label className="flex items-center space-x-2.5 text-xs font-semibold text-gray-700 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={requestIsUrgent}
+                      onChange={(e) => setRequestIsUrgent(e.target.checked)}
+                      className="w-4 h-4 accent-rose-600 rounded border-gray-200 animate-none"
+                    />
+                    <span className="text-rose-600 flex items-center gap-1 font-bold">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      Mark as Urgent
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-gray-700 text-xs font-semibold mb-1">Additional Specifications / Notes</label>
+                <textarea
+                  placeholder="E.g., quantity of supplies, vehicle destination, invited speaker background, number of chairs, etc."
+                  value={requestNotes}
+                  onChange={(e) => setRequestNotes(e.target.value)}
+                  className="w-full p-3 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue min-h-[80px]"
+                />
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end space-x-3 pt-3 border-t border-gray-100">
+              <button
+                onClick={() => setIsRequestModalOpen(false)}
+                className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-2 px-5 rounded-full text-xs transition cursor-pointer"
+                style={{ height: '36px' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!requestPurpose.trim()) {
+                    triggerError('Please provide a purpose or justification for the request.');
+                    return;
+                  }
+                  if (!requestTargetDate) {
+                    triggerError('Please select a target date.');
+                    return;
+                  }
+
+                  setLoading(true);
+                  try {
+                    const payload = {
+                      formId: selectedForm.id,
+                      formTitle: selectedForm.title,
+                      organizationId: user.organizationId,
+                      purpose: requestPurpose.trim(),
+                      targetDate: requestTargetDate,
+                      notes: requestNotes.trim(),
+                      isUrgent: requestIsUrgent
+                    };
+
+                    await addFormRequest(payload, user.uid);
+                    triggerSuccess('Form request submitted successfully for administrative review.');
+                    setIsRequestModalOpen(false);
+                    
+                    // Reload data
+                    await loadData();
+                    setFormSubTab('history');
+                  } catch (err) {
+                    triggerError(err.message || 'Failed to submit form request.');
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={loading}
+                className="bg-navy-blue text-white font-semibold py-2 px-6 rounded-full text-xs flex items-center justify-center space-x-2 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer"
+                style={{ height: '36px' }}
+              >
+                {loading ? (
+                  <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                ) : (
+                  <Send className="w-3.5 h-3.5 font-bold" />
+                )}
+                <span>Submit Request</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
