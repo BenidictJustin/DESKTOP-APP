@@ -325,14 +325,9 @@ export default function AdminDashboard({ user, onLogout }) {
   // Donor form
   const [donorName, setDonorName] = useState('');
   const [donorType, setDonorType] = useState('external_sponsor');
-  const [donorEmail, setDonorEmail] = useState('');
-  const [donorPhone, setDonorPhone] = useState('');
-  const [editingDonor, setEditingDonor] = useState(null);
-  const [donorRegistrationDate, setDonorRegistrationDate] = useState(new Date().toISOString().split('T')[0]);
   const [donorSearchQuery, setDonorSearchQuery] = useState('');
 
   // Donation form
-  const [donDonorId, setDonDonorId] = useState('');
   const [donPurpose, setDonPurpose] = useState('');
   const [donDesc, setDonDesc] = useState('');
   const [donDate, setDonDate] = useState(new Date().toISOString().split('T')[0]);
@@ -345,7 +340,7 @@ export default function AdminDashboard({ user, onLogout }) {
   const [orgDesc, setOrgDesc] = useState('');
   const [editingOrg, setEditingOrg] = useState(null); // null means registering, object means updating
   const [orgSearchQuery, setOrgSearchQuery] = useState('');
-  const [selectedOrgSubTab, setSelectedOrgSubTab] = useState('organization');
+  const [selectedOrgSubTab, setSelectedOrgSubTab] = useState('department');
   const [isAddOrgModalOpen, setIsAddOrgModalOpen] = useState(false);
   const [isAddDeptModalOpen, setIsAddDeptModalOpen] = useState(false);
   const [deptLogo, setDeptLogo] = useState('');
@@ -366,6 +361,9 @@ export default function AdminDashboard({ user, onLogout }) {
   const [evtStatus, setEvtStatus] = useState('planned');
   const [eventSearchQuery, setEventSearchQuery] = useState('');
   const [eventMonthFilter, setEventMonthFilter] = useState('');
+  const [evtType, setEvtType] = useState('department');
+  const [evtOrgName, setEvtOrgName] = useState('');
+  const [evtParentDeptId, setEvtParentDeptId] = useState('');
 
   // Review Report detail modal state
   const [selectedReport, setSelectedReport] = useState(null);
@@ -944,83 +942,6 @@ export default function AdminDashboard({ user, onLogout }) {
     });
   };
 
-  // Donor CRUD Handlers
-  const handleCreateDonor = async (e) => {
-    e.preventDefault();
-    if (!donorName) {
-      triggerValidationError(
-        "Donor Profile Error",
-        "Donor name is required.",
-        ['donorName'],
-        "Please enter the official name of the school department, individual, or external sponsor."
-      );
-      return;
-    }
-
-    setLoading(true);
-    try {
-      if (editingDonor) {
-        await updateDonor(editingDonor.id, {
-          name: donorName,
-          type: donorType,
-          contactEmail: donorEmail,
-          contactPhone: donorPhone,
-          createdAt: donorRegistrationDate ? new Date(donorRegistrationDate).toISOString() : new Date().toISOString()
-        });
-        triggerSuccess(`Donor profile updated: ${donorName}.`);
-        setEditingDonor(null);
-      } else {
-        await addDonor({
-          name: donorName,
-          type: donorType,
-          contactEmail: donorEmail,
-          contactPhone: donorPhone,
-          createdAt: donorRegistrationDate ? new Date(donorRegistrationDate).toISOString() : new Date().toISOString()
-        });
-        triggerSuccess(`Donor logged: ${donorName}.`);
-      }
-      setDonorName('');
-      setDonorEmail('');
-      setDonorPhone('');
-      setDonorType('external_sponsor');
-      setDonorRegistrationDate(new Date().toISOString().split('T')[0]);
-      loadData();
-    } catch (err) {
-      triggerError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCancelDonorEdit = () => {
-    setEditingDonor(null);
-    setDonorName('');
-    setDonorType('external_sponsor');
-    setDonorEmail('');
-    setDonorPhone('');
-    setDonorRegistrationDate(new Date().toISOString().split('T')[0]);
-    clearFieldValError('donorName');
-  };
-
-  const handleEditDonorClick = (donor) => {
-    setEditingDonor(donor);
-    setDonorName(donor.name || '');
-    setDonorType(donor.type || 'external_sponsor');
-    setDonorEmail(donor.contactEmail || '');
-    setDonorPhone(donor.contactPhone || '');
-    if (donor.createdAt) {
-      try {
-        const dateStr = new Date(donor.createdAt).toISOString().split('T')[0];
-        setDonorRegistrationDate(dateStr);
-      } catch (err) {
-        setDonorRegistrationDate(new Date().toISOString().split('T')[0]);
-      }
-    } else {
-      setDonorRegistrationDate(new Date().toISOString().split('T')[0]);
-    }
-    clearFieldValError('donorName');
-  };
-
   const handleDeleteDonor = async (donorId) => {
     const donor = donorsList.find(d => d.id === donorId);
     if (!donor) return;
@@ -1033,9 +954,6 @@ export default function AdminDashboard({ user, onLogout }) {
         try {
           await deleteDonor(donorId);
           triggerSuccess(`Donor ${donor.name} successfully deleted.`);
-          if (editingDonor?.id === donorId) {
-            handleCancelDonorEdit();
-          }
           loadData();
         } catch (err) {
           triggerError(err.message);
@@ -1073,15 +991,15 @@ export default function AdminDashboard({ user, onLogout }) {
   // Donation Batch Create
   const handleCreateDonation = async (e) => {
     e.preventDefault();
-    if (!donDonorId || !donPurpose) {
+    if (!donorName || !donPurpose) {
       const fields = [];
-      if (!donDonorId) fields.push('donDonorId');
+      if (!donorName) fields.push('donorName');
       if (!donPurpose) fields.push('donPurpose');
       triggerValidationError(
         "Donation Entry Error",
-        "Donor source and purpose are required.",
+        "Donor name and purpose are required.",
         fields,
-        "Select the logging donor profile and state the community outreach purpose for this donation."
+        "Enter the donor name and state the community outreach purpose for this donation."
       );
       return;
     }
@@ -1121,57 +1039,80 @@ export default function AdminDashboard({ user, onLogout }) {
       return;
     }
 
-    // Process and convert grouped items to base units (pieces)
-    const processedItems = donItems.map(i => {
-      const isSchoolSupplies = (i.category || '').toLowerCase().trim() === 'school supplies';
-      const unitLower = (i.unit || '').toLowerCase().trim();
-      const isAlreadyGrouped = ['pack', 'packs', 'box', 'boxes', 'bundle', 'bundles'].includes(unitLower);
-
-      let finalQty = parseInt(i.quantity, 10);
-      let finalUnit = i.unit;
-      let finalGroupUnit = i.groupUnit || 'none';
-      let finalPiecesPerUnit = i.piecesPerUnit ? parseInt(i.piecesPerUnit, 10) : null;
-
-      if (isAlreadyGrouped) {
-        if (unitLower === 'pack' || unitLower === 'packs') finalGroupUnit = 'pack';
-        else if (unitLower === 'box' || unitLower === 'boxes') finalGroupUnit = 'box';
-        else if (unitLower === 'bundle' || unitLower === 'bundles') finalGroupUnit = 'bundle';
-
-        finalUnit = 'pieces';
-        const factor = finalPiecesPerUnit || 12;
-        finalQty = finalQty * factor;
-      }
-
-      return {
-        category: i.category,
-        name: i.name,
-        unit: finalUnit,
-        quantity: finalQty,
-        expiryDate: (isSchoolSupplies || !i.expiryDate) ? null : new Date(i.expiryDate).toISOString(),
-        piecesPerUnit: finalPiecesPerUnit,
-        groupUnit: finalGroupUnit
-      };
-    });
-
-    const payload = {
-      donorId: donDonorId,
-      dateOfDonation: new Date(donDate).toISOString(),
-      purpose: donPurpose,
-      description: donDesc,
-      items: processedItems
-    };
-
     setLoading(true);
     try {
+      // Find or create donor profile under the hood
+      let donor = donorsList.find(d => d.name.toLowerCase().trim() === donorName.toLowerCase().trim());
+      let finalDonorId = '';
+      if (donor) {
+        finalDonorId = donor.id;
+        if (donor.type !== donorType) {
+          await updateDonor(donor.id, { ...donor, type: donorType });
+        }
+      } else {
+        const newDonor = await addDonor({
+          name: donorName.trim(),
+          type: donorType,
+          createdAt: new Date().toISOString()
+        });
+        finalDonorId = newDonor.id;
+      }
+
+      // Process and convert grouped items to base units (pieces)
+      const processedItems = donItems.map(i => {
+        const isSchoolSupplies = (i.category || '').toLowerCase().trim() === 'school supplies';
+        const unitLower = (i.unit || '').toLowerCase().trim();
+        const isAlreadyGrouped = ['pack', 'packs', 'box', 'boxes', 'bundle', 'bundles'].includes(unitLower);
+
+        let finalQty = parseInt(i.quantity, 10);
+        let finalUnit = i.unit;
+        let finalGroupUnit = i.groupUnit || 'none';
+        let finalPiecesPerUnit = i.piecesPerUnit ? parseInt(i.piecesPerUnit, 10) : null;
+
+        if (isAlreadyGrouped) {
+          if (unitLower === 'pack' || unitLower === 'packs') finalGroupUnit = 'pack';
+          else if (unitLower === 'box' || unitLower === 'boxes') finalGroupUnit = 'box';
+          else if (unitLower === 'bundle' || unitLower === 'bundles') finalGroupUnit = 'bundle';
+
+          finalUnit = 'pieces';
+          const factor = finalPiecesPerUnit || 12;
+          finalQty = finalQty * factor;
+        }
+
+        return {
+          category: i.category,
+          name: i.name,
+          unit: finalUnit,
+          quantity: finalQty,
+          expiryDate: (isSchoolSupplies || !i.expiryDate) ? null : new Date(i.expiryDate).toISOString(),
+          piecesPerUnit: finalPiecesPerUnit,
+          groupUnit: finalGroupUnit
+        };
+      });
+
+      const payload = {
+        donorId: finalDonorId,
+        dateOfDonation: new Date(donDate).toISOString(),
+        purpose: donPurpose,
+        description: donDesc,
+        items: processedItems
+      };
+
       await addDonation(payload, user.uid);
-      const donor = donorsList.find(d => d.id === payload.donorId);
-      const donorNameStr = donor ? donor.name : 'Donor';
+
+      // Since donorsList might have updated (due to new donor added), load the refreshed donors list or local representation
+      const updatedDonors = await getDonors();
+      const donorObj = updatedDonors.find(d => d.id === payload.donorId);
+      const donorNameStr = donorObj ? donorObj.name : donorName;
+
       for (const item of payload.items) {
         await logInventoryTransaction('added', item.name, item.quantity, item.unit, `Received via donation batch from: ${donorNameStr}`);
       }
       triggerSuccess("Donation batch registered and items added to inventory stock.");
 
       // Reset
+      setDonorName('');
+      setDonorType('external_sponsor');
       setDonPurpose('');
       setDonDesc('');
       setDonItems([{ category: '', name: '', quantity: '', unit: 'pieces', expiryDate: '', groupUnit: 'none', piecesPerUnit: '' }]);
@@ -1343,54 +1284,65 @@ export default function AdminDashboard({ user, onLogout }) {
     setEvtLoc(evt.location || '');
     setEvtOrgId(evt.assignedOrganizationId || '');
     setEvtStatus(evt.status || 'planned');
+    setEvtType(evt.eventType || 'department');
+    setEvtOrgName(evt.organizationName || '');
+    setEvtParentDeptId(evt.parentDepartmentId || '');
     setIsEventModalOpen(true);
     clearFieldValError('evtName');
     clearFieldValError('evtDate');
     clearFieldValError('evtOrgId');
+    clearFieldValError('evtOrgName');
+    clearFieldValError('evtParentDeptId');
   };
 
   // Event schedule / update handler
   const handleCreateEvent = async (e) => {
     e.preventDefault();
-    if (!evtName || !evtDate || !evtOrgId) {
+    const isOrg = evtType === 'organization';
+    const hasMissingFields = !evtName || !evtDate || (!isOrg && !evtOrgId) || (isOrg && (!evtOrgName || !evtParentDeptId));
+
+    if (hasMissingFields) {
       const fields = [];
       if (!evtName) fields.push('evtName');
       if (!evtDate) fields.push('evtDate');
-      if (!evtOrgId) fields.push('evtOrgId');
+      if (!isOrg && !evtOrgId) fields.push('evtOrgId');
+      if (isOrg && !evtOrgName) fields.push('evtOrgName');
+      if (isOrg && !evtParentDeptId) fields.push('evtParentDeptId');
       triggerValidationError(
         editingEvent ? "Event Update Error" : "Event Scheduling Error",
-        "Event name, scheduled date & time, and assigned department are required.",
+        "Required fields are missing.",
         fields,
-        editingEvent
-          ? "Provide a descriptive Event Name, set a Scheduled Date & Time, and select the co-organizer Assigned Department before updating."
-          : "Provide a descriptive Event Name, set a future Scheduled Date & Time, and select the co-organizer Assigned Department before scheduling."
+        "Provide all mandatory details before saving."
       );
       return;
     }
 
     setLoading(true);
     try {
+      const payload = {
+        name: evtName,
+        description: evtDesc,
+        scheduleDate: new Date(evtDate).toISOString(),
+        location: evtLoc,
+        assignedOrganizationId: isOrg ? evtParentDeptId : evtOrgId,
+        eventType: evtType,
+        organizationName: isOrg ? evtOrgName : null,
+        parentDepartmentId: isOrg ? evtParentDeptId : null
+      };
+
       if (editingEvent) {
         await updateEvent(editingEvent.id, {
-          name: evtName,
-          description: evtDesc,
-          scheduleDate: new Date(evtDate).toISOString(),
-          location: evtLoc,
-          assignedOrganizationId: evtOrgId,
+          ...payload,
           status: evtStatus
         });
-        triggerSuccess(`Outreach updated: ${evtName}.`);
+        triggerSuccess(`Event updated: ${evtName}.`);
         setEditingEvent(null);
       } else {
         await addEvent({
-          name: evtName,
-          description: evtDesc,
-          scheduleDate: new Date(evtDate).toISOString(),
-          location: evtLoc,
-          assignedOrganizationId: evtOrgId,
+          ...payload,
           status: 'planned'
         });
-        triggerSuccess(`Outreach scheduled: ${evtName}.`);
+        triggerSuccess(`Event scheduled: ${evtName}.`);
       }
       setEvtName('');
       setEvtDesc('');
@@ -1398,6 +1350,9 @@ export default function AdminDashboard({ user, onLogout }) {
       setEvtLoc('');
       setEvtOrgId('');
       setEvtStatus('planned');
+      setEvtType('department');
+      setEvtOrgName('');
+      setEvtParentDeptId('');
       setIsEventModalOpen(false);
       loadData();
     } catch (err) {
@@ -1534,7 +1489,12 @@ export default function AdminDashboard({ user, onLogout }) {
             {[
               { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
               { id: 'inventory', label: 'Inventory', icon: Package },
-              { id: 'events', label: 'Events', icon: Calendar },
+              {
+                id: 'events',
+                label: 'Events',
+                icon: Calendar,
+                badge: eventsList.filter(e => e.status === 'planned').length
+              },
               { id: 'organization', label: 'Organization', icon: FolderOpen },
               { id: 'donations', label: 'Donor', icon: Gift },
               {
@@ -3224,119 +3184,8 @@ export default function AdminDashboard({ user, onLogout }) {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Form columns */}
+                  {/* Left Column: Registered Donors Directory */}
                   <div className="space-y-6">
-                    {/* Donor form */}
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
-                      <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-                        <h3 className="font-bold text-navy-blue text-sm">
-                          {editingDonor ? 'Edit Donor Profile' : 'Log Donor Profile'}
-                        </h3>
-                        {editingDonor && (
-                          <button
-                            type="button"
-                            onClick={handleCancelDonorEdit}
-                            className="text-gray-400 hover:text-gray-600 cursor-pointer"
-                            title="Cancel Edit"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                      <form onSubmit={handleCreateDonor} className="space-y-3">
-                        <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">Donor Name</label>
-                          <input
-                            type="text"
-                            value={donorName}
-                            onChange={(e) => {
-                              setDonorName(e.target.value);
-                              clearFieldValError('donorName');
-                            }}
-                            placeholder="Jollibee Tarlac, Junior High Dept"
-                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('donorName') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                            style={{ height: '40px' }}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">Donor Type</label>
-                          <select
-                            value={donorType}
-                            onChange={(e) => setDonorType(e.target.value)}
-                            className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none font-semibold text-navy-blue"
-                            style={{ height: '40px' }}
-                          >
-                            <option value="external_sponsor">External Sponsor</option>
-                            <option value="internal_department">School Department</option>
-                            <option value="individual">Individual</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">Email (Optional)</label>
-                          <input
-                            type="email"
-                            value={donorEmail}
-                            onChange={(e) => setDonorEmail(e.target.value)}
-                            placeholder="sponsor@gmail.com"
-                            className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none font-semibold text-navy-blue"
-                            style={{ height: '40px' }}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">Contact Phone</label>
-                          <input
-                            type="text"
-                            value={donorPhone}
-                            onChange={(e) => setDonorPhone(e.target.value)}
-                            placeholder="09123456789"
-                            className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none font-semibold text-navy-blue"
-                            style={{ height: '40px' }}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">Date of Registration</label>
-                          <input
-                            type="date"
-                            value={donorRegistrationDate}
-                            onChange={(e) => setDonorRegistrationDate(e.target.value)}
-                            className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none font-semibold text-navy-blue"
-                            style={{ height: '40px' }}
-                          />
-                        </div>
-
-                        {editingDonor ? (
-                          <div className="grid grid-cols-2 gap-2 pt-1">
-                            <button
-                              type="button"
-                              onClick={handleCancelDonorEdit}
-                              className="w-full bg-gray-100 text-gray-700 rounded-full text-xs font-semibold py-2 px-4 hover:bg-gray-200 transition cursor-pointer"
-                              style={{ height: '40px' }}
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              type="submit"
-                              disabled={loading}
-                              className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer"
-                              style={{ height: '40px' }}
-                            >
-                              Update Profile
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer pt-1"
-                            style={{ height: '40px' }}
-                          >
-                            Save Donor
-                          </button>
-                        )}
-                      </form>
-                    </div>
-
-                    {/* Registered Donors Directory */}
                     <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4 flex flex-col max-h-[500px]">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between justify-start gap-2 border-b border-gray-100 pb-3">
                         <h3 className="font-bold text-navy-blue text-sm">
@@ -3358,9 +3207,7 @@ export default function AdminDashboard({ user, onLogout }) {
                         {(() => {
                           const filtered = donorsList.filter(d =>
                             d.name.toLowerCase().includes(donorSearchQuery.toLowerCase()) ||
-                            d.type.toLowerCase().includes(donorSearchQuery.toLowerCase()) ||
-                            (d.contactEmail && d.contactEmail.toLowerCase().includes(donorSearchQuery.toLowerCase())) ||
-                            (d.contactPhone && d.contactPhone.toLowerCase().includes(donorSearchQuery.toLowerCase()))
+                            d.type.toLowerCase().includes(donorSearchQuery.toLowerCase())
                           );
 
                           if (filtered.length === 0) {
@@ -3372,7 +3219,6 @@ export default function AdminDashboard({ user, onLogout }) {
                           }
 
                           return filtered.map(d => {
-                            // Format Type Badge Color
                             let badgeClass = "bg-gray-100 text-gray-600 border-gray-200/50";
                             let typeLabel = "Donor";
                             if (d.type === 'external_sponsor') {
@@ -3386,14 +3232,6 @@ export default function AdminDashboard({ user, onLogout }) {
                               typeLabel = "Individual";
                             }
 
-                            // Format date of registration
-                            let regDate = 'Unknown';
-                            if (d.createdAt) {
-                              try {
-                                regDate = new Date(d.createdAt).toLocaleDateString();
-                              } catch (e) { }
-                            }
-
                             return (
                               <div key={d.id} className="p-3 border border-gray-100 rounded-2xl hover:bg-gray-50/50 transition flex justify-between items-start space-x-3 shadow-xs">
                                 <div className="space-y-1 min-w-0 flex-1">
@@ -3405,20 +3243,8 @@ export default function AdminDashboard({ user, onLogout }) {
                                       {typeLabel}
                                     </span>
                                   </div>
-                                  <div className="text-[10px] text-gray-500 font-medium">
-                                    {d.contactEmail && <div className="truncate">{d.contactEmail}</div>}
-                                    {d.contactPhone && <div>{d.contactPhone}</div>}
-                                    <div className="text-[9px] text-gray-400 mt-0.5">Reg: {regDate}</div>
-                                  </div>
                                 </div>
                                 <div className="flex items-center space-x-1 shrink-0">
-                                  <button
-                                    onClick={() => handleEditDonorClick(d)}
-                                    className="p-1 text-navy-blue hover:bg-navy-blue/5 rounded-lg cursor-pointer inline-flex items-center"
-                                    title="Edit Donor Profile"
-                                  >
-                                    <Edit2 className="w-3.5 h-3.5" />
-                                  </button>
                                   <button
                                     onClick={() => handleDeleteDonor(d.id)}
                                     className="p-1 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer inline-flex items-center"
@@ -3435,25 +3261,38 @@ export default function AdminDashboard({ user, onLogout }) {
                     </div>
                   </div>
 
-                  {/* Donation batch compiler */}
+                  {/* Right Column: Donation batch compiler */}
                   <div className="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
                     <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3 mb-4">Log Donation Batch</h3>
 
                     <form onSubmit={handleCreateDonation} className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">Source Donor</label>
-                          <SearchableDropdown
-                            value={donDonorId}
-                            onChange={(val) => {
-                              setDonDonorId(val);
-                              clearFieldValError('donDonorId');
+                          <label className="block text-gray-700 text-xs font-semibold mb-1">Donor Name</label>
+                          <input
+                            type="text"
+                            value={donorName}
+                            onChange={(e) => {
+                              setDonorName(e.target.value);
+                              clearFieldValError('donorName');
                             }}
-                            options={donorsList.map(d => ({ id: d.id, name: `${d.name} (${d.type.replace('_', ' ')})` }))}
-                            onDelete={(d) => handleDeleteDonor(d.id)}
-                            placeholder="Type to filter donors..."
-                            className={validationError?.fields.includes('donDonorId') ? 'border-red-500 ring-2 ring-red-500/10' : ''}
+                            placeholder="Donor Name"
+                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('donorName') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                            style={{ height: '40px' }}
                           />
+                        </div>
+                        <div>
+                          <label className="block text-gray-700 text-xs font-semibold mb-1">Donor Type</label>
+                          <select
+                            value={donorType}
+                            onChange={(e) => setDonorType(e.target.value)}
+                            className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none font-semibold text-navy-blue"
+                            style={{ height: '40px' }}
+                          >
+                            <option value="external_sponsor">External Sponsor</option>
+                            <option value="internal_department">School Department</option>
+                            <option value="individual">Individual</option>
+                          </select>
                         </div>
                         <div>
                           <label className="block text-gray-700 text-xs font-semibold mb-1">Donation Date</label>
@@ -3987,12 +3826,15 @@ export default function AdminDashboard({ user, onLogout }) {
                         setEvtLoc('');
                         setEvtOrgId('');
                         setEvtStatus('planned');
+                        setEvtType('department');
+                        setEvtOrgName('');
+                        setEvtParentDeptId('');
                         setIsEventModalOpen(true);
                       }}
                       className="px-4 py-2 bg-white border border-gray-200 text-navy-blue hover:bg-gray-50 transition rounded-full text-xs font-semibold shadow-sm flex items-center space-x-1.5 cursor-pointer animate-fade-in"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>Schedule Outreach Event</span>
+                      <span>Schedule Event</span>
                     </button>
                   </div>
                 </div>
@@ -4058,7 +3900,7 @@ export default function AdminDashboard({ user, onLogout }) {
                       if (filtered.length === 0) {
                         return (
                           <div className="col-span-3 text-center py-12 text-gray-400 text-xs font-semibold">
-                            {eventsList.length === 0 ? "No scheduled outreach events." : "No events match your search or filter criteria."}
+                            {eventsList.length === 0 ? "No scheduled events." : "No events match your search or filter criteria."}
                           </div>
                         );
                       }
@@ -4077,7 +3919,12 @@ export default function AdminDashboard({ user, onLogout }) {
                                   {evt.status}
                                 </span>
                                 <div className="flex items-center space-x-2">
-                                  <span className="text-[10px] text-navy-blue font-bold tracking-wider">{org ? org.abbreviation : 'All'}</span>
+                                  <span className="text-[10px] text-navy-blue font-bold tracking-wider">
+                                    {evt.eventType === 'organization'
+                                      ? `${evt.organizationName} (${org ? org.abbreviation : 'All'})`
+                                      : (org ? org.abbreviation : 'All')
+                                    }
+                                  </span>
                                   <button
                                     onClick={() => handleEditClick(evt)}
                                     className="text-navy-blue hover:text-sig-green transition p-1 rounded hover:bg-gray-100 cursor-pointer"
@@ -4108,13 +3955,13 @@ export default function AdminDashboard({ user, onLogout }) {
                   </div>
                 </div>
 
-                {/* SCHEDULE / EDIT OUTREACH EVENT MODAL */}
+                {/* SCHEDULE / EDIT EVENT MODAL */}
                 {isEventModalOpen && (
                   <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-xs">
                     <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 animate-scale-up space-y-4">
                       <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                         <h3 className="font-bold text-navy-blue text-base">
-                          {editingEvent ? 'Edit Outreach Event' : 'Schedule Outreach Event'}
+                          {editingEvent ? 'Edit Event' : 'Schedule Event'}
                         </h3>
                         <button
                           onClick={() => {
@@ -4126,6 +3973,9 @@ export default function AdminDashboard({ user, onLogout }) {
                             setEvtLoc('');
                             setEvtOrgId('');
                             setEvtStatus('planned');
+                            setEvtType('department');
+                            setEvtOrgName('');
+                            setEvtParentDeptId('');
                           }}
                           className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 cursor-pointer"
                         >
@@ -4143,7 +3993,7 @@ export default function AdminDashboard({ user, onLogout }) {
                               setEvtName(e.target.value);
                               clearFieldValError('evtName');
                             }}
-                            placeholder="Basic Computer Literacy, Relief Gift-Giving"
+                            placeholder="Event name"
                             className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('evtName') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
                             style={{ height: '40px' }}
                           />
@@ -4160,47 +4010,95 @@ export default function AdminDashboard({ user, onLogout }) {
                           ></textarea>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">Scheduled Date & Time</label>
-                            <input
-                              type="datetime-local"
-                              value={evtDate}
-                              onChange={(e) => {
-                                setEvtDate(e.target.value);
-                                clearFieldValError('evtDate');
-                              }}
-                              className={`w-full px-2 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('evtDate') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                              style={{ height: '40px' }}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">Target Location</label>
-                            <input
-                              type="text"
-                              value={evtLoc}
-                              onChange={(e) => setEvtLoc(e.target.value)}
-                              placeholder="Brgy. Tibag, Tarlac"
-                              className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none font-semibold text-navy-blue"
-                              style={{ height: '40px' }}
-                            />
-                          </div>
+                        <div>
+                          <label className="block text-gray-700 text-xs font-semibold mb-1">Scheduled Date & Time</label>
+                          <input
+                            type="datetime-local"
+                            value={evtDate}
+                            onChange={(e) => {
+                              setEvtDate(e.target.value);
+                              clearFieldValError('evtDate');
+                            }}
+                            className={`w-full px-2 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('evtDate') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                            style={{ height: '40px' }}
+                          />
                         </div>
 
                         <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">Assigned Department (Co-organizer)</label>
-                          <SearchableDropdown
-                            value={evtOrgId}
-                            onChange={(val) => {
-                              setEvtOrgId(val);
-                              clearFieldValError('evtOrgId');
-                            }}
-                            options={orgsList}
-                            onDelete={(o) => handleDeleteOrg(o.id)}
-                            placeholder="Type to filter co-organizers..."
-                            className={validationError?.fields.includes('evtOrgId') ? 'border-red-500 ring-2 ring-red-500/10' : ''}
+                          <label className="block text-gray-700 text-xs font-semibold mb-1">Target Location</label>
+                          <input
+                            type="text"
+                            value={evtLoc}
+                            onChange={(e) => setEvtLoc(e.target.value)}
+                            placeholder="Location"
+                            className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none font-semibold text-navy-blue"
+                            style={{ height: '40px' }}
                           />
                         </div>
+
+                        <div>
+                          <label className="block text-gray-700 text-xs font-semibold mb-1">Event Type</label>
+                          <select
+                            value={evtType}
+                            onChange={(e) => {
+                              setEvtType(e.target.value);
+                              clearFieldValError('evtType');
+                            }}
+                            className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                            style={{ height: '40px' }}
+                          >
+                            <option value="department">Department</option>
+                            <option value="organization">Organization</option>
+                          </select>
+                        </div>
+
+                        {evtType === 'organization' ? (
+                          <>
+                            <div>
+                              <label className="block text-gray-700 text-xs font-semibold mb-1">Organization Name</label>
+                              <input
+                                type="text"
+                                value={evtOrgName}
+                                onChange={(e) => {
+                                  setEvtOrgName(e.target.value);
+                                  clearFieldValError('evtOrgName');
+                                }}
+                                placeholder="Organization Name"
+                                className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('evtOrgName') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                style={{ height: '40px' }}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-gray-700 text-xs font-semibold mb-1">Assigned Department</label>
+                              <SearchableDropdown
+                                value={evtParentDeptId}
+                                onChange={(val) => {
+                                  setEvtParentDeptId(val);
+                                  clearFieldValError('evtParentDeptId');
+                                }}
+                                options={orgsList.filter(o => o.type === 'department' || !o.type)}
+                                onDelete={(o) => handleDeleteOrg(o.id)}
+                                placeholder="Select department..."
+                                className={validationError?.fields.includes('evtParentDeptId') ? 'border-red-500 ring-2 ring-red-500/10' : ''}
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          <div>
+                            <label className="block text-gray-700 text-xs font-semibold mb-1">Assigned Department </label>
+                            <SearchableDropdown
+                              value={evtOrgId}
+                              onChange={(val) => {
+                                setEvtOrgId(val);
+                                clearFieldValError('evtOrgId');
+                              }}
+                              options={orgsList}
+                              onDelete={(o) => handleDeleteOrg(o.id)}
+                              placeholder="Type to filter co-organizers..."
+                              className={validationError?.fields.includes('evtOrgId') ? 'border-red-500 ring-2 ring-red-500/10' : ''}
+                            />
+                          </div>
+                        )}
 
                         {editingEvent && (
                           <div>
@@ -4230,6 +4128,9 @@ export default function AdminDashboard({ user, onLogout }) {
                               setEvtLoc('');
                               setEvtOrgId('');
                               setEvtStatus('planned');
+                              setEvtType('department');
+                              setEvtOrgName('');
+                              setEvtParentDeptId('');
                             }}
                             className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition cursor-pointer text-center"
                             style={{ height: '40px' }}
@@ -4263,7 +4164,6 @@ export default function AdminDashboard({ user, onLogout }) {
                     <h1 className="text-2xl font-bold text-navy-blue flex items-center gap-2">
                       <FolderOpen className="w-6 h-6 text-sig-green" /> Organization & Departments
                     </h1>
-                    <p className="text-gray-500 text-xs mt-1">Configure academic organization profiles and track their outreach activities under the Dominican College of Tarlac (DCT).</p>
                   </div>
 
                   {/* Top-Right Add Buttons */}
@@ -4299,8 +4199,8 @@ export default function AdminDashboard({ user, onLogout }) {
                       handleCancelOrgEdit();
                     }}
                     className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${selectedOrgSubTab === 'organization'
-                        ? 'border-sig-green text-navy-blue'
-                        : 'border-transparent text-gray-400 hover:text-navy-blue'
+                      ? 'border-sig-green text-navy-blue'
+                      : 'border-transparent text-gray-400 hover:text-navy-blue'
                       }`}
                   >
                     <FolderOpen className="w-4 h-4" /> Organization
@@ -4311,8 +4211,8 @@ export default function AdminDashboard({ user, onLogout }) {
                       handleCancelOrgEdit();
                     }}
                     className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${selectedOrgSubTab === 'department'
-                        ? 'border-sig-green text-navy-blue'
-                        : 'border-transparent text-gray-400 hover:text-navy-blue'
+                      ? 'border-sig-green text-navy-blue'
+                      : 'border-transparent text-gray-400 hover:text-navy-blue'
                       }`}
                   >
                     <Users className="w-4 h-4" /> Department
@@ -4325,8 +4225,8 @@ export default function AdminDashboard({ user, onLogout }) {
                         handleCancelOrgEdit();
                       }}
                       className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${selectedOrgSubTab === org.id
-                          ? 'border-sig-green text-navy-blue'
-                          : 'border-transparent text-gray-400 hover:text-navy-blue'
+                        ? 'border-sig-green text-navy-blue'
+                        : 'border-transparent text-gray-400 hover:text-navy-blue'
                         }`}
                     >
                       <Sparkles className="w-3.5 h-3.5 text-sig-green" /> {org.name}
@@ -4423,68 +4323,51 @@ export default function AdminDashboard({ user, onLogout }) {
                       }
 
                       return (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-center max-w-5xl mx-auto py-4">
                           {filtered.map(org => {
-                            const coord = usersList.find(u => u.organizationId === org.id);
                             return (
-                              <div key={org.id} className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition duration-200">
-                                <div className="space-y-4">
-                                  <div className="flex items-start justify-between">
-                                    <div className="p-3 bg-sig-green/10 rounded-2xl">
-                                      <Sparkles className="w-6 h-6 text-sig-green" />
+                              <div
+                                key={org.id}
+                                onClick={() => setSelectedOrgSubTab(org.id)}
+                                className="bg-white rounded-3xl p-8 border border-gray-200/60 shadow-xs hover:shadow-md hover:border-sig-green/45 transition duration-200 cursor-pointer flex flex-col items-center justify-center text-center group space-y-5 relative h-72"
+                              >
+                                {/* Centered Logo */}
+                                <div className="w-32 h-32 flex items-center justify-center overflow-hidden transition-transform duration-200 group-hover:scale-105">
+                                  {org.logo ? (
+                                    <img src={org.logo} alt={`${org.name} logo`} className="w-full h-full object-contain" />
+                                  ) : (
+                                    <div className="w-24 h-24 rounded-full bg-navy-blue/5 border border-navy-blue/10 flex items-center justify-center">
+                                      <span className="text-2xl font-bold text-navy-blue/70">{org.abbreviation}</span>
                                     </div>
-                                    <span className="text-[10px] font-mono text-gray-500 bg-gray-50 px-2 py-1 rounded-md">
-                                      {org.id}
-                                    </span>
-                                  </div>
-
-                                  <div>
-                                    <h3 className="text-lg font-bold text-navy-blue line-clamp-1" title={org.name}>
-                                      {org.name}
-                                    </h3>
-                                    <p className="text-xs font-semibold text-navy-blue/70 mt-0.5">
-                                      Abbreviation: <span className="font-bold text-navy-blue">{org.abbreviation}</span>
-                                    </p>
-                                  </div>
-
-                                  <p className="text-xs text-gray-500 font-medium line-clamp-2 leading-relaxed h-8" title={org.description}>
-                                    {org.description || 'No description provided.'}
-                                  </p>
-
-                                  <div className="pt-3 border-t border-gray-50 flex items-center justify-between text-[11px] font-medium text-gray-600">
-                                    <div>
-                                      <span className="text-gray-400">Coordinator:</span>{' '}
-                                      <span className="font-semibold text-navy-blue">
-                                        {coord ? coord.name : 'Unassigned'}
-                                      </span>
-                                    </div>
-                                  </div>
+                                  )}
                                 </div>
 
-                                <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between">
-                                  <button
-                                    onClick={() => setSelectedOrgSubTab(org.id)}
-                                    className="px-3 py-1.5 bg-navy-blue/5 hover:bg-navy-blue/10 text-navy-blue text-xs font-bold rounded-xl transition cursor-pointer"
-                                  >
-                                    View Tab
-                                  </button>
+                                {/* Name below logo */}
+                                <div className="space-y-1">
+                                  <h4 className="text-xs font-bold text-navy-blue group-hover:text-sig-green transition-colors duration-200 line-clamp-2 leading-tight px-2">
+                                    {org.name}
+                                  </h4>
+                                  <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">
+                                    {org.abbreviation}
+                                  </span>
+                                </div>
 
-                                  <div className="flex items-center space-x-2">
-                                    <button
-                                      onClick={() => handleEditOrgClick(org)}
-                                      className="p-1.5 text-navy-blue hover:bg-navy-blue/5 rounded-xl cursor-pointer"
-                                      title="Edit"
-                                    >
-                                      <Edit2 className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteOrg(org.id)}
-                                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-xl cursor-pointer"
-                                      title="Delete"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
+                                {/* Absolute controls to edit/delete */}
+                                <div className="absolute top-4 right-4 flex items-center space-x-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200" onClick={(e) => e.stopPropagation()}>
+                                  <button
+                                    onClick={() => handleEditOrgClick(org)}
+                                    className="p-1.5 text-navy-blue hover:bg-navy-blue/5 rounded-lg cursor-pointer transition"
+                                    title="Edit"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteOrg(org.id)}
+                                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer transition"
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
                                 </div>
                               </div>
                             );
@@ -4526,47 +4409,50 @@ export default function AdminDashboard({ user, onLogout }) {
                       }
 
                       return (
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-center max-w-5xl mx-auto py-4">
                           {filtered.map(org => {
                             return (
                               <div
                                 key={org.id}
                                 onClick={() => setSelectedOrgSubTab(org.id)}
-                                className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center hover:shadow-md hover:border-sig-green/45 transition duration-200 cursor-pointer group space-y-4 relative"
+                                className="bg-white rounded-3xl p-8 border border-gray-200/60 shadow-xs hover:shadow-md hover:border-sig-green/45 transition duration-200 cursor-pointer flex flex-col items-center justify-center text-center group space-y-5 relative h-72"
                               >
-                                {/* Logo Display */}
-                                <div className="w-20 h-20 rounded-2xl border border-gray-100 bg-gray-50/50 flex items-center justify-center overflow-hidden shadow-inner group-hover:scale-105 transition-all duration-200">
+                                {/* Centered Logo */}
+                                <div className="w-32 h-32 flex items-center justify-center overflow-hidden transition-transform duration-200 group-hover:scale-105">
                                   {org.logo ? (
-                                    <img src={org.logo} alt={`${org.name} logo`} className="w-full h-full object-cover" />
+                                    <img src={org.logo} alt={`${org.name} logo`} className="w-full h-full object-contain" />
                                   ) : (
-                                    <span className="text-xl font-bold text-navy-blue/70">{org.abbreviation}</span>
+                                    <div className="w-24 h-24 rounded-full bg-navy-blue/5 border border-navy-blue/10 flex items-center justify-center">
+                                      <span className="text-2xl font-bold text-navy-blue/70">{org.abbreviation}</span>
+                                    </div>
                                   )}
                                 </div>
 
-                                <div>
-                                  <h4 className="text-xs font-bold text-navy-blue group-hover:text-sig-green transition-all duration-200 line-clamp-2 leading-tight px-1">
+                                {/* Name below logo */}
+                                <div className="space-y-1">
+                                  <h4 className="text-xs font-bold text-navy-blue group-hover:text-sig-green transition-colors duration-200 line-clamp-2 leading-tight px-2">
                                     {org.name}
                                   </h4>
-                                  <span className="text-[10px] font-mono text-gray-400 mt-1 block uppercase">
+                                  <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">
                                     {org.abbreviation}
                                   </span>
                                 </div>
 
-                                {/* Absolute controls to edit/delete to not disrupt clicking details */}
-                                <div className="absolute top-2 right-2 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-all duration-200" onClick={(e) => e.stopPropagation()}>
+                                {/* Absolute controls to edit/delete */}
+                                <div className="absolute top-4 right-4 flex items-center space-x-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200" onClick={(e) => e.stopPropagation()}>
                                   <button
                                     onClick={() => handleEditOrgClick(org)}
-                                    className="p-1 text-navy-blue hover:bg-navy-blue/5 rounded-lg cursor-pointer"
+                                    className="p-1.5 text-navy-blue hover:bg-navy-blue/5 rounded-lg cursor-pointer transition"
                                     title="Edit"
                                   >
-                                    <Edit2 className="w-3 h-3" />
+                                    <Edit2 className="w-3.5 h-3.5" />
                                   </button>
                                   <button
                                     onClick={() => handleDeleteOrg(org.id)}
-                                    className="p-1 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"
+                                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer transition"
                                     title="Delete"
                                   >
-                                    <Trash2 className="w-3 h-3" />
+                                    <Trash2 className="w-3.5 h-3.5" />
                                   </button>
                                 </div>
                               </div>
@@ -5152,8 +5038,8 @@ export default function AdminDashboard({ user, onLogout }) {
                                 </td>
                                 <td className="py-3.5 px-3">
                                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${evt.status === 'completed'
-                                      ? 'bg-green-50 text-green-600'
-                                      : 'bg-yellow-50 text-yellow-600'
+                                    ? 'bg-green-50 text-green-600'
+                                    : 'bg-yellow-50 text-yellow-600'
                                     }`}>
                                     {evt.status}
                                   </span>
@@ -5161,12 +5047,12 @@ export default function AdminDashboard({ user, onLogout }) {
                                 <td className="py-3.5 px-3">
                                   {relatedReport ? (
                                     <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${relatedReport.status === 'approved'
-                                        ? 'bg-sig-green/20 text-navy-blue'
-                                        : relatedReport.status === 'returned'
-                                          ? 'bg-red-50 text-red-500'
-                                          : relatedReport.status === 'submitted'
-                                            ? 'bg-blue-50 text-blue-500'
-                                            : 'bg-gray-50 text-gray-500'
+                                      ? 'bg-sig-green/20 text-navy-blue'
+                                      : relatedReport.status === 'returned'
+                                        ? 'bg-red-50 text-red-500'
+                                        : relatedReport.status === 'submitted'
+                                          ? 'bg-blue-50 text-blue-500'
+                                          : 'bg-gray-50 text-gray-500'
                                       }`}>
                                       {relatedReport.status}
                                     </span>
@@ -5875,7 +5761,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             const dept = orgsList.find(o => o.id === req.organizationId);
                             const deptName = dept ? dept.name : (req.organizationId || '');
                             const coordName = coordinator ? coordinator.name : '';
-                            
+
                             const matchesSearch =
                               req.purpose.toLowerCase().includes(formRequestSearchQuery.toLowerCase()) ||
                               (req.notes && req.notes.toLowerCase().includes(formRequestSearchQuery.toLowerCase())) ||
@@ -5920,12 +5806,11 @@ export default function AdminDashboard({ user, onLogout }) {
                                 <td className="py-3.5 px-2 text-gray-700 font-semibold">{req.formTitle}</td>
                                 <td className="py-3.5 px-2 text-navy-blue font-semibold">{new Date(req.targetDate).toLocaleDateString()}</td>
                                 <td className="py-3.5 px-2">
-                                  <span className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase border ${
-                                    req.status === 'Approved' ? 'bg-green-50 text-green-700 border-green-200' :
+                                  <span className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase border ${req.status === 'Approved' ? 'bg-green-50 text-green-700 border-green-200' :
                                     req.status === 'Rejected' ? 'bg-red-50 text-red-700 border-red-200' :
-                                    req.status === 'Completed' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                    'bg-yellow-50 text-yellow-700 border-yellow-200'
-                                  }`}>
+                                      req.status === 'Completed' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                        'bg-yellow-50 text-yellow-700 border-yellow-200'
+                                    }`}>
                                     {req.status}
                                   </span>
                                 </td>
@@ -6014,12 +5899,11 @@ export default function AdminDashboard({ user, onLogout }) {
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-400 font-semibold">Current Status:</span>
-                            <span className={`font-bold uppercase ${
-                              selectedFormRequest.status === 'Approved' ? 'text-green-600' :
+                            <span className={`font-bold uppercase ${selectedFormRequest.status === 'Approved' ? 'text-green-600' :
                               selectedFormRequest.status === 'Rejected' ? 'text-red-600' :
-                              selectedFormRequest.status === 'Completed' ? 'text-blue-600' :
-                              'text-yellow-600'
-                            }`}>
+                                selectedFormRequest.status === 'Completed' ? 'text-blue-600' :
+                                  'text-yellow-600'
+                              }`}>
                               {selectedFormRequest.status}
                             </span>
                           </div>

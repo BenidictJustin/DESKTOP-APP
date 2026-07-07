@@ -1195,7 +1195,8 @@ export const uploadPhoto = async (academicYear, eventId, file) => {
 
 export const getInventoryTransactions = async () => {
   if (isDemoMode) {
-    return getLocalData('dommunity_inventory_transactions') || [];
+    const list = getLocalData('dommunity_inventory_transactions') || [];
+    return list.sort((a, b) => new Date(b.date) - new Date(a.date));
   } else {
     try {
       const qSnap = await getDocs(collection(fdb, 'inventory_transactions'));
@@ -1208,10 +1209,11 @@ export const getInventoryTransactions = async () => {
           date: d.date && typeof d.date.toDate === 'function' ? d.date.toDate().toISOString() : d.date
         });
       });
-      return list.sort((a, b) => new Date(a.date) - new Date(b.date));
+      return list.sort((a, b) => new Date(b.date) - new Date(a.date));
     } catch (e) {
       console.warn("Failed Firestore transactions load, falling back:", e);
-      return getLocalData('dommunity_inventory_transactions') || [];
+      const list = getLocalData('dommunity_inventory_transactions') || [];
+      return list.sort((a, b) => new Date(b.date) - new Date(a.date));
     }
   }
 };
