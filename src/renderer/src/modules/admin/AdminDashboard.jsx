@@ -4,10 +4,11 @@ import {
   getOrganizations, addOrganization, updateOrganization, deleteOrganization,
   getInventory, addInventoryItem, updateInventoryItem, deleteInventoryItem,
   getDonors, addDonor, updateDonor, deleteDonor, getDonations, addDonation,
-  getEvents, addEvent, updateEvent,
+  getEvents, addEvent, updateEvent, deleteEvent,
   getReports, updateReport, getInventoryTransactions, logInventoryTransaction,
-  addReport, uploadPhoto, getFormRequests, updateFormRequest
+  addReport, uploadPhoto
 } from '../../services/db';
+import logo from '../../assets/logo.png';
 import {
   Users, Package, Gift, Calendar, FileText, Info, LogOut,
   Plus, Edit2, Trash2, Check, X, ShieldAlert, Download, Clock, ArrowRight,
@@ -34,7 +35,6 @@ export default function AdminDashboard({ user, onLogout }) {
   const [eventsList, setEventsList] = useState([]);
   const [reportsList, setReportsList] = useState([]);
   const [resetRequests, setResetRequests] = useState([]);
-  const [formRequestsList, setFormRequestsList] = useState([]);
 
   // Loading & error handling states
   const [loading, setLoading] = useState(false);
@@ -83,7 +83,7 @@ export default function AdminDashboard({ user, onLogout }) {
   const [coordOrgId, setCoordOrgId] = useState('');
   const [isDeptSearchOpen, setIsDeptSearchOpen] = useState(false);
   const [deptSearchVal, setDeptSearchVal] = useState('');
-  const [coordRole, setCoordRole] = useState('department_coordinator'); // department_coordinator vs office_coordinator
+  const [coordRole, setCoordRole] = useState('office_coordinator');
   const [coordErrors, setCoordErrors] = useState({});
 
   // Inventory Item Form
@@ -326,6 +326,15 @@ export default function AdminDashboard({ user, onLogout }) {
   const [donorName, setDonorName] = useState('');
   const [donorType, setDonorType] = useState('external_sponsor');
   const [donorSearchQuery, setDonorSearchQuery] = useState('');
+  const [isDonorTypeSuggestionsOpen, setIsDonorTypeSuggestionsOpen] = useState(false);
+  const [deletedDonorTypes, setDeletedDonorTypes] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dommunity_deleted_donor_types');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   // Donation form
   const [donPurpose, setDonPurpose] = useState('');
@@ -369,12 +378,7 @@ export default function AdminDashboard({ user, onLogout }) {
   const [selectedReport, setSelectedReport] = useState(null);
   const [feedbackNote, setFeedbackNote] = useState('');
 
-  // Form Requests states
-  const [formRequestSearchQuery, setFormRequestSearchQuery] = useState('');
-  const [formRequestStatusFilter, setFormRequestStatusFilter] = useState('');
-  const [formRequestTypeFilter, setFormRequestTypeFilter] = useState('');
-  const [selectedFormRequest, setSelectedFormRequest] = useState(null);
-  const [adminRequestNotes, setAdminRequestNotes] = useState('');
+
 
 
 
@@ -389,7 +393,6 @@ export default function AdminDashboard({ user, onLogout }) {
       const ev = await getEvents();
       const rep = await getReports();
       const reset = await getResetRequests();
-      const fr = await getFormRequests();
 
       setUsersList(u);
       setOrgsList(o);
@@ -399,7 +402,6 @@ export default function AdminDashboard({ user, onLogout }) {
       setEventsList(ev);
       setReportsList(rep);
       setResetRequests(reset);
-      setFormRequestsList(fr);
     } catch (err) {
       console.error("Failed to fetch dashboard data:", err);
     }
@@ -469,11 +471,6 @@ export default function AdminDashboard({ user, onLogout }) {
       errors.coordRole = 'Role is required.';
     }
 
-    // 5. Assigned Department Validation (only if Role is department_coordinator)
-    if (coordRole === 'department_coordinator' && !coordOrgId) {
-      errors.coordOrgId = 'Assigned department is required.';
-    }
-
     // 6. Password & Confirm Password Validation
     const passwordRequired = !editingUser;
     if (passwordRequired) {
@@ -530,7 +527,7 @@ export default function AdminDashboard({ user, onLogout }) {
     try {
       const fullName = `${coordFirstName.trim()} ${coordLastName.trim()}`;
       const username = coordUsername || coordEmail.split('@')[0] || '';
-      const assignedOrg = coordRole === 'department_coordinator' ? coordOrgId : null;
+      const assignedOrg = null;
 
       if (editingUser) {
         const payload = {
@@ -562,7 +559,7 @@ export default function AdminDashboard({ user, onLogout }) {
       setCoordOrgId('');
       setDeptSearchVal('');
       setIsDeptSearchOpen(false);
-      setCoordRole('department_coordinator');
+      setCoordRole('office_coordinator');
       setCoordErrors({});
       loadData();
     } catch (err) {
@@ -1295,6 +1292,25 @@ export default function AdminDashboard({ user, onLogout }) {
     clearFieldValError('evtParentDeptId');
   };
 
+  const handleDeleteEventClick = (evt) => {
+    setConfirmDialog({
+      title: "Delete Event Profile",
+      message: `Are you sure you want to permanently delete event "${evt.name}"? This action cannot be undone.`,
+      onConfirm: async () => {
+        setLoading(true);
+        try {
+          await deleteEvent(evt.id);
+          triggerSuccess(`Event "${evt.name}" successfully deleted.`);
+          loadData();
+        } catch (err) {
+          triggerError(err.message || "Failed to delete event.");
+        } finally {
+          setLoading(false);
+        }
+      }
+    });
+  };
+
   // Event schedule / update handler
   const handleCreateEvent = async (e) => {
     e.preventDefault();
@@ -1388,21 +1404,7 @@ export default function AdminDashboard({ user, onLogout }) {
     }
   };
 
-  // Form Request decision update handler
-  const handleUpdateFormRequest = async (reqId, status, notes) => {
-    setLoading(true);
-    try {
-      await updateFormRequest(reqId, { status, adminNotes: notes || '' });
-      triggerSuccess(`Form request updated successfully to ${status}.`);
-      setSelectedFormRequest(null);
-      setAdminRequestNotes('');
-      loadData();
-    } catch (err) {
-      triggerError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   // Format and export Inventory Report as PDF
   const exportInventoryPDF = () => {
@@ -1472,9 +1474,8 @@ export default function AdminDashboard({ user, onLogout }) {
         <div>
           {/* Logo block */}
           <div className="p-6 border-b border-white/10 flex items-center space-x-3 bg-navy-blue/90">
-            <div className="h-10 w-10 bg-white rounded-xl flex items-center justify-center border-2 border-sig-green">
-              <span className="text-navy-blue font-bold text-lg">D</span>
-              <span className="text-sig-green font-bold text-sm -ml-0.5">U</span>
+            <div className="h-10 w-10 bg-white rounded-xl overflow-hidden flex items-center justify-center border-2 border-sig-green">
+              <img src={logo} alt="DommUnity Logo" className="w-full h-full object-cover" />
             </div>
             <div>
               <h2 className="text-white font-bold text-sm leading-tight">DommUnity</h2>
@@ -1503,12 +1504,6 @@ export default function AdminDashboard({ user, onLogout }) {
                 icon: FileText,
                 badge: reportsList.filter(r => r.status === 'submitted').length
               },
-              {
-                id: 'form-requests',
-                label: 'Form Requests',
-                icon: FileSymlink,
-                badge: formRequestsList.filter(r => r.status === 'Pending').length
-              },
               { id: 'accounts', label: 'User Accounts', icon: Users }
             ].map(tab => (
               <button
@@ -1535,9 +1530,6 @@ export default function AdminDashboard({ user, onLogout }) {
         {/* Footer info & Logout */}
         <div className="p-4 border-t border-white/10 space-y-3 bg-navy-blue/90">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-full bg-sig-green text-navy-blue flex items-center justify-center font-bold text-xs">
-              {user.name.split(' ').map(n => n[0]).join('')}
-            </div>
             <div className="overflow-hidden">
               <h4 className="text-white text-xs font-bold truncate">{user.name}</h4>
               <p className="text-[9px] text-gray-400 capitalize">{user.role.replace('_', ' ')}</p>
@@ -1593,7 +1585,12 @@ export default function AdminDashboard({ user, onLogout }) {
             {confirmDialog && (
               <div className="fixed inset-0 z-100 flex items-center justify-center bg-navy-blue/40 backdrop-blur-sm p-4 animate-fade-in">
                 <div className="bg-white rounded-3xl p-6 shadow-2xl border border-gray-100 max-w-sm w-full text-center space-y-4">
-                  <div>
+                  <div className={confirmDialog.showIcon ? "flex flex-col items-center" : ""}>
+                    {confirmDialog.showIcon && (
+                      <div className="p-3 bg-red-50 text-red-500 rounded-full mb-2">
+                        <AlertTriangle className="w-6 h-6 animate-bounce" />
+                      </div>
+                    )}
                     <h4 className="font-bold text-navy-blue text-sm uppercase tracking-wide">
                       {confirmDialog.title}
                     </h4>
@@ -1663,7 +1660,7 @@ export default function AdminDashboard({ user, onLogout }) {
                 </div>
 
                 {/* Quick Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center space-x-4">
                     <div className="p-3.5 bg-blue-50 text-blue-600 rounded-2xl">
                       <Users className="w-6 h-6" />
@@ -1671,20 +1668,11 @@ export default function AdminDashboard({ user, onLogout }) {
                     <div>
                       <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Active Coordinators</span>
                       <span className="text-2xl font-black text-navy-blue">
-                        {usersList.filter(u => u.role === 'department_coordinator' && u.status === 'active').length}
+                        {usersList.filter(u => u.role === 'office_coordinator' && u.status === 'active').length}
                       </span>
                     </div>
                   </div>
 
-                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center space-x-4">
-                    <div className="p-3.5 bg-green-50 text-green-600 rounded-2xl">
-                      <Gift className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Logged Donors</span>
-                      <span className="text-2xl font-black text-navy-blue">{donorsList.length}</span>
-                    </div>
-                  </div>
 
                   <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center space-x-4">
                     <div className="p-3.5 bg-yellow-50 text-yellow-600 rounded-2xl">
@@ -1698,139 +1686,55 @@ export default function AdminDashboard({ user, onLogout }) {
                     </div>
                   </div>
 
+
+                  {/* Moved Department summary cards */}
                   <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center space-x-4">
-                    <div className="p-3.5 bg-purple-50 text-purple-600 rounded-2xl">
-                      <Sparkles className="w-6 h-6" />
+                    <div className="p-3.5 bg-navy-blue/5 text-navy-blue rounded-2xl">
+                      <Users className="w-6 h-6" />
                     </div>
                     <div>
-                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Relief Purposes</span>
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Total Departments</span>
                       <span className="text-2xl font-black text-navy-blue">
-                        {[...new Set(donationsList.map(d => d.purpose))].length}
+                        {orgsList.filter(o => o.type === 'department' || !o.type).length}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center space-x-4">
+                    <div className="p-3.5 bg-sig-green/10 text-sig-green rounded-2xl">
+                      <Calendar className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Scheduled Events</span>
+                      <span className="text-2xl font-black text-navy-blue">
+                        {eventsList.filter(e => {
+                          const o = orgsList.find(org => org.id === e.assignedOrganizationId);
+                          const isMatch = (!o || o.type === 'department' || !o.type);
+                          return isMatch && e.status !== 'completed';
+                        }).length}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center space-x-4">
+                    <div className="p-3.5 bg-green-50 text-green-600 rounded-2xl">
+                      <Check className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Completed Activities</span>
+                      <span className="text-2xl font-black text-navy-blue">
+                        {eventsList.filter(e => {
+                          const o = orgsList.find(org => org.id === e.assignedOrganizationId);
+                          const isMatch = (!o || o.type === 'department' || !o.type);
+                          return isMatch && e.status === 'completed';
+                        }).length}
                       </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Live Alerts & Action Center section */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-                  {/* Reset Requests queue */}
-                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
-                    <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3 flex items-center space-x-2">
-                      <ShieldAlert className="w-4 h-4 text-red-500" />
-                      <span>Password Reset Notifications</span>
-                    </h3>
-                    {resetRequests.filter(r => r.status === 'pending').length > 0 ? (
-                      <div className="space-y-2">
-                        {resetRequests.filter(r => r.status === 'pending').map(req => (
-                          <div key={req.id} className="flex justify-between items-center p-3 border border-red-200/50 rounded-xl bg-red-50/10 text-xs">
-                            <div>
-                              <span className="font-bold text-navy-blue">{req.name}</span> ({req.email})
-                              <div className="text-[10px] text-gray-400">Requested reset on {new Date(req.timestamp).toLocaleDateString()}</div>
-                            </div>
-                            <div className="flex space-x-1">
-                              <button
-                                onClick={() => handleResetApproval(req.id, 'dismiss')}
-                                className="py-1 px-3 bg-gray-50 border border-gray-200 text-gray-500 rounded-full hover:bg-gray-100 transition cursor-pointer text-[10px]"
-                              >
-                                Dismiss
-                              </button>
-                              <button
-                                onClick={() => {
-                                  const newPass = prompt("Enter new password for coordinator:", "dctpassword");
-                                  if (newPass) {
-                                    handleResetApproval(req.id, 'approve', newPass);
-                                    alert(`Successfully reset! Please hand over password "${newPass}" to ${req.name}.`);
-                                  }
-                                }}
-                                className="py-1 px-3 bg-navy-blue text-white rounded-full font-bold border-b border-sig-green hover:opacity-90 transition cursor-pointer text-[10px]"
-                              >
-                                Approve & Reset
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-6 text-gray-400 text-xs">No pending password reset requests.</div>
-                    )}
-                  </div>
-
-                  {/* System Live Alerts & Stock Warnings */}
-                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
-                    <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3 flex items-center space-x-2">
-                      <AlertTriangle className="w-4 h-4 text-amber-500" />
-                      <span>Critical System Notifications</span>
-                    </h3>
-
-                    <div className="space-y-2 text-xs">
-                      {/* Report Submissions alert */}
-                      {reportsList.filter(r => r.status === 'submitted').length > 0 ? (
-                        <div className="flex justify-between items-center p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl">
-                          <div>
-                            <strong>{reportsList.filter(r => r.status === 'submitted').length} Pending Narrative Reports</strong>
-                            <div className="text-[10px] text-amber-700">Outreach reports awaiting review.</div>
-                          </div>
-                          <button
-                            onClick={() => setActiveTab('reports')}
-                            className="py-1 px-3 bg-amber-600 text-white rounded-full font-bold hover:bg-amber-700 transition text-[10px] cursor-pointer"
-                          >
-                            Review
-                          </button>
-                        </div>
-                      ) : null}
-
-                      {/* Low stock alert */}
-                      {inventoryList.filter(i => i.quantity <= 10 && i.quantity > 0).length > 0 ? (
-                        <div className="flex justify-between items-center p-3 bg-yellow-50 border border-yellow-200 text-yellow-900 rounded-2xl">
-                          <div>
-                            <strong>{inventoryList.filter(i => i.quantity <= 10 && i.quantity > 0).length} Low Stock Supply Items</strong>
-                            <div className="text-[10px] text-yellow-700">Supplies have fallen below safe inventory thresholds.</div>
-                          </div>
-                          <button
-                            onClick={() => setActiveTab('inventory')}
-                            className="py-1 px-3 bg-yellow-600 text-white rounded-full font-bold hover:bg-yellow-700 transition text-[10px] cursor-pointer"
-                          >
-                            View Stock
-                          </button>
-                        </div>
-                      ) : null}
-
-                      {/* Expiring Soon alert */}
-                      {inventoryList.filter(i => {
-                        if (!i.expiryDate || i.quantity === 0 || i.status === 'expired') return false;
-                        const daysUntilExpiry = Math.ceil((new Date(i.expiryDate) - new Date()) / (1000 * 60 * 60 * 24));
-                        return daysUntilExpiry > 0 && daysUntilExpiry <= 30;
-                      }).length > 0 ? (
-                        <div className="flex justify-between items-center p-3 bg-orange-50 border border-orange-200 text-orange-900 rounded-2xl">
-                          <div>
-                            <strong>{inventoryList.filter(i => {
-                              if (!i.expiryDate || i.quantity === 0 || i.status === 'expired') return false;
-                              const daysUntilExpiry = Math.ceil((new Date(i.expiryDate) - new Date()) / (1000 * 60 * 60 * 24));
-                              return daysUntilExpiry > 0 && daysUntilExpiry <= 30;
-                            }).length} Consumable Batches Expiring Soon</strong>
-                            <div className="text-[10px] text-orange-700">Consumables expiring within 30 days.</div>
-                          </div>
-                          <button
-                            onClick={() => setActiveTab('inventory')}
-                            className="py-1 px-3 bg-orange-600 text-white rounded-full font-bold hover:bg-orange-700 transition text-[10px] cursor-pointer"
-                          >
-                            Inspect
-                          </button>
-                        </div>
-                      ) : null}
-
-                      {reportsList.filter(r => r.status === 'submitted').length === 0 &&
-                        inventoryList.filter(i => i.quantity <= 10 && i.quantity > 0).length === 0 &&
-                        inventoryList.filter(i => {
-                          if (!i.expiryDate || i.quantity === 0 || i.status === 'expired') return false;
-                          const daysUntilExpiry = Math.ceil((new Date(i.expiryDate) - new Date()) / (1000 * 60 * 60 * 24));
-                          return daysUntilExpiry > 0 && daysUntilExpiry <= 30;
-                        }).length === 0 && (
-                          <div className="text-center py-6 text-gray-400">All systems operational. No critical notifications.</div>
-                        )}
-                    </div>
-                  </div>
+                <div className="w-full">
 
                   {/* Upcoming Outreaches Widget */}
                   <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4 w-full">
@@ -3183,86 +3087,10 @@ export default function AdminDashboard({ user, onLogout }) {
                   <p className="text-gray-500 text-xs mt-1">Track contributions from DCT departments and external sponsors.</p>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Left Column: Registered Donors Directory */}
-                  <div className="space-y-6">
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4 flex flex-col max-h-[500px]">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between justify-start gap-2 border-b border-gray-100 pb-3">
-                        <h3 className="font-bold text-navy-blue text-sm">
-                          Registered Donors
-                        </h3>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            placeholder="Search donors..."
-                            value={donorSearchQuery}
-                            onChange={(e) => setDonorSearchQuery(e.target.value)}
-                            className="pl-8 pr-3 py-1.5 text-[11px] bg-gray-50 border border-gray-200 rounded-full focus:outline-none text-navy-blue font-medium w-full sm:w-40 focus:ring-2 focus:ring-navy-blue/15"
-                          />
-                          <Search className="absolute left-2.5 top-2 w-3 h-3 text-gray-400" />
-                        </div>
-                      </div>
-
-                      <div className="overflow-y-auto space-y-3 pr-1" style={{ maxHeight: '350px' }}>
-                        {(() => {
-                          const filtered = donorsList.filter(d =>
-                            d.name.toLowerCase().includes(donorSearchQuery.toLowerCase()) ||
-                            d.type.toLowerCase().includes(donorSearchQuery.toLowerCase())
-                          );
-
-                          if (filtered.length === 0) {
-                            return (
-                              <div className="text-center py-6 text-gray-400 text-xs">
-                                No registered donors found.
-                              </div>
-                            );
-                          }
-
-                          return filtered.map(d => {
-                            let badgeClass = "bg-gray-100 text-gray-600 border-gray-200/50";
-                            let typeLabel = "Donor";
-                            if (d.type === 'external_sponsor') {
-                              badgeClass = "bg-blue-50 text-blue-600 border-blue-100";
-                              typeLabel = "External Sponsor";
-                            } else if (d.type === 'internal_department') {
-                              badgeClass = "bg-purple-50 text-purple-600 border-purple-100";
-                              typeLabel = "School Dept";
-                            } else if (d.type === 'individual') {
-                              badgeClass = "bg-orange-50 text-orange-600 border-orange-100";
-                              typeLabel = "Individual";
-                            }
-
-                            return (
-                              <div key={d.id} className="p-3 border border-gray-100 rounded-2xl hover:bg-gray-50/50 transition flex justify-between items-start space-x-3 shadow-xs">
-                                <div className="space-y-1 min-w-0 flex-1">
-                                  <div className="flex flex-wrap items-center gap-1.5">
-                                    <span className="font-bold text-navy-blue text-xs truncate max-w-[150px]" title={d.name}>
-                                      {d.name}
-                                    </span>
-                                    <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded-md border font-bold ${badgeClass}`}>
-                                      {typeLabel}
-                                    </span>
-                                  </div>
-                                </div>
-                                <div className="flex items-center space-x-1 shrink-0">
-                                  <button
-                                    onClick={() => handleDeleteDonor(d.id)}
-                                    className="p-1 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer inline-flex items-center"
-                                    title="Delete Donor Profile"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          });
-                        })()}
-                      </div>
-                    </div>
-                  </div>
+                <div className="w-full">
 
                   {/* Right Column: Donation batch compiler */}
-                  <div className="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
                     <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3 mb-4">Log Donation Batch</h3>
 
                     <form onSubmit={handleCreateDonation} className="space-y-4">
@@ -3281,18 +3109,75 @@ export default function AdminDashboard({ user, onLogout }) {
                             style={{ height: '40px' }}
                           />
                         </div>
-                        <div>
+                        <div className="relative">
                           <label className="block text-gray-700 text-xs font-semibold mb-1">Donor Type</label>
-                          <select
+                          <input
+                            type="text"
                             value={donorType}
                             onChange={(e) => setDonorType(e.target.value)}
-                            className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none font-semibold text-navy-blue"
+                            onFocus={() => setIsDonorTypeSuggestionsOpen(true)}
+                            onBlur={() => setTimeout(() => setIsDonorTypeSuggestionsOpen(false), 200)}
+                            placeholder="e.g. external_sponsor, individual"
+                            className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
                             style={{ height: '40px' }}
-                          >
-                            <option value="external_sponsor">External Sponsor</option>
-                            <option value="internal_department">School Department</option>
-                            <option value="individual">Individual</option>
-                          </select>
+                          />
+                          {isDonorTypeSuggestionsOpen && (
+                            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                              <div className="py-1">
+                                {(() => {
+                                  const suggestions = [...new Set([
+                                    'external_sponsor',
+                                    'internal_department',
+                                    'individual',
+                                    ...donorsList.map(d => d.type)
+                                  ])].filter(Boolean).filter(type => !deletedDonorTypes.includes(type));
+                                  const filtered = suggestions.filter(type => !donorType || type.toLowerCase().includes(donorType.toLowerCase()));
+                                  if (filtered.length === 0) {
+                                    return (
+                                      <div
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={() => setIsDonorTypeSuggestionsOpen(false)}
+                                        className="p-2.5 text-xs text-gray-450 hover:bg-gray-50 cursor-pointer text-left font-semibold"
+                                      >
+                                        Use custom: "{donorType}"
+                                      </div>
+                                    );
+                                  }
+                                  return filtered.map(type => (
+                                    <div
+                                      key={type}
+                                      onMouseDown={(e) => e.preventDefault()}
+                                      onClick={() => {
+                                        setDonorType(type);
+                                        setIsDonorTypeSuggestionsOpen(false);
+                                      }}
+                                      className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold flex justify-between items-center"
+                                    >
+                                      <span>{type}</span>
+                                      <button
+                                        type="button"
+                                        onMouseDown={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                        }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const updated = [...deletedDonorTypes, type];
+                                          setDeletedDonorTypes(updated);
+                                          localStorage.setItem('dommunity_deleted_donor_types', JSON.stringify(updated));
+                                        }}
+                                        className="text-gray-400 hover:text-red-500 font-bold transition p-0.5 rounded hover:bg-gray-100 flex items-center justify-center cursor-pointer"
+                                        style={{ width: '18px', height: '18px', fontSize: '10px' }}
+                                        title="Delete suggestion"
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                  ));
+                                })()}
+                              </div>
+                            </div>
+                          )}
                         </div>
                         <div>
                           <label className="block text-gray-700 text-xs font-semibold mb-1">Donation Date</label>
@@ -3932,6 +3817,13 @@ export default function AdminDashboard({ user, onLogout }) {
                                   >
                                     <Edit2 className="w-3.5 h-3.5" />
                                   </button>
+                                  <button
+                                    onClick={() => handleDeleteEventClick(evt)}
+                                    className="text-red-550 hover:text-red-700 transition p-1 rounded hover:bg-red-50 cursor-pointer"
+                                    title="Delete Event"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
                                 </div>
                               </div>
                               <h4 className="font-bold text-navy-blue text-sm mb-1 leading-tight">{evt.name}</h4>
@@ -4162,22 +4054,11 @@ export default function AdminDashboard({ user, onLogout }) {
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between justify-start gap-4">
                   <div>
                     <h1 className="text-2xl font-bold text-navy-blue flex items-center gap-2">
-                      <FolderOpen className="w-6 h-6 text-sig-green" /> Organization & Departments
+                      Organization & Departments
                     </h1>
                   </div>
 
                   {/* Top-Right Add Buttons */}
-                  {selectedOrgSubTab === 'organization' && (
-                    <button
-                      onClick={() => {
-                        handleCancelOrgEdit();
-                        setIsAddOrgModalOpen(true);
-                      }}
-                      className="flex items-center gap-2 bg-navy-blue text-white text-xs font-semibold px-4 py-2.5 rounded-full border-b-2 border-sig-green hover:bg-navy-blue/90 transition cursor-pointer self-start sm:self-auto"
-                    >
-                      <Plus className="w-4 h-4" /> Add Organization
-                    </button>
-                  )}
                   {selectedOrgSubTab === 'department' && (
                     <button
                       onClick={() => {
@@ -4191,218 +4072,15 @@ export default function AdminDashboard({ user, onLogout }) {
                   )}
                 </div>
 
-                {/* Sub Navigation Bar */}
-                <div className="flex border-b border-gray-200 overflow-x-auto whitespace-nowrap scrollbar-none gap-2">
-                  <button
-                    onClick={() => {
-                      setSelectedOrgSubTab('organization');
-                      handleCancelOrgEdit();
-                    }}
-                    className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${selectedOrgSubTab === 'organization'
-                      ? 'border-sig-green text-navy-blue'
-                      : 'border-transparent text-gray-400 hover:text-navy-blue'
-                      }`}
-                  >
-                    <FolderOpen className="w-4 h-4" /> Organization
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedOrgSubTab('department');
-                      handleCancelOrgEdit();
-                    }}
-                    className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${selectedOrgSubTab === 'department'
-                      ? 'border-sig-green text-navy-blue'
-                      : 'border-transparent text-gray-400 hover:text-navy-blue'
-                      }`}
-                  >
-                    <Users className="w-4 h-4" /> Department
-                  </button>
-                  {orgsList.filter(o => o.type === 'organization').map(org => (
-                    <button
-                      key={org.id}
-                      onClick={() => {
-                        setSelectedOrgSubTab(org.id);
-                        handleCancelOrgEdit();
-                      }}
-                      className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${selectedOrgSubTab === org.id
-                        ? 'border-sig-green text-navy-blue'
-                        : 'border-transparent text-gray-400 hover:text-navy-blue'
-                        }`}
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-sig-green" /> {org.name}
-                    </button>
-                  ))}
-                </div>
-
-                {/* KPI Cards for General tabs */}
-                {(selectedOrgSubTab === 'organization' || selectedOrgSubTab === 'department') && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 flex items-center space-x-4">
-                      <div className="p-3.5 bg-navy-blue/5 rounded-2xl">
-                        {selectedOrgSubTab === 'department' ? (
-                          <Users className="w-5 h-5 text-navy-blue" />
-                        ) : (
-                          <FolderOpen className="w-5 h-5 text-navy-blue" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">
-                          Total {selectedOrgSubTab === 'department' ? 'Departments' : 'Organizations'}
-                        </p>
-                        <h3 className="text-xl font-bold text-navy-blue">
-                          {selectedOrgSubTab === 'department'
-                            ? orgsList.filter(o => o.type === 'department' || !o.type).length
-                            : orgsList.filter(o => o.type === 'organization').length}
-                        </h3>
-                      </div>
-                    </div>
-                    <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 flex items-center space-x-4">
-                      <div className="p-3.5 bg-sig-green/10 rounded-2xl">
-                        <Calendar className="w-5 h-5 text-sig-green" />
-                      </div>
-                      <div>
-                        <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">Scheduled Events</p>
-                        <h3 className="text-xl font-bold text-navy-blue">
-                          {eventsList.filter(e => {
-                            const o = orgsList.find(org => org.id === e.assignedOrganizationId);
-                            const isMatch = selectedOrgSubTab === 'department'
-                              ? (!o || o.type === 'department' || !o.type)
-                              : (o && o.type === 'organization');
-                            return isMatch && e.status !== 'completed';
-                          }).length} Active
-                        </h3>
-                      </div>
-                    </div>
-                    <div className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 flex items-center space-x-4">
-                      <div className="p-3.5 bg-green-50 rounded-2xl">
-                        <Check className="w-5 h-5 text-green-600" />
-                      </div>
-                      <div>
-                        <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">Completed Activities</p>
-                        <h3 className="text-xl font-bold text-navy-blue">
-                          {eventsList.filter(e => {
-                            const o = orgsList.find(org => org.id === e.assignedOrganizationId);
-                            const isMatch = selectedOrgSubTab === 'department'
-                              ? (!o || o.type === 'department' || !o.type)
-                              : (o && o.type === 'organization');
-                            return isMatch && e.status === 'completed';
-                          }).length} Total
-                        </h3>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Organization Tab View (Card Grid Layout) */}
-                {selectedOrgSubTab === 'organization' && (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                      <h3 className="font-bold text-navy-blue text-sm">Registered Organizations Directory</h3>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          placeholder="Search organizations..."
-                          value={orgSearchQuery}
-                          onChange={(e) => setOrgSearchQuery(e.target.value)}
-                          className="pl-8 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-full focus:outline-none text-navy-blue font-medium w-48 sm:w-60 focus:ring-2 focus:ring-navy-blue/15"
-                        />
-                        <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-gray-400" />
-                      </div>
-                    </div>
-
-                    {(() => {
-                      const filtered = orgsList.filter(o => o.type === 'organization').filter(o =>
-                        o.id.toLowerCase().includes(orgSearchQuery.toLowerCase()) ||
-                        o.name.toLowerCase().includes(orgSearchQuery.toLowerCase()) ||
-                        o.abbreviation.toLowerCase().includes(orgSearchQuery.toLowerCase()) ||
-                        (o.description || '').toLowerCase().includes(orgSearchQuery.toLowerCase())
-                      );
-
-                      if (filtered.length === 0) {
-                        return <p className="text-center py-10 text-gray-400 text-xs font-semibold">No organizations registered yet.</p>;
-                      }
-
-                      return (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-center max-w-5xl mx-auto py-4">
-                          {filtered.map(org => {
-                            return (
-                              <div
-                                key={org.id}
-                                onClick={() => setSelectedOrgSubTab(org.id)}
-                                className="bg-white rounded-3xl p-8 border border-gray-200/60 shadow-xs hover:shadow-md hover:border-sig-green/45 transition duration-200 cursor-pointer flex flex-col items-center justify-center text-center group space-y-5 relative h-72"
-                              >
-                                {/* Centered Logo */}
-                                <div className="w-32 h-32 flex items-center justify-center overflow-hidden transition-transform duration-200 group-hover:scale-105">
-                                  {org.logo ? (
-                                    <img src={org.logo} alt={`${org.name} logo`} className="w-full h-full object-contain" />
-                                  ) : (
-                                    <div className="w-24 h-24 rounded-full bg-navy-blue/5 border border-navy-blue/10 flex items-center justify-center">
-                                      <span className="text-2xl font-bold text-navy-blue/70">{org.abbreviation}</span>
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Name below logo */}
-                                <div className="space-y-1">
-                                  <h4 className="text-xs font-bold text-navy-blue group-hover:text-sig-green transition-colors duration-200 line-clamp-2 leading-tight px-2">
-                                    {org.name}
-                                  </h4>
-                                  <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">
-                                    {org.abbreviation}
-                                  </span>
-                                </div>
-
-                                {/* Absolute controls to edit/delete */}
-                                <div className="absolute top-4 right-4 flex items-center space-x-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200" onClick={(e) => e.stopPropagation()}>
-                                  <button
-                                    onClick={() => handleEditOrgClick(org)}
-                                    className="p-1.5 text-navy-blue hover:bg-navy-blue/5 rounded-lg cursor-pointer transition"
-                                    title="Edit"
-                                  >
-                                    <Edit2 className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteOrg(org.id)}
-                                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer transition"
-                                    title="Delete"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                )}
-
-                {/* Department Tab View (Table Layout) */}
                 {/* Department Tab View (Card Grid Layout) */}
                 {selectedOrgSubTab === 'department' && (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between border-b border-gray-100 pb-2">
                       <h3 className="font-bold text-navy-blue text-sm">Registered Departments Directory</h3>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          placeholder="Search departments..."
-                          value={orgSearchQuery}
-                          onChange={(e) => setOrgSearchQuery(e.target.value)}
-                          className="pl-8 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-full focus:outline-none text-navy-blue font-medium w-48 sm:w-60 focus:ring-2 focus:ring-navy-blue/15"
-                        />
-                        <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-gray-400" />
-                      </div>
                     </div>
 
                     {(() => {
-                      const filtered = orgsList.filter(o => o.type === 'department' || !o.type).filter(o =>
-                        o.id.toLowerCase().includes(orgSearchQuery.toLowerCase()) ||
-                        o.name.toLowerCase().includes(orgSearchQuery.toLowerCase()) ||
-                        o.abbreviation.toLowerCase().includes(orgSearchQuery.toLowerCase()) ||
-                        (o.description || '').toLowerCase().includes(orgSearchQuery.toLowerCase())
-                      );
+                      const filtered = orgsList.filter(o => o.type === 'department' || !o.type);
 
                       if (filtered.length === 0) {
                         return <p className="text-center py-10 text-gray-400 text-xs font-semibold">No departments registered yet.</p>;
@@ -4474,158 +4152,217 @@ export default function AdminDashboard({ user, onLogout }) {
                     const coord = usersList.find(u => u.uid === selectedOrgObj.coordinatorId || u.organizationId === selectedOrgObj.id);
 
                     // Filters for events
-                    const ongoingActivities = eventsList.filter(e => e.assignedOrganizationId === selectedOrgObj.id && e.status === 'ongoing');
-                    const upcomingActivities = eventsList.filter(e => e.assignedOrganizationId === selectedOrgObj.id && e.status === 'scheduled');
-                    const completedActivities = eventsList.filter(e => e.assignedOrganizationId === selectedOrgObj.id && e.status === 'completed');
+                    const ongoingActivities = eventsList.filter(e => {
+                      const isAssigned = e.assignedOrganizationId === selectedOrgObj.id;
+                      const isUnderDept = isDept && e.eventType === 'organization' && e.parentDepartmentId === selectedOrgObj.id;
+                      return (isAssigned || isUnderDept) && e.status === 'ongoing';
+                    });
+                    const upcomingActivities = eventsList.filter(e => {
+                      const isAssigned = e.assignedOrganizationId === selectedOrgObj.id;
+                      const isUnderDept = isDept && e.eventType === 'organization' && e.parentDepartmentId === selectedOrgObj.id;
+                      return (isAssigned || isUnderDept) && (e.status === 'scheduled' || e.status === 'planned');
+                    });
+                    const completedActivities = eventsList.filter(e => {
+                      const isAssigned = e.assignedOrganizationId === selectedOrgObj.id;
+                      const isUnderDept = isDept && e.eventType === 'organization' && e.parentDepartmentId === selectedOrgObj.id;
+                      return (isAssigned || isUnderDept) && e.status === 'completed';
+                    });
 
                     return (
-                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        {/* Left Column: Profile Details Card */}
-                        <div className="lg:col-span-2 space-y-6">
-                          <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col space-y-4">
-                            <div className="border-b border-gray-100 pb-3 flex items-center justify-between">
-                              <h3 className="font-bold text-navy-blue text-sm flex items-center gap-2">
-                                {isDept ? (
-                                  <Users className="w-4 h-4 text-sig-green" />
-                                ) : (
-                                  <Sparkles className="w-4 h-4 text-sig-green" />
-                                )}
-                                {isDept ? 'Department Profile Details' : 'Organization Profile Details'}
-                              </h3>
-                              <div className="flex space-x-2">
-                                <button
-                                  onClick={() => {
-                                    handleEditOrgClick(selectedOrgObj);
-                                  }}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-navy-blue/5 hover:bg-navy-blue/10 text-navy-blue text-xs font-semibold rounded-xl transition cursor-pointer"
-                                >
-                                  <Edit2 className="w-3.5 h-3.5" /> Edit Profile
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteOrg(selectedOrgObj.id)}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 text-xs font-semibold rounded-xl transition cursor-pointer"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" /> Delete {isDept ? 'Department' : 'Organization'}
-                                </button>
-                              </div>
+                      <div className="space-y-6">
+                        {/* Profile Details Card (Full Width) */}
+                        <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col space-y-4 w-full relative overflow-hidden">
+                          {isDept && selectedOrgObj.logo && (
+                            <div className="absolute right-[10px] bottom-[-19px] w-[500px] h-[270px] opacity-50 pointer-events-none select-none z-0 overflow-hidden">
+                              <img
+                                src={selectedOrgObj.logo}
+                                alt=""
+                                className="w-full h-[500px] object-contain object-top"
+                              />
                             </div>
+                          )}
 
-                            <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
-                              {isDept && (
-                                <div className="w-24 h-24 rounded-3xl border border-gray-100 bg-gray-50 flex items-center justify-center overflow-hidden shadow-inner shrink-0">
-                                  {selectedOrgObj.logo ? (
-                                    <img src={selectedOrgObj.logo} alt={`${selectedOrgObj.name} logo`} className="w-full h-full object-cover" />
-                                  ) : (
-                                    <span className="text-2xl font-bold text-navy-blue/70">{selectedOrgObj.abbreviation}</span>
-                                  )}
-                                </div>
+                          <div className="pb-3 flex items-center justify-between flex-wrap gap-2 relative z-10">
+                            <h3 className="font-bold text-navy-blue text-sm flex items-center gap-2">
+                              {isDept ? (
+                                <Users className="w-4 h-4 text-sig-green" />
+                              ) : (
+                                <Sparkles className="w-4 h-4 text-sig-green" />
                               )}
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
+                              {isDept ? 'Department Profile Details' : 'Organization Profile Details'}
+                            </h3>
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => setSelectedOrgSubTab(isDept ? 'department' : 'organization')}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-navy-blue text-white hover:opacity-90 text-xs font-semibold rounded-xl transition cursor-pointer"
+                              >
+                                Return to {isDept ? 'Department' : 'Organization'} Directory
+                              </button>
+                              <button
+                                onClick={() => {
+                                  handleEditOrgClick(selectedOrgObj);
+                                }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-navy-blue/5 hover:bg-navy-blue/10 text-navy-blue text-xs font-semibold rounded-xl transition cursor-pointer"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" /> Edit Profile
+                              </button>
+                              <button
+                                onClick={() => handleDeleteOrg(selectedOrgObj.id)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 text-xs font-semibold rounded-xl transition cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" /> Delete {isDept ? 'Department' : 'Organization'}
+                              </button>
+                            </div>
+                          </div>
+                          <div className="border-b border-gray-100 w-[60%] relative z-10" />
+
+                          <div className="flex flex-col md:flex-row gap-6 items-start md:items-center relative z-10">
+                            {isDept && (
+                              <div className="w-24 h-24 rounded-3xl border border-gray-100 bg-gray-50 flex items-center justify-center overflow-hidden shadow-inner shrink-0">
+                                {selectedOrgObj.logo ? (
+                                  <img src={selectedOrgObj.logo} alt={`${selectedOrgObj.name} logo`} className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="text-2xl font-bold text-navy-blue/70">{selectedOrgObj.abbreviation}</span>
+                                )}
+                              </div>
+                            )}
+                            <div className="flex flex-wrap gap-x-16 gap-y-4 flex-1">
+                              <div>
+                                <p className="text-[10px] uppercase font-bold text-gray-400">{isDept ? 'Department Name' : 'Organization Name'}</p>
+                                <p className="text-sm font-semibold text-navy-blue mt-0.5">{selectedOrgObj.name}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] uppercase font-bold text-gray-400">Abbreviation</p>
+                                <p className="text-sm font-semibold text-navy-blue mt-0.5">{selectedOrgObj.abbreviation}</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] uppercase font-bold text-gray-400">ID / Slug Code</p>
+                                <p className="text-xs font-mono text-gray-600 mt-0.5 bg-gray-50 px-2 py-1 rounded-md w-fit">{selectedOrgObj.id}</p>
+                              </div>
+                              {!isDept && (
                                 <div>
-                                  <p className="text-[10px] uppercase font-bold text-gray-400">{isDept ? 'Department Name' : 'Organization Name'}</p>
-                                  <p className="text-sm font-semibold text-navy-blue mt-0.5">{selectedOrgObj.name}</p>
-                                </div>
-                                <div>
-                                  <p className="text-[10px] uppercase font-bold text-gray-400">Abbreviation</p>
-                                  <p className="text-sm font-semibold text-navy-blue mt-0.5">{selectedOrgObj.abbreviation}</p>
-                                </div>
-                                <div>
-                                  <p className="text-[10px] uppercase font-bold text-gray-400">ID / Slug Code</p>
-                                  <p className="text-xs font-mono text-gray-600 mt-0.5 bg-gray-50 px-2 py-1 rounded-md w-fit">{selectedOrgObj.id}</p>
-                                </div>
-                                <div>
-                                  <p className="text-[10px] uppercase font-bold text-gray-400">{isDept ? 'Department Coordinator' : 'Assigned Coordinator'}</p>
+                                  <p className="text-[10px] uppercase font-bold text-gray-400">Assigned Coordinator</p>
                                   <p className="text-xs font-semibold text-navy-blue mt-0.5">
                                     {coord ? `${coord.name} (${coord.email || coord.username})` : 'No coordinator assigned'}
                                   </p>
                                 </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="w-[60%] border-t border-gray-50 relative z-10" />
+                          <div className="pt-2 relative z-10">
+                            <p className="text-[10px] uppercase font-bold text-gray-400">Description</p>
+                            <p className="text-xs text-gray-600 mt-1 leading-relaxed font-medium max-w-sm wrap-break-word whitespace-pre-wrap">
+                              {selectedOrgObj.description || 'No description provided.'}
+                            </p>
+                          </div>
+
+                          {isDept && (
+                            <>
+                              <div className="w-[60%] border-t border-gray-50 relative z-10" />
+                              <div className="pt-2 relative z-10">
+                                <p className="text-[10px] uppercase font-bold text-gray-400">Organizations under this Department</p>
+                                {(() => {
+                                  const orgsUnderDept = [...new Set(
+                                    eventsList
+                                      .filter(evt => evt.eventType === 'organization' && evt.parentDepartmentId === selectedOrgObj.id)
+                                      .map(evt => evt.organizationName)
+                                      .filter(Boolean)
+                                  )];
+                                  if (orgsUnderDept.length === 0) {
+                                    return <p className="text-xs text-gray-400 mt-1">No organizations recorded under this department.</p>;
+                                  }
+                                  return (
+                                    <div className="flex flex-wrap gap-2 mt-1.5">
+                                      {orgsUnderDept.map((orgName, idx) => (
+                                        <span key={idx} className="bg-sig-green/10 text-navy-blue text-xs font-semibold px-2.5 py-1 rounded-full">
+                                          {orgName}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  );
+                                })()}
                               </div>
-                            </div>
-
-                            <div className="pt-4 border-t border-gray-50">
-                              <p className="text-[10px] uppercase font-bold text-gray-400">Description</p>
-                              <p className="text-xs text-gray-600 mt-1 leading-relaxed font-medium">
-                                {selectedOrgObj.description || 'No description provided.'}
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Ongoing and Upcoming Activities lists */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {/* Ongoing Activities */}
-                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
-                              <h4 className="font-bold text-navy-blue text-xs border-b border-gray-100 pb-2 flex items-center justify-between">
-                                <span>Ongoing Activities</span>
-                                <span className="bg-amber-100 text-amber-800 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase">
-                                  {ongoingActivities.length} Active
-                                </span>
-                              </h4>
-                              {ongoingActivities.length === 0 ? (
-                                <p className="text-center py-6 text-gray-400 text-xs font-medium">No ongoing activities.</p>
-                              ) : (
-                                <div className="space-y-3">
-                                  {ongoingActivities.map(act => (
-                                    <div key={act.id} className="p-3 bg-gray-50/50 border border-gray-100 rounded-2xl flex justify-between items-center">
-                                      <div>
-                                        <p className="text-xs font-bold text-navy-blue">{act.title}</p>
-                                        <p className="text-[10px] text-gray-400 font-medium">{act.date} • {act.location}</p>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Upcoming Activities */}
-                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
-                              <h4 className="font-bold text-navy-blue text-xs border-b border-gray-100 pb-2 flex items-center justify-between">
-                                <span>Upcoming Activities</span>
-                                <span className="bg-blue-100 text-blue-800 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase">
-                                  {upcomingActivities.length} Scheduled
-                                </span>
-                              </h4>
-                              {upcomingActivities.length === 0 ? (
-                                <p className="text-center py-6 text-gray-400 text-xs font-medium">No upcoming activities.</p>
-                              ) : (
-                                <div className="space-y-3">
-                                  {upcomingActivities.map(act => (
-                                    <div key={act.id} className="p-3 bg-gray-50/50 border border-gray-100 rounded-2xl flex justify-between items-center">
-                                      <div>
-                                        <p className="text-xs font-bold text-navy-blue">{act.title}</p>
-                                        <p className="text-[10px] text-gray-400 font-medium">{act.date} • {act.location}</p>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                            </>
+                          )}
                         </div>
 
-                        {/* Right Column: Return directory & quick actions */}
-                        <div className="space-y-6">
-                          <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between h-48">
-                            <div>
-                              <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-2 mb-2">Outreach Actions</h3>
-                              <p className="text-gray-500 text-xs">Manage outreach activities and view schedule summaries for this profile.</p>
-                            </div>
-                            <button
-                              onClick={() => setSelectedOrgSubTab(isDept ? 'department' : 'organization')}
-                              className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer flex items-center justify-center gap-1.5"
-                            >
-                              Return to {isDept ? 'Department Directory' : 'Organization Directory'}
-                            </button>
+                        {/* Activities & Statistics (Same Row Grid) */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                          {/* Ongoing Activities */}
+                          <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
+                            <h4 className="font-bold text-navy-blue text-xs border-b border-gray-100 pb-2 flex items-center justify-between">
+                              <span>Ongoing Activities</span>
+                              <span className="bg-amber-100 text-amber-800 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase">
+                                {ongoingActivities.length} Active
+                              </span>
+                            </h4>
+                            {ongoingActivities.length === 0 ? (
+                              <p className="text-center py-6 text-gray-400 text-xs font-medium">No ongoing activities.</p>
+                            ) : (
+                              <div className="space-y-3">
+                                {ongoingActivities.map(act => {
+                                  const orgLabel = act.eventType === 'organization' ? act.organizationName : (orgsList.find(o => o.id === act.assignedOrganizationId)?.abbreviation || 'CES');
+                                  return (
+                                    <div key={act.id} className="p-3 bg-gray-50/50 border border-gray-100 rounded-2xl flex justify-between items-center gap-2">
+                                      <div className="min-w-0 flex-1 pr-1 text-left">
+                                        <p className="text-xs font-bold text-navy-blue truncate">{act.title || act.name}</p>
+                                        <p className="text-[10px] text-gray-400 font-medium truncate">
+                                          {act.date || (act.scheduleDate ? new Date(act.scheduleDate).toLocaleDateString() : '')} • {act.location}
+                                        </p>
+                                      </div>
+                                      <span className="bg-navy-blue/5 text-navy-blue text-[8px] font-bold px-2 py-1 rounded shrink-0">
+                                        {orgLabel}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
 
-                          {/* Quick statistics */}
+                          {/* Upcoming Activities */}
                           <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
-                            <h4 className="font-bold text-navy-blue text-xs border-b border-gray-100 pb-2">Outreach Statistics</h4>
+                            <h4 className="font-bold text-navy-blue text-xs border-b border-gray-100 pb-2 flex items-center justify-between">
+                              <span>Upcoming Activities</span>
+                              <span className="bg-blue-100 text-blue-800 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase">
+                                {upcomingActivities.length} Scheduled
+                              </span>
+                            </h4>
+                            {upcomingActivities.length === 0 ? (
+                              <p className="text-center py-6 text-gray-400 text-xs font-medium">No upcoming activities.</p>
+                            ) : (
+                              <div className="space-y-3">
+                                {upcomingActivities.map(act => {
+                                  const orgLabel = act.eventType === 'organization' ? act.organizationName : (orgsList.find(o => o.id === act.assignedOrganizationId)?.abbreviation || 'CES');
+                                  return (
+                                    <div key={act.id} className="p-3 bg-gray-50/50 border border-gray-100 rounded-2xl flex justify-between items-center gap-2">
+                                      <div className="min-w-0 flex-1 pr-1 text-left">
+                                        <p className="text-xs font-bold text-navy-blue truncate">{act.title || act.name}</p>
+                                        <p className="text-[10px] text-gray-400 font-medium truncate">
+                                          {act.date || (act.scheduleDate ? new Date(act.scheduleDate).toLocaleDateString() : '')} • {act.location}
+                                        </p>
+                                      </div>
+                                      <span className="bg-navy-blue/5 text-navy-blue text-[8px] font-bold px-2 py-1 rounded shrink-0">
+                                        {orgLabel}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Outreach Statistics */}
+                          <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
+                            <h4 className="font-bold text-navy-blue text-xs border-b border-gray-100 pb-2 text-left">Outreach Statistics</h4>
                             <div className="grid grid-cols-2 gap-4">
-                              <div className="bg-navy-blue/5 p-3 rounded-2xl flex flex-col justify-between h-20">
+                              <div className="bg-navy-blue/5 p-3 rounded-2xl flex flex-col justify-between h-20 text-left">
                                 <span className="text-[9px] font-bold text-navy-blue uppercase">Total Scheduled</span>
                                 <span className="text-xl font-bold text-navy-blue">{upcomingActivities.length + ongoingActivities.length}</span>
                               </div>
-                              <div className="bg-sig-green/10 p-3 rounded-2xl flex flex-col justify-between h-20">
+                              <div className="bg-sig-green/10 p-3 rounded-2xl flex flex-col justify-between h-20 text-left">
                                 <span className="text-[9px] font-bold text-navy-blue uppercase">Completed Outreach</span>
                                 <span className="text-xl font-bold text-navy-blue">{completedActivities.length}</span>
                               </div>
@@ -4843,18 +4580,7 @@ export default function AdminDashboard({ user, onLogout }) {
                           </div>
                         </div>
 
-                        <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">Assign Coordinator</label>
-                          <SearchableDropdown
-                            value={deptCoordinatorId}
-                            onChange={(val) => setDeptCoordinatorId(val)}
-                            options={usersList
-                              .filter(u => u.role === 'department_coordinator' || u.role === 'coordinator')
-                              .map(u => ({ id: u.uid, name: `${u.name} (${u.username})`, original: u }))}
-                            onDelete={(u) => handleDeleteUser(u)}
-                            placeholder="Type to filter coordinators..."
-                          />
-                        </div>
+
 
                         <div className="flex items-center space-x-2 pt-2 border-t border-gray-100">
                           <button
@@ -4880,194 +4606,6 @@ export default function AdminDashboard({ user, onLogout }) {
                   </div>
                 )}
 
-                {/* Events & Activities Tracking Section */}
-                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-6">
-                  <div className="border-b border-gray-100 pb-3 flex flex-col md:flex-row md:items-center md:justify-between justify-start gap-4">
-                    <div>
-                      <h3 className="font-bold text-navy-blue text-sm flex items-center gap-1.5">
-                        <Clock className="w-4 h-4 text-navy-blue" /> Events & Outreach Activities Tracker
-                      </h3>
-                      <p className="text-gray-400 text-[11px] font-medium mt-0.5">Filter, search, and track events status and narrative report completion states.</p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      {/* Department Select Filter */}
-                      {selectedOrgSubTab === 'department' && (
-                        <select
-                          value={trackerDeptFilter}
-                          onChange={(e) => setTrackerDeptFilter(e.target.value)}
-                          className="p-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none font-semibold text-navy-blue focus:ring-2 focus:ring-navy-blue/15"
-                        >
-                          <option value="all">All Departments</option>
-                          {orgsList.filter(o => o.type === 'department' || !o.type).map(o => (
-                            <option key={o.id} value={o.id}>{o.abbreviation}</option>
-                          ))}
-                        </select>
-                      )}
-
-                      {/* Organization Select Filter */}
-                      {selectedOrgSubTab === 'organization' && (
-                        <select
-                          value={trackerDeptFilter}
-                          onChange={(e) => setTrackerDeptFilter(e.target.value)}
-                          className="p-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none font-semibold text-navy-blue focus:ring-2 focus:ring-navy-blue/15"
-                        >
-                          <option value="all">All Organizations</option>
-                          {orgsList.filter(o => o.type === 'organization').map(o => (
-                            <option key={o.id} value={o.id}>{o.abbreviation}</option>
-                          ))}
-                        </select>
-                      )}
-
-                      {/* Month Filter */}
-                      <select
-                        value={trackerMonthFilter}
-                        onChange={(e) => setTrackerMonthFilter(e.target.value)}
-                        className="p-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none font-semibold text-navy-blue focus:ring-2 focus:ring-navy-blue/15"
-                      >
-                        <option value="all">All Months</option>
-                        <option value="0">January</option>
-                        <option value="1">February</option>
-                        <option value="2">March</option>
-                        <option value="3">April</option>
-                        <option value="4">May</option>
-                        <option value="5">June</option>
-                        <option value="6">July</option>
-                        <option value="7">August</option>
-                        <option value="8">September</option>
-                        <option value="9">October</option>
-                        <option value="10">November</option>
-                        <option value="11">December</option>
-                      </select>
-
-                      {/* Search Tracker Input */}
-                      <div className="relative">
-                        <input
-                          type="text"
-                          placeholder="Search activities..."
-                          value={trackerSearchQuery}
-                          onChange={(e) => setTrackerSearchQuery(e.target.value)}
-                          className="pl-8 pr-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none text-navy-blue font-medium w-40 sm:w-48 focus:ring-2 focus:ring-navy-blue/15"
-                        />
-                        <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-gray-400" />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Activity List table */}
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="border-b border-gray-100 bg-gray-50 text-[10px] uppercase font-bold text-gray-500">
-                          <th className="py-3 px-3">Date</th>
-                          <th className="py-3 px-3">Outreach / Event Name</th>
-                          <th className="py-3 px-3">{selectedOrgSubTab === 'department' ? 'Department' : 'Organization'}</th>
-                          <th className="py-3 px-3">Location</th>
-                          <th className="py-3 px-3">Event Status</th>
-                          <th className="py-3 px-3">Narrative Report</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-50 text-xs">
-                        {(() => {
-                          const list = eventsList.filter(evt => {
-                            const matchedDept = orgsList.find(o => o.id === evt.assignedOrganizationId);
-                            if (selectedOrgSubTab === 'department') {
-                              // Show only departments
-                              if (matchedDept && matchedDept.type === 'organization') return false;
-                              if (trackerDeptFilter !== 'all' && evt.assignedOrganizationId !== trackerDeptFilter) return false;
-                            } else if (selectedOrgSubTab === 'organization') {
-                              // Show only organizations
-                              if (!matchedDept || matchedDept.type !== 'organization') return false;
-                              if (trackerDeptFilter !== 'all' && evt.assignedOrganizationId !== trackerDeptFilter) return false;
-                            } else {
-                              // Specific organization tab selected - show only events assigned to it
-                              if (evt.assignedOrganizationId !== selectedOrgSubTab) return false;
-                            }
-
-                            if (trackerMonthFilter !== 'all') {
-                              try {
-                                const m = new Date(evt.scheduleDate).getMonth();
-                                if (m !== parseInt(trackerMonthFilter)) return false;
-                              } catch {
-                                return false;
-                              }
-                            }
-                            if (trackerSearchQuery.trim() !== '') {
-                              const q = trackerSearchQuery.toLowerCase();
-                              return (
-                                (evt.name || '').toLowerCase().includes(q) ||
-                                (evt.description || '').toLowerCase().includes(q) ||
-                                (evt.location || '').toLowerCase().includes(q)
-                              );
-                            }
-                            return true;
-                          });
-
-                          if (list.length === 0) {
-                            return (
-                              <tr>
-                                <td colSpan="6" className="text-center py-8 text-gray-400">No activities or outreach events match the filter parameters.</td>
-                              </tr>
-                            );
-                          }
-
-                          return list.map(evt => {
-                            const relatedReport = reportsList.find(r => r.eventId === evt.id);
-                            const matchedDept = orgsList.find(o => o.id === evt.assignedOrganizationId);
-
-                            return (
-                              <tr key={evt.id} className="hover:bg-gray-50/50 transition">
-                                <td className="py-3.5 px-3 font-semibold text-navy-blue whitespace-nowrap">
-                                  {new Date(evt.scheduleDate).toLocaleDateString('en-US', {
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric'
-                                  })}
-                                </td>
-                                <td className="py-3.5 px-3">
-                                  <div className="font-semibold text-gray-800">{evt.name}</div>
-                                  <div className="text-[10px] text-gray-400 max-w-[250px] truncate" title={evt.description}>
-                                    {evt.description}
-                                  </div>
-                                </td>
-                                <td className="py-3.5 px-3 font-bold text-navy-blue">
-                                  {matchedDept ? matchedDept.abbreviation : 'N/A'}
-                                </td>
-                                <td className="py-3.5 px-3 text-gray-500 max-w-[150px] truncate" title={evt.location}>
-                                  {evt.location || 'No location'}
-                                </td>
-                                <td className="py-3.5 px-3">
-                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${evt.status === 'completed'
-                                    ? 'bg-green-50 text-green-600'
-                                    : 'bg-yellow-50 text-yellow-600'
-                                    }`}>
-                                    {evt.status}
-                                  </span>
-                                </td>
-                                <td className="py-3.5 px-3">
-                                  {relatedReport ? (
-                                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${relatedReport.status === 'approved'
-                                      ? 'bg-sig-green/20 text-navy-blue'
-                                      : relatedReport.status === 'returned'
-                                        ? 'bg-red-50 text-red-500'
-                                        : relatedReport.status === 'submitted'
-                                          ? 'bg-blue-50 text-blue-500'
-                                          : 'bg-gray-50 text-gray-500'
-                                      }`}>
-                                      {relatedReport.status}
-                                    </span>
-                                  ) : (
-                                    <span className="text-[10px] text-gray-400 font-semibold italic">No report filed</span>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                          });
-                        })()}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
               </div>
             )}
 
@@ -5078,7 +4616,7 @@ export default function AdminDashboard({ user, onLogout }) {
               <div className="space-y-6 animate-fade-in">
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
                   <h1 className="text-2xl font-bold text-navy-blue">Narrative Reports Queue</h1>
-                  <p className="text-gray-500 text-xs mt-1">Review activity documentation submitted by department coordinators.</p>
+                  <p className="text-gray-500 text-xs mt-1">Review activity documentation submitted by coordinators.</p>
                 </div>
 
                 {/* List panel */}
@@ -5302,15 +4840,9 @@ export default function AdminDashboard({ user, onLogout }) {
                           onChange={(e) => {
                             const newRole = e.target.value;
                             setCoordRole(newRole);
-                            if (newRole !== 'department_coordinator') {
-                              setCoordOrgId('');
-                            }
                             setCoordErrors(prev => {
                               const copy = { ...prev };
                               delete copy.coordRole;
-                              if (newRole !== 'department_coordinator') {
-                                delete copy.coordOrgId;
-                              }
                               return copy;
                             });
                           }}
@@ -5319,7 +4851,6 @@ export default function AdminDashboard({ user, onLogout }) {
                         >
                           <option value="admin">Admin</option>
                           <option value="office_coordinator">Office Coordinator</option>
-                          <option value="department_coordinator">Other Department Coordinator</option>
                         </select>
                         {coordErrors.coordRole && (
                           <p className="text-red-500 text-[10px] mt-1 font-semibold">{coordErrors.coordRole}</p>
@@ -5375,91 +4906,7 @@ export default function AdminDashboard({ user, onLogout }) {
                         </div>
                       </div>
 
-                      {coordRole === 'department_coordinator' && (
-                        <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">Assigned Department</label>
-                          <div className="relative">
-                            <input
-                              type="text"
-                              value={deptSearchVal}
-                              onChange={(e) => {
-                                setDeptSearchVal(e.target.value);
-                                setCoordOrgId(e.target.value);
-                                setIsDeptSearchOpen(true);
-                                if (coordErrors.coordOrgId) {
-                                  setCoordErrors(prev => {
-                                    const copy = { ...prev };
-                                    delete copy.coordOrgId;
-                                    return copy;
-                                  });
-                                }
-                              }}
-                              onFocus={() => setIsDeptSearchOpen(true)}
-                              onBlur={() => {
-                                setTimeout(() => setIsDeptSearchOpen(false), 250);
-                              }}
-                              placeholder="Select or type department..."
-                              className={`w-full px-3 py-2 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${coordErrors.coordOrgId ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                              style={{ height: '40px' }}
-                            />
 
-                            {isDeptSearchOpen && (
-                              <div className="absolute left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-lg z-50 divide-y divide-gray-50">
-                                {orgsList
-                                  .filter(o => o.type === 'department' || !o.type)
-                                  .filter(o => {
-                                    if (!deptSearchVal) return true;
-                                    const term = deptSearchVal.toLowerCase();
-                                    return o.name.toLowerCase().includes(term) || o.abbreviation.toLowerCase().includes(term);
-                                  })
-                                  .map(o => (
-                                    <div
-                                      key={o.id}
-                                      onMouseDown={(e) => e.preventDefault()}
-                                      onClick={() => {
-                                        setCoordOrgId(o.id);
-                                        setDeptSearchVal(o.name);
-                                        setIsDeptSearchOpen(false);
-                                      }}
-                                      className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
-                                    >
-                                      <span className="truncate">{o.name} ({o.abbreviation})</span>
-
-                                      <button
-                                        type="button"
-                                        onMouseDown={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                        }}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleDeleteOrg(o.id);
-                                        }}
-                                        className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5 rounded hover:bg-gray-100"
-                                      >
-                                        <X className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
-                                  ))}
-                                {orgsList
-                                  .filter(o => o.type === 'department' || !o.type)
-                                  .filter(o => {
-                                    if (!deptSearchVal) return true;
-                                    const term = deptSearchVal.toLowerCase();
-                                    return o.name.toLowerCase().includes(term) || o.abbreviation.toLowerCase().includes(term);
-                                  }).length === 0 && (
-                                    <div className="p-2.5 text-xs text-gray-400 text-left font-semibold">
-                                      No matching departments found.
-                                    </div>
-                                  )}
-                              </div>
-                            )}
-                          </div>
-                          {coordErrors.coordOrgId && (
-                            <p className="text-red-500 text-[10px] mt-1 font-semibold">{coordErrors.coordOrgId}</p>
-                          )}
-                        </div>
-                      )}
 
                       <div>
                         <label className="block text-gray-700 text-xs font-semibold mb-1">Email</label>
@@ -5553,7 +5000,7 @@ export default function AdminDashboard({ user, onLogout }) {
                               setCoordOrgId('');
                               setDeptSearchVal('');
                               setIsDeptSearchOpen(false);
-                              setCoordRole('department_coordinator');
+                              setCoordRole('office_coordinator');
                               setCoordErrors({});
                             }}
                             className="flex-1 bg-gray-100 hover:bg-gray-200 text-navy-blue rounded-full text-xs font-semibold py-2 px-4 transition cursor-pointer"
@@ -5670,333 +5117,6 @@ export default function AdminDashboard({ user, onLogout }) {
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-
-            {/* ==================================================== */}
-            {/* FORM REQUESTS TAB PANEL */}
-            {/* ==================================================== */}
-            {activeTab === 'form-requests' && user.role === 'admin' && (
-              <div className="space-y-6 animate-fade-in">
-                {/* Header card */}
-                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between">
-                  <div>
-                    <h1 className="text-2xl font-bold text-navy-blue flex items-center gap-2">
-                      <FileSymlink className="w-6 h-6 text-sig-green" /> Form Requests Manager
-                    </h1>
-                    <p className="text-xs text-gray-400 font-semibold mt-1">
-                      Manage and review all logistics, transportation, budget, and outreach requests from departments.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Filter & Search Bar */}
-                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
-                  <div className="flex flex-col md:flex-row gap-3">
-                    {/* Search Field */}
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        type="text"
-                        placeholder="Search by purpose, coordinator, notes..."
-                        value={formRequestSearchQuery}
-                        onChange={(e) => setFormRequestSearchQuery(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
-                        style={{ height: '38px' }}
-                      />
-                    </div>
-
-                    {/* Filter Status */}
-                    <div className="relative w-full md:w-48">
-                      <select
-                        value={formRequestStatusFilter}
-                        onChange={(e) => setFormRequestStatusFilter(e.target.value)}
-                        className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
-                        style={{ height: '38px' }}
-                      >
-                        <option value="">All Statuses</option>
-                        <option value="Pending">Pending</option>
-                        <option value="Approved">Approved</option>
-                        <option value="Rejected">Rejected</option>
-                        <option value="Completed">Completed</option>
-                      </select>
-                    </div>
-
-                    {/* Filter Form Title / Request Type */}
-                    <div className="relative w-full md:w-56">
-                      <select
-                        value={formRequestTypeFilter}
-                        onChange={(e) => setFormRequestTypeFilter(e.target.value)}
-                        className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
-                        style={{ height: '38px' }}
-                      >
-                        <option value="">All Request Types</option>
-                        <option value="Community Outreach Activity Request Form">Community Outreach</option>
-                        <option value="Funding and Budget Request Form">Funding & Budget</option>
-                        <option value="Logistics and Equipment Request Form">Logistics & Equipment</option>
-                        <option value="Transportation Request Form">Transportation</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Requests Table */}
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="border-b border-gray-100 bg-gray-50 text-[10px] uppercase font-bold text-gray-500">
-                          <th className="py-3 px-3">Department & Coordinator</th>
-                          <th className="py-3 px-2">Request Type</th>
-                          <th className="py-3 px-2">Target Date</th>
-                          <th className="py-3 px-2">Status</th>
-                          <th className="py-3 px-2">Urgency</th>
-                          <th className="py-3 px-2">Date Submitted</th>
-                          <th className="py-3 px-3 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-50 text-xs">
-                        {(() => {
-                          const filtered = formRequestsList.filter(req => {
-                            // Search filter
-                            const coordinator = usersList.find(u => u.uid === req.coordinatorId);
-                            const dept = orgsList.find(o => o.id === req.organizationId);
-                            const deptName = dept ? dept.name : (req.organizationId || '');
-                            const coordName = coordinator ? coordinator.name : '';
-
-                            const matchesSearch =
-                              req.purpose.toLowerCase().includes(formRequestSearchQuery.toLowerCase()) ||
-                              (req.notes && req.notes.toLowerCase().includes(formRequestSearchQuery.toLowerCase())) ||
-                              deptName.toLowerCase().includes(formRequestSearchQuery.toLowerCase()) ||
-                              coordName.toLowerCase().includes(formRequestSearchQuery.toLowerCase()) ||
-                              req.formTitle.toLowerCase().includes(formRequestSearchQuery.toLowerCase());
-
-                            // Status filter
-                            const matchesStatus = formRequestStatusFilter === '' || req.status === formRequestStatusFilter;
-
-                            // Request type filter
-                            const matchesType = formRequestTypeFilter === '' || req.formTitle === formRequestTypeFilter;
-
-                            return matchesSearch && matchesStatus && matchesType;
-                          });
-
-                          if (filtered.length === 0) {
-                            return (
-                              <tr>
-                                <td colSpan="7" className="text-center py-12 text-gray-400 text-xs font-semibold">
-                                  No form requests found.
-                                </td>
-                              </tr>
-                            );
-                          }
-
-                          return filtered.map(req => {
-                            const coordinator = usersList.find(u => u.uid === req.coordinatorId);
-                            const dept = orgsList.find(o => o.id === req.organizationId);
-                            const formattedDate = new Date(req.createdAt).toLocaleDateString(undefined, {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric'
-                            });
-
-                            return (
-                              <tr key={req.id} className="hover:bg-gray-50/50 transition">
-                                <td className="py-3.5 px-3 font-semibold text-navy-blue">
-                                  <div>{dept ? dept.name : (req.organizationId || 'CES')}</div>
-                                  <span className="text-[10px] text-gray-400 font-normal">By: {coordinator ? coordinator.name : 'Unknown Coordinator'}</span>
-                                </td>
-                                <td className="py-3.5 px-2 text-gray-700 font-semibold">{req.formTitle}</td>
-                                <td className="py-3.5 px-2 text-navy-blue font-semibold">{new Date(req.targetDate).toLocaleDateString()}</td>
-                                <td className="py-3.5 px-2">
-                                  <span className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase border ${req.status === 'Approved' ? 'bg-green-50 text-green-700 border-green-200' :
-                                    req.status === 'Rejected' ? 'bg-red-50 text-red-700 border-red-200' :
-                                      req.status === 'Completed' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                        'bg-yellow-50 text-yellow-700 border-yellow-200'
-                                    }`}>
-                                    {req.status}
-                                  </span>
-                                </td>
-                                <td className="py-3.5 px-2">
-                                  {req.isUrgent ? (
-                                    <span className="inline-block text-[9px] font-bold px-1.5 py-0.2 rounded bg-red-100 text-red-800 uppercase animate-pulse">Urgent</span>
-                                  ) : (
-                                    <span className="text-gray-400 text-[10px] font-semibold">Normal</span>
-                                  )}
-                                </td>
-                                <td className="py-3.5 px-2 text-gray-400 font-medium">{formattedDate}</td>
-                                <td className="py-3.5 px-3 text-right">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setSelectedFormRequest(req);
-                                      setAdminRequestNotes(req.adminNotes || '');
-                                    }}
-                                    className="py-1 px-3 bg-white border border-gray-200 text-navy-blue hover:bg-gray-50 transition rounded-full text-[10px] font-bold cursor-pointer inline-flex items-center space-x-1"
-                                  >
-                                    <Eye className="w-3 h-3" />
-                                    <span>Review</span>
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          });
-                        })()}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                {/* FORM REQUEST REVIEW MODAL */}
-                {selectedFormRequest && (
-                  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-xs">
-                    <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl border border-gray-100 animate-scale-up space-y-4 max-h-[90vh] overflow-y-auto">
-                      <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                        <div>
-                          <h3 className="font-bold text-navy-blue text-base">
-                            Review Form Request
-                          </h3>
-                          <p className="text-[10px] text-gray-400 font-semibold">{selectedFormRequest.formTitle}</p>
-                        </div>
-                        <button
-                          onClick={() => {
-                            setSelectedFormRequest(null);
-                            setAdminRequestNotes('');
-                          }}
-                          className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 cursor-pointer"
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                      </div>
-
-                      {/* Request details info grid */}
-                      <div className="grid grid-cols-2 gap-4 text-xs">
-                        <div className="col-span-2 bg-gray-50/50 p-3 rounded-2xl border border-gray-100 space-y-2">
-                          <div className="flex justify-between">
-                            <span className="text-gray-400 font-semibold">Department:</span>
-                            <span className="text-navy-blue font-bold">
-                              {orgsList.find(o => o.id === selectedFormRequest.organizationId)?.name || selectedFormRequest.organizationId || 'CES'}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-400 font-semibold">Submitted By:</span>
-                            <span className="text-navy-blue font-bold">
-                              {usersList.find(u => u.uid === selectedFormRequest.coordinatorId)?.name || 'Unknown Coordinator'}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-400 font-semibold">Date Submitted:</span>
-                            <span className="text-navy-blue font-bold">
-                              {new Date(selectedFormRequest.createdAt).toLocaleString()}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-400 font-semibold">Target Action Date:</span>
-                            <span className="text-navy-blue font-bold">{new Date(selectedFormRequest.targetDate).toLocaleDateString()}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-400 font-semibold">Urgency Status:</span>
-                            <span className={selectedFormRequest.isUrgent ? "text-red-600 font-bold" : "text-navy-blue font-bold"}>
-                              {selectedFormRequest.isUrgent ? "Urgent Priority" : "Normal Priority"}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-400 font-semibold">Current Status:</span>
-                            <span className={`font-bold uppercase ${selectedFormRequest.status === 'Approved' ? 'text-green-600' :
-                              selectedFormRequest.status === 'Rejected' ? 'text-red-600' :
-                                selectedFormRequest.status === 'Completed' ? 'text-blue-600' :
-                                  'text-yellow-600'
-                              }`}>
-                              {selectedFormRequest.status}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="col-span-2 space-y-1">
-                          <strong className="text-navy-blue font-bold block">Purpose & Justification:</strong>
-                          <p className="text-gray-600 font-semibold bg-gray-50/20 p-3 rounded-xl border border-gray-100 whitespace-pre-wrap leading-relaxed">
-                            {selectedFormRequest.purpose}
-                          </p>
-                        </div>
-
-                        {selectedFormRequest.notes && (
-                          <div className="col-span-2 space-y-1">
-                            <strong className="text-navy-blue font-bold block">Additional Notes / Logistics Items:</strong>
-                            <p className="text-gray-600 font-semibold bg-gray-50/20 p-3 rounded-xl border border-gray-100 whitespace-pre-wrap leading-relaxed">
-                              {selectedFormRequest.notes}
-                            </p>
-                          </div>
-                        )}
-
-                        {/* Admin Action Comments block */}
-                        <div className="col-span-2 space-y-1.5 pt-2 border-t border-gray-100">
-                          <label className="block text-navy-blue font-bold text-xs mb-1">
-                            Reviewer Feedback / Decision Notes
-                          </label>
-                          <textarea
-                            value={adminRequestNotes}
-                            onChange={(e) => setAdminRequestNotes(e.target.value)}
-                            placeholder="Add administrative review notes, instructions, or rejection reasons here..."
-                            className="w-full p-3 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 resize-none font-semibold text-navy-blue"
-                            rows="3"
-                          ></textarea>
-                        </div>
-                      </div>
-
-                      {/* Modal controls */}
-                      <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-gray-100">
-                        <div className="flex-1 flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateFormRequest(selectedFormRequest.id, 'Approved', adminRequestNotes)}
-                            disabled={loading}
-                            className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-full text-xs font-semibold py-2 px-3 transition cursor-pointer flex items-center justify-center gap-1"
-                            style={{ height: '38px' }}
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Approve</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleUpdateFormRequest(selectedFormRequest.id, 'Rejected', adminRequestNotes)}
-                            disabled={loading}
-                            className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-full text-xs font-semibold py-2 px-3 transition cursor-pointer flex items-center justify-center gap-1"
-                            style={{ height: '38px' }}
-                          >
-                            <X className="w-3.5 h-3.5" />
-                            <span>Reject</span>
-                          </button>
-                        </div>
-
-                        <div className="flex gap-2">
-                          {/* Manual Status Selector */}
-                          <div className="relative">
-                            <select
-                              value={selectedFormRequest.status}
-                              onChange={(e) => handleUpdateFormRequest(selectedFormRequest.id, e.target.value, adminRequestNotes)}
-                              className="px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-full focus:outline-none font-semibold text-navy-blue cursor-pointer"
-                              style={{ height: '38px' }}
-                            >
-                              <option value="Pending">Set Status: Pending</option>
-                              <option value="Approved">Set Status: Approved</option>
-                              <option value="Rejected">Set Status: Rejected</option>
-                              <option value="Completed">Set Status: Completed</option>
-                            </select>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedFormRequest(null);
-                              setAdminRequestNotes('');
-                            }}
-                            className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition cursor-pointer"
-                            style={{ height: '38px' }}
-                          >
-                            Close
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 

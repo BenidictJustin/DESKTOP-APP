@@ -21,9 +21,7 @@ const LOCAL_STORAGE_KEYS = {
   EVENTS: 'dommunity_events',
   REPORTS: 'dommunity_reports',
   LOGGED_IN_USER: 'dommunity_current_user',
-  RESET_REQUESTS: 'dommunity_reset_requests',
-  PUBLISHED_FORMS: 'dommunity_published_forms',
-  FORM_REQUESTS: 'dommunity_form_requests'
+  RESET_REQUESTS: 'dommunity_reset_requests'
 };
 
 // Initial Seed Data for Demo Mode
@@ -36,9 +34,7 @@ const SEED_DATA = {
   ],
   USERS: [
     { uid: 'user-admin', username: 'admin', email: 'faithful@dct.edu.ph', name: 'Faithful Anne F. Arugay', role: 'admin', organizationId: null, createdAt: new Date().toISOString() },
-    { uid: 'user-office', username: 'jonnel', email: 'jonnel@dct.edu.ph', name: 'Jonnel B. Manio', role: 'office_coordinator', organizationId: null, createdAt: new Date().toISOString() },
-    { uid: 'user-cba', username: 'cba_coordinator', email: 'cba@dct.edu.ph', name: 'Dr. Maria Santos', role: 'department_coordinator', organizationId: 'dept-cba', createdAt: new Date().toISOString() },
-    { uid: 'user-cs', username: 'cs_coordinator', email: 'cs@dct.edu.ph', name: 'Prof. Alan Turing', role: 'department_coordinator', organizationId: 'dept-cs', createdAt: new Date().toISOString() }
+    { uid: 'user-office', username: 'jonnel', email: 'jonnel@dct.edu.ph', name: 'Jonnel B. Manio', role: 'office_coordinator', organizationId: null, createdAt: new Date().toISOString() }
   ],
   INVENTORY: [
     { id: 'inv-1', name: 'Notebooks', category: 'school supplies', unit: 'pieces', quantity: 250, expiryDate: null, receivedDate: new Date(2026, 5, 1).toISOString(), status: 'available', lastUpdatedBy: 'user-admin', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
@@ -128,49 +124,7 @@ const SEED_DATA = {
       updatedAt: new Date(2026, 6, 14).toISOString()
     }
   ],
-  RESET_REQUESTS: [],
-  PUBLISHED_FORMS: [
-    {
-      id: 'form-1',
-      title: 'Community Outreach Approval Form',
-      description: 'Submit this form to request administrative approval for conducting community outreach activities in partner communities.',
-      category: 'Approval',
-      keywords: ['outreach', 'permission', 'approval', 'community'],
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: 'form-2',
-      title: 'Funding and Budget Request Form',
-      description: 'Request financial assistance or budget allocation from the CES Office for department extension projects and materials purchase.',
-      category: 'Financial',
-      keywords: ['funding', 'budget', 'money', 'financial', 'expenses'],
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: 'form-3',
-      title: 'Logistics and Equipment Request Form',
-      description: 'Request support materials, chairs, tables, sound systems, or clean-up drive materials for scheduled community events.',
-      category: 'Logistics',
-      keywords: ['logistics', 'equipment', 'materials', 'supplies', 'chairs', 'tables'],
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: 'form-4',
-      title: 'Speaker/Facilitator Invitation Form',
-      description: 'Submit lecturer profile, topic details, and event outlines to invite external facilitators or speakers to university seminars.',
-      category: 'Guest Speakers',
-      keywords: ['speaker', 'facilitator', 'lecturer', 'invitation', 'seminar'],
-      createdAt: new Date().toISOString()
-    },
-    {
-      id: 'form-5',
-      title: 'Transportation Request Form',
-      description: 'Request university vehicles (vans or buses) to transport volunteers, staff, and logistics to community extension sites.',
-      category: 'Transportation',
-      keywords: ['transportation', 'vehicle', 'van', 'bus', 'travel', 'trip'],
-      createdAt: new Date().toISOString()
-    }
-  ]
+  RESET_REQUESTS: []
 };
 
 // Initialize Local Storage helper
@@ -184,12 +138,6 @@ const initLocalStorage = () => {
     localStorage.setItem(LOCAL_STORAGE_KEYS.EVENTS, JSON.stringify(SEED_DATA.EVENTS));
     localStorage.setItem(LOCAL_STORAGE_KEYS.REPORTS, JSON.stringify(SEED_DATA.REPORTS));
     localStorage.setItem(LOCAL_STORAGE_KEYS.RESET_REQUESTS, JSON.stringify(SEED_DATA.RESET_REQUESTS));
-  }
-  if (!localStorage.getItem(LOCAL_STORAGE_KEYS.PUBLISHED_FORMS)) {
-    localStorage.setItem(LOCAL_STORAGE_KEYS.PUBLISHED_FORMS, JSON.stringify(SEED_DATA.PUBLISHED_FORMS));
-  }
-  if (!localStorage.getItem(LOCAL_STORAGE_KEYS.FORM_REQUESTS)) {
-    localStorage.setItem(LOCAL_STORAGE_KEYS.FORM_REQUESTS, JSON.stringify([]));
   }
 };
 
@@ -296,14 +244,6 @@ export const listenToAuthChanges = (callback) => {
 export const registerUser = async (email, username, password, name, role, organizationId = null) => {
   if (isDemoMode) {
     const users = getLocalData(LOCAL_STORAGE_KEYS.USERS);
-    
-    // Check constraints: only one coordinator per department
-    if (role === 'department_coordinator' && organizationId) {
-      const activeCoord = users.find(u => u.role === 'department_coordinator' && u.organizationId === organizationId && u.status !== 'inactive');
-      if (activeCoord) {
-        throw new Error(`Department already has an active coordinator: ${activeCoord.name}`);
-      }
-    }
 
     const newUid = 'user-' + Math.random().toString(36).substr(2, 9);
     const newUser = {
@@ -321,16 +261,6 @@ export const registerUser = async (email, username, password, name, role, organi
     users.push(newUser);
     saveLocalData(LOCAL_STORAGE_KEYS.USERS, users);
 
-    // If department coordinator, map back to organization
-    if (role === 'department_coordinator' && organizationId) {
-      const orgs = getLocalData(LOCAL_STORAGE_KEYS.ORGANIZATIONS);
-      const orgIdx = orgs.findIndex(o => o.id === organizationId);
-      if (orgIdx !== -1) {
-        orgs[orgIdx].coordinatorId = newUid;
-        saveLocalData(LOCAL_STORAGE_KEYS.ORGANIZATIONS, orgs);
-      }
-    }
-
     return newUser;
   } else {
     // Real mode (Admin registers using Firebase Auth)
@@ -338,16 +268,6 @@ export const registerUser = async (email, username, password, name, role, organi
     // For standalone React apps, we write directly to Firestore database since users are synced, 
     // or trigger creation. We'll simulate user creation in DB, and let auth sync.
     const newUid = 'real-uid-' + Math.random().toString(36).substr(2, 9);
-    
-    if (role === 'department_coordinator' && organizationId) {
-      // Check constraints
-      const q = query(collection(fdb, 'users'), where('role', '==', 'department_coordinator'), where('organizationId', '==', organizationId));
-      const qSnap = await getDocs(q);
-      const activeCoordDoc = qSnap.docs.find(d => d.data().status !== 'inactive');
-      if (activeCoordDoc) {
-        throw new Error(`Department already has an active coordinator: ${activeCoordDoc.data().name}`);
-      }
-    }
 
     const userDocRef = doc(fdb, 'users', newUid);
     const userData = {
@@ -363,11 +283,6 @@ export const registerUser = async (email, username, password, name, role, organi
     };
     await setDoc(userDocRef, userData);
 
-    if (role === 'department_coordinator' && organizationId) {
-      await updateDoc(doc(fdb, 'organizations', organizationId), {
-        coordinatorId: newUid
-      });
-    }
     return userData;
   }
 };
@@ -377,13 +292,6 @@ export const updateCoordinatorStatus = async (uid, status) => {
     const users = getLocalData(LOCAL_STORAGE_KEYS.USERS);
     const userIdx = users.findIndex(u => u.uid === uid);
     if (userIdx !== -1) {
-      // If toggling to active, ensure single active constraint
-      if (status === 'active' && users[userIdx].role === 'department_coordinator' && users[userIdx].organizationId) {
-        const active = users.find(u => u.role === 'department_coordinator' && u.organizationId === users[userIdx].organizationId && u.uid !== uid && u.status === 'active');
-        if (active) {
-          throw new Error(`Cannot activate: ${active.name} is already the active coordinator for this department.`);
-        }
-      }
       users[userIdx].status = status;
       users[userIdx].updatedAt = new Date().toISOString();
       saveLocalData(LOCAL_STORAGE_KEYS.USERS, users);
@@ -391,17 +299,6 @@ export const updateCoordinatorStatus = async (uid, status) => {
     }
     throw new Error("Coordinator account not found.");
   } else {
-    if (status === 'active') {
-      const targetDoc = await getDoc(doc(fdb, 'users', uid));
-      const target = targetDoc.data();
-      if (target.role === 'department_coordinator' && target.organizationId) {
-        const q = query(collection(fdb, 'users'), where('role', '==', 'department_coordinator'), where('organizationId', '==', target.organizationId), where('status', '==', 'active'));
-        const snap = await getDocs(q);
-        if (!snap.empty && snap.docs[0].id !== uid) {
-          throw new Error(`Cannot activate: ${snap.docs[0].data().name} is already active for this department.`);
-        }
-      }
-    }
     await updateDoc(doc(fdb, 'users', uid), {
       status,
       updatedAt: new Date()
@@ -424,18 +321,6 @@ export const updateUser = async (uid, updatedData) => {
     const userIdx = users.findIndex(u => u.uid === uid);
     if (userIdx !== -1) {
       const updatedUser = { ...users[userIdx], ...updatedData, updatedAt: new Date().toISOString() };
-      
-      if (updatedUser.role === 'department_coordinator' && updatedUser.organizationId && updatedUser.status === 'active') {
-        const active = users.find(u => 
-          u.role === 'department_coordinator' && 
-          u.organizationId === updatedUser.organizationId && 
-          u.uid !== uid && 
-          u.status === 'active'
-        );
-        if (active) {
-          throw new Error(`Cannot save: ${active.name} is already the active coordinator for this department.`);
-        }
-      }
 
       users[userIdx] = updatedUser;
       saveLocalData(LOCAL_STORAGE_KEYS.USERS, users);
@@ -1054,6 +939,17 @@ export const updateEvent = async (eventId, updates) => {
   }
 };
 
+export const deleteEvent = async (eventId) => {
+  if (isDemoMode) {
+    let events = getLocalData(LOCAL_STORAGE_KEYS.EVENTS);
+    events = events.filter(e => e.id !== eventId);
+    saveLocalData(LOCAL_STORAGE_KEYS.EVENTS, events);
+    return true;
+  } else {
+    await deleteDoc(doc(fdb, 'events', eventId));
+  }
+};
+
 // --- NARRATIVE REPORT SERVICES ---
 
 export const getReports = async () => {
@@ -1275,114 +1171,5 @@ export const deleteOrganization = async (orgId) => {
   }
 };
 
-// --- FORMS & REQUESTS SERVICES ---
 
-export const getPublishedForms = async () => {
-  if (isDemoMode) {
-    let forms = getLocalData(LOCAL_STORAGE_KEYS.PUBLISHED_FORMS);
-    if (!forms || forms.length === 0) {
-      forms = SEED_DATA.PUBLISHED_FORMS;
-      saveLocalData(LOCAL_STORAGE_KEYS.PUBLISHED_FORMS, forms);
-    }
-    return forms;
-  } else {
-    try {
-      const qSnap = await getDocs(collection(fdb, 'published_forms'));
-      if (qSnap.empty) {
-        return SEED_DATA.PUBLISHED_FORMS;
-      }
-      return qSnap.docs.map(d => ({
-        ...d.data(),
-        id: d.id,
-        createdAt: d.data().createdAt?.toDate ? d.data().createdAt.toDate().toISOString() : d.data().createdAt
-      }));
-    } catch (e) {
-      console.warn("Failed fetching published forms from Firestore, falling back to seed data:", e);
-      return SEED_DATA.PUBLISHED_FORMS;
-    }
-  }
-};
-
-export const getFormRequests = async (orgId) => {
-  if (isDemoMode) {
-    const list = getLocalData(LOCAL_STORAGE_KEYS.FORM_REQUESTS) || [];
-    return orgId ? list.filter(r => r.organizationId === orgId) : list;
-  } else {
-    try {
-      let q = collection(fdb, 'form_requests');
-      if (orgId) {
-        q = query(q, where('organizationId', '==', orgId));
-      }
-      const qSnap = await getDocs(q);
-      const list = [];
-      qSnap.forEach(snap => {
-        const d = snap.data();
-        list.push({
-          id: snap.id,
-          ...d,
-          createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : d.createdAt,
-          updatedAt: d.updatedAt?.toDate ? d.updatedAt.toDate().toISOString() : d.updatedAt
-        });
-      });
-      return list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    } catch (e) {
-      console.warn("Failed fetching form requests from Firestore, returning local data:", e);
-      const list = getLocalData(LOCAL_STORAGE_KEYS.FORM_REQUESTS) || [];
-      return orgId ? list.filter(r => r.organizationId === orgId) : list;
-    }
-  }
-};
-
-export const addFormRequest = async (requestPayload, userId) => {
-  const request = {
-    ...requestPayload,
-    coordinatorId: userId,
-    status: 'Pending',
-    adminNotes: '',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-
-  if (isDemoMode) {
-    const list = getLocalData(LOCAL_STORAGE_KEYS.FORM_REQUESTS) || [];
-    const newReq = {
-      id: 'req-' + Math.random().toString(36).substr(2, 9),
-      ...request
-    };
-    list.push(newReq);
-    saveLocalData(LOCAL_STORAGE_KEYS.FORM_REQUESTS, list);
-    return newReq;
-  } else {
-    const docRef = await addDoc(collection(fdb, 'form_requests'), {
-      ...request,
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now()
-    });
-    return { ...request, id: docRef.id };
-  }
-};
-
-export const updateFormRequest = async (reqId, updates) => {
-  if (isDemoMode) {
-    const list = getLocalData(LOCAL_STORAGE_KEYS.FORM_REQUESTS) || [];
-    const idx = list.findIndex(r => r.id === reqId);
-    if (idx !== -1) {
-      list[idx] = {
-        ...list[idx],
-        ...updates,
-        updatedAt: new Date().toISOString()
-      };
-      saveLocalData(LOCAL_STORAGE_KEYS.FORM_REQUESTS, list);
-      return list[idx];
-    }
-    throw new Error("Form request not found.");
-  } else {
-    const docRef = doc(fdb, 'form_requests', reqId);
-    await updateDoc(docRef, {
-      ...updates,
-      updatedAt: Timestamp.now()
-    });
-    return { id: reqId, ...updates };
-  }
-};
 

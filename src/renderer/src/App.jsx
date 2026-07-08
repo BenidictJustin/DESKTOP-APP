@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { listenToAuthChanges, logout } from './services/db';
 import Login from './components/Login';
 import AdminDashboard from './modules/admin/AdminDashboard';
-import CoordinatorDashboard from './modules/department-coordinator/CoordinatorDashboard';
 import OfficeCoordinatorDashboard from './modules/office-coordinator/OfficeCoordinatorDashboard';
 
 function App() {
@@ -48,10 +47,6 @@ function App() {
 
   if (user.role === 'office_coordinator') {
     return <OfficeCoordinatorDashboard user={user} onLogout={handleLogout} />;
-  }
-
-  if (user.role === 'department_coordinator') {
-    return <CoordinatorDashboard user={user} onLogout={handleLogout} />;
   }
 
   // Fallback in case of incorrect roles

@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { login, requestPasswordReset } from '../services/db'
 import { KeyRound, Mail, AlertTriangle, Info, Eye, EyeOff } from 'lucide-react'
+import logo from '../assets/logo.png'
 
 export default function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState('')
@@ -11,7 +12,7 @@ export default function Login({ onLoginSuccess }) {
   const [loading, setLoading] = useState(false)
   const [showForgotModal, setShowForgotModal] = useState(false)
   const [forgotEmail, setForgotEmail] = useState('')
-  const [forgotRole, setForgotRole] = useState('coordinator') // admin vs coordinator
+  const [forgotRole, setForgotRole] = useState('office_coordinator') // admin vs office_coordinator
   const [forgotMsg, setForgotMsg] = useState('')
   const [forgotErr, setForgotErr] = useState('')
   const [forgotLoading, setForgotLoading] = useState(false)
@@ -87,9 +88,8 @@ export default function Login({ onLoginSuccess }) {
             <span className="w-3 h-3 bg-green-500 rounded-full"></span>
           </div>
 
-          <div className="h-20 w-20 md:h-24 md:w-24 bg-white rounded-2xl md:rounded-3xl flex items-center justify-center shadow-lg border-2 border-sig-green mt-2 mb-4 md:mb-6 transform hover:scale-105 transition-transform duration-300">
-            <span className="text-navy-blue font-bold text-4xl md:text-5xl">D</span>
-            <span className="text-sig-green font-bold text-3xl md:text-4xl -ml-1">U</span>
+          <div className="h-20 w-20 md:h-24 md:w-24 bg-white rounded-2xl md:rounded-3xl overflow-hidden flex items-center justify-center shadow-lg border-2 border-sig-green mt-2 mb-4 md:mb-6 transform hover:scale-105 transition-transform duration-300">
+            <img src={logo} alt="DommUnity Logo" className="w-full h-full object-cover" />
           </div>
 
           <h1 className="text-white text-3xl md:text-4xl font-extrabold tracking-wider">
@@ -266,10 +266,10 @@ export default function Login({ onLoginSuccess }) {
             <div className="flex space-x-2 mb-4 p-1 bg-gray-100 rounded-full">
               <button
                 type="button"
-                onClick={() => setForgotRole('coordinator')}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded-full transition cursor-pointer ${forgotRole === 'coordinator' ? 'bg-navy-blue text-white' : 'text-gray-500 hover:text-navy-blue'}`}
+                onClick={() => setForgotRole('office_coordinator')}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-full transition cursor-pointer ${forgotRole === 'office_coordinator' ? 'bg-navy-blue text-white' : 'text-gray-500 hover:text-navy-blue'}`}
               >
-                Department Coordinator
+                Office Coordinator
               </button>
               <button
                 type="button"

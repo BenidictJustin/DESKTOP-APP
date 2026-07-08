@@ -3,6 +3,7 @@ import {
   getReports, addReport, updateReport,
   getOrganizations, getEvents,
 } from '../../services/db';
+import logo from '../../assets/logo.png';
 import {
   LayoutDashboard, FileText, FolderOpen, LogOut, Plus,
   Edit3, AlertTriangle, Check,
@@ -221,9 +222,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         <div>
           {/* Logo */}
           <div className="p-6 border-b border-white/10 flex items-center space-x-3">
-            <div className="h-10 w-10 bg-white rounded-xl flex items-center justify-center border-2 border-sig-green">
-              <span className="text-navy-blue font-bold text-lg">D</span>
-              <span className="text-sig-green font-bold text-sm -ml-0.5">U</span>
+            <div className="h-10 w-10 bg-white rounded-xl overflow-hidden flex items-center justify-center border-2 border-sig-green">
+              <img src={logo} alt="DommUnity Logo" className="w-full h-full object-cover" />
             </div>
             <div>
               <h2 className="text-white font-bold text-sm leading-tight">DommUnity</h2>
@@ -260,9 +260,6 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         {/* Footer */}
         <div className="p-4 border-t border-white/10 space-y-3">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-full bg-sig-green text-navy-blue flex items-center justify-center font-bold text-xs shrink-0">
-              {user.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
-            </div>
             <div className="overflow-hidden">
               <h4 className="text-white text-xs font-bold truncate">{user.name}</h4>
               <p className="text-[9px] text-gray-400 capitalize">{user.role.replace('_', ' ')}</p>
