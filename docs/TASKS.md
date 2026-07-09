@@ -295,3 +295,15 @@ This document tracks development progress. Mark tasks as `[ ]` (uncompleted), `[
 - [/] **Conduct User Acceptance Testing (UAT) session with Mrs. Faithful Anne F. Arugay**
   - **User Story**: As an Admin, I want to participate in a User Acceptance Testing (UAT) session to verify that the system satisfies all operational needs of the CES Office.
   - **Details**: Final interactive review with Mrs. Faithful Anne F. Arugay (Head of the Community Extension & Services Office) to inspect UI colors (Green/Navy Blue), typography (Poppins), and official layout alignment.
+
+---
+
+## 5. Documentation & Diagrams
+
+- [x] **Produce Project UML Diagrams**
+  - **User Story**: As a Developer, I want to create the project's UML diagrams (Use Case, Activity, and Sequence Diagrams) based on the latest implementation of the system so that they accurately reflect the current system behavior and are suitable for the capstone manuscript.
+  - **Details**:
+    - **Use Case Diagram**: Map out roles (Admin, Office Coordinator) and their interactions with the system modules and Firebase services.
+    - **Activity Diagram**: Model workflows including authentication/routing, FIFO-based inventory management, and report compilation/review cycles.
+    - **Sequence Diagram**: Detail interactions between UI controllers, Firebase Auth, Firestore Database, and Storage for authentication, donation logs, and report approvals.
+

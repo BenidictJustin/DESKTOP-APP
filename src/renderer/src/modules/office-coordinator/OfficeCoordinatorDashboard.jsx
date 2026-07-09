@@ -10,7 +10,10 @@ import {
   Plus,
   Edit3,
   AlertTriangle,
-  Check
+  Check,
+  Home,
+  Info,
+  Users
 } from 'lucide-react'
 import TextEditor from '../../components/editor/TextEditor'
 
@@ -246,107 +249,66 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   // ── RENDER ────────────────────────────────────────────────────────────────────
   // ─────────────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen flex flex-col bg-surface-soft font-poppins selection:bg-sig-green selection:text-white">
+    <div className="h-screen max-h-screen flex flex-col bg-gray-50 font-poppins selection:bg-sig-green selection:text-white overflow-hidden">
       {/* Top Header Bar */}
-      <header className="h-20 bg-white flex items-center justify-between px-8 border-b border-gray-200/60 shrink-0">
-        {/* Branding (Left) */}
-        <div className="flex items-center space-x-4">
-          <div className="h-12 w-12 flex items-center justify-center shrink-0">
-            <img src={logo} alt="DommUnity Logo" className="h-full object-contain" />
+      <header className="w-full bg-white border-b border-gray-100 flex items-center justify-between px-8 py-3 shrink-0 shadow-xs">
+        {/* Left: Logo and Title */}
+        <div className="flex items-center space-x-3.5 bg-gray-50/80 p-2 pr-4 rounded-2xl border border-gray-100/50">
+          <div className="h-12 w-12 rounded-xl bg-white flex items-center justify-center border border-gray-100 overflow-hidden shrink-0">
+            <img src={logo} alt="CES Logo" className="h-10 w-10 object-contain" />
           </div>
-          <div className="flex flex-col text-left">
-            <h1 className="text-navy-blue font-bold text-sm tracking-wide leading-none uppercase">
-              Community Extension & Services
-            </h1>
-            <span className="text-sig-green font-bold text-xs tracking-wider uppercase mt-1">
-              Dominican College of Tarlac
+          <div className="flex flex-col text-left leading-none">
+            <span className="text-[13px] font-extrabold text-navy-blue tracking-wider uppercase">
+              COMMUNITY EXTENSION & SERVICES
+            </span>
+            <span className="text-[11px] font-bold text-sig-green tracking-wider uppercase mt-0.5">
+              DOMINICAN COLLEGE OF TARLAC
             </span>
           </div>
         </div>
 
-        {/* Info & Profile (Right) */}
+        {/* Right: Info, Home, Profile info */}
         <div className="flex items-center space-x-6">
-          {/* Info Button */}
           <button
             type="button"
-            className="p-2 text-gray-400 hover:text-navy-blue rounded-xl transition cursor-pointer hover:bg-gray-100"
-            title="Information"
+            onClick={() => setActiveTab('editor')}
+            className="text-navy-blue hover:opacity-85 transition cursor-pointer p-1"
+            title="Start New Document"
           >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
+            <FileText className="w-5 h-5" />
           </button>
-
-          {/* Home Icon */}
           <button
             type="button"
             onClick={() => setActiveTab('dashboard')}
-            className={`p-2 rounded-xl transition cursor-pointer hover:bg-gray-100 ${
-              activeTab === 'dashboard' ? 'text-navy-blue bg-gray-100' : 'text-gray-500'
-            }`}
-            title="Dashboard Home"
+            className="text-navy-blue hover:opacity-85 transition cursor-pointer p-1"
+            title="Dashboard"
           >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-              />
-            </svg>
+            <Home className="w-5 h-5" />
           </button>
 
-          {/* Profile Section */}
-          <div className="flex items-center space-x-3 border-l border-gray-200 pl-6">
-            <div className="h-9 w-9 bg-gray-100 rounded-full flex items-center justify-center text-navy-blue border border-gray-200 shrink-0">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                />
-              </svg>
+          <div className="flex items-center space-x-3 bg-gray-50/80 p-2 pr-4 pl-3 rounded-2xl border border-gray-100/50 h-14">
+            <div className="w-9 h-9 rounded-xl border border-navy-blue/20 flex items-center justify-center text-navy-blue bg-white shadow-2xs">
+              <Users className="w-4.5 h-4.5" />
             </div>
-            <div className="text-left leading-tight">
-              <h4 className="text-gray-800 text-xs font-bold truncate max-w-[120px]">
-                {user.name}
-              </h4>
-              <p className="text-[10px] text-gray-400 truncate max-w-[120px]">{user.email}</p>
+            <div className="text-left leading-none">
+              <div className="text-xs font-bold text-navy-blue">
+                {user.username || user.name || 'coordinator123'}
+              </div>
+              <div className="text-[9px] text-gray-400 font-medium mt-0.5">{user.email}</div>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main Workspace Layout (Sidebar + Content Panel) */}
-      <div className="flex flex-1 p-6 gap-6 overflow-hidden h-[calc(100vh-80px)]">
-        {/* Left Navigation Sidebar */}
-        <aside className="w-64 bg-gray-100 rounded-hero p-5 flex flex-col justify-between shrink-0 shadow-xs border border-gray-200/20">
-          <div className="space-y-4">
-            <nav className="space-y-2">
+      {/* Main Layout Area */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Sidebar Navigation */}
+        <aside className="w-64 bg-navy-blue flex flex-col justify-between shrink-0 relative rounded-3xl my-4 ml-4 shadow-sm border border-white/10 overflow-hidden">
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-sig-green" />
+
+          <div className="pt-4">
+            {/* Nav Links */}
+            <nav className="p-4 space-y-1">
               {[
                 { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
                 { id: 'editor', label: 'Start New Document', icon: FileText },
@@ -365,14 +327,11 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                     }
                     setActiveTab(tab.id)
                   }}
-                  className={`w-full flex items-center justify-between p-3 rounded-2xl text-xs font-semibold tracking-wide transition duration-200 cursor-pointer ${
-                    activeTab === tab.id
-                      ? 'bg-navy-blue text-white shadow-sm'
-                      : 'text-gray-600 hover:bg-gray-200/50 hover:text-navy-blue'
-                  }`}
+                  className={`w-full flex items-center justify-between p-3 rounded-2xl text-xs font-semibold tracking-wide transition duration-200 cursor-pointer
+                    ${activeTab === tab.id ? 'bg-sig-green text-navy-blue' : 'text-gray-300 hover:bg-white/5 hover:text-white'}`}
                 >
                   <div className="flex items-center space-x-3">
-                    <tab.icon className="w-4.5 h-4.5 shrink-0" />
+                    <tab.icon className="w-4 h-4 shrink-0" />
                     <span>{tab.label}</span>
                   </div>
                   {tab.badge > 0 && (
@@ -385,18 +344,19 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
             </nav>
           </div>
 
-          {/* Logout Button */}
-          <button
-            onClick={onLogout}
-            className="w-full bg-[#80cc2a] hover:bg-[#80cc2a]/95 text-navy-blue py-3 px-4 rounded-full text-xs font-bold flex items-center justify-center space-x-2 transition cursor-pointer shadow-xs border-b-2 border-navy-blue/10"
-          >
-            <LogOut className="w-4 h-4" />
-            <span>Logout</span>
-          </button>
+          {/* Footer containing green Logout button */}
+          <div className="p-4 border-t border-white/10 bg-navy-blue/90">
+            <button
+              onClick={onLogout}
+              className="w-full bg-sig-green hover:bg-sig-green/90 text-navy-blue py-2.5 px-4 rounded-xl text-xs font-bold transition duration-200 cursor-pointer text-center flex items-center justify-center shadow-xs"
+            >
+              Logout
+            </button>
+          </div>
         </aside>
 
         {/* Main Panel Content Area */}
-        <main className="flex-1 bg-white rounded-hero p-8 overflow-y-auto shadow-xs border border-gray-100 flex flex-col h-full">
+        <main className="flex-1 my-4 mx-4 bg-white rounded-3xl border border-gray-200/50 shadow-xs overflow-hidden flex flex-col h-[calc(100vh-80px)]">
           {/* ── DASHBOARD ── */}
           {activeTab === 'dashboard' && (
             <div className="flex-1 overflow-y-auto p-8 bg-gray-50">
