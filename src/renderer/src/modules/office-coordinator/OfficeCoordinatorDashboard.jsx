@@ -1,428 +1,642 @@
-import React, { useState, useEffect, useCallback } from 'react';
+/* eslint-disable */
+import React, { useState, useEffect, useCallback } from 'react'
+import { getReports, addReport, updateReport, getOrganizations, getEvents } from '../../services/db'
+import logo from '../../assets/logo.png'
 import {
-  getReports, addReport, updateReport,
-  getOrganizations, getEvents,
-} from '../../services/db';
-import logo from '../../assets/logo.png';
-import {
-  LayoutDashboard, FileText, FolderOpen, LogOut, Plus,
-  Edit3, AlertTriangle, Check,
-} from 'lucide-react';
-import TextEditor from '../../components/editor/TextEditor';
+  LayoutDashboard,
+  FileText,
+  FolderOpen,
+  LogOut,
+  Plus,
+  Edit3,
+  AlertTriangle,
+  Check
+} from 'lucide-react'
+import TextEditor from '../../components/editor/TextEditor'
 
 // ─── Status Badge helper ───────────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
   const map = {
-    draft:     'bg-gray-100 text-gray-700',
+    draft: 'bg-gray-100 text-gray-700',
     submitted: 'bg-amber-100 text-amber-800',
-    approved:  'bg-green-100 text-green-800',
-    returned:  'bg-red-100 text-red-700',
-  };
+    approved: 'bg-green-100 text-green-800',
+    returned: 'bg-red-100 text-red-700'
+  }
   return (
-    <span className={`text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${map[status] || 'bg-gray-100 text-gray-600'}`}>
+    <span
+      className={`text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${map[status] || 'bg-gray-100 text-gray-600'}`}
+    >
       {status}
     </span>
-  );
-};
+  )
+}
 
 export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   // ── Navigation ──
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('dashboard')
 
   // ── Report metadata ──
-  const [workspaceReportId,       setWorkspaceReportId]       = useState(null);
-  const [workspaceReportAY,       setWorkspaceReportAY]       = useState('2026-2027');
-  const [workspaceReportSem,      setWorkspaceReportSem]      = useState('1st Semester');
-  const [workspaceReportType,     setWorkspaceReportType]     = useState('outreach');
-  const [workspaceReportEventId,  setWorkspaceReportEventId]  = useState('');
-  const [workspaceReportTitle,    setWorkspaceReportTitle]    = useState('');
-  const [workspaceReportDate,     setWorkspaceReportDate]     = useState('');
-  const [workspaceReportLocation, setWorkspaceReportLocation] = useState('');
-  const [workspaceReportBenef,    setWorkspaceReportBenef]    = useState('');
-  const [workspaceReportOrgId,    setWorkspaceReportOrgId]    = useState('');
-  const [workspaceReportPhotos,   setWorkspaceReportPhotos]   = useState([]);
-  const [workspaceIsReadOnly,     setWorkspaceIsReadOnly]     = useState(false);
-  const [workspaceFeedback,       setWorkspaceFeedback]       = useState(null);
-  const [linkToEvent,             setLinkToEvent]             = useState(true);
-  const [loading,                 setLoading]                 = useState(false);
-  const [saveStatus,              setSaveStatus]              = useState('');
-  const [autoSave,                setAutoSave]                = useState(false);
+  const [workspaceReportId, setWorkspaceReportId] = useState(null)
+  const [workspaceReportAY, setWorkspaceReportAY] = useState('2026-2027')
+  const [workspaceReportSem, setWorkspaceReportSem] = useState('1st Semester')
+  const [workspaceReportType, setWorkspaceReportType] = useState('outreach')
+  const [workspaceReportEventId, setWorkspaceReportEventId] = useState('')
+  const [workspaceReportTitle, setWorkspaceReportTitle] = useState('')
+  const [workspaceReportDate, setWorkspaceReportDate] = useState('')
+  const [workspaceReportLocation, setWorkspaceReportLocation] = useState('')
+  const [workspaceReportBenef, setWorkspaceReportBenef] = useState('')
+  const [workspaceReportOrgId, setWorkspaceReportOrgId] = useState('')
+  const [workspaceReportPhotos, setWorkspaceReportPhotos] = useState([])
+  const [workspaceIsReadOnly, setWorkspaceIsReadOnly] = useState(false)
+  const [workspaceFeedback, setWorkspaceFeedback] = useState(null)
+  const [linkToEvent, setLinkToEvent] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [saveStatus, setSaveStatus] = useState('')
+  const [autoSave, setAutoSave] = useState(false)
 
   // ── Database ──
-  const [reportsList, setReportsList] = useState([]);
-  const [orgsList,    setOrgsList]    = useState([]);
-  const [eventsList,  setEventsList]  = useState([]);
+  const [reportsList, setReportsList] = useState([])
+  const [orgsList, setOrgsList] = useState([])
+  const [eventsList, setEventsList] = useState([])
 
   // ── Load data ──
   const loadData = useCallback(async () => {
     try {
       const [reports, orgs, events] = await Promise.all([
-        getReports(), getOrganizations(), getEvents()
-      ]);
-      setReportsList(reports);
-      setOrgsList(orgs);
-      setEventsList(events);
-    } catch (err) { console.error(err); }
-  }, []);
+        getReports(),
+        getOrganizations(),
+        getEvents()
+      ])
+      setReportsList(reports)
+      setOrgsList(orgs)
+      setEventsList(events)
+    } catch (err) {
+      console.error(err)
+    }
+  }, [])
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   // ── Reset form (clear all fields + editor) ──
   const resetForm = useCallback((editor) => {
-    setWorkspaceReportId(null);
-    setWorkspaceReportAY('2026-2027');
-    setWorkspaceReportSem('1st Semester');
-    setWorkspaceReportType('outreach');
-    setWorkspaceReportEventId('');
-    setWorkspaceReportTitle('');
-    setWorkspaceReportDate('');
-    setWorkspaceReportLocation('');
-    setWorkspaceReportBenef('');
-    setWorkspaceReportOrgId('');
-    setWorkspaceReportPhotos([]);
-    setWorkspaceIsReadOnly(false);
-    setWorkspaceFeedback(null);
-    setLinkToEvent(true);
+    setWorkspaceReportId(null)
+    setWorkspaceReportAY('2026-2027')
+    setWorkspaceReportSem('1st Semester')
+    setWorkspaceReportType('outreach')
+    setWorkspaceReportEventId('')
+    setWorkspaceReportTitle('')
+    setWorkspaceReportDate('')
+    setWorkspaceReportLocation('')
+    setWorkspaceReportBenef('')
+    setWorkspaceReportOrgId('')
+    setWorkspaceReportPhotos([])
+    setWorkspaceIsReadOnly(false)
+    setWorkspaceFeedback(null)
+    setLinkToEvent(true)
     // Reset editor content
-    const ed = editor || window.__dommunityEditor;
+    const ed = editor || window.__dommunityEditor
     if (ed) {
-      ed.setEditable(true);
-      ed.commands.setContent('<p></p>');
-      setTimeout(() => ed.commands.focus('start'), 50);
+      ed.setEditable(true)
+      ed.commands.setContent('<p></p>')
+      setTimeout(() => ed.commands.focus('start'), 50)
     }
-  }, []);
+  }, [])
 
   // ── Open a report for editing ──
   const openReport = useCallback((rep, editor) => {
-    setWorkspaceReportId(rep.id);
-    setWorkspaceReportAY(rep.academicYear || '2026-2027');
-    setWorkspaceReportSem(rep.semester || '1st Semester');
-    setWorkspaceReportType(rep.type || 'outreach');
-    setWorkspaceReportEventId(rep.eventId || '');
-    setWorkspaceReportTitle(rep.activityTitle || '');
-    setWorkspaceReportDate(rep.activityDate ? new Date(rep.activityDate).toISOString().split('T')[0] : '');
-    setWorkspaceReportLocation(rep.location || '');
-    setWorkspaceReportBenef(rep.beneficiaries || '');
-    setWorkspaceReportOrgId(rep.organizationId || '');
-    setWorkspaceReportPhotos(rep.photos || []);
-    const isReadOnly = rep.status === 'submitted' || rep.status === 'approved';
-    setWorkspaceIsReadOnly(isReadOnly);
-    setWorkspaceFeedback(rep.status === 'returned' ? rep.adminFeedback : null);
-    setLinkToEvent(!!rep.eventId);
+    setWorkspaceReportId(rep.id)
+    setWorkspaceReportAY(rep.academicYear || '2026-2027')
+    setWorkspaceReportSem(rep.semester || '1st Semester')
+    setWorkspaceReportType(rep.type || 'outreach')
+    setWorkspaceReportEventId(rep.eventId || '')
+    setWorkspaceReportTitle(rep.activityTitle || '')
+    setWorkspaceReportDate(
+      rep.activityDate ? new Date(rep.activityDate).toISOString().split('T')[0] : ''
+    )
+    setWorkspaceReportLocation(rep.location || '')
+    setWorkspaceReportBenef(rep.beneficiaries || '')
+    setWorkspaceReportOrgId(rep.organizationId || '')
+    setWorkspaceReportPhotos(rep.photos || [])
+    const isReadOnly = rep.status === 'submitted' || rep.status === 'approved'
+    setWorkspaceIsReadOnly(isReadOnly)
+    setWorkspaceFeedback(rep.status === 'returned' ? rep.adminFeedback : null)
+    setLinkToEvent(!!rep.eventId)
     // Load content into editor
-    const ed = editor || window.__dommunityEditor;
+    const ed = editor || window.__dommunityEditor
     if (ed) {
-      ed.setEditable(!isReadOnly);
-      ed.commands.setContent(rep.narrative || '<p></p>');
+      ed.setEditable(!isReadOnly)
+      ed.commands.setContent(rep.narrative || '<p></p>')
       // Focus after content is set to fix "cannot type" issue
       setTimeout(() => {
-        if (!isReadOnly) ed.commands.focus('end');
-      }, 100);
+        if (!isReadOnly) ed.commands.focus('end')
+      }, 100)
     }
-    setActiveTab('editor');
-  }, []);
+    setActiveTab('editor')
+  }, [])
 
   // ── Save/Submit handler ──
-  const handleSave = useCallback(async (status, html, silent = false) => {
-    if (!html || html === '<p></p>') {
-      if (!silent) alert('Please write some content before saving.');
-      return;
-    }
-
-    let title = workspaceReportTitle;
-    let date = workspaceReportDate;
-    let location = workspaceReportLocation;
-
-    if (linkToEvent && workspaceReportEventId) {
-      const ev = eventsList.find(e => e.id === workspaceReportEventId);
-      if (ev) {
-        title = ev.name;
-        date = ev.scheduleDate;
-        location = ev.venueLocation || '';
+  const handleSave = useCallback(
+    async (status, html, silent = false) => {
+      if (!html || html === '<p></p>') {
+        if (!silent) alert('Please write some content before saving.')
+        return
       }
-    }
 
-    setSaveStatus('saving');
-    setLoading(true);
-    try {
-      const payload = {
-        academicYear: workspaceReportAY,
-        semester: workspaceReportSem,
-        type: workspaceReportType,
-        eventId: linkToEvent ? workspaceReportEventId : null,
-        activityTitle: title,
-        activityDate: date,
-        location,
-        beneficiaries: workspaceReportBenef,
-        organizationId: workspaceReportOrgId || null,
-        narrative: html,
-        photos: workspaceReportPhotos,
-        status,
-        authorId: user.uid,
-        authorName: user.name,
-        authorEmail: user.email,
-        updatedAt: new Date().toISOString(),
-      };
+      let title = workspaceReportTitle
+      let date = workspaceReportDate
+      let location = workspaceReportLocation
 
-      if (workspaceReportId) {
-        await updateReport(workspaceReportId, payload, user.uid);
-      } else {
-        payload.createdAt = new Date().toISOString();
-        const newReportObj = await addReport(payload, user.uid);
-        if (newReportObj) {
-          const actualId = newReportObj.id || newReportObj;
-          setWorkspaceReportId(actualId);
+      if (linkToEvent && workspaceReportEventId) {
+        const ev = eventsList.find((e) => e.id === workspaceReportEventId)
+        if (ev) {
+          title = ev.name
+          date = ev.scheduleDate
+          location = ev.venueLocation || ''
         }
       }
 
-      setSaveStatus('saved');
-      if (!silent) {
-        alert(status === 'draft' ? 'Draft saved successfully!' : 'Report submitted to Admin successfully!');
-        if (status === 'submitted') {
-          resetForm();
-          setActiveTab('reports');
+      setSaveStatus('saving')
+      setLoading(true)
+      try {
+        const payload = {
+          academicYear: workspaceReportAY,
+          semester: workspaceReportSem,
+          type: workspaceReportType,
+          eventId: linkToEvent ? workspaceReportEventId : null,
+          activityTitle: title,
+          activityDate: date,
+          location,
+          beneficiaries: workspaceReportBenef,
+          organizationId: workspaceReportOrgId || null,
+          narrative: html,
+          photos: workspaceReportPhotos,
+          status,
+          authorId: user.uid,
+          authorName: user.name,
+          authorEmail: user.email,
+          updatedAt: new Date().toISOString()
         }
+
+        if (workspaceReportId) {
+          await updateReport(workspaceReportId, payload, user.uid)
+        } else {
+          payload.createdAt = new Date().toISOString()
+          const newReportObj = await addReport(payload, user.uid)
+          if (newReportObj) {
+            const actualId = newReportObj.id || newReportObj
+            setWorkspaceReportId(actualId)
+          }
+        }
+
+        setSaveStatus('saved')
+        if (!silent) {
+          alert(
+            status === 'draft'
+              ? 'Draft saved successfully!'
+              : 'Report submitted to Admin successfully!'
+          )
+          if (status === 'submitted') {
+            resetForm()
+            setActiveTab('reports')
+          }
+        }
+        loadData()
+      } catch (err) {
+        console.error('Save failed:', err)
+        setSaveStatus('error')
+        if (!silent) alert('Save failed. Please try again.')
+      } finally {
+        setLoading(false)
+        setTimeout(() => setSaveStatus(''), 3000)
       }
-      loadData();
-    } catch (err) {
-      console.error('Save failed:', err);
-      setSaveStatus('error');
-      if (!silent) alert('Save failed. Please try again.');
-    } finally {
-      setLoading(false);
-      setTimeout(() => setSaveStatus(''), 3000);
-    }
-  }, [workspaceReportId, workspaceReportAY, workspaceReportSem, workspaceReportType,
-      workspaceReportEventId, workspaceReportTitle, workspaceReportDate, workspaceReportLocation,
-      workspaceReportBenef, workspaceReportOrgId, workspaceReportPhotos, linkToEvent,
-      eventsList, user, resetForm, loadData]);
+    },
+    [
+      workspaceReportId,
+      workspaceReportAY,
+      workspaceReportSem,
+      workspaceReportType,
+      workspaceReportEventId,
+      workspaceReportTitle,
+      workspaceReportDate,
+      workspaceReportLocation,
+      workspaceReportBenef,
+      workspaceReportOrgId,
+      workspaceReportPhotos,
+      linkToEvent,
+      eventsList,
+      user,
+      resetForm,
+      loadData
+    ]
+  )
 
   // ── Derived ──
-  const myReports = reportsList.filter(r => r.authorId === user.uid);
+  const myReports = reportsList.filter((r) => r.authorId === user.uid)
   const stats = {
-    total:     myReports.length,
-    drafts:    myReports.filter(r => r.status === 'draft').length,
-    submitted: myReports.filter(r => r.status === 'submitted').length,
-    approved:  myReports.filter(r => r.status === 'approved').length,
-    returned:  myReports.filter(r => r.status === 'returned').length,
-  };
+    total: myReports.length,
+    drafts: myReports.filter((r) => r.status === 'draft').length,
+    submitted: myReports.filter((r) => r.status === 'submitted').length,
+    approved: myReports.filter((r) => r.status === 'approved').length,
+    returned: myReports.filter((r) => r.status === 'returned').length
+  }
 
   // ─────────────────────────────────────────────────────────────────────────────
   // ── RENDER ────────────────────────────────────────────────────────────────────
   // ─────────────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen flex bg-gray-50 font-poppins selection:bg-sig-green selection:text-white">
-
-      {/* ══════════════════════════════════════════════════
-          LEFT SIDEBAR — matches Admin layout exactly
-      ══════════════════════════════════════════════════ */}
-      <aside className="w-64 bg-navy-blue flex flex-col justify-between shrink-0 relative">
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-sig-green" />
-
-        <div>
-          {/* Logo */}
-          <div className="p-6 border-b border-white/10 flex items-center space-x-3">
-            <div className="h-10 w-10 bg-white rounded-xl overflow-hidden flex items-center justify-center border-2 border-sig-green">
-              <img src={logo} alt="DommUnity Logo" className="w-full h-full object-cover" />
-            </div>
-            <div>
-              <h2 className="text-white font-bold text-sm leading-tight">DommUnity</h2>
-              <span className="text-[10px] text-sig-green font-semibold">CES Office Coordinator</span>
-            </div>
+    <div className="min-h-screen flex flex-col bg-surface-soft font-poppins selection:bg-sig-green selection:text-white">
+      {/* Top Header Bar */}
+      <header className="h-20 bg-white flex items-center justify-between px-8 border-b border-gray-200/60 shrink-0">
+        {/* Branding (Left) */}
+        <div className="flex items-center space-x-4">
+          <div className="h-12 w-12 flex items-center justify-center shrink-0">
+            <img src={logo} alt="DommUnity Logo" className="h-full object-contain" />
           </div>
-
-          {/* Nav Links */}
-          <nav className="p-4 space-y-1">
-            {[
-              { id: 'dashboard', label: 'Dashboard',          icon: LayoutDashboard },
-              { id: 'editor',    label: 'Start New Document', icon: FileText },
-              { id: 'reports',   label: 'Compiled Reports',   icon: FolderOpen,
-                badge: stats.returned > 0 ? stats.returned : 0 },
-            ].map(tab => (
-              <button key={tab.id} onClick={() => {
-                  if (tab.id === 'editor') { resetForm(); }
-                  setActiveTab(tab.id);
-                }}
-                className={`w-full flex items-center justify-between p-3 rounded-2xl text-xs font-semibold tracking-wide transition duration-200 cursor-pointer
-                  ${activeTab === tab.id ? 'bg-sig-green text-navy-blue' : 'text-gray-300 hover:bg-white/5 hover:text-white'}`}>
-                <div className="flex items-center space-x-3">
-                  <tab.icon className="w-4 h-4 shrink-0" />
-                  <span>{tab.label}</span>
-                </div>
-                {tab.badge > 0 && (
-                  <span className="bg-red-500 text-white rounded-full px-2 py-0.5 text-[9px] font-bold">{tab.badge}</span>
-                )}
-              </button>
-            ))}
-          </nav>
+          <div className="flex flex-col text-left">
+            <h1 className="text-navy-blue font-bold text-sm tracking-wide leading-none uppercase">
+              Community Extension & Services
+            </h1>
+            <span className="text-sig-green font-bold text-xs tracking-wider uppercase mt-1">
+              Dominican College of Tarlac
+            </span>
+          </div>
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-white/10 space-y-3">
-          <div className="flex items-center space-x-3">
-            <div className="overflow-hidden">
-              <h4 className="text-white text-xs font-bold truncate">{user.name}</h4>
-              <p className="text-[9px] text-gray-400 capitalize">{user.role.replace('_', ' ')}</p>
+        {/* Info & Profile (Right) */}
+        <div className="flex items-center space-x-6">
+          {/* Info Button */}
+          <button
+            type="button"
+            className="p-2 text-gray-400 hover:text-navy-blue rounded-xl transition cursor-pointer hover:bg-gray-100"
+            title="Information"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </button>
+
+          {/* Home Icon */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('dashboard')}
+            className={`p-2 rounded-xl transition cursor-pointer hover:bg-gray-100 ${
+              activeTab === 'dashboard' ? 'text-navy-blue bg-gray-100' : 'text-gray-500'
+            }`}
+            title="Dashboard Home"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+              />
+            </svg>
+          </button>
+
+          {/* Profile Section */}
+          <div className="flex items-center space-x-3 border-l border-gray-200 pl-6">
+            <div className="h-9 w-9 bg-gray-100 rounded-full flex items-center justify-center text-navy-blue border border-gray-200 shrink-0">
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                />
+              </svg>
+            </div>
+            <div className="text-left leading-tight">
+              <h4 className="text-gray-800 text-xs font-bold truncate max-w-[120px]">
+                {user.name}
+              </h4>
+              <p className="text-[10px] text-gray-400 truncate max-w-[120px]">{user.email}</p>
             </div>
           </div>
-          <button onClick={onLogout}
-            className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/25 py-2 px-4 rounded-full text-xs font-semibold flex items-center justify-center space-x-2 transition cursor-pointer">
-            <LogOut className="w-3.5 h-3.5" />
+        </div>
+      </header>
+
+      {/* Main Workspace Layout (Sidebar + Content Panel) */}
+      <div className="flex flex-1 p-6 gap-6 overflow-hidden h-[calc(100vh-80px)]">
+        {/* Left Navigation Sidebar */}
+        <aside className="w-64 bg-gray-100 rounded-hero p-5 flex flex-col justify-between shrink-0 shadow-xs border border-gray-200/20">
+          <div className="space-y-4">
+            <nav className="space-y-2">
+              {[
+                { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+                { id: 'editor', label: 'Start New Document', icon: FileText },
+                {
+                  id: 'reports',
+                  label: 'Compiled Reports',
+                  icon: FolderOpen,
+                  badge: stats.returned > 0 ? stats.returned : 0
+                }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    if (tab.id === 'editor') {
+                      resetForm()
+                    }
+                    setActiveTab(tab.id)
+                  }}
+                  className={`w-full flex items-center justify-between p-3 rounded-2xl text-xs font-semibold tracking-wide transition duration-200 cursor-pointer ${
+                    activeTab === tab.id
+                      ? 'bg-navy-blue text-white shadow-sm'
+                      : 'text-gray-600 hover:bg-gray-200/50 hover:text-navy-blue'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <tab.icon className="w-4.5 h-4.5 shrink-0" />
+                    <span>{tab.label}</span>
+                  </div>
+                  {tab.badge > 0 && (
+                    <span className="bg-red-500 text-white rounded-full px-2 py-0.5 text-[9px] font-bold">
+                      {tab.badge}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          {/* Logout Button */}
+          <button
+            onClick={onLogout}
+            className="w-full bg-[#80cc2a] hover:bg-[#80cc2a]/95 text-navy-blue py-3 px-4 rounded-full text-xs font-bold flex items-center justify-center space-x-2 transition cursor-pointer shadow-xs border-b-2 border-navy-blue/10"
+          >
+            <LogOut className="w-4 h-4" />
             <span>Logout</span>
           </button>
-        </div>
-      </aside>
+        </aside>
 
-      {/* ══════════════════════════════════════════════════
-          MAIN CONTENT AREA
-      ══════════════════════════════════════════════════ */}
-      <main className="flex-1 overflow-hidden flex flex-col h-screen">
+        {/* Main Panel Content Area */}
+        <main className="flex-1 bg-white rounded-hero p-8 overflow-y-auto shadow-xs border border-gray-100 flex flex-col h-full">
+          {/* ── DASHBOARD ── */}
+          {activeTab === 'dashboard' && (
+            <div className="flex-1 overflow-y-auto p-8 bg-gray-50">
+              <div className="max-w-5xl mx-auto space-y-6">
+                {/* Stats row */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                  {[
+                    {
+                      label: 'Total Reports',
+                      value: stats.total,
+                      color: 'text-navy-blue',
+                      bg: 'bg-blue-50'
+                    },
+                    {
+                      label: 'Drafts',
+                      value: stats.drafts,
+                      color: 'text-gray-700',
+                      bg: 'bg-gray-100'
+                    },
+                    {
+                      label: 'Submitted',
+                      value: stats.submitted,
+                      color: 'text-amber-700',
+                      bg: 'bg-amber-50'
+                    },
+                    {
+                      label: 'Approved',
+                      value: stats.approved,
+                      color: 'text-green-700',
+                      bg: 'bg-green-50'
+                    },
+                    {
+                      label: 'Returned',
+                      value: stats.returned,
+                      color: 'text-red-700',
+                      bg: 'bg-red-50'
+                    }
+                  ].map((s) => (
+                    <div
+                      key={s.label}
+                      className={`${s.bg} rounded-2xl p-4 border border-white shadow-xs`}
+                    >
+                      <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wide">
+                        {s.label}
+                      </p>
+                      <p className={`text-3xl font-bold mt-1 ${s.color}`}>{s.value}</p>
+                    </div>
+                  ))}
+                </div>
 
-        {/* ── DASHBOARD ── */}
-        {activeTab === 'dashboard' && (
-          <div className="flex-1 overflow-y-auto p-8 bg-gray-50">
-            <div className="max-w-5xl mx-auto space-y-6">
+                {/* Quick actions */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      resetForm()
+                      setActiveTab('editor')
+                    }}
+                    className="flex items-center gap-2 bg-navy-blue text-white text-xs font-semibold px-4 py-2.5 rounded-xl border-b-2 border-sig-green hover:bg-navy-blue/90 transition cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>New Report</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('reports')}
+                    className="flex items-center gap-2 bg-white text-navy-blue text-xs font-semibold px-4 py-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 transition cursor-pointer"
+                  >
+                    <FolderOpen className="w-3.5 h-3.5" />
+                    <span>View My Reports</span>
+                  </button>
+                </div>
 
-              {/* Stats row */}
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                {[
-                  { label: 'Total Reports', value: stats.total,     color: 'text-navy-blue',  bg: 'bg-blue-50' },
-                  { label: 'Drafts',        value: stats.drafts,    color: 'text-gray-700',   bg: 'bg-gray-100' },
-                  { label: 'Submitted',     value: stats.submitted, color: 'text-amber-700',  bg: 'bg-amber-50' },
-                  { label: 'Approved',      value: stats.approved,  color: 'text-green-700',  bg: 'bg-green-50' },
-                  { label: 'Returned',      value: stats.returned,  color: 'text-red-700',    bg: 'bg-red-50' },
-                ].map(s => (
-                  <div key={s.label} className={`${s.bg} rounded-2xl p-4 border border-white shadow-xs`}>
-                    <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wide">{s.label}</p>
-                    <p className={`text-3xl font-bold mt-1 ${s.color}`}>{s.value}</p>
+                {/* Recent reports */}
+                {myReports.length > 0 && (
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-xs p-5">
+                    <h3 className="text-xs font-bold text-navy-blue uppercase tracking-wide mb-4">
+                      Recent Reports
+                    </h3>
+                    <div className="space-y-2.5">
+                      {myReports.slice(0, 5).map((rep) => {
+                        const ev = eventsList.find((e) => e.id === rep.eventId)
+                        return (
+                          <div
+                            key={rep.id}
+                            className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0"
+                          >
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                <StatusBadge status={rep.status} />
+                                <span className="text-[10px] text-gray-400">
+                                  {rep.semester} | AY {rep.academicYear}
+                                </span>
+                              </div>
+                              <p className="text-xs font-semibold text-navy-blue">
+                                {ev?.name || rep.activityTitle || 'Untitled'}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => {
+                                openReport(rep)
+                              }}
+                              className="text-[10px] font-semibold text-navy-blue hover:text-sig-green transition cursor-pointer flex items-center gap-1"
+                            >
+                              <Edit3 className="w-3 h-3" />
+                              Open
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
-                ))}
+                )}
               </div>
+            </div>
+          )}
 
-              {/* Quick actions */}
-              <div className="flex gap-3">
-                <button onClick={() => { resetForm(); setActiveTab('editor'); }}
-                  className="flex items-center gap-2 bg-navy-blue text-white text-xs font-semibold px-4 py-2.5 rounded-xl border-b-2 border-sig-green hover:bg-navy-blue/90 transition cursor-pointer">
-                  <Plus className="w-3.5 h-3.5" /><span>New Report</span>
-                </button>
-                <button onClick={() => setActiveTab('reports')}
-                  className="flex items-center gap-2 bg-white text-navy-blue text-xs font-semibold px-4 py-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 transition cursor-pointer">
-                  <FolderOpen className="w-3.5 h-3.5" /><span>View My Reports</span>
-                </button>
-              </div>
+          {/* ── WORD EDITOR ── */}
+          <div
+            className={`flex-1 flex flex-col overflow-hidden ${activeTab === 'editor' ? '' : 'hidden'}`}
+          >
+            <TextEditor
+              user={user}
+              workspaceReportId={workspaceReportId}
+              setWorkspaceReportId={setWorkspaceReportId}
+              workspaceReportAY={workspaceReportAY}
+              setWorkspaceReportAY={setWorkspaceReportAY}
+              workspaceReportSem={workspaceReportSem}
+              setWorkspaceReportSem={setWorkspaceReportSem}
+              workspaceReportType={workspaceReportType}
+              setWorkspaceReportType={setWorkspaceReportType}
+              workspaceReportEventId={workspaceReportEventId}
+              setWorkspaceReportEventId={setWorkspaceReportEventId}
+              workspaceReportTitle={workspaceReportTitle}
+              setWorkspaceReportTitle={setWorkspaceReportTitle}
+              workspaceReportDate={workspaceReportDate}
+              setWorkspaceReportDate={setWorkspaceReportDate}
+              workspaceReportLocation={workspaceReportLocation}
+              setWorkspaceReportLocation={setWorkspaceReportLocation}
+              workspaceReportBenef={workspaceReportBenef}
+              setWorkspaceReportBenef={setWorkspaceReportBenef}
+              workspaceReportOrgId={workspaceReportOrgId}
+              setWorkspaceReportOrgId={setWorkspaceReportOrgId}
+              workspaceReportPhotos={workspaceReportPhotos}
+              setWorkspaceReportPhotos={setWorkspaceReportPhotos}
+              workspaceIsReadOnly={workspaceIsReadOnly}
+              setWorkspaceIsReadOnly={setWorkspaceIsReadOnly}
+              workspaceFeedback={workspaceFeedback}
+              linkToEvent={linkToEvent}
+              setLinkToEvent={setLinkToEvent}
+              loading={loading}
+              setLoading={setLoading}
+              saveStatus={saveStatus}
+              setSaveStatus={setSaveStatus}
+              autoSave={autoSave}
+              setAutoSave={setAutoSave}
+              reportsList={reportsList}
+              orgsList={orgsList}
+              eventsList={eventsList}
+              onSave={handleSave}
+              onResetForm={resetForm}
+              onOpenReport={openReport}
+              onLoadData={loadData}
+              setActiveTab={setActiveTab}
+              StatusBadge={StatusBadge}
+            />
+          </div>
 
-              {/* Recent reports */}
-              {myReports.length > 0 && (
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-xs p-5">
-                  <h3 className="text-xs font-bold text-navy-blue uppercase tracking-wide mb-4">Recent Reports</h3>
-                  <div className="space-y-2.5">
-                    {myReports.slice(0, 5).map(rep => {
-                      const ev = eventsList.find(e => e.id === rep.eventId);
+          {/* ── COMPILED REPORTS ── */}
+          {activeTab === 'reports' && (
+            <div className="flex-1 overflow-y-auto p-8 bg-gray-50">
+              <div className="max-w-4xl mx-auto space-y-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h1 className="text-lg font-bold text-navy-blue">Compiled Reports</h1>
+                  <button
+                    onClick={() => {
+                      resetForm()
+                      setActiveTab('editor')
+                    }}
+                    className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-3 py-2 rounded-xl border-b-2 border-sig-green hover:bg-navy-blue/90 transition cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>New Report</span>
+                  </button>
+                </div>
+
+                {myReports.length === 0 ? (
+                  <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200 text-gray-400 text-xs">
+                    No reports yet. Click "New Report" to get started.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {myReports.map((rep) => {
+                      const ev = eventsList.find((e) => e.id === rep.eventId)
                       return (
-                        <div key={rep.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-                          <div className="space-y-0.5">
+                        <div
+                          key={rep.id}
+                          className="bg-white rounded-2xl border border-gray-100 hover:border-sig-green/30 p-4 flex flex-col md:flex-row md:items-center justify-between transition group shadow-xs"
+                        >
+                          <div className="space-y-1">
                             <div className="flex items-center gap-2">
                               <StatusBadge status={rep.status} />
-                              <span className="text-[10px] text-gray-400">{rep.semester} | AY {rep.academicYear}</span>
+                              <span className="text-[10px] text-gray-400">
+                                {rep.semester} · AY {rep.academicYear}
+                              </span>
                             </div>
-                            <p className="text-xs font-semibold text-navy-blue">{ev?.name || rep.activityTitle || 'Untitled'}</p>
+                            <h4 className="text-sm font-bold text-navy-blue">
+                              {ev?.name || rep.activityTitle || 'Untitled Report'}
+                            </h4>
+                            <p className="text-[10px] text-gray-400">
+                              Updated {new Date(rep.updatedAt).toLocaleDateString()}
+                            </p>
+                            {rep.status === 'returned' && rep.adminFeedback && (
+                              <p className="text-[10px] text-red-600 font-semibold flex items-center gap-1 mt-0.5">
+                                <AlertTriangle className="w-3 h-3" />
+                                {rep.adminFeedback}
+                              </p>
+                            )}
                           </div>
-                          <button onClick={() => { openReport(rep); }}
-                            className="text-[10px] font-semibold text-navy-blue hover:text-sig-green transition cursor-pointer flex items-center gap-1">
-                            <Edit3 className="w-3 h-3" />Open
-                          </button>
+                          <div className="mt-3 md:mt-0">
+                            <button
+                              onClick={() => openReport(rep)}
+                              className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:opacity-90 transition cursor-pointer"
+                            >
+                              <Edit3 className="w-3 h-3" />
+                              <span>
+                                {rep.status === 'submitted' || rep.status === 'approved'
+                                  ? 'View'
+                                  : 'Edit'}
+                              </span>
+                            </button>
+                          </div>
                         </div>
-                      );
+                      )
                     })}
                   </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ── WORD EDITOR ── */}
-        <div className={`flex-1 flex flex-col overflow-hidden ${activeTab === 'editor' ? '' : 'hidden'}`}>
-          <TextEditor
-            user={user}
-            workspaceReportId={workspaceReportId} setWorkspaceReportId={setWorkspaceReportId}
-            workspaceReportAY={workspaceReportAY} setWorkspaceReportAY={setWorkspaceReportAY}
-            workspaceReportSem={workspaceReportSem} setWorkspaceReportSem={setWorkspaceReportSem}
-            workspaceReportType={workspaceReportType} setWorkspaceReportType={setWorkspaceReportType}
-            workspaceReportEventId={workspaceReportEventId} setWorkspaceReportEventId={setWorkspaceReportEventId}
-            workspaceReportTitle={workspaceReportTitle} setWorkspaceReportTitle={setWorkspaceReportTitle}
-            workspaceReportDate={workspaceReportDate} setWorkspaceReportDate={setWorkspaceReportDate}
-            workspaceReportLocation={workspaceReportLocation} setWorkspaceReportLocation={setWorkspaceReportLocation}
-            workspaceReportBenef={workspaceReportBenef} setWorkspaceReportBenef={setWorkspaceReportBenef}
-            workspaceReportOrgId={workspaceReportOrgId} setWorkspaceReportOrgId={setWorkspaceReportOrgId}
-            workspaceReportPhotos={workspaceReportPhotos} setWorkspaceReportPhotos={setWorkspaceReportPhotos}
-            workspaceIsReadOnly={workspaceIsReadOnly} setWorkspaceIsReadOnly={setWorkspaceIsReadOnly}
-            workspaceFeedback={workspaceFeedback}
-            linkToEvent={linkToEvent} setLinkToEvent={setLinkToEvent}
-            loading={loading} setLoading={setLoading}
-            saveStatus={saveStatus} setSaveStatus={setSaveStatus}
-            autoSave={autoSave} setAutoSave={setAutoSave}
-            reportsList={reportsList} orgsList={orgsList} eventsList={eventsList}
-            onSave={handleSave}
-            onResetForm={resetForm}
-            onOpenReport={openReport}
-            onLoadData={loadData}
-            setActiveTab={setActiveTab}
-            StatusBadge={StatusBadge}
-          />
-        </div>
-
-        {/* ── COMPILED REPORTS ── */}
-        {activeTab === 'reports' && (
-          <div className="flex-1 overflow-y-auto p-8 bg-gray-50">
-            <div className="max-w-4xl mx-auto space-y-4">
-              <div className="flex items-center justify-between mb-2">
-                <h1 className="text-lg font-bold text-navy-blue">Compiled Reports</h1>
-                <button onClick={() => { resetForm(); setActiveTab('editor'); }}
-                  className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-3 py-2 rounded-xl border-b-2 border-sig-green hover:bg-navy-blue/90 transition cursor-pointer">
-                  <Plus className="w-3.5 h-3.5" /><span>New Report</span>
-                </button>
+                )}
               </div>
-
-              {myReports.length === 0 ? (
-                <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200 text-gray-400 text-xs">
-                  No reports yet. Click "New Report" to get started.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {myReports.map(rep => {
-                    const ev = eventsList.find(e => e.id === rep.eventId);
-                    return (
-                      <div key={rep.id} className="bg-white rounded-2xl border border-gray-100 hover:border-sig-green/30 p-4 flex flex-col md:flex-row md:items-center justify-between transition group shadow-xs">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <StatusBadge status={rep.status} />
-                            <span className="text-[10px] text-gray-400">{rep.semester} · AY {rep.academicYear}</span>
-                          </div>
-                          <h4 className="text-sm font-bold text-navy-blue">{ev?.name || rep.activityTitle || 'Untitled Report'}</h4>
-                          <p className="text-[10px] text-gray-400">Updated {new Date(rep.updatedAt).toLocaleDateString()}</p>
-                          {rep.status === 'returned' && rep.adminFeedback && (
-                            <p className="text-[10px] text-red-600 font-semibold flex items-center gap-1 mt-0.5">
-                              <AlertTriangle className="w-3 h-3" />{rep.adminFeedback}
-                            </p>
-                          )}
-                        </div>
-                        <div className="mt-3 md:mt-0">
-                          <button onClick={() => openReport(rep)}
-                            className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:opacity-90 transition cursor-pointer">
-                            <Edit3 className="w-3 h-3" />
-                            <span>{rep.status === 'submitted' || rep.status === 'approved' ? 'View' : 'Edit'}</span>
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
             </div>
-          </div>
-        )}
-      </main>
+          )}
+        </main>
+      </div>
     </div>
-  );
+  )
 }

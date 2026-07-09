@@ -80,70 +80,88 @@ To develop a module for basic information of the system and the developer. This 
 
 #### 1.4.1 Scope
 
+The DommUnity system is accessible by two authorized user roles: the **Admin** (Head of the CES Office) and the **Office Coordinator**. Each role has its own dedicated dashboard and set of modules tailored to their responsibilities within the Community Extension & Services (CES) Office.
+
 ##### 1.4.1.1 Admin Modules
 The Admin Modules allow the Admin, Mrs. Faithful Anne F. Arugay, full access to system features. These modules are used to manage users, records, and system data.
 
-###### 1.4.1.1.1 Log in
-Serves as the primary security gateway for the DommUnity system. Users or the admin are required to log in via username and password.
+###### 1.4.1.1.1 Login
+Serves as the primary security gateway for the DommUnity system. Users are required to log in using their registered email address and password. The system validates credentials against the database and routes authorized users to their corresponding dashboard based on their assigned role.
 
-###### 1.4.1.1.3 Forgot Password
-After the primary admin account is established, the DommUnity system enables the Forgot Password submodule to provide a secure recovery path. This feature allows the Admin to initiate a reset by sending a verification link or code to their registered email address, ensuring that if access is ever lost, the admin can safely confirm their identity.
+###### 1.4.1.1.2 Forgot Password
+The DommUnity system provides a Forgot Password feature accessible from the Login screen. Users may enter their registered email address and submit a request to receive a password reset link via email. Upon clicking the link in the email, the user is directed to a secure page where they may set a new password. A success confirmation screen is displayed after the reset email has been sent, with an option to resend the email if it was not received.
+
+###### 1.4.1.1.3 Admin Dashboard
+The Admin Dashboard provides a consolidated overview of system data upon login. It displays key summary statistics including the number of active coordinators, total inventory stock items, total registered departments, and the total number of donors. The dashboard also shows alerts for inventory items that are expiring within 30 days (Expiring Soon) and a list of recommended items for release based on the First In, First Out (FIFO) policy and approaching expiration dates.
 
 ###### 1.4.1.1.4 User Account Management Module
-The User Account Management Module allows the admin to create, update, and manage system user accounts. The Admin assigns a role to each user such as Admin, Office Coordinator, or Department Coordinator. Each Department Coordinator account is linked to a specific department or organization, ensuring that coordinators can only create and submit reports for their assigned department's events.
+The User Account Management Module allows the admin to create, update, and manage system user accounts. The Admin can register new Office Coordinator accounts, assign each account to a specific department or organization, and activate or deactivate user accounts as needed. The Admin may also view and handle pending password reset requests submitted by coordinators. Each coordinator account is linked to a specific department, restricting their report submissions to their assigned department's events.
 
 ###### 1.4.1.1.5 Inventory Management Module
-The Inventory Management Module allows the admin to manage all CES inventory items used in community activities. The system stores item details such as name, category, unit, quantity, and optional donor information.
+The Inventory Management Module allows the admin to manage all CES inventory items used in community activities. The system stores item details such as name, category, unit, quantity, expiration date, and optional grouping configuration.
 
-*   **1.4.1.1.5.1 Item Management Submodule**: Allows the Admin to add new items, update details of existing items, and delete items when necessary. The system automatically records the date, time, and the changes to the inventory.
-*   **1.4.1.1.5.2 Stock Tracking Submodule**: Shows the current status of items, including available stock, low stock, out-of-stock, and expired items. An item is marked as low stock when the quantity reaches 10, and it is considered out-of-stock when the quantity becomes zero. Items whose expiration date has passed while stock remains are flagged as expired and excluded from distribution recommendations. It also follows the First In, First Out (FIFO) policy, where items that are recorded first are the first to be distributed. In addition, items with the nearest expiration date are prioritized for release to make sure they are used before they expire and to avoid waste. The system uses **batch-level tracking**: identical items received from different donations with different expiration dates are stored as separate inventory records (e.g., 8 cans of sardines with 3 different expiry dates appear as 3 separate rows, each with its own quantity and expiration date). The dashboard sidebar also displays an **Expiring Soon** alert for consumable batches approaching expiration within 30 days.
-*   **1.4.1.1.5.3 Category and Unit Submodule**: Organizes inventory items based on type and unit of measurement to simplify searching and grouping of items such as school supplies, food packs, and hygiene kits.
-*   **1.4.1.1.5.4 Inventory Report Submodule**: Allows the Admin to view and print inventory summaries through PDF and Word files. Reports may be used for record-keeping and for submission to the CES office.
+*   **Item Management Submodule**: Allows the Admin to add new items, update details of existing items, and delete items when necessary. The system automatically records the date, time, and changes made to the inventory.
+*   **Stock Tracking Submodule**: Displays the current status of items, including available stock, low stock, out-of-stock, and expired items. An item is marked as low stock when the quantity reaches 10, and it is considered out-of-stock when the quantity reaches zero. Items whose expiration date has passed while stock remains are flagged as expired. The system follows the First In, First Out (FIFO) policy, prioritizing the release of items recorded first and those nearest to their expiration date. The system uses **batch-level tracking**: identical items received from different donations with different expiration dates are stored as separate inventory records, each with its own quantity and expiration date. The dashboard also displays an **Expiring Soon** alert for consumable batches approaching expiration within 30 days.
+*   **Stock Release Submodule**: Allows the Admin to release inventory items from stock. The Admin selects an item and enters the quantity to release. Multiple items can be added to a pending release list before confirming the transaction. The system deducts the released quantities from the inventory and logs the transaction.
+*   **Category and Unit Submodule**: Organizes inventory items based on type and unit of measurement to simplify searching and grouping. Default categories include school supplies, food packs, and hygiene kits. Custom categories and units can be added and deleted by the Admin.
+*   **Inventory Report Submodule**: Allows the Admin to view the chronological transaction history of all inventory actions (added, released, deleted) and export the report as a PDF file for record-keeping and submission purposes.
 
 ###### 1.4.1.1.6 Event Management Module
-The Event Management Module allows the Admin to record and manage CES events. The system stores event details such as name, description, schedule, location, and status. Events can be viewed, updated, searched, and tracked by month.
+The Event Management Module allows the Admin to record and manage CES events. The system stores event details such as the event name, description, schedule date, venue or location, and current status. Events can be added, viewed, updated, and deleted. The module also displays the count of planned events as a badge indicator in the sidebar navigation.
 
 ###### 1.4.1.1.7 Organization Management Module
-The Organization Management Module allows the Admin to manage the organizations and departments under the CES. This involves the management of organization profiles, departments, events, and activities per department and month.
+The Organization Management Module allows the Admin to manage the organizations and departments registered under the CES Office. The module is divided into two sub-sections:
+
+*   **Organizations Submodule**: Allows the Admin to register, update, and delete student organization profiles, including the organization name, abbreviation, slug ID, and description.
+*   **Departments Submodule**: Allows the Admin to register, update, and delete department profiles. Each department profile includes the department name, abbreviation, slug ID, description, and optional department logo. A designated coordinator account can also be linked to each department profile for reporting purposes.
 
 ###### 1.4.1.1.8 Donor Management Module
-The Donor Management Module allows the admin to save, view, update, and delete details of Donor profiles (Create, Read, Update, Delete) and record donation batches. Admins can save a donor's name, contact details, donor type (Individual, External Organization, School Department), and date of registration, and search registered sponsor profiles in a directory list. This module also records the type of donor, date of donation, purpose, and description, maintaining a detailed audit history of all contributions.
+The Donor Management Module allows the Admin to save, view, update, and delete donor profiles and record donation batches. The Admin can store a donor's name, type (Individual, External Organization, School Department), and date of registration. When recording a donation batch, the Admin selects or creates a donor, enters the donation date, purpose, and description, and adds one or more donated items with their respective categories, quantities, units, expiration dates, and grouping details. Donated items are automatically added to the inventory stock upon saving the donation batch.
 
 ###### 1.4.1.1.9 Report Management Module
-The Report Management Module allows the Admin to view submitted narrative reports and generate formatted reports based on the CES standard format. Reports can be previewed, printed, or exported through PDF and Word files for documentation purposes.
+The Report Management Module allows the Admin to review narrative reports submitted by Office Coordinators. The Admin can view full report details including the activity title, academic year, semester, type, location, date, beneficiaries, written narrative, and attached photos. The Admin may approve a report, return it with written feedback for revision, or compile and export it as a formatted PDF following the CES official narrative report format.
 
-##### 1.4.1.2 Department Coordinator Modules
-The Department Coordinator Modules allow department-level coordinators to prepare and submit CES reports for their assigned department's events. Each department has its own coordinator who is responsible for documenting the community extension activities conducted by their department. Department Coordinators request and submit reports to the Admin for review and approval.
+###### 1.4.1.1.10 Information Module
+The Information Module displays reference information about the DommUnity system, the CES Office, and the development team. It includes the Vision and Mission statements of the CES Office, the organizational hierarchy (School Administrator, Vice President for Academic Affairs, Head of CES, and Office Coordinator), the core advocacy areas followed by the office, and the profiles of the system developers.
 
-###### 1.4.1.2.1 Log in
-Coordinators will log in to the system via the username and password given by the Admin.
+---
+
+##### 1.4.1.2 Office Coordinator Modules
+The Office Coordinator Modules allow the designated CES Office Coordinator, Mr. Jonnel B. Manio, to prepare, manage, and submit narrative reports for community extension activities. The Office Coordinator has a dedicated dashboard separate from the Admin interface.
+
+###### 1.4.1.2.1 Login
+The Office Coordinator logs into the system using their registered email address and password assigned by the Admin.
 
 ###### 1.4.1.2.2 Forgot Password
-Coordinators are allowed to reset their password by requesting it from the Admin. The Admin will then send the new password to the Coordinator.
+The Office Coordinator may use the Forgot Password feature from the Login screen to request a password reset link via email, following the same flow as the Admin.
 
-###### 1.4.1.2.3 Report Creation Module
-The Report Creation Module allows coordinators to fill out narrative report forms, select the semester and academic year, and enter required activity details such as outreach programs and community services.
+###### 1.4.1.2.3 Office Coordinator Dashboard
+The Office Coordinator Dashboard provides a summary view of the coordinator's report activity. It displays the total number of reports submitted, including counts by status: draft, submitted, approved, and returned. Quick action buttons allow the coordinator to start a new report or navigate to the compiled reports list. A list of recent reports is also shown with their current status and last updated date.
 
-###### 1.4.1.2.4 Report Submission Module
-The Report Submission Module allows coordinators to submit completed reports for review by the Admin of CES.
+###### 1.4.1.2.4 Report Editor Module
+The Report Editor Module provides a full-featured document editing interface for writing narrative reports. The coordinator fills out report metadata including the academic year, semester, report type (e.g., Outreach, Blood Donation), and can optionally link the report to a specific event registered by the Admin. Activity details such as the title, date, location, and beneficiaries are also entered in this module. The editor uses a rich-text toolbar supporting headings, bold, italic, strikethrough, lists, blockquotes, and undo/redo actions.
 
-###### 1.4.1.2.5 Narrative Writing Submodule
-The Narrative Writing Submodule allows coordinators to write narrative reports of the conducted activity in a diary format.
+###### 1.4.1.2.5 Photo Upload Submodule
+The Photo Upload Submodule allows the coordinator to attach photographic documentation to a report directly within the editor workspace. Coordinators may upload multiple images in JPG and PNG formats, with a maximum of 10 images per report. Uploaded photos are stored and linked to the report.
 
-###### 1.4.1.2.6 Photo Upload Submodule
-The Photo Upload Submodule allows coordinators to add photos related to activities in the system. It allows uploading of several images in both JPG and PNG formats, with a maximum of 10 images. Before uploading the photos, coordinators must save them on their desktop or local machine. The submodule serves as an interface to choose and upload these pictures, ensuring they are properly attached to the respective activity.
+###### 1.4.1.2.6 Report Saving and Submission
+Reports can be saved as a draft at any time or submitted to the Admin for review. Once submitted, a report becomes read-only and can no longer be edited unless the Admin returns it with feedback. Auto-save functionality is also available to prevent data loss during editing.
 
-###### 1.4.1.2.7 Report Status Module
-The Report Status Module allows coordinators to track the current status of submitted reports (such as draft, submitted, returned, or approved).
+###### 1.4.1.2.7 Compiled Reports Module
+The Compiled Reports Module displays all reports created by the Office Coordinator, listed with their current status badges (draft, submitted, approved, or returned). Coordinators can open any report to view its content. Reports that have been returned by the Admin will display the Admin's feedback message. Approved and submitted reports are displayed in read-only mode.
 
-###### 1.4.1.2.8 Report History Module
-The Report History Module allows coordinators to view previously submitted reports and filter them based on semester or event.
+---
 
 #### 1.4.2 Limitations
 *   The system is developed exclusively for the Community Extension & Services Office of Dominican College of Tarlac, Inc. because it is designed based on the actual workflow, report format, and processes used by the CES office. This means the system may not directly apply to other institutions with different procedures.
-*   The system requires a Windows-based operating system because it is developed as a desktop application using tools that are compatible with Windows. This matches the available computers in the CES office, which are currently running on Windows.
-*   The system does not support online transactions, cash handling, or financial processing because the focus of the system is only on recording donations and inventory for documentation purposes. Financial management is outside the scope of the system.
-*   Although the system automates record storage and report generation, data input still relies on manual encoding because the information comes from actual activities and documents that need to be entered by authorized users. The system depends on user input to ensure that the data recorded is accurate and complete.
+*   The system requires a Windows-based operating system because it is developed as a desktop application using ElectronJS, which is compatible with the Windows computers currently used in the CES office.
+*   The system only supports two user roles: Admin and Office Coordinator. There is no separate login or interface for individual Department Coordinators. All report submissions are managed by the designated Office Coordinator on behalf of the CES office.
+*   The system does not support online transactions, cash handling, or financial processing. The focus of the system is limited to recording donations and inventory for documentation purposes. Financial management is outside the scope of the system.
+*   Although the system automates record storage and report generation, data input still relies on manual encoding because the information comes from actual activities and documents that must be entered by authorized users. The system depends on user input to ensure that the data recorded is accurate and complete.
+*   The Forgot Password feature is restricted to Admin accounts only and requires an active internet connection, as it relies on Firebase Authentication to send the password reset email. Coordinators do not have access to this self-recovery feature and must contact the Admin to request a password reset.
+*   The system does not support real-time collaboration or simultaneous multi-user editing of the same report. Each report is authored and managed by one user at a time.
+
+
 
 ---
 
