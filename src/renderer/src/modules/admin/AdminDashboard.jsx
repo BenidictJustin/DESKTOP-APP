@@ -52,6 +52,7 @@ import {
   Download,
   Clock,
   ArrowRight,
+  AlertCircle,
   TrendingDown,
   TrendingUp,
   Sparkles,
@@ -950,11 +951,11 @@ export default function AdminDashboard({ user, onLogout }) {
         prev.map((p) =>
           p.id === releaseItemId
             ? {
-              ...p,
-              qtyGroup: newQtyGroup,
-              qtyPieces: newQtyPieces,
-              baseQty: newBaseQty
-            }
+                ...p,
+                qtyGroup: newQtyGroup,
+                qtyPieces: newQtyPieces,
+                baseQty: newBaseQty
+              }
             : p
         )
       )
@@ -1673,11 +1674,11 @@ export default function AdminDashboard({ user, onLogout }) {
   }
 
   return (
-    <div className="h-screen max-h-screen flex flex-col bg-gray-50 font-poppins selection:bg-sig-green selection:text-white overflow-hidden">
+    <div className="h-screen max-h-screen flex flex-col bg-canvas font-poppins selection:bg-sig-green selection:text-white overflow-hidden">
       {/* Top Header Bar */}
-      <header className="w-full bg-white border-b border-gray-100 flex items-center justify-between px-8 py-3 shrink-0 shadow-xs">
+      <header className="mx-4 mt-4 bg-white border border-gray-200/50 rounded-3xl flex items-center justify-between px-8 py-3 shrink-0 shadow-xs backdrop-blur-md">
         {/* Left: Logo and Title */}
-        <div className="flex items-center space-x-3.5 bg-gray-50/80 p-2 pr-4 rounded-2xl border border-gray-100/50">
+        <div className="flex items-center space-x-3.5 bg-white p-2 pr-4 rounded-2xl border border-gray-100/50">
           <div className="h-12 w-12 rounded-xl bg-white flex items-center justify-center border border-gray-100 overflow-hidden shrink-0">
             <img src={logo} alt="CES Logo" className="h-10 w-10 object-contain" />
           </div>
@@ -1710,7 +1711,7 @@ export default function AdminDashboard({ user, onLogout }) {
             <Home className="w-5 h-5" />
           </button>
 
-          <div className="flex items-center space-x-3 bg-gray-50/80 p-2 pr-4 pl-3 rounded-2xl border border-gray-100/50 h-14">
+          <div className="flex items-center space-x-3 bg-canvas-white p-2 pr-4 pl-3 rounded-2xl border border-gray-100/50 h-14">
             <div className="w-9 h-9 rounded-xl border border-navy-blue/20 flex items-center justify-center text-navy-blue bg-white shadow-2xs">
               <Users className="w-4.5 h-4.5" />
             </div>
@@ -1757,10 +1758,11 @@ export default function AdminDashboard({ user, onLogout }) {
                   onClick={() => {
                     setActiveTab(tab.id)
                   }}
-                  className={`w-full flex items-center justify-between p-3 rounded-2xl text-xs font-semibold tracking-wide transition duration-200 cursor-pointer ${activeTab === tab.id
+                  className={`w-full flex items-center justify-between p-3 rounded-2xl text-xs font-semibold tracking-wide transition duration-200 cursor-pointer ${
+                    activeTab === tab.id
                       ? 'bg-sig-green text-navy-blue'
                       : 'text-gray-300 hover:bg-white/5 hover:text-white'
-                    }`}
+                  }`}
                 >
                   <div className="flex items-center space-x-3">
                     <tab.icon className="w-4 h-4 shrink-0" />
@@ -1842,7 +1844,7 @@ export default function AdminDashboard({ user, onLogout }) {
                       <button
                         type="button"
                         onClick={() => setConfirmDialog(null)}
-                        className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-xs font-semibold py-2.5 transition cursor-pointer"
+                        className="flex-1 bg-gray-100 hover:bg-red-500 hover:text-white text-gray-700 rounded-full text-xs font-semibold py-2.5 transition cursor-pointer"
                       >
                         Cancel
                       </button>
@@ -1854,7 +1856,7 @@ export default function AdminDashboard({ user, onLogout }) {
                           confirmDialog.onConfirm()
                           setConfirmDialog(null)
                         }}
-                        className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer"
+                        className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer"
                       >
                         Confirm
                       </button>
@@ -1895,9 +1897,7 @@ export default function AdminDashboard({ user, onLogout }) {
                 <div className="space-y-6 animate-fade-in">
                   {/* Header section */}
                   <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-                    <h1 className="text-2xl font-bold text-navy-blue">
-                      CES Administrative Dashboard
-                    </h1>
+                    <h1 className="text-2xl font-bold text-navy-blue">Dashboard</h1>
                   </div>
 
                   {/* Quick Stats Grid */}
@@ -2057,49 +2057,49 @@ export default function AdminDashboard({ user, onLogout }) {
               {activeTab === 'inventory' && user.role === 'admin' && (
                 <div className="space-y-6 animate-fade-in">
                   {/* Header section */}
-                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between">
+                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                       <h1 className="text-2xl font-bold text-navy-blue">Inventory Management</h1>
                     </div>
-                    <div className="flex space-x-2 mt-4 md:mt-0">
-                      <button
-                        onClick={handleOpenReportPreview}
-                        className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-2 px-4 rounded-full text-xs flex items-center space-x-2 cursor-pointer"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>Download Report PDF</span>
-                      </button>
+                    <div className="flex flex-col gap-2.5 mt-4 md:mt-0 items-start md:items-end">
+                      {/* Row 1 */}
+                      <div className="flex flex-wrap gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => setIsAddModalOpen(true)}
+                          className="flex items-center space-x-1.5 bg-navy-blue text-white border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green font-semibold py-2 px-4 rounded-full text-xs cursor-pointer transition"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add Catalog Item</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsReleaseModalOpen(true)}
+                          className="flex items-center space-x-1.5 bg-navy-blue text-white border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green font-semibold py-2 px-4 rounded-full text-xs cursor-pointer transition"
+                        >
+                          <Share className="w-3.5 h-3.5 transform rotate-180" />
+                          <span>Release Item</span>
+                        </button>
+                      </div>
+                      {/* Row 2 */}
+                      <div className="flex flex-wrap gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => setIsReviewModalOpen(true)}
+                          className="flex items-center space-x-1.5 bg-navy-blue text-white border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green font-bold py-2 px-4 rounded-full text-xs cursor-pointer transition shadow-sm"
+                        >
+                          <ListFilter className="w-3.5 h-3.5" />
+                          <span>Release Review List ({pendingReleaseItems.length})</span>
+                        </button>
+                        <button
+                          onClick={handleOpenReportPreview}
+                          className="flex items-center space-x-2 bg-navy-blue text-white border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green font-semibold py-2 px-4 rounded-full text-xs cursor-pointer transition"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>Download Report PDF</span>
+                        </button>
+                      </div>
                     </div>
-                  </div>
-
-                  {/* Compact triggers row */}
-                  <div className="flex flex-wrap gap-2.5 justify-end mt-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsAddModalOpen(true)}
-                      className="px-4 py-2 bg-white border border-gray-200 text-navy-blue hover:bg-gray-50 transition rounded-full text-xs font-semibold shadow-sm flex items-center space-x-1.5 cursor-pointer animate-fade-in"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Add Catalog Item</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsReleaseModalOpen(true)}
-                      className="px-4 py-2 bg-white border border-gray-200 text-navy-blue hover:bg-gray-50 transition rounded-full text-xs font-semibold shadow-sm flex items-center space-x-1.5 cursor-pointer animate-fade-in"
-                    >
-                      <Share className="w-3.5 h-3.5 transform rotate-180" />
-                      <span>Release Item</span>
-                    </button>
-                    {pendingReleaseItems.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setIsReviewModalOpen(true)}
-                        className="px-4 py-2 bg-sig-green text-navy-blue hover:bg-sig-green/90 transition rounded-full text-xs font-bold shadow-sm flex items-center space-x-1.5 cursor-pointer animate-fade-in"
-                      >
-                        <ListFilter className="w-3.5 h-3.5" />
-                        <span>Release Review List ({pendingReleaseItems.length})</span>
-                      </button>
-                    )}
                   </div>
 
                   {/* Recommended Release Items Section */}
@@ -2163,7 +2163,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                     setReleaseUnitType('base')
                                     setIsReleaseModalOpen(true)
                                   }}
-                                  className="px-3 py-1 bg-navy-blue text-white rounded-full text-[10px] font-semibold hover:bg-navy-blue/90 transition flex items-center space-x-1 cursor-pointer"
+                                  className="px-3 py-1 bg-navy-blue text-white rounded-full text-[10px] font-semibold border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center space-x-1 cursor-pointer"
                                 >
                                   <span>Quick Release</span>
                                 </button>
@@ -2193,7 +2193,7 @@ export default function AdminDashboard({ user, onLogout }) {
                         Current Inventory Stock
                       </h3>
 
-                      <div className="overflow-x-auto">
+                      <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
                         <table className="w-full text-left border-collapse">
                           <thead>
                             <tr className="border-b border-gray-100 bg-gray-50 text-[10px] uppercase font-bold text-gray-500">
@@ -2248,8 +2248,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                     <div className="font-bold text-navy-blue flex items-center space-x-1.5">
                                       <span>{item.name}</span>
                                       {item.isRecommendedForRelease && item.expiryDate && (
-                                        <span className="bg-sig-green text-navy-blue text-[8px] font-bold px-1.5 py-0.5 rounded-full border border-sig-green/35 flex items-center space-x-0.5 animate-pulse">
-                                          <Sparkles className="w-2 h-2 shrink-0" />
+                                        <span className="bg-sig-green text-navy-blue text-[8px] font-bold px-1.5 py-0.5 rounded-full border border-sig-green/35 flex items-center space-x-0.5">
                                           <span>Recommended Release</span>
                                         </span>
                                       )}
@@ -2262,24 +2261,28 @@ export default function AdminDashboard({ user, onLogout }) {
                                         </span>
                                       </div>
                                     )}
+                                    {item.description && (
+                                      <p className="text-gray-400 mt-1 max-w-xs truncate">
+                                        {item.description}
+                                      </p>
+                                    )}
                                   </td>
-                                  <td className="py-3 px-2 text-gray-500 capitalize">
+                                  <td className="py-3 px-2 capitalize text-gray-500">
                                     {item.category}
                                   </td>
-                                  <td className="py-3 px-2 font-semibold text-navy-blue">
-                                    <div>
+                                  <td className="py-3 px-2 font-bold text-navy-blue">
+                                    <span>
                                       {displayStock(
                                         item.quantity,
                                         item.unit,
                                         item.groupUnit,
                                         item.piecesPerUnit
                                       )}
-                                    </div>
+                                    </span>
                                     {item.groupUnit &&
                                       item.groupUnit !== 'none' &&
                                       item.piecesPerUnit && (
-                                        <div className="text-[10px] text-gray-400 font-medium mt-0.5">
-                                          {item.quantity} Total{' '}
+                                        <div className="text-[9px] text-gray-400 font-normal mt-0.5">
                                           {formatUnit(item.quantity, item.unit)} |{' '}
                                           {item.piecesPerUnit}{' '}
                                           {formatUnit(item.piecesPerUnit, item.unit)} per{' '}
@@ -2289,14 +2292,15 @@ export default function AdminDashboard({ user, onLogout }) {
                                   </td>
                                   <td className="py-3 px-2">
                                     <span
-                                      className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${item.status === 'available'
+                                      className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                                        item.status === 'available'
                                           ? 'bg-green-50 text-green-700 border border-green-200'
                                           : item.status === 'low stock'
                                             ? 'bg-amber-50 text-amber-700 border border-amber-200'
                                             : item.status === 'expired'
-                                              ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                              ? 'bg-red-50 text-red-700 border border-red-200'
                                               : 'bg-red-50 text-red-700 border border-red-200'
-                                        }`}
+                                      }`}
                                     >
                                       {item.status}
                                     </span>
@@ -2517,14 +2521,14 @@ export default function AdminDashboard({ user, onLogout }) {
                                       !itemCategory ||
                                       cat.toLowerCase().includes(itemCategory.toLowerCase())
                                   ).length === 0 && (
-                                      <div
-                                        onMouseDown={(e) => e.preventDefault()}
-                                        onClick={() => setShowAddCategoryDropdown(false)}
-                                        className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
-                                      >
-                                        Use custom: "{itemCategory}"
-                                      </div>
-                                    )}
+                                    <div
+                                      onMouseDown={(e) => e.preventDefault()}
+                                      onClick={() => setShowAddCategoryDropdown(false)}
+                                      className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
+                                    >
+                                      Use custom: "{itemCategory}"
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -2615,14 +2619,14 @@ export default function AdminDashboard({ user, onLogout }) {
                                     (u) =>
                                       !itemUnit || u.toLowerCase().includes(itemUnit.toLowerCase())
                                   ).length === 0 && (
-                                      <div
-                                        onMouseDown={(e) => e.preventDefault()}
-                                        onClick={() => setShowAddUnitDropdown(false)}
-                                        className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
-                                      >
-                                        Use custom: "{itemUnit}"
-                                      </div>
-                                    )}
+                                    <div
+                                      onMouseDown={(e) => e.preventDefault()}
+                                      onClick={() => setShowAddUnitDropdown(false)}
+                                      className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
+                                    >
+                                      Use custom: "{itemUnit}"
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -2816,7 +2820,7 @@ export default function AdminDashboard({ user, onLogout }) {
                           <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border-b-2 border-sig-green hover:bg-navy-blue/95 transition flex items-center justify-center cursor-pointer animate-fade-in"
+                            className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center justify-center cursor-pointer animate-fade-in"
                             style={{ height: '40px' }}
                           >
                             {loading ? 'Saving...' : 'Add Item'}
@@ -2939,14 +2943,14 @@ export default function AdminDashboard({ user, onLogout }) {
                                       !itemCategory ||
                                       cat.toLowerCase().includes(itemCategory.toLowerCase())
                                   ).length === 0 && (
-                                      <div
-                                        onMouseDown={(e) => e.preventDefault()}
-                                        onClick={() => setShowEditCategoryDropdown(false)}
-                                        className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
-                                      >
-                                        Use custom: "{itemCategory}"
-                                      </div>
-                                    )}
+                                    <div
+                                      onMouseDown={(e) => e.preventDefault()}
+                                      onClick={() => setShowEditCategoryDropdown(false)}
+                                      className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
+                                    >
+                                      Use custom: "{itemCategory}"
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -3037,14 +3041,14 @@ export default function AdminDashboard({ user, onLogout }) {
                                     (u) =>
                                       !itemUnit || u.toLowerCase().includes(itemUnit.toLowerCase())
                                   ).length === 0 && (
-                                      <div
-                                        onMouseDown={(e) => e.preventDefault()}
-                                        onClick={() => setShowEditUnitDropdown(false)}
-                                        className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
-                                      >
-                                        Use custom: "{itemUnit}"
-                                      </div>
-                                    )}
+                                    <div
+                                      onMouseDown={(e) => e.preventDefault()}
+                                      onClick={() => setShowEditUnitDropdown(false)}
+                                      className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
+                                    >
+                                      Use custom: "{itemUnit}"
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -3247,14 +3251,14 @@ export default function AdminDashboard({ user, onLogout }) {
                                 setItemPiecesPerUnit('')
                                 setItemGroupUnit('none')
                               }}
-                              className="flex-1 py-2 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-gray-50 transition cursor-pointer"
+                              className="flex-1 py-2 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition cursor-pointer"
                             >
                               Cancel
                             </button>
                             <button
                               type="submit"
                               disabled={loading}
-                              className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border-b-2 border-sig-green hover:bg-navy-blue/95 transition flex items-center justify-center cursor-pointer"
+                              className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center justify-center cursor-pointer"
                             >
                               {loading ? 'Saving...' : 'Update Item'}
                             </button>
@@ -3401,10 +3405,10 @@ export default function AdminDashboard({ user, onLogout }) {
                                     .filter((item) =>
                                       item.name.toLowerCase().includes(releaseSearch.toLowerCase())
                                     ).length === 0 && (
-                                      <div className="p-2.5 text-xs text-gray-400 text-left font-semibold">
-                                        No matching items found
-                                      </div>
-                                    )}
+                                    <div className="p-2.5 text-xs text-gray-400 text-left font-semibold">
+                                      No matching items found
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -3490,7 +3494,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
                           <button
                             type="submit"
-                            className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border-b-2 border-sig-green hover:bg-navy-blue/95 transition flex items-center justify-center cursor-pointer animate-fade-in"
+                            className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center justify-center cursor-pointer animate-fade-in"
                             style={{ height: '40px' }}
                           >
                             Add to Release List
@@ -3586,7 +3590,7 @@ export default function AdminDashboard({ user, onLogout }) {
                               setPendingReleaseItems([])
                               setIsReviewModalOpen(false)
                             }}
-                            className="flex-1 py-2 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-gray-50 transition cursor-pointer text-center"
+                            className="flex-1 py-2 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition cursor-pointer text-center"
                           >
                             Clear List
                           </button>
@@ -3594,7 +3598,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             type="button"
                             disabled={loading}
                             onClick={handleConfirmRelease}
-                            className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer text-center"
+                            className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer text-center"
                           >
                             {loading ? 'Confirming...' : 'Confirm Release'}
                           </button>
@@ -3781,7 +3785,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             <button
                               type="button"
                               onClick={handleAddDonItemLine}
-                              className="text-xs font-semibold text-sig-green hover:text-navy-blue flex items-center space-x-1 transition cursor-pointer"
+                              className="flex items-center gap-1.5 bg-navy-blue text-white rounded-full text-xs font-semibold px-4 py-2 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer"
                             >
                               <Plus className="w-3.5 h-3.5" />
                               <span>Add Item Line</span>
@@ -4010,14 +4014,14 @@ export default function AdminDashboard({ user, onLogout }) {
                                                   .toLowerCase()
                                                   .includes(item.category.toLowerCase())
                                             ).length === 0 && (
-                                                <div
-                                                  onMouseDown={(e) => e.preventDefault()}
-                                                  onClick={() => setActiveDonItemCategoryIdx(null)}
-                                                  className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
-                                                >
-                                                  Use custom: "{item.category}"
-                                                </div>
-                                              )}
+                                              <div
+                                                onMouseDown={(e) => e.preventDefault()}
+                                                onClick={() => setActiveDonItemCategoryIdx(null)}
+                                                className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
+                                              >
+                                                Use custom: "{item.category}"
+                                              </div>
+                                            )}
                                           </div>
                                         )}
                                       </div>
@@ -4106,14 +4110,14 @@ export default function AdminDashboard({ user, onLogout }) {
                                                 !item.unit ||
                                                 u.toLowerCase().includes(item.unit.toLowerCase())
                                             ).length === 0 && (
-                                                <div
-                                                  onMouseDown={(e) => e.preventDefault()}
-                                                  onClick={() => setActiveDonItemUnitIdx(null)}
-                                                  className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
-                                                >
-                                                  Use custom: "{item.unit}"
-                                                </div>
-                                              )}
+                                              <div
+                                                onMouseDown={(e) => e.preventDefault()}
+                                                onClick={() => setActiveDonItemUnitIdx(null)}
+                                                className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
+                                              >
+                                                Use custom: "{item.unit}"
+                                              </div>
+                                            )}
                                           </div>
                                         )}
                                       </div>
@@ -4328,7 +4332,7 @@ export default function AdminDashboard({ user, onLogout }) {
                         <button
                           type="submit"
                           disabled={loading}
-                          className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border-b-2 border-sig-green hover:bg-navy-blue/95 transition flex items-center justify-center cursor-pointer"
+                          className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center justify-center cursor-pointer"
                           style={{ height: '42px' }}
                         >
                           {loading ? 'Registering Batch...' : 'Register Donation Batch'}
@@ -4421,7 +4425,7 @@ export default function AdminDashboard({ user, onLogout }) {
                           setEvtParentDeptId('')
                           setIsEventModalOpen(true)
                         }}
-                        className="px-4 py-2 bg-white border border-gray-200 text-navy-blue hover:bg-gray-50 transition rounded-full text-xs font-semibold shadow-sm flex items-center space-x-1.5 cursor-pointer animate-fade-in"
+                        className="flex items-center gap-1.5 bg-navy-blue text-white rounded-full text-xs font-semibold px-4 py-2.5 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer animate-fade-in"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>Schedule Event</span>
@@ -4513,14 +4517,15 @@ export default function AdminDashboard({ user, onLogout }) {
                               <div>
                                 <div className="flex justify-between items-start mb-2">
                                   <span
-                                    className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${evt.status === 'completed'
+                                    className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                                      evt.status === 'completed'
                                         ? 'bg-green-100 text-green-800'
                                         : evt.status === 'cancelled'
                                           ? 'bg-red-100 text-red-800'
                                           : evt.status === 'planned'
                                             ? 'bg-blue-100 text-blue-800'
                                             : 'bg-gray-100 text-gray-800'
-                                      }`}
+                                    }`}
                                   >
                                     {evt.status}
                                   </span>
@@ -4778,7 +4783,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                 setEvtOrgName('')
                                 setEvtParentDeptId('')
                               }}
-                              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition cursor-pointer text-center"
+                              className="flex-1 bg-gray-100 hover:bg-red-500 hover:text-white text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition cursor-pointer text-center"
                               style={{ height: '40px' }}
                             >
                               Cancel
@@ -4786,7 +4791,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             <button
                               type="submit"
                               disabled={loading}
-                              className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer flex items-center justify-center gap-1.5"
+                              className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer flex items-center justify-center gap-1.5"
                               style={{ height: '40px' }}
                             >
                               {editingEvent ? 'Save Changes' : 'Schedule Event'}
@@ -4819,9 +4824,9 @@ export default function AdminDashboard({ user, onLogout }) {
                           handleCancelOrgEdit()
                           setIsAddDeptModalOpen(true)
                         }}
-                        className="flex items-center gap-2 bg-navy-blue text-white text-xs font-semibold px-4 py-2.5 rounded-full border-b-2 border-sig-green hover:bg-navy-blue/90 transition cursor-pointer self-start sm:self-auto"
+                        className="flex items-center gap-1.5 bg-navy-blue text-white rounded-full text-xs font-semibold px-4 py-2.5 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer self-start sm:self-auto"
                       >
-                        <Plus className="w-4 h-4" /> Add Department
+                        <Plus className="w-3.5 h-3.5" /> Add Department
                       </button>
                     )}
                   </div>
@@ -5140,7 +5145,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                       act.eventType === 'organization'
                                         ? act.organizationName
                                         : orgsList.find((o) => o.id === act.assignedOrganizationId)
-                                          ?.abbreviation || 'CES'
+                                            ?.abbreviation || 'CES'
                                     return (
                                       <div
                                         key={act.id}
@@ -5187,7 +5192,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                       act.eventType === 'organization'
                                         ? act.organizationName
                                         : orgsList.find((o) => o.id === act.assignedOrganizationId)
-                                          ?.abbreviation || 'CES'
+                                            ?.abbreviation || 'CES'
                                     return (
                                       <div
                                         key={act.id}
@@ -5327,7 +5332,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             <button
                               type="button"
                               onClick={handleCancelOrgEdit}
-                              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition cursor-pointer text-center"
+                              className="flex-1 bg-gray-100 hover:bg-red-500 hover:text-white text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition cursor-pointer text-center"
                               style={{ height: '40px' }}
                             >
                               Cancel
@@ -5335,7 +5340,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             <button
                               type="submit"
                               disabled={loading}
-                              className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer flex items-center justify-center gap-1.5"
+                              className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer flex items-center justify-center gap-1.5"
                               style={{ height: '40px' }}
                             >
                               {editingOrg ? (
@@ -5482,7 +5487,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             <button
                               type="button"
                               onClick={handleCancelOrgEdit}
-                              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition cursor-pointer text-center"
+                              className="flex-1 bg-gray-100 hover:bg-red-500 hover:text-white text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition cursor-pointer text-center"
                               style={{ height: '40px' }}
                             >
                               Cancel
@@ -5490,7 +5495,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             <button
                               type="submit"
                               disabled={loading}
-                              className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer flex items-center justify-center gap-1.5"
+                              className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer flex items-center justify-center gap-1.5"
                               style={{ height: '40px' }}
                             >
                               {editingOrg ? (
@@ -5544,12 +5549,13 @@ export default function AdminDashboard({ user, onLogout }) {
                               <div className="space-y-1">
                                 <div className="flex items-center space-x-2">
                                   <span
-                                    className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${rep.status === 'approved'
+                                    className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                                      rep.status === 'approved'
                                         ? 'bg-green-100 text-green-800'
                                         : rep.status === 'submitted'
                                           ? 'bg-amber-100 text-amber-800'
                                           : 'bg-red-100 text-red-800'
-                                      }`}
+                                    }`}
                                   >
                                     {rep.status}
                                   </span>
@@ -5605,10 +5611,10 @@ export default function AdminDashboard({ user, onLogout }) {
                           r.status === 'approved' ||
                           r.status === 'returned'
                       ).length === 0 && (
-                          <div className="text-center py-8 text-gray-400 text-xs">
-                            No reports submitted for review yet.
-                          </div>
-                        )}
+                        <div className="text-center py-8 text-gray-400 text-xs">
+                          No reports submitted for review yet.
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -5986,7 +5992,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                 setCoordRole('office_coordinator')
                                 setCoordErrors({})
                               }}
-                              className="flex-1 bg-gray-100 hover:bg-gray-200 text-navy-blue rounded-full text-xs font-semibold py-2 px-4 transition cursor-pointer"
+                              className="flex-1 bg-gray-100 hover:bg-red-500 hover:text-white text-navy-blue rounded-full text-xs font-semibold py-2 px-4 transition cursor-pointer"
                               style={{ height: '40px' }}
                             >
                               Cancel
@@ -5995,7 +6001,7 @@ export default function AdminDashboard({ user, onLogout }) {
                           <button
                             type="submit"
                             disabled={loading}
-                            className="flex-2 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border-b-2 border-sig-green hover:bg-navy-blue/95 transition flex items-center justify-center cursor-pointer"
+                            className="flex-2 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center justify-center cursor-pointer"
                             style={{ height: '40px' }}
                           >
                             {editingUser ? 'Update Account' : 'Create User Account'}
@@ -6053,10 +6059,11 @@ export default function AdminDashboard({ user, onLogout }) {
                                   </td>
                                   <td className="py-3 px-2">
                                     <span
-                                      className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${u.status === 'inactive'
+                                      className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                                        u.status === 'inactive'
                                           ? 'bg-red-50 text-red-700 border border-red-200'
                                           : 'bg-green-50 text-green-700 border border-green-200'
-                                        }`}
+                                      }`}
                                     >
                                       {u.status || 'active'}
                                     </span>
@@ -6112,12 +6119,13 @@ export default function AdminDashboard({ user, onLogout }) {
                                       onClick={() =>
                                         handleToggleStatus(u.uid, u.status || 'active')
                                       }
-                                      className={`py-1 px-2.5 rounded-full text-[10px] font-semibold border transition cursor-pointer ${isSelf
+                                      className={`py-1 px-2.5 rounded-full text-[10px] font-semibold border transition cursor-pointer ${
+                                        isSelf
                                           ? 'opacity-50 cursor-not-allowed'
                                           : u.status === 'inactive'
                                             ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
                                             : 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
-                                        }`}
+                                      }`}
                                     >
                                       {u.status === 'inactive' ? 'Activate' : 'Deactivate'}
                                     </button>
@@ -6125,10 +6133,11 @@ export default function AdminDashboard({ user, onLogout }) {
                                       type="button"
                                       disabled={isSelf}
                                       onClick={() => handleDeleteUser(u)}
-                                      className={`py-1 px-2.5 rounded-full text-[10px] font-semibold border transition cursor-pointer ${isSelf
+                                      className={`py-1 px-2.5 rounded-full text-[10px] font-semibold border transition cursor-pointer ${
+                                        isSelf
                                           ? 'opacity-50 cursor-not-allowed'
                                           : 'bg-red-600 border-red-600 text-white hover:bg-red-700'
-                                        }`}
+                                      }`}
                                     >
                                       Delete
                                     </button>
@@ -6284,12 +6293,13 @@ export default function AdminDashboard({ user, onLogout }) {
                         </td>
                         <td className="py-2.5 px-3 capitalize">
                           <span
-                            className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${tx.action === 'added'
+                            className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                              tx.action === 'added'
                                 ? 'bg-green-50 text-green-700 border border-green-200'
                                 : tx.action === 'released'
                                   ? 'bg-blue-50 text-blue-700 border border-blue-200'
                                   : 'bg-red-50 text-red-700 border border-red-200'
-                              }`}
+                            }`}
                           >
                             {tx.action}
                           </span>
@@ -6320,7 +6330,7 @@ export default function AdminDashboard({ user, onLogout }) {
                 <button
                   type="button"
                   onClick={() => setShowReportPreview(false)}
-                  className="flex-1 py-2.5 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-gray-50 transition cursor-pointer"
+                  className="flex-1 py-2.5 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -6328,7 +6338,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   type="button"
                   autoFocus
                   onClick={handleConfirmDownloadPDF}
-                  className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer"
+                  className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer"
                 >
                   Confirm Download
                 </button>
@@ -6386,12 +6396,13 @@ export default function AdminDashboard({ user, onLogout }) {
                     </td>
                     <td className="py-2.5 px-3 capitalize">
                       <span
-                        className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${tx.action === 'added'
+                        className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                          tx.action === 'added'
                             ? 'bg-green-100 text-green-800 border border-green-200'
                             : tx.action === 'released'
                               ? 'bg-blue-100 text-blue-800 border border-blue-200'
                               : 'bg-red-100 text-red-800 border border-red-200'
-                          }`}
+                        }`}
                       >
                         {tx.action}
                       </span>

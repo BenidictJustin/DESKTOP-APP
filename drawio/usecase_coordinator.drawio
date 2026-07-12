@@ -1,0 +1,141 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.3.6 Chrome/140.0.7339.249 Electron/38.8.0 Safari/537.36" version="29.3.6">
+  <diagram id="page_y664rz474" name="Office Coordinator Modules">
+    <mxGraphModel dx="1489" dy="894" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="boundary" parent="1" style="swimlane;html=1;startSize=30;dashed=0;strokeWidth=1.5;strokeColor=#000000;fillColor=none;align=center;verticalAlign=top;collapsible=0;html=1;whiteSpace=wrap;fontStyle=1;fontSize=14;" value="DommUnity: Office Coordinator Modules" vertex="1">
+          <mxGeometry height="790" width="720" x="180" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_DashViewOC" parent="boundary" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="View Coordinator Dashboard" vertex="1">
+          <mxGeometry height="60" width="140" x="210" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_CreateReportDraft" parent="boundary" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Create Narrative Report&amp;nbsp;" vertex="1">
+          <mxGeometry height="60" width="140" x="100" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_DashboardMetrics" parent="boundary" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Inspect Report Status" vertex="1">
+          <mxGeometry height="60" width="140" x="460" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="r_coord_metrics" edge="1" parent="boundary" source="UC_DashViewOC" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.997;exitY=0.293;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.037;entryY=0.633;entryDx=0;entryDy=0;entryPerimeter=0;" target="UC_DashboardMetrics" value="&amp;lt;&amp;lt;extend&amp;gt;&amp;gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="-180" y="-30" as="sourcePoint" />
+            <mxPoint x="460" y="110" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UC_RecentActivity" parent="boundary" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Browse Recent Activity Registry" vertex="1">
+          <mxGeometry height="60" width="140" x="550" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="r_coord_activity" edge="1" parent="boundary" source="UC_DashViewOC" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.991;exitY=0.667;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="UC_RecentActivity" value="&amp;lt;&amp;lt;extend&amp;gt;&amp;gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="-180" y="-30" as="sourcePoint" />
+            <mxPoint x="470" y="160" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UC_ManageReports" parent="boundary" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="New Document" vertex="1">
+          <mxGeometry height="60" width="140" x="270" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="r_coord_draft" edge="1" parent="boundary" source="UC_ManageReports" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.391;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.597;entryY=1.047;entryDx=0;entryDy=0;entryPerimeter=0;" target="UC_CreateReportDraft" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="-180" y="-30" as="sourcePoint" />
+            <mxPoint x="300" y="270" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UC_SaveDraft" parent="boundary" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Save Report Draft" vertex="1">
+          <mxGeometry height="60" width="140" x="240" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="r_coord_save" edge="1" parent="boundary" source="UC_CreateReportDraft" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=0.286;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;" target="UC_SaveDraft" value="&amp;lt;&amp;lt;extend&amp;gt;&amp;gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="240" y="290" as="sourcePoint" />
+            <mxPoint x="350" y="250" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="sxrPovJ5YqxLVXnA508--2" connectable="0" parent="r_coord_save" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="Text" vertex="1">
+          <mxGeometry relative="1" x="-0.7717" y="-3" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UC_UploadPhoto" parent="boundary" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Upload Activity Photo Doc" vertex="1">
+          <mxGeometry height="60" width="140" x="360" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="r_coord_photo" edge="1" parent="boundary" source="UC_CreateReportDraft" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="UC_UploadPhoto" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="320" y="340" as="sourcePoint" />
+            <mxPoint x="280" y="310" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UC_SubmitReport" parent="boundary" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Submit Report" vertex="1">
+          <mxGeometry height="60" width="140" x="380" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="r_coord_submit" edge="1" parent="boundary" source="UC_CreateReportDraft" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.986;exitY=0.353;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.026;entryY=0.747;entryDx=0;entryDy=0;entryPerimeter=0;" target="UC_SubmitReport" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="-180" y="-30" as="sourcePoint" />
+            <mxPoint x="320" y="280" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UC_RevisionOC" parent="boundary" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Compiled Reports" vertex="1">
+          <mxGeometry height="60" width="140" x="290" y="570" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_ResubmitReport" parent="boundary" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Resubmit Revised Report" vertex="1">
+          <mxGeometry height="60" width="140" x="530" y="660" as="geometry" />
+        </mxCell>
+        <mxCell id="r_coord_resubmit" edge="1" parent="boundary" source="UC_RevisionOC" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;exitX=1;exitY=1;exitDx=0;exitDy=0;entryX=0.43;entryY=0.067;entryDx=0;entryDy=0;entryPerimeter=0;" target="UC_ResubmitReport" value="&amp;lt;&amp;lt;extend&amp;gt;&amp;gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="-180" y="-30" as="sourcePoint" />
+            <mxPoint x="360" y="730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UC_CorrectNarrative" parent="boundary" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Edit and Correct Narrative Report" vertex="1">
+          <mxGeometry height="60" width="140" x="140" y="660" as="geometry" />
+        </mxCell>
+        <mxCell id="r_coord_correct" edge="1" parent="boundary" source="UC_RevisionOC" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;exitX=0.06;exitY=0.738;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.64;entryY=0.01;entryDx=0;entryDy=0;entryPerimeter=0;" target="UC_CorrectNarrative" value="&amp;lt;&amp;lt;extend&amp;gt;&amp;gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="-180" y="-30" as="sourcePoint" />
+            <mxPoint x="230" y="670" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="coordinator" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Office Coordinator" vertex="1">
+          <mxGeometry height="60" width="30" x="40" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="firestore" parent="1" style="shape=datastore;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="FIrebase" vertex="1">
+          <mxGeometry height="80" width="60" x="960" y="420" as="geometry" />
+        </mxCell>
+        <mxCell id="sxrPovJ5YqxLVXnA508--1" edge="1" parent="1" source="coordinator" style="endArrow=classic;html=1;rounded=0;entryX=0.083;entryY=0.827;entryDx=0;entryDy=0;entryPerimeter=0;" target="UC_DashViewOC" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="200" y="250" as="sourcePoint" />
+            <mxPoint x="250" y="200" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="sxrPovJ5YqxLVXnA508--7" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;" target="UC_ManageReports" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="70" y="440" as="sourcePoint" />
+            <mxPoint x="692" y="470" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="sxrPovJ5YqxLVXnA508--8" edge="1" parent="1" source="coordinator" style="endArrow=classic;html=1;rounded=0;entryX=0;entryY=0;entryDx=0;entryDy=0;" target="UC_RevisionOC" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="320" y="798" as="sourcePoint" />
+            <mxPoint x="702" y="500" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="sxrPovJ5YqxLVXnA508--9" edge="1" parent="1" source="UC_RevisionOC" style="endArrow=classic;html=1;rounded=0;entryX=0.15;entryY=0.95;entryDx=0;entryDy=0;entryPerimeter=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="firestore" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="630" y="630" as="sourcePoint" />
+            <mxPoint x="1092" y="270" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="sxrPovJ5YqxLVXnA508--10" edge="1" parent="1" source="UC_ManageReports" style="endArrow=classic;html=1;rounded=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="firestore" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="650" y="530" as="sourcePoint" />
+            <mxPoint x="1032" y="232" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="sxrPovJ5YqxLVXnA508--12" edge="1" parent="1" source="UC_DashViewOC" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=1;exitDx=0;exitDy=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="820" y="558" as="sourcePoint" />
+            <mxPoint x="970" y="410" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

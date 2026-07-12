@@ -232,251 +232,547 @@ The academic department coordinators and student organizations coordinate with t
 
 This section details the system's design and operational behavior using standard Unified Modeling Language (UML) notation. The diagrams reflect the system's modules, user roles, databases, and structural workflows based on the latest implementation of the system.
 
-### 4.1 Use Case Diagram
-The Use Case Diagram illustrates the functional scope of the DommUnity system and shows how the two primary roles (Admin and Office Coordinator) interact with the application components and the supporting Firebase backend services (Firebase Authentication, Firestore Database, and Firebase Cloud Storage).
+### 4.1 The operational capabilities of **DommUnity** are modeled below through three separate, detailed Use Case Diagrams. Every action, process, button trigger, validation rule, and Firebase database interaction is mapped within its respective boundary.
+
+#### 4.1.1 Login Module
+This diagram maps out secure credentials verification, recovery links, logouts, and organizational profile lookups.
+
+> 🔗 **[Open in Draw.io (Native XML Diagram)](../drawio/usecase_login.drawio)**
 
 ```mermaid
+---
+config:
+  flowchart:
+    curve: linear
+---
 flowchart LR
-    %% Actors
-    subgraph Actors [Actors]
-        admin((Admin))
-        coordinator((Office Coordinator))
+    subgraph LeftCol [ ]
+        admin["<svg width='30' height='55' style='display:block;margin:auto;'><circle cx='15' cy='10' r='6' stroke='#111827' stroke-width='2' fill='none'/><line x1='15' y1='16' x2='15' y2='34' stroke='#111827' stroke-width='2'/><line x1='15' y1='22' x2='5' y2='20' stroke='#111827' stroke-width='2'/><line x1='15' y1='22' x2='25' y2='20' stroke='#111827' stroke-width='2'/><line x1='15' y1='34' x2='5' y2='48' stroke='#111827' stroke-width='2'/><line x1='15' y1='34' x2='25' y2='48' stroke='#111827' stroke-width='2'/></svg>Admin"]
+        coordinator["<svg width='30' height='55' style='display:block;margin:auto;'><circle cx='15' cy='10' r='6' stroke='#111827' stroke-width='2' fill='none'/><line x1='15' y1='16' x2='15' y2='34' stroke='#111827' stroke-width='2'/><line x1='15' y1='22' x2='5' y2='20' stroke='#111827' stroke-width='2'/><line x1='15' y1='22' x2='25' y2='20' stroke='#111827' stroke-width='2'/><line x1='15' y1='34' x2='5' y2='48' stroke='#111827' stroke-width='2'/><line x1='15' y1='34' x2='25' y2='48' stroke='#111827' stroke-width='2'/></svg>Office Coordinator"]
+    end
+    
+    subgraph LoginModule [DommUnity: Login Module]
+        UC_Login([Login / Authenticate])
+        UC_InputCreds([Input Email/Username & Password])
+        UC_VerifyCreds([Verify Credentials])
+        UC_FetchProfile([Fetch Firestore Role Profile])
+        UC_FormVal([Enforce Form Validations<br/>email format, password >= 8])
+        UC_Redirect([Redirect to Dashboard by Role])
+
+        UC_ForgotPwd([Forgot Password])
+        UC_ForgotVal([Validate Recovery Email Format])
+        UC_TriggerReset([Trigger Reset Email Link])
+        UC_ConfirmReset([Confirm Reset Status])
+
+        UC_Logout([Logout / Destroy Session])
+        UC_ClearSession([Clear Auth Session Context])
+
+        UC_Info([View Information Module])
+        UC_ReadMV([Read CES Office Mission & Vision])
+        UC_ReadOrg([Inspect CES Office Org Chart])
+        UC_ReadJEEPGY([Browse CEAP Advocacy])
+        UC_ReadProponent([Read Proponent Profiles])
+    end
+    
+    subgraph RightCol [ ]
+        fbAuth[(Firebase Auth)]
+        firestore[(Firestore DB)]
     end
 
-    %% External Systems
-    subgraph ExternalSystems [External Services]
-        fbAuth[Firebase Authentication]
-        firestore[Firestore Database]
-        fbStorage[Firebase Storage]
+    %% Left side connections
+    admin --> UC_Login
+    admin --> UC_ForgotPwd
+    admin --> UC_Logout
+    admin --> UC_Info
+    
+    coordinator --> UC_Login
+    coordinator --> UC_ForgotPwd
+    coordinator --> UC_Logout
+    coordinator --> UC_Info
+
+    %% Internal Use Case Relationships (Includes / Extends)
+    UC_Login -.->|&lt;&lt;include&gt;&gt;| UC_InputCreds
+    UC_Login -.->|&lt;&lt;include&gt;&gt;| UC_VerifyCreds
+    UC_Login -.->|&lt;&lt;include&gt;&gt;| UC_FetchProfile
+    UC_Login -.->|&lt;&lt;include&gt;&gt;| UC_FormVal
+    UC_Login -.->|&lt;&lt;include&gt;&gt;| UC_Redirect
+
+    UC_ForgotPwd -.->|&lt;&lt;extend&gt;&gt;| UC_Login
+    UC_ForgotPwd -.->|&lt;&lt;include&gt;&gt;| UC_ForgotVal
+    UC_ForgotPwd -.->|&lt;&lt;include&gt;&gt;| UC_TriggerReset
+    UC_ForgotPwd -.->|&lt;&lt;include&gt;&gt;| UC_ConfirmReset
+
+    UC_Logout -.->|&lt;&lt;include&gt;&gt;| UC_ClearSession
+
+    UC_Info -.->|&lt;&lt;include&gt;&gt;| UC_ReadMV
+    UC_Info -.->|&lt;&lt;include&gt;&gt;| UC_ReadOrg
+    UC_Info -.->|&lt;&lt;include&gt;&gt;| UC_ReadJEEPGY
+    UC_Info -.->|&lt;&lt;include&gt;&gt;| UC_ReadProponent
+
+    %% Right side connections
+    UC_VerifyCreds --> fbAuth
+    UC_TriggerReset --> fbAuth
+    UC_FetchProfile --> firestore
+
+    %% Styles
+    style LeftCol fill:none,stroke:none
+    style RightCol fill:none,stroke:none
+    style admin fill:none,stroke:none
+    style coordinator fill:none,stroke:none
+    classDef usecase fill:#fff,stroke:#111827,stroke-width:1.5px;
+    classDef database fill:#eff6ff,stroke:#1e40af,stroke-width:2px;
+    class UC_Login,UC_InputCreds,UC_VerifyCreds,UC_FetchProfile,UC_FormVal,UC_Redirect,UC_ForgotPwd,UC_ForgotVal,UC_TriggerReset,UC_ConfirmReset,UC_Logout,UC_ClearSession,UC_Info,UC_ReadMV,UC_ReadOrg,UC_ReadJEEPGY,UC_ReadProponent usecase;
+    class fbAuth,firestore database;
+```
+
+#### 4.1.2 Admin Modules
+This diagram details all administrative screens, logs, event managers, FIFO calculations, and report compilations.
+
+> 🔗 **[Open in Draw.io (Native XML Diagram)](../drawio/usecase_admin.drawio)**
+
+```mermaid
+---
+config:
+  flowchart:
+    curve: linear
+---
+flowchart LR
+    subgraph LeftCol [ ]
+        admin["<svg width='30' height='55' style='display:block;margin:auto;'><circle cx='15' cy='10' r='6' stroke='#111827' stroke-width='2' fill='none'/><line x1='15' y1='16' x2='15' y2='34' stroke='#111827' stroke-width='2'/><line x1='15' y1='22' x2='5' y2='20' stroke='#111827' stroke-width='2'/><line x1='15' y1='22' x2='25' y2='20' stroke='#111827' stroke-width='2'/><line x1='15' y1='34' x2='5' y2='48' stroke='#111827' stroke-width='2'/><line x1='15' y1='34' x2='25' y2='48' stroke='#111827' stroke-width='2'/></svg>Admin"]
     end
 
     %% System Boundary
-    subgraph DommUnitySystem [DommUnity Desktop System]
-        %% Shared / Auth Use Cases
-        UC_Login(Login / Authenticate)
-        UC_VerifyCreds(Verify Credentials)
-        UC_ForgotPwd(Forgot Password)
-        UC_Logout(Logout)
-        UC_Info(View CES Info & Developer Profiles)
+    subgraph AdminModules [DommUnity: Admin Modules]
+        %% Main Use Cases (Ovals)
+        UC_DashView([View Dashboard Overview])
+        UC_UserMgmt([Manage Coordinator Accounts])
+        UC_Inventory([Manage Supplies Inventory])
+        UC_DonorMgmt([Manage Donors & Donations])
+        UC_EventMgmt([Manage Monthly Outreach Events])
+        UC_OrgMgmt([Manage Department Profiles])
+        UC_ReviewQueue([Review Narrative Queue])
 
-        %% Admin-Only Use Cases
-        UC_UserMgmt(Manage Coordinator Accounts)
-        UC_ToggleStatus(Toggle Account Active / Inactive)
-        UC_ResetPwdReq(Handle Password Reset Requests)
-        
-        UC_Inventory(Manage Supplies Inventory)
-        UC_FIFORecommend(Evaluate FIFO & Expiration Priority)
-        UC_ReleaseStock(Process Inventory Stock Release)
-        UC_ExportInv(Export Inventory Report to PDF/Word)
-        
-        UC_Donors(Manage Donors & Donations)
-        UC_LogDonation(Record Donation Batch)
-        UC_TrackShelfLife(Monitor Shelf-life of Consumables)
-        
-        UC_Events(Schedule Monthly Outreach Events)
-        UC_AssignDept(Map Events to Departments)
-        
-        UC_Orgs(Manage Organizations & Departments)
-        
-        UC_ReviewReport(Review Narrative Submissions)
-        UC_ApproveReport(Approve & Lock Report)
-        UC_ReturnReport(Return with Revision Feedback)
+        %% Dashboard Sub-Functions (Extends)
+        UC_WidgetView([Inspect Summary Widgets<br/>coordinators, items, depts, donors])
+        UC_ExpiryMonitor([Monitor Expiration Alert Panel<br/>batch counts expiring < 30 days])
+        UC_FIFOSug([Review FIFO Release Recommendations])
 
-        %% Office Coordinator-Only Use Cases
-        UC_DashMetrics(View Report Status Metrics)
-        UC_WriteReport(Compose Narrative Reports)
-        UC_LinkEvent(Link Report to Scheduled Event)
-        UC_TiptapEditor(Write Narrative in Tiptap Rich Text)
-        UC_PhotoUpload(Upload Activity Photos<br/>Max 10 JPG/PNG)
-        UC_SaveDraft(Save Report as Draft)
-        UC_SubmitReport(Submit for Review)
-        UC_ReviseReport(Revise Returned Reports)
+        %% User Account Sub-Functions (Extends)
+        UC_CreateCoord([Create Coordinator Account<br/>Name, Email, Username, assigned organization])
+        UC_UpdateCoord([Update Account Fields])
+        UC_ToggleCoord([Toggle Account Active/Inactive])
+        UC_RegistryCoord([View Coords Search Registry])
+        UC_EnforceOne([Enforce One Coordinator Constraint])
+        UC_ResetPwdReq([Handle Forgot Password Reset Requests])
+
+        %% Inventory Sub-Functions (Extends)
+        UC_AddBatch([Add Supply Item Batch<br/>Name, Category, Unit, Quantity, Expiry])
+        UC_UpdateBatch([Update Supply Item Batch])
+        UC_DeleteBatch([Delete Supply Item Batch])
+        UC_ReleaseFIFO([Process Supply Stock Release<br/>FIFO allocation])
+        UC_CustomCatUnit([Manage Custom Categories & Units])
+        UC_ExportInvPDF([Export Inventory Report PDF/Word])
+
+        %% Donor Sub-Functions (Extends)
+        UC_AddDonor([Log Donor Profile<br/>Name, Contact Email/Phone, Type])
+        UC_UpdateDonor([Update Donor Profile])
+        UC_DeleteDonor([Delete Donor Profile])
+        UC_LogDonation([Log Donation Batch<br/>donor lookup, purpose, items array])
+
+        %% Event Sub-Functions (Extends)
+        UC_ScheduleEvent([Schedule Event<br/>Title, Description, Date/Time, Location])
+        UC_MapEvent([Map/Assign Event to Organization])
+        UC_StatusEvent([Update Event Status<br/>planned/ongoing/completed/cancelled])
+        UC_CalendarEvent([View Monthly Calendar Board])
+
+        %% Organization Sub-Functions (Extends)
+        UC_CreateOrg([Create Organization Profile<br/>Name, Abbreviation, Description, Logo])
+        UC_UpdateOrg([Update Organization Profile])
+        UC_DeleteOrg([Delete Organization Profile])
+        UC_LinkOrgCoord([Assign Department Coordinator])
+
+        %% Report Review Sub-Functions (Extends)
+        UC_InspectReport([Inspect Submitted Diaries & Photo Gallery])
+        UC_ApproveReport([Approve Narrative Submission<br/>locks Firestore document])
+        UC_ReturnReport([Return Narrative with Written Feedback])
+        UC_CompileReport([Compile Narrative Report PDF/Word<br/>CES layout format])
     end
 
-    %% Admin Relationships
-    admin --> UC_Login
-    admin --> UC_Info
-    admin --> UC_Logout
+    subgraph RightCol [ ]
+        firestore[(Firestore DB)]
+    end
+
+    %% Left Connections (Admin to Main Use Cases)
+    admin --> UC_DashView
     admin --> UC_UserMgmt
     admin --> UC_Inventory
-    admin --> UC_Donors
-    admin --> UC_Events
-    admin --> UC_Orgs
-    admin --> UC_ReviewReport
+    admin --> UC_DonorMgmt
+    admin --> UC_EventMgmt
+    admin --> UC_OrgMgmt
+    admin --> UC_ReviewQueue
 
-    %% Coordinator Relationships
-    coordinator --> UC_Login
-    coordinator --> UC_Info
-    coordinator --> UC_Logout
-    coordinator --> UC_DashMetrics
-    coordinator --> UC_WriteReport
-    coordinator --> UC_ReviseReport
+    %% Extends Connections (Sub-Functions to Main)
+    UC_WidgetView -.->|&lt;&lt;extend&gt;&gt;| UC_DashView
+    UC_ExpiryMonitor -.->|&lt;&lt;extend&gt;&gt;| UC_DashView
+    UC_FIFOSug -.->|&lt;&lt;extend&gt;&gt;| UC_DashView
 
-    %% Include / Extend Relationships
-    UC_Login -.-->|&lt;&lt;include&gt;&gt;| UC_VerifyCreds
-    UC_ForgotPwd -.-->|&lt;&lt;extend&gt;&gt;| UC_Login
-    
-    UC_UserMgmt -.-->|&lt;&lt;include&gt;&gt;| UC_ToggleStatus
-    UC_UserMgmt -.-->|&lt;&lt;include&gt;&gt;| UC_ResetPwdReq
-    
-    UC_Inventory -.-->|&lt;&lt;include&gt;&gt;| UC_FIFORecommend
-    UC_Inventory -.-->|&lt;&lt;include&gt;&gt;| UC_ReleaseStock
-    UC_Inventory -.-->|&lt;&lt;include&gt;&gt;| UC_ExportInv
-    
-    UC_Donors -.-->|&lt;&lt;include&gt;&gt;| UC_LogDonation
-    UC_Donors -.-->|&lt;&lt;include&gt;&gt;| UC_TrackShelfLife
-    
-    UC_Events -.-->|&lt;&lt;include&gt;&gt;| UC_AssignDept
-    
-    UC_ReviewReport -.-->|&lt;&lt;include&gt;&gt;| UC_ApproveReport
-    UC_ReviewReport -.-->|&lt;&lt;include&gt;&gt;| UC_ReturnReport
-    UC_ReviewReport -.-->|&lt;&lt;include&gt;&gt;| UC_ExportInv
-    
-    UC_WriteReport -.-->|&lt;&lt;include&gt;&gt;| UC_LinkEvent
-    UC_WriteReport -.-->|&lt;&lt;include&gt;&gt;| UC_TiptapEditor
-    UC_WriteReport -.-->|&lt;&lt;include&gt;&gt;| UC_PhotoUpload
-    
-    UC_SaveDraft -.-->|&lt;&lt;extend&gt;&gt;| UC_WriteReport
-    UC_SubmitReport -.-->|&lt;&lt;extend&gt;&gt;| UC_WriteReport
+    UC_CreateCoord -.->|&lt;&lt;extend&gt;&gt;| UC_UserMgmt
+    UC_UpdateCoord -.->|&lt;&lt;extend&gt;&gt;| UC_UserMgmt
+    UC_ToggleCoord -.->|&lt;&lt;extend&gt;&gt;| UC_UserMgmt
+    UC_RegistryCoord -.->|&lt;&lt;extend&gt;&gt;| UC_UserMgmt
+    UC_EnforceOne -.->|&lt;&lt;extend&gt;&gt;| UC_UserMgmt
+    UC_ResetPwdReq -.->|&lt;&lt;extend&gt;&gt;| UC_UserMgmt
 
-    %% External Systems Relationships
-    UC_VerifyCreds -.-> fbAuth
-    UC_ResetPwdReq -.-> fbAuth
-    UC_ForgotPwd -.-> fbAuth
-    
-    UC_UserMgmt -.-> firestore
-    UC_Inventory -.-> firestore
-    UC_Donors -.-> firestore
-    UC_Events -.-> firestore
-    UC_Orgs -.-> firestore
-    UC_ReviewReport -.-> firestore
-    UC_DashMetrics -.-> firestore
-    UC_WriteReport -.-> firestore
-    UC_ReviseReport -.-> firestore
-    
-    UC_PhotoUpload -.-> fbStorage
+    UC_AddBatch -.->|&lt;&lt;extend&gt;&gt;| UC_Inventory
+    UC_UpdateBatch -.->|&lt;&lt;extend&gt;&gt;| UC_Inventory
+    UC_DeleteBatch -.->|&lt;&lt;extend&gt;&gt;| UC_Inventory
+    UC_ReleaseFIFO -.->|&lt;&lt;extend&gt;&gt;| UC_Inventory
+    UC_CustomCatUnit -.->|&lt;&lt;extend&gt;&gt;| UC_Inventory
+    UC_ExportInvPDF -.->|&lt;&lt;extend&gt;&gt;| UC_Inventory
+
+    UC_AddDonor -.->|&lt;&lt;extend&gt;&gt;| UC_DonorMgmt
+    UC_UpdateDonor -.->|&lt;&lt;extend&gt;&gt;| UC_DonorMgmt
+    UC_DeleteDonor -.->|&lt;&lt;extend&gt;&gt;| UC_DonorMgmt
+    UC_LogDonation -.->|&lt;&lt;extend&gt;&gt;| UC_DonorMgmt
+
+    UC_ScheduleEvent -.->|&lt;&lt;extend&gt;&gt;| UC_EventMgmt
+    UC_MapEvent -.->|&lt;&lt;extend&gt;&gt;| UC_EventMgmt
+    UC_StatusEvent -.->|&lt;&lt;extend&gt;&gt;| UC_EventMgmt
+    UC_CalendarEvent -.->|&lt;&lt;extend&gt;&gt;| UC_EventMgmt
+
+    UC_CreateOrg -.->|&lt;&lt;extend&gt;&gt;| UC_OrgMgmt
+    UC_UpdateOrg -.->|&lt;&lt;extend&gt;&gt;| UC_OrgMgmt
+    UC_DeleteOrg -.->|&lt;&lt;extend&gt;&gt;| UC_OrgMgmt
+    UC_LinkOrgCoord -.->|&lt;&lt;extend&gt;&gt;| UC_OrgMgmt
+
+    UC_InspectReport -.->|&lt;&lt;extend&gt;&gt;| UC_ReviewQueue
+    UC_ApproveReport -.->|&lt;&lt;extend&gt;&gt;| UC_ReviewQueue
+    UC_ReturnReport -.->|&lt;&lt;extend&gt;&gt;| UC_ReviewQueue
+    UC_CompileReport -.->|&lt;&lt;extend&gt;&gt;| UC_ReviewQueue
+
+    %% Right Connections (Main Use Cases to Database)
+    UC_DashView --> firestore
+    UC_UserMgmt --> firestore
+    UC_Inventory --> firestore
+    UC_DonorMgmt --> firestore
+    UC_EventMgmt --> firestore
+    UC_OrgMgmt --> firestore
+    UC_ReviewQueue --> firestore
 
     %% Styles
-    classDef actor fill:#dcfce7,stroke:#166534,stroke-width:2px,color:#166534;
-    classDef system fill:#eff6ff,stroke:#1e40af,stroke-width:2px,color:#1e40af;
-    classDef usecase fill:#fff,stroke:#374151,stroke-width:1.5px,color:#111827;
+    style LeftCol fill:none,stroke:none
+    style RightCol fill:none,stroke:none
+    style admin fill:none,stroke:none
+    classDef usecase fill:#fff,stroke:#374151,stroke-width:1.5px;
+    classDef database fill:#eff6ff,stroke:#1e40af,stroke-width:2px;
+    class UC_DashView,UC_UserMgmt,UC_Inventory,UC_DonorMgmt,UC_EventMgmt,UC_OrgMgmt,UC_ReviewQueue,UC_WidgetView,UC_ExpiryMonitor,UC_FIFOSug,UC_CreateCoord,UC_UpdateCoord,UC_ToggleCoord,UC_RegistryCoord,UC_EnforceOne,UC_ResetPwdReq,UC_AddBatch,UC_UpdateBatch,UC_DeleteBatch,UC_ReleaseFIFO,UC_CustomCatUnit,UC_ExportInvPDF,UC_AddDonor,UC_UpdateDonor,UC_DeleteDonor,UC_LogDonation,UC_ScheduleEvent,UC_MapEvent,UC_StatusEvent,UC_CalendarEvent,UC_CreateOrg,UC_UpdateOrg,UC_DeleteOrg,UC_LinkOrgCoord,UC_InspectReport,UC_ApproveReport,UC_ReturnReport,UC_CompileReport usecase;
+    class firestore database;
+```
 
-    class admin,coordinator actor;
-    class fbAuth,firestore,fbStorage system;
-    class UC_Login,UC_VerifyCreds,UC_ForgotPwd,UC_Logout,UC_Info,UC_UserMgmt,UC_ToggleStatus,UC_ResetPwdReq,UC_Inventory,UC_FIFORecommend,UC_ReleaseStock,UC_ExportInv,UC_Donors,UC_LogDonation,UC_TrackShelfLife,UC_Events,UC_AssignDept,UC_Orgs,UC_ReviewReport,UC_ApproveReport,UC_ReturnReport,UC_DashMetrics,UC_WriteReport,UC_LinkEvent,UC_TiptapEditor,UC_PhotoUpload,UC_SaveDraft,UC_SubmitReport,UC_ReviseReport usecase;
+#### 4.1.3 Office Coordinator Modules
+This diagram details the report compilation and submission workflow for the Office Coordinator.
+
+> 🔗 **[Open in Draw.io (Native XML Diagram)](../drawio/usecase_coordinator.drawio)**
+
+```mermaid
+---
+config:
+  flowchart:
+    curve: linear
+---
+flowchart LR
+    subgraph LeftCol [ ]
+        coordinator["<svg width='30' height='55' style='display:block;margin:auto;'><circle cx='15' cy='10' r='6' stroke='#111827' stroke-width='2' fill='none'/><line x1='15' y1='16' x2='15' y2='34' stroke='#111827' stroke-width='2'/><line x1='15' y1='22' x2='5' y2='20' stroke='#111827' stroke-width='2'/><line x1='15' y1='22' x2='25' y2='20' stroke='#111827' stroke-width='2'/><line x1='15' y1='34' x2='5' y2='48' stroke='#111827' stroke-width='2'/><line x1='15' y1='34' x2='25' y2='48' stroke='#111827' stroke-width='2'/></svg>Office Coordinator"]
+    end
+
+    %% System Boundary
+    subgraph CoordinatorModules [DommUnity: Office Coordinator Modules]
+        %% Main Use Cases (Ovals)
+        UC_DashViewOC([View Coordinator Dashboard])
+        UC_ManageReports([Manage Narrative Reports])
+        UC_RegistryOC([View Compiled Reports Registry])
+        UC_RevisionOC([Manage Returned Report Revisions])
+
+        %% Dashboard Sub-Functions (Extends)
+        UC_DashboardMetrics([Inspect Report Status Metrics<br/>draft, submitted, approved, returned])
+        UC_RecentActivity([Browse Recent Activity Registry])
+
+        %% Narrative Report Sub-Functions (Extends)
+        UC_CreateReportDraft([Create Narrative Report Draft])
+        UC_LinkEvent([Link Report to Scheduled Event])
+        UC_ManualInput([Manually Input Event Metadata])
+        UC_TiptapEditor([Write Diary via Tiptap Editor])
+        UC_UploadPhoto([Upload Activity Photo Documentation<br/>max 10, JPG/PNG checks])
+        UC_SaveDraft([Save Report Draft])
+        UC_SubmitReport([Submit Report for Review])
+
+        %% Registry Sub-Functions (Extends)
+        UC_SearchOC([Search and Filter Reports List])
+        UC_InspectReadOnly([Inspect Read-Only Narrative & Photos])
+
+        %% Revision Sub-Functions (Extends)
+        UC_ReadFeedback([Inspect Admin Revision Notes])
+        UC_CorrectNarrative([Edit and Correct Narrative Report])
+        UC_ResubmitReport([Resubmit Revised Report])
+    end
+
+    subgraph RightCol [ ]
+        firestore[(Firestore DB)]
+        fbStorage[(Firebase Storage)]
+    end
+
+    %% Left Connections (Coordinator to Main Use Cases)
+    coordinator --> UC_DashViewOC
+    coordinator --> UC_ManageReports
+    coordinator --> UC_RegistryOC
+    coordinator --> UC_RevisionOC
+
+    %% Extends Connections (Sub-Functions to Main)
+    UC_DashboardMetrics -.->|&lt;&lt;extend&gt;&gt;| UC_DashViewOC
+    UC_RecentActivity -.->|&lt;&lt;extend&gt;&gt;| UC_DashViewOC
+
+    UC_CreateReportDraft -.->|&lt;&lt;extend&gt;&gt;| UC_ManageReports
+    UC_LinkEvent -.->|&lt;&lt;extend&gt;&gt;| UC_ManageReports
+    UC_ManualInput -.->|&lt;&lt;extend&gt;&gt;| UC_ManageReports
+    UC_TiptapEditor -.->|&lt;&lt;extend&gt;&gt;| UC_ManageReports
+    UC_UploadPhoto -.->|&lt;&lt;extend&gt;&gt;| UC_ManageReports
+    UC_SaveDraft -.->|&lt;&lt;extend&gt;&gt;| UC_ManageReports
+    UC_SubmitReport -.->|&lt;&lt;extend&gt;&gt;| UC_ManageReports
+
+    UC_SearchOC -.->|&lt;&lt;extend&gt;&gt;| UC_RegistryOC
+    UC_InspectReadOnly -.->|&lt;&lt;extend&gt;&gt;| UC_RegistryOC
+
+    UC_ReadFeedback -.->|&lt;&lt;extend&gt;&gt;| UC_RevisionOC
+    UC_CorrectNarrative -.->|&lt;&lt;extend&gt;&gt;| UC_RevisionOC
+    UC_ResubmitReport -.->|&lt;&lt;extend&gt;&gt;| UC_RevisionOC
+
+    %% Right Connections
+    UC_DashViewOC --> firestore
+    UC_ManageReports --> firestore
+    UC_RegistryOC --> firestore
+    UC_RevisionOC --> firestore
+    UC_UploadPhoto --> fbStorage
+
+    %% Styles
+    style LeftCol fill:none,stroke:none
+    style RightCol fill:none,stroke:none
+    style coordinator fill:none,stroke:none
+    classDef usecase fill:#fff,stroke:#374151,stroke-width:1.5px;
+    classDef database fill:#eff6ff,stroke:#1e40af,stroke-width:2px;
+    class UC_DashViewOC,UC_ManageReports,UC_RegistryOC,UC_RevisionOC,UC_DashboardMetrics,UC_RecentActivity,UC_CreateReportDraft,UC_LinkEvent,UC_ManualInput,UC_TiptapEditor,UC_UploadPhoto,UC_SaveDraft,UC_SubmitReport,UC_SearchOC,UC_InspectReadOnly,UC_ReadFeedback,UC_CorrectNarrative,UC_ResubmitReport usecase;
+    class firestore,fbStorage database;
 ```
 
 ### 4.2 Activity Diagrams
-The Activity Diagrams model the dynamic flow of control and activities within key system operations.
+The Activity Diagrams model the control flow and sequential activities within critical business processes of the system. The diagrams below are styled as standard UML activity diagrams. By utilizing Mermaid's modern YAML frontmatter configuration block (`curve: step`), all connector lines are rendered as strictly straight, sharp horizontal and vertical segments with non-curved 90-degree turns.
 
-#### 4.2.1 User Authentication and Dashboard Routing
-This workflow defines the process of credential input, validation, Firebase Auth verification, and role-based redirection.
+#### 4.2.1 User Authentication & Session Lifecycle
+This workflow handles app launch, input validation, credentials check via Firebase Auth, database role querying, and routing.
+
+> 🔗 **[Open in Draw.io (Native XML Diagram)](../drawio/activity_auth_lifecycle.drawio)**
 
 ```mermaid
-stateDiagram-v2
-    [*] --> EnterCredentials : User inputs email & password
-    EnterCredentials --> ValidateForm : Client-side format checks
-    ValidateForm --> CheckFormat : Is email valid & password >= 8 chars?
-    CheckFormat --> EnterCredentials : No (Show Validation Error)
-    CheckFormat --> RequestAuth : Yes (Call Firebase login API)
-
-    RequestAuth --> FirebaseAuthentication : Send credentials
-    FirebaseAuthentication --> AuthSuccess : Match found?
-    AuthSuccess --> EnterCredentials : No (Show Login Error)
-    AuthSuccess --> FetchProfile : Yes (Auth success, get UID)
-
-    FetchProfile --> QueryFirestoreUsers : Fetch user document by UID
-    QueryFirestoreUsers --> CheckRole : Check "role" field
+---
+config:
+  flowchart:
+    curve: step
+---
+flowchart TD
+    startNode(( )) --> AppLaunched["User Launches DommUnity Application"]
+    AppLaunched --> LoginScreenDisplayed["Login Screen is Displayed"]
     
-    CheckRole --> RouteAdmin : role == "admin"
-    CheckRole --> RouteOfficeCoord : role == "office_coordinator"
-    CheckRole --> FallbackError : Else (Role not recognized)
-
-    RouteAdmin --> AdminDashboard : Load Admin Interface
-    RouteOfficeCoord --> OfficeCoordinatorDashboard : Load Coordinator Interface
-    FallbackError --> RestrictScreen : Show Access Restricted Alert
-
-    AdminDashboard --> [*]
-    OfficeCoordinatorDashboard --> [*]
-    RestrictScreen --> [*]
+    LoginScreenDisplayed --> fork_login[" "]
+    
+    subgraph LoginCol ["Authentication Process"]
+        EnterCredentials["Input Email/Username & Password"] --> CheckFormat{Validate inputs?}
+        CheckFormat -->|No| ShowFormatError["Show Format Error"]
+        ShowFormatError --> EnterCredentials
+        CheckFormat -->|Yes| CallAuthAPI["Request Firebase Auth Sign-in"]
+        CallAuthAPI --> VerifyAuth{Are credentials correct?}
+        VerifyAuth -->|No| ShowAuthError["Show Auth Error"]
+        ShowAuthError --> EnterCredentials
+        VerifyAuth -->|Yes| FetchProfile["Fetch Firestore User Profile"]
+        FetchProfile --> CheckRole{Check Role}
+        CheckRole -->|admin| AdminRoute["Route to Admin Dashboard"]
+        CheckRole -->|office_coordinator| CoordRoute["Route to Coordinator Dashboard"]
+    end
+    
+    subgraph RecoveryCol ["Password Recovery"]
+        EnterRecoveryEmail["Input Recovery Email"] --> CheckRecoveryEmail{Is email valid format?}
+        CheckRecoveryEmail -->|No| ShowRecoveryError["Show Recovery Error"]
+        ShowRecoveryError --> EnterRecoveryEmail
+        CheckRecoveryEmail -->|Yes| CallResetAPI["Send Password Reset link"]
+        CallResetAPI --> ShowSuccessConfirmation["Show Success Confirmation"]
+    end
+    
+    subgraph InfoCol ["Information Module"]
+        ReadMV["Read Mission & Vision"] --> InspectOrgChart["Inspect Org Chart"]
+        InspectOrgChart --> BrowseJEEPGY["Browse CEAP JEEPGY Advocacy Areas"]
+        BrowseJEEPGY --> ReadDeveloperInfo["Read Developer Profiles"]
+    end
+    
+    fork_login --> EnterCredentials
+    fork_login --> EnterRecoveryEmail
+    fork_login --> ReadMV
+    
+    AdminRoute --> join_login[" "]
+    CoordRoute --> join_login
+    ShowSuccessConfirmation --> join_login
+    ReadDeveloperInfo --> join_login
+    
+    join_login --> endNode((( )))
+    
+    %% Styles
+    classDef startState fill:#000,stroke:#000;
+    classDef endState fill:#000,stroke:#000;
+    classDef forkStyle fill:#000,stroke:#000,stroke-width:4px;
+    class startNode startState;
+    class endNode endState;
+    class fork_login,join_login forkStyle;
 ```
 
-#### 4.2.2 Donation Logging and FIFO Stock Tracking
-This workflow describes how incoming donations are processed into separate batch documents in Firestore and how their stock levels and expirations are dynamically categorized.
+#### 4.2.2 Admin Dashboard Workflows
+This diagram models the parallel execution paths available in the Admin workspace, directly reflecting the structure of the dashboard panels.
+
+> 🔗 **[Open in Draw.io (Native XML Diagram)](../drawio/activity_admin_workflows.drawio)**
 
 ```mermaid
-stateDiagram-v2
-    [*] --> InputDonation : Admin enters Donor details & items list
-    InputDonation --> ProcessItems : Admin submits Donation Batch
+---
+config:
+  flowchart:
+    curve: step
+---
+flowchart TD
+    startNode(( )) --> AdminDashboardDisplayed["Admin Dashboard is Displayed"]
+    
+    AdminDashboardDisplayed --> fork_db[" "]
+    
+    subgraph UserMgmtCol ["User Management"]
+        OpenUserMgmt["Opens User Management"] --> fork_user[" "]
+        fork_user --> AddEditUser["Add / Edit User"]
+        fork_user --> DeactivateUser["Deactivate User"]
+        AddEditUser --> join_user[" "]
+        DeactivateUser --> join_user
+    end
+    
+    subgraph InvMgmtCol ["Inventory Management"]
+        OpenInvMgmt["Opens Inventory Management"] --> ManageItems["Manage Items"]
+        ManageItems --> fork_inv[" "]
+        fork_inv --> TrackStock["Track Stock"]
+        fork_inv --> PrintReport["Print Report"]
+        TrackStock --> join_inv[" "]
+        PrintReport --> join_inv
+    end
+    
+    subgraph EventMgmtCol ["Event Management"]
+        OpenEvtMgmt["Opens Event Management"] --> fork_evt[" "]
+        fork_evt --> AddSchedule["Add Schedule"]
+        fork_evt --> UpdateStatus["Update Status"]
+        AddSchedule --> join_evt[" "]
+        UpdateStatus --> join_evt
+    end
+    
+    subgraph OrgMgmtCol ["Organization Management"]
+        OpenOrgMgmt["Opens Organization Management"] --> CreateDeptProfile["Create Dept Profile"]
+        CreateDeptProfile --> AssignEvents["Assign Events"]
+    end
+    
+    subgraph DonorMgmtCol ["Donor Management"]
+        OpenDonorMgmt["Opens Donor Management"] --> InputDonorItems["Input Donor & Items"]
+        InputDonorItems --> fork_dnr[" "]
+        fork_dnr --> CheckItems["Check Items"]
+        fork_dnr --> ConsumableChoice{Is item consumable?}
+        ConsumableChoice -->|Yes| InputExpiration["Input Expiration Date"]
+        ConsumableChoice -->|No| join_dnr[" "]
+        InputExpiration --> join_dnr
+        CheckItems --> join_dnr
+    end
+    
+    subgraph ReportMgmtCol ["Report Management"]
+        OpenReportMgmt["Opens Report Management"] --> fork_rep[" "]
+        fork_rep --> ViewNarrativeReports["View Narrative Reports"]
+        fork_rep --> ExportPrintFormats["Export / Print Formats"]
+        ViewNarrativeReports --> join_rep[" "]
+        ExportPrintFormats --> join_rep
+    end
 
-    state ProcessItems {
-        [*] --> CheckItemType : Iterate through each item
-        CheckItemType --> SetBatch : Consumable (has expiry date)?
-        SetBatch --> CreateConsumableRecord : Yes (Separate batch record)
-        CheckItemType --> CreateNonConsumableRecord : No (Normal FIFO record)
-        
-        CreateConsumableRecord --> SaveToFirestore : Write to 'inventory' collection
-        CreateNonConsumableRecord --> SaveToFirestore : Write to 'inventory' collection
-    }
-
-    SaveToFirestore --> UpdateStockStatus : Execute status logic per record
-
-    state UpdateStockStatus {
-        [*] --> CheckExpiry : Is Expiry Date <= Today?
-        CheckExpiry --> FlagExpired : Yes (Set status = "expired")
-        CheckExpiry --> CheckQuantity : No
-
-        CheckQuantity --> FlagAvailable : Quantity > 10 (Set status = "available")
-        CheckQuantity --> FlagLowStock : 1 <= Quantity <= 10 (Set status = "low stock")
-        CheckQuantity --> FlagOutOfStock : Quantity == 0 (Set status = "out of stock")
-    }
-
-    FlagExpired --> RefreshDashboard : Exclude from release suggestions
-    FlagAvailable --> RefreshDashboard : Include in FIFO release list
-    FlagLowStock --> RefreshDashboard : Show low stock warning
-    FlagOutOfStock --> RefreshDashboard : Show out of stock
-
-    RefreshDashboard --> [*] : Dashboard displays updated stats & sidebar alerts
+    fork_db --> OpenUserMgmt
+    fork_db --> OpenInvMgmt
+    fork_db --> OpenEvtMgmt
+    fork_db --> OpenOrgMgmt
+    fork_db --> OpenDonorMgmt
+    fork_db --> OpenReportMgmt
+    
+    join_user --> join_db[" "]
+    join_inv --> join_db
+    join_evt --> join_db
+    AssignEvents --> join_db
+    join_dnr --> join_db
+    join_rep --> join_db
+    
+    join_db --> endNode((( )))
+    
+    %% Styles
+    classDef startState fill:#000,stroke:#000;
+    classDef endState fill:#000,stroke:#000;
+    classDef forkStyle fill:#000,stroke:#000,stroke-width:4px;
+    class startNode startState;
+    class endNode endState;
+    class fork_db,fork_user,join_user,fork_inv,join_inv,fork_evt,join_evt,fork_dnr,join_dnr,fork_rep,join_rep,join_db forkStyle;
 ```
 
-#### 4.2.3 Narrative Report Life-Cycle
-This workflow tracks the narrative report compilation process by the Office Coordinator, image uploads to Firebase Storage, draft saving, and the approval/revision loop managed by the Admin.
+#### 4.2.3 Office Coordinator Dashboard Workflows
+This diagram models the workflows of the Office Coordinator workspace, focusing purely on user actions: creating reports (including diary text and photo attachment limit checks) and checking status history.
+
+> 🔗 **[Open in Draw.io (Native XML Diagram)](../drawio/activity_coordinator_workflows.drawio)**
 
 ```mermaid
-stateDiagram-v2
-    [*] --> StartReport : Coordinator starts new report
-    StartReport --> LinkEvent : Link to Admin-scheduled Event?
-    LinkEvent --> AutoFillMetadata : Yes (Auto-fetch name, date, location)
-    LinkEvent --> ManualMetadata : No (Manual text input)
-
-    AutoFillMetadata --> EditContent : Edit text narrative via Tiptap
-    ManualMetadata --> EditContent
-
-    EditContent --> AddPhotos : Optional image documentation
-    AddPhotos --> CheckUploadLimits : Drag-and-drop files
-    CheckUploadLimits --> UploadToStorage : Files <= 10 & PNG/JPG formats
-    CheckUploadLimits --> AddPhotos : Invalid format / Count > 10 (Block)
-
-    UploadToStorage --> LinkPhotoURLs : Save URLs to narrative report record
-    LinkPhotoURLs --> SaveDraft : Click "Save Draft"
-    SaveDraft --> EditContent : Status: Draft (Keep editing)
-
-    LinkPhotoURLs --> SubmitReport : Click "Submit for Approval"
-    SubmitReport --> ReviewQueue : Status: Submitted (Locked from edits)
-
-    ReviewQueue --> AdminInspection : Admin opens pending report
-    AdminInspection --> EvaluateReport : Review narrative & photo carousel
-
-    EvaluateReport --> ApproveReport : Satisfactory?
-    EvaluateReport --> ReturnReport : No (Provide feedback notes)
-
-    ReturnReport --> RevisionDashboard : Status: Returned (Editable again)
-    RevisionDashboard --> EditContent : Coordinator reads feedback & revises
-
-    ApproveReport --> FinalLock : Status: Approved (Locked for both roles)
-    FinalLock --> CompilePDF : Admin clicks Compile & Export
-    CompilePDF --> LocalStorage : Save official PDF document
-    LocalStorage --> [*]
+---
+config:
+  flowchart:
+    curve: step
+---
+flowchart TD
+    startNode(( )) --> CoordinatorDashboardDisplayed["Coordinator Dashboard is Displayed"]
+    
+    CoordinatorDashboardDisplayed --> fork_dashboard[" "]
+    
+    subgraph ReportCreationCol ["Report Creation"]
+        OpensReportCreation["Opens Report Creation"] --> fork_creation[" "]
+        fork_creation --> WriteDiaryNarrative["Write Diary Narrative"]
+        fork_creation --> UploadEventPhotos["Upload Event Photos"]
+        UploadEventPhotos --> PhotoCountCheck{More than 10 photos?}
+        PhotoCountCheck -->|Yes| ShowLimitError["Show Limit Error"]
+        ShowLimitError --> UploadEventPhotos
+        PhotoCountCheck -->|No| SubmitCompletedReport["Submit Completed Report"]
+        WriteDiaryNarrative --> join_creation[" "]
+        SubmitCompletedReport --> join_creation
+    end
+    
+    subgraph ReportHistoryCol ["Report Status & History"]
+        OpensReportStatusHistory["Opens Report Status & History"] --> FilterSemesterEvent["Filter by Semester or Event"]
+        FilterSemesterEvent --> fork_status[" "]
+        fork_status --> ViewDraftStatus["View Draft Status"]
+        fork_status --> ViewApprovedReturnedStatus["View Approved / Returned Status"]
+        ViewDraftStatus --> join_status[" "]
+        ViewApprovedReturnedStatus --> join_status
+    end
+    
+    fork_dashboard --> OpensReportCreation
+    fork_dashboard --> OpensReportStatusHistory
+    
+    join_creation --> join_dashboard[" "]
+    join_status --> join_dashboard
+    
+    join_dashboard --> endNode((( )))
+    
+    %% Styles
+    classDef startState fill:#000,stroke:#000;
+    classDef endState fill:#000,stroke:#000;
+    classDef forkStyle fill:#000,stroke:#000,stroke-width:4px;
+    class startNode startState;
+    class endNode endState;
+    class fork_dashboard,fork_creation,join_creation,fork_status,join_status,join_dashboard forkStyle;
 ```
 
 ### 4.3 Sequence Diagrams

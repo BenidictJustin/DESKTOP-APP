@@ -249,9 +249,9 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   // ── RENDER ────────────────────────────────────────────────────────────────────
   // ─────────────────────────────────────────────────────────────────────────────
   return (
-    <div className="h-screen max-h-screen flex flex-col bg-gray-50 font-poppins selection:bg-sig-green selection:text-white overflow-hidden">
+    <div className="h-screen max-h-screen flex flex-col bg-[#D4C9BE] font-poppins selection:bg-sig-green selection:text-white overflow-hidden">
       {/* Top Header Bar */}
-      <header className="w-full bg-white border-b border-gray-100 flex items-center justify-between px-8 py-3 shrink-0 shadow-xs">
+      <header className="mx-4 mt-4 bg-white/95 border border-gray-200/50 rounded-3xl flex items-center justify-between px-8 py-3 shrink-0 shadow-xs backdrop-blur-md">
         {/* Left: Logo and Title */}
         <div className="flex items-center space-x-3.5 bg-gray-50/80 p-2 pr-4 rounded-2xl border border-gray-100/50">
           <div className="h-12 w-12 rounded-xl bg-white flex items-center justify-center border border-gray-100 overflow-hidden shrink-0">
@@ -356,10 +356,10 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         </aside>
 
         {/* Main Panel Content Area */}
-        <main className="flex-1 my-4 mx-4 bg-white rounded-3xl border border-gray-200/50 shadow-xs overflow-hidden flex flex-col h-[calc(100vh-80px)]">
+        <main className="flex-1 my-4 mx-4 bg-[#F1EFEC] rounded-3xl border border-gray-200/50 shadow-xs overflow-hidden flex flex-col h-[calc(100vh-80px)]">
           {/* ── DASHBOARD ── */}
           {activeTab === 'dashboard' && (
-            <div className="flex-1 overflow-y-auto p-8 bg-gray-50">
+            <div className="flex-1 overflow-y-auto p-8 bg-[#F1EFEC]">
               <div className="max-w-5xl mx-auto space-y-6">
                 {/* Stats row */}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -525,7 +525,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
           {/* ── COMPILED REPORTS ── */}
           {activeTab === 'reports' && (
-            <div className="flex-1 overflow-y-auto p-8 bg-gray-50">
+            <div className="flex-1 overflow-y-auto p-8 bg-[#F1EFEC]">
               <div className="max-w-4xl mx-auto space-y-4">
                 <div className="flex items-center justify-between mb-2">
                   <h1 className="text-lg font-bold text-navy-blue">Compiled Reports</h1>

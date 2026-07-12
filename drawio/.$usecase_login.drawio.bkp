@@ -1,0 +1,175 @@
+<mxfile host="65bd71144e">
+    <diagram id="page_x5xgsxtaw" name="Login Module">
+        <mxGraphModel dx="875" dy="857" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="1200" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="boundary" value="DommUnity: Login Module" style="swimlane;html=1;startSize=30;dashed=0;strokeWidth=1.5;strokeColor=#000000;fillColor=none;align=center;verticalAlign=top;collapsible=0;html=1;whiteSpace=wrap;fontStyle=1;fontSize=14;" parent="1" vertex="1">
+                    <mxGeometry x="180" y="30" width="720" height="960" as="geometry"/>
+                </mxCell>
+                <mxCell id="UC_ForgotPwd" value="Forgot Password" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" parent="boundary" vertex="1">
+                    <mxGeometry x="210" y="70" width="140" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="UC_ForgotVal" value="Validate Recovery Email Format" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" parent="boundary" vertex="1">
+                    <mxGeometry x="490" y="50" width="140" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="r_forgot_val" value="&lt;&lt;include&gt;&gt;" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" parent="boundary" source="UC_ForgotPwd" target="UC_ForgotVal" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint x="-180" y="-30" as="sourcePoint"/>
+                        <mxPoint x="-180" y="-30" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="UC_TriggerReset" value="Trigger Reset Email Link" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" parent="boundary" vertex="1">
+                    <mxGeometry x="510" y="130" width="140" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="r_forgot_trigger" value="&lt;&lt;include&gt;&gt;" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" parent="boundary" source="UC_ForgotPwd" target="UC_TriggerReset" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint x="-180" y="-30" as="sourcePoint"/>
+                        <mxPoint x="-180" y="-30" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="UC_ConfirmReset" value="Confirm Reset Status" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" parent="boundary" vertex="1">
+                    <mxGeometry x="450" y="240" width="140" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="r_forgot_confirm" value="&lt;&lt;include&gt;&gt;" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" parent="boundary" source="UC_ForgotPwd" target="UC_ConfirmReset" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint x="-180" y="-30" as="sourcePoint"/>
+                        <mxPoint x="-180" y="-30" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="UC_Redirect" value="Redirect to Dashboard by Role" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" parent="boundary" vertex="1">
+                    <mxGeometry x="460" y="580" width="140" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="UC_ClearSession" value="Clear Auth Session Context" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" parent="boundary" vertex="1">
+                    <mxGeometry x="450" y="760" width="140" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="admin" value="Admin" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="241" width="30" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="coordinator" value="Office Coordinator" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="70" y="690" width="30" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="fbAuth" value="Firebase Auth" style="shape=datastore;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="960" y="380" width="60" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="firestore" value="Firestore DB" style="shape=datastore;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="960" y="520" width="60" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="UC_Login" value="Login / Authenticate" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="470" y="410" width="140" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="UC_Logout" value="Logout / Destroy Session" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="470" y="630" width="140" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="UC_InputCreds" value="Input Email/Username &amp; Password" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="730" y="370" width="140" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="UC_VerifyCreds" value="Verify Credentials" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="730" y="430" width="140" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="UC_FetchProfile" value="Fetch Firestore Role Profile" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="730" y="490" width="140" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="UC_FormVal" value="Enforce Form Validations" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="730" y="550" width="140" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_admin_login" value="" style="endArrow=none;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;noEdgeStyle=1;" parent="1" source="admin" target="UC_Login" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_admin_logout" value="" style="endArrow=none;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;noEdgeStyle=1;" parent="1" source="admin" target="UC_Logout" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_coord_login" value="" style="endArrow=none;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;noEdgeStyle=1;" parent="1" source="coordinator" target="UC_Login" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_coord_logout" value="" style="endArrow=none;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;noEdgeStyle=1;" parent="1" source="coordinator" target="UC_Logout" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_coord_info" value="" style="endArrow=none;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;noEdgeStyle=1;" parent="1" source="coordinator" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint x="499.1704081187929" y="815.6318626232796" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_verify_auth" value="" style="endArrow=none;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;noEdgeStyle=1;" parent="1" source="UC_VerifyCreds" target="fbAuth" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_trigger_auth" value="" style="endArrow=none;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;noEdgeStyle=1;" parent="1" source="UC_TriggerReset" target="fbAuth" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_profile_db" value="" style="endArrow=none;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;noEdgeStyle=1;" parent="1" source="UC_FetchProfile" target="firestore" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="r_login_input" value="&lt;&lt;include&gt;&gt;" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" parent="1" source="UC_Login" target="UC_InputCreds" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="r_login_verify" value="&lt;&lt;include&gt;&gt;" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" parent="1" source="UC_Login" target="UC_VerifyCreds" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="r_login_profile" value="&lt;&lt;include&gt;&gt;" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" parent="1" source="UC_Login" target="UC_FetchProfile" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="r_login_val" value="&lt;&lt;include&gt;&gt;" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" parent="1" source="UC_Login" target="UC_FormVal" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="r_login_redir" value="&lt;&lt;include&gt;&gt;" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" parent="1" source="UC_Login" target="UC_Redirect" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="r_forgot_extend" value="&lt;&lt;extend&gt;&gt;" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" parent="1" source="UC_ForgotPwd" target="UC_Login" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="r_logout_clear" value="&lt;&lt;include&gt;&gt;" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" parent="1" source="UC_Logout" target="UC_ClearSession" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="3" value="" style="endArrow=classic;html=1;" edge="1" parent="1" target="UC_ForgotPwd">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint x="80" y="260" as="sourcePoint"/>
+                        <mxPoint x="170" y="210" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

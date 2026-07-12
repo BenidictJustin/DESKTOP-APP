@@ -1,0 +1,394 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.3.6 Chrome/140.0.7339.249 Electron/38.8.0 Safari/537.36" version="29.3.6">
+  <diagram id="page_3xe1sqcbk" name="Admin Modules">
+    <mxGraphModel dx="1042" dy="626" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1100" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="boundary" parent="1" style="swimlane;html=1;startSize=30;dashed=0;strokeWidth=1.5;strokeColor=#000000;fillColor=none;align=center;verticalAlign=top;collapsible=0;html=1;whiteSpace=wrap;fontStyle=1;fontSize=14;" value="DommUnity: Admin Modules" vertex="1">
+          <mxGeometry height="960" width="720" x="180" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_DashView" parent="boundary" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="View Dashboard Overview" vertex="1">
+          <mxGeometry height="60" width="140" x="260" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_UserMgmt" parent="boundary" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Manage Coordinator Accounts" vertex="1">
+          <mxGeometry height="60" width="140" x="300" y="220" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_RegistryCoord" parent="boundary" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="View Coords Search Registry" vertex="1">
+          <mxGeometry height="60" width="140" x="60" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="r_user_registry" edge="1" parent="boundary" source="UC_RegistryCoord" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_UserMgmt" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="-180" y="-30" as="sourcePoint" />
+            <mxPoint x="-180" y="-30" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UC_ExpiryMonitor" parent="boundary" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Monitor Expiration Alert Panel" vertex="1">
+          <mxGeometry height="60" width="140" x="440" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="r_dash_expiry" edge="1" parent="boundary" source="UC_ExpiryMonitor" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_DashView" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="-180" y="-30" as="sourcePoint" />
+            <mxPoint x="-180" y="-30" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="UC_FIFOSug" parent="boundary" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Review FIFO Release Recommendations" vertex="1">
+          <mxGeometry height="60" width="140" x="470" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="r_dash_fifo" edge="1" parent="boundary" source="UC_FIFOSug" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_DashView" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="-180" y="-30" as="sourcePoint" />
+            <mxPoint x="-180" y="-30" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="admin" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Admin" vertex="1">
+          <mxGeometry height="60" width="30" x="40" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="firestore" parent="1" style="shape=datastore;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Firestore DB" vertex="1">
+          <mxGeometry height="80" width="60" x="960" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_Inventory" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Manage Supplies Inventory" vertex="1">
+          <mxGeometry height="60" width="140" x="470" y="350" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_EventMgmt" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Manage Monthly Outreach Events" vertex="1">
+          <mxGeometry height="60" width="140" x="470" y="480" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_OrgMgmt" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Manage Department Profiles" vertex="1">
+          <mxGeometry height="60" width="140" x="470" y="610" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_DonorMgmt" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Manage Donors &amp; Donations" vertex="1">
+          <mxGeometry height="60" width="140" x="470" y="740" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_ReviewQueue" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Review Narrative Queue" vertex="1">
+          <mxGeometry height="60" width="140" x="470" y="870" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_CreateCoord" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Create Coordinator Account" vertex="1">
+          <mxGeometry height="60" width="140" x="730" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_UpdateCoord" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Update Account Fields" vertex="1">
+          <mxGeometry height="60" width="140" x="730" y="235" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_ToggleCoord" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Toggle Account Active/Inactive" vertex="1">
+          <mxGeometry height="60" width="140" x="730" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_EnforceOne" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Enforce One Coordinator" vertex="1">
+          <mxGeometry height="60" width="140" x="210" y="235" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_ResetPwdReq" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Handle Forgot Pwd Requests" vertex="1">
+          <mxGeometry height="60" width="140" x="210" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_AddBatch" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Add Supply Item Batch" vertex="1">
+          <mxGeometry height="60" width="140" x="730" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_UpdateBatch" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Update Supply Item Batch" vertex="1">
+          <mxGeometry height="60" width="140" x="730" y="365" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_DeleteBatch" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Delete Supply Item Batch" vertex="1">
+          <mxGeometry height="60" width="140" x="730" y="410" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_ReleaseFIFO" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Process Supply Stock Release" vertex="1">
+          <mxGeometry height="60" width="140" x="210" y="320" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_CustomCatUnit" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Manage Custom Categories &amp; Units" vertex="1">
+          <mxGeometry height="60" width="140" x="210" y="365" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_ExportInvPDF" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Export Inventory Report PDF/Word" vertex="1">
+          <mxGeometry height="60" width="140" x="210" y="410" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_ScheduleEvent" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Schedule Event" vertex="1">
+          <mxGeometry height="60" width="140" x="730" y="450" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_MapEvent" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Map/Assign Event to Organization" vertex="1">
+          <mxGeometry height="60" width="140" x="730" y="495" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_StatusEvent" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Update Event Status" vertex="1">
+          <mxGeometry height="60" width="140" x="210" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_CalendarEvent" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="View Monthly Calendar Board" vertex="1">
+          <mxGeometry height="60" width="140" x="210" y="510" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_CreateOrg" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Create Department Profile" vertex="1">
+          <mxGeometry height="60" width="140" x="730" y="545" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_UpdateOrg" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Update Department Profile" vertex="1">
+          <mxGeometry height="60" width="140" x="730" y="590" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_DeleteOrg" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Delete Department Profile" vertex="1">
+          <mxGeometry height="60" width="140" x="210" y="560" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_LinkOrgCoord" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Assign Department Coordinator" vertex="1">
+          <mxGeometry height="60" width="140" x="210" y="610" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_AddDonor" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Log Donor Profile" vertex="1">
+          <mxGeometry height="60" width="140" x="730" y="640" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_UpdateDonor" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Update Donor Profile" vertex="1">
+          <mxGeometry height="60" width="140" x="730" y="685" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_DeleteDonor" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Delete Donor Profile" vertex="1">
+          <mxGeometry height="60" width="140" x="210" y="660" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_LogDonation" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Log Donation Batch" vertex="1">
+          <mxGeometry height="60" width="140" x="210" y="710" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_InspectReport" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Inspect Submitted Diaries &amp; Photos" vertex="1">
+          <mxGeometry height="60" width="140" x="730" y="750" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_ApproveReport" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Approve Narrative Submission" vertex="1">
+          <mxGeometry height="60" width="140" x="730" y="795" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_ReturnReport" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Return Narrative with Feedback" vertex="1">
+          <mxGeometry height="60" width="140" x="730" y="840" as="geometry" />
+        </mxCell>
+        <mxCell id="UC_CompileReport" parent="1" style="ellipse;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontSize=12;" value="Compile Narrative Report PDF/Word" vertex="1">
+          <mxGeometry height="60" width="140" x="730" y="885" as="geometry" />
+        </mxCell>
+        <mxCell id="e_admin_dash" edge="1" parent="1" source="admin" style="endArrow=none;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;noEdgeStyle=1;" target="UC_DashView" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_admin_users" edge="1" parent="1" source="admin" style="endArrow=none;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;noEdgeStyle=1;" target="UC_UserMgmt" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_admin_inv" edge="1" parent="1" source="admin" style="endArrow=none;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;noEdgeStyle=1;" target="UC_Inventory" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_admin_event" edge="1" parent="1" source="admin" style="endArrow=none;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;noEdgeStyle=1;" target="UC_EventMgmt" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_admin_org" edge="1" parent="1" source="admin" style="endArrow=none;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;noEdgeStyle=1;" target="UC_OrgMgmt" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_admin_donor" edge="1" parent="1" source="admin" style="endArrow=none;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;noEdgeStyle=1;" target="UC_DonorMgmt" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_admin_review" edge="1" parent="1" source="admin" style="endArrow=none;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;noEdgeStyle=1;" target="UC_ReviewQueue" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_dash_db" edge="1" parent="1" source="UC_DashView" style="endArrow=none;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;noEdgeStyle=1;" target="firestore" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_users_db" edge="1" parent="1" source="UC_UserMgmt" style="endArrow=none;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;noEdgeStyle=1;" target="firestore" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_inv_db" edge="1" parent="1" source="UC_Inventory" style="endArrow=none;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;noEdgeStyle=1;" target="firestore" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_event_db" edge="1" parent="1" source="UC_EventMgmt" style="endArrow=none;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;noEdgeStyle=1;" target="firestore" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_org_db" edge="1" parent="1" source="UC_OrgMgmt" style="endArrow=none;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;noEdgeStyle=1;" target="firestore" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_donor_db" edge="1" parent="1" source="UC_DonorMgmt" style="endArrow=none;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;noEdgeStyle=1;" target="firestore" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_review_db" edge="1" parent="1" source="UC_ReviewQueue" style="endArrow=none;html=1;rounded=0;strokeWidth=1;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;noEdgeStyle=1;" target="firestore" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_user_create" edge="1" parent="1" source="UC_CreateCoord" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_UserMgmt" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_user_update" edge="1" parent="1" source="UC_UpdateCoord" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_UserMgmt" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_user_toggle" edge="1" parent="1" source="UC_ToggleCoord" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_UserMgmt" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_user_enforce" edge="1" parent="1" source="UC_EnforceOne" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_UserMgmt" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_user_reset" edge="1" parent="1" source="UC_ResetPwdReq" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_UserMgmt" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_inv_add" edge="1" parent="1" source="UC_AddBatch" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_Inventory" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_inv_update" edge="1" parent="1" source="UC_UpdateBatch" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_Inventory" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_inv_delete" edge="1" parent="1" source="UC_DeleteBatch" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_Inventory" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_inv_release" edge="1" parent="1" source="UC_ReleaseFIFO" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_Inventory" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_inv_custom" edge="1" parent="1" source="UC_CustomCatUnit" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_Inventory" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_inv_export" edge="1" parent="1" source="UC_ExportInvPDF" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_Inventory" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_evt_sched" edge="1" parent="1" source="UC_ScheduleEvent" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_EventMgmt" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_evt_map" edge="1" parent="1" source="UC_MapEvent" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_EventMgmt" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_evt_status" edge="1" parent="1" source="UC_StatusEvent" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_EventMgmt" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_evt_cal" edge="1" parent="1" source="UC_CalendarEvent" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_EventMgmt" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_org_create" edge="1" parent="1" source="UC_CreateOrg" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_OrgMgmt" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_org_update" edge="1" parent="1" source="UC_UpdateOrg" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_OrgMgmt" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_org_delete" edge="1" parent="1" source="UC_DeleteOrg" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_OrgMgmt" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_org_link" edge="1" parent="1" source="UC_LinkOrgCoord" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_OrgMgmt" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_donor_add" edge="1" parent="1" source="UC_AddDonor" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_DonorMgmt" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_donor_update" edge="1" parent="1" source="UC_UpdateDonor" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_DonorMgmt" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_donor_delete" edge="1" parent="1" source="UC_DeleteDonor" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_DonorMgmt" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_donor_log" edge="1" parent="1" source="UC_LogDonation" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_DonorMgmt" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_rev_inspect" edge="1" parent="1" source="UC_InspectReport" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_ReviewQueue" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_rev_approve" edge="1" parent="1" source="UC_ApproveReport" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_ReviewQueue" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_rev_return" edge="1" parent="1" source="UC_ReturnReport" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_ReviewQueue" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="r_rev_compile" edge="1" parent="1" source="UC_CompileReport" style="endArrow=open;endSize=8;dashed=1;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;verticalAlign=middle;align=center;fontSize=10;labelBackgroundColor=#ffffff;" target="UC_ReviewQueue" value="&lt;&lt;extend&gt;&gt;">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint as="sourcePoint" />
+            <mxPoint as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
