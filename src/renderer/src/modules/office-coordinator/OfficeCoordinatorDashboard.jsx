@@ -317,7 +317,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                   label: 'Compiled Reports',
                   icon: FolderOpen,
                   badge: stats.returned > 0 ? stats.returned : 0
-                }
+                },
+                { id: 'about', label: 'About', icon: Info }
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -592,6 +593,106 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                     })}
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+          {/* ── ABOUT MODULE ── */}
+          {activeTab === 'about' && (
+            <div className="flex-1 overflow-y-auto p-8 bg-[#F1EFEC] text-left">
+              <div className="max-w-5xl mx-auto space-y-6">
+                {/* Header section */}
+                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between">
+                  <div>
+                    <h1 className="text-2xl font-bold text-navy-blue flex items-center gap-2">
+                      <Info className="w-6 h-6 text-sig-green" /> About DommUnity
+                    </h1>
+                  </div>
+                </div>
+
+                {/* System & Office Info Cards */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Left Column - System and CES Details */}
+                  <div className="lg:col-span-2 space-y-6">
+                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
+                      <h2 className="text-lg font-bold text-navy-blue border-b border-gray-100 pb-3">System Information</h2>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">System Name</span>
+                          <span className="text-sm font-semibold text-navy-blue">DommUnity</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Version</span>
+                          <span className="text-sm font-semibold text-navy-blue">1.0.0</span>
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Project Description</span>
+                        <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                          DommUnity is a desktop-based management system developed for the Community Extension & Services (CES) Office of Dominican College of Tarlac, Inc. It streamlines community extension operations by automating inventory tracking (with FIFO & expiration management), donor records, event scheduling, and narrative report generation.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
+                      <h2 className="text-lg font-bold text-navy-blue border-b border-gray-100 pb-3">Community Extension & Services (CES) Office</h2>
+                      <div>
+                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Vision & Mission</span>
+                        <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                          The Community Extension & Services (CES) Office is responsible for community involvement, engagement, and reform towards sustainable development. It transforms both institutional and academic values into ground-level exposure and applications, addressing significant and relevant challenges and problems of the local community, making education a pertinent medium for social and ecological improvement.
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Core Advocacy Areas (CEAP JEEPGY)</span>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {['Justice and Peace', 'Care for the Environment', 'Active Citizenship', 'Poverty Awareness', 'Gender Equality', 'Youth Empowerment'].map((adv, idx) => (
+                            <span key={idx} className="bg-sig-green/10 text-navy-blue text-xs font-semibold px-3 py-1 rounded-full">
+                              {adv}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column - Org Chart & Proponents */}
+                  <div className="space-y-6">
+                    {/* CES Organizational Chart */}
+                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
+                      <h2 className="text-lg font-bold text-navy-blue border-b border-gray-100 pb-3">CES Org Hierarchy</h2>
+                      <div className="space-y-3">
+                        {[
+                          { name: 'Sr. Lorna I. Ablog, O.P.', role: 'School Administrator' },
+                          { name: 'Dr. Augusto R. Dela Cruz', role: 'Vice President of Academic Affairs' },
+                          { name: 'Mrs. Faithful Anne F. Arugay', role: 'Head of the CES Office' },
+                          { name: 'Mr. Jonnel B. Manio', role: 'Coordinator of the CES Office' }
+                        ].map((person, idx) => (
+                          <div key={idx} className="p-2 border-b border-gray-50 last:border-0 text-left">
+                            <p className="text-xs font-bold text-navy-blue">{person.name}</p>
+                            <p className="text-[9px] text-gray-400 font-medium mt-0.5">{person.role}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Developers section */}
+                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
+                      <h2 className="text-lg font-bold text-navy-blue border-b border-gray-100 pb-3">Development Team</h2>
+                      <div className="space-y-3">
+                        {[
+                          { name: 'Benidict Justin Salunga', role: 'Lead Programmer' },
+                          { name: 'Mc Harry Tolentino', role: 'Project Manager' },
+                          { name: 'Aron Stefan Taruc', role: 'UI-UX Designer' },
+                          { name: 'John Harold Santos', role: 'Tester' }
+                        ].map((dev, idx) => (
+                          <div key={idx} className="p-2 border-b border-gray-50 last:border-0 text-left">
+                            <p className="text-xs font-bold text-navy-blue">{dev.name}</p>
+                            <p className="text-[9px] text-gray-400 font-semibold mt-0.5">{dev.role}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}

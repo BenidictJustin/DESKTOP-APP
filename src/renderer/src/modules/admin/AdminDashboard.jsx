@@ -92,10 +92,19 @@ import StarterKit from '@tiptap/starter-kit'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import SearchableDropdown from '../../components/SearchableDropdown'
+import DocumentViewer from '../../components/DocumentViewer'
 
 export default function AdminDashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [editingUser, setEditingUser] = useState(null)
+
+  // Completed Activities Modal State
+  const [completedActivitiesModal, setCompletedActivitiesModal] = useState({
+    isOpen: false,
+    selectedDeptId: null,
+    selectedDeptName: null,
+    selectedDeptAbbr: null
+  })
 
   // States for database sync
   const [usersList, setUsersList] = useState([])
@@ -951,11 +960,11 @@ export default function AdminDashboard({ user, onLogout }) {
         prev.map((p) =>
           p.id === releaseItemId
             ? {
-                ...p,
-                qtyGroup: newQtyGroup,
-                qtyPieces: newQtyPieces,
-                baseQty: newBaseQty
-              }
+              ...p,
+              qtyGroup: newQtyGroup,
+              qtyPieces: newQtyPieces,
+              baseQty: newBaseQty
+            }
             : p
         )
       )
@@ -1323,25 +1332,61 @@ export default function AdminDashboard({ user, onLogout }) {
   // Org Create & Update
   const handleCreateOrg = async (e) => {
     e.preventDefault()
-    if (!orgId || !orgName || !orgAbbr) {
-      const fields = []
-      if (!orgId) fields.push('orgId')
-      if (!orgName) fields.push('orgName')
-      if (!orgAbbr) fields.push('orgAbbr')
-      triggerValidationError(
-        editingOrg ? 'Profile Update Error' : 'Profile Registration Error',
-        'ID Code, Name, and Abbreviation are required.',
-        fields,
-        'Enter a unique Slug ID Code, the full Name, and its standard Abbreviation before saving.'
-      )
-      return
+
+    const isEditing = editingOrg !== null
+    const determinedType = isEditing
+      ? (editingOrg.type || 'department')
+      : (selectedOrgSubTab === 'department' ? 'department' : 'organization')
+
+    let finalOrgId = orgId
+
+    if (isEditing) {
+      if (!orgName || !orgAbbr) {
+        const fields = []
+        if (!orgName) fields.push('orgName')
+        if (!orgAbbr) fields.push('orgAbbr')
+        triggerValidationError(
+          'Profile Update Error',
+          'Name and Abbreviation are required.',
+          fields,
+          'Enter the full Name and standard Abbreviation before saving.'
+        )
+        return
+      }
+    } else {
+      if (!orgName || !orgAbbr) {
+        const fields = []
+        if (!orgName) fields.push('orgName')
+        if (!orgAbbr) fields.push('orgAbbr')
+        triggerValidationError(
+          'Profile Registration Error',
+          'Name and Abbreviation are required.',
+          fields,
+          'Enter the full Name and standard Abbreviation before saving.'
+        )
+        return
+      }
+
+      const slug = orgAbbr.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-')
+      finalOrgId = (determinedType === 'department' ? 'dept-' : 'org-') + slug
+
+      // Duplicate check
+      const idExists = orgsList.some(org => org.id.toLowerCase() === finalOrgId.toLowerCase())
+      if (idExists) {
+        triggerValidationError(
+          'Profile Registration Error',
+          `The abbreviation '${orgAbbr.trim()}' is already in use. Please choose a unique abbreviation.`,
+          ['orgAbbr'],
+          'Choose a unique abbreviation for this department/organization.'
+        )
+        return
+      }
     }
 
     setLoading(true)
     try {
-      if (editingOrg) {
+      if (isEditing) {
         // If updating
-        const determinedType = editingOrg.type || 'department'
         const updates = {
           name: orgName,
           abbreviation: orgAbbr,
@@ -1362,9 +1407,8 @@ export default function AdminDashboard({ user, onLogout }) {
         setEditingOrg(null)
       } else {
         // If registering new
-        const determinedType = selectedOrgSubTab === 'department' ? 'department' : 'organization'
         const newOrg = {
-          id: orgId,
+          id: finalOrgId,
           name: orgName,
           abbreviation: orgAbbr,
           description: orgDesc,
@@ -1378,7 +1422,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
         // Update user organization links
         if (determinedType === 'department' && deptCoordinatorId) {
-          await updateUser(deptCoordinatorId, { organizationId: orgId })
+          await updateUser(deptCoordinatorId, { organizationId: finalOrgId })
         }
         triggerSuccess(
           `${determinedType === 'department' ? 'Department' : 'Organization'} Profile registered: ${orgName}.`
@@ -1431,6 +1475,15 @@ export default function AdminDashboard({ user, onLogout }) {
     clearFieldValError('orgAbbr')
     setIsAddOrgModalOpen(false)
     setIsAddDeptModalOpen(false)
+  }
+
+  const handleOpenCompletedModal = (deptObj = null) => {
+    setCompletedActivitiesModal({
+      isOpen: true,
+      selectedDeptId: deptObj ? deptObj.id : null,
+      selectedDeptName: deptObj ? deptObj.name : null,
+      selectedDeptAbbr: deptObj ? deptObj.abbreviation : null
+    })
   }
 
   const handleDeleteOrg = async (orgId) => {
@@ -1696,9 +1749,9 @@ export default function AdminDashboard({ user, onLogout }) {
         <div className="flex items-center space-x-6">
           <button
             type="button"
-            onClick={() => setActiveTab('info')}
+            onClick={() => setActiveTab('about')}
             className="text-navy-blue hover:opacity-85 transition cursor-pointer p-1"
-            title="Information Center"
+            title="About DommUnity"
           >
             <Info className="w-5 h-5" />
           </button>
@@ -1751,18 +1804,18 @@ export default function AdminDashboard({ user, onLogout }) {
                   icon: FileText,
                   badge: reportsList.filter((r) => r.status === 'submitted').length
                 },
-                { id: 'accounts', label: 'User Accounts', icon: Users }
+                { id: 'accounts', label: 'User Accounts', icon: Users },
+                { id: 'about', label: 'About', icon: Info }
               ].map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => {
                     setActiveTab(tab.id)
                   }}
-                  className={`w-full flex items-center justify-between p-3 rounded-2xl text-xs font-semibold tracking-wide transition duration-200 cursor-pointer ${
-                    activeTab === tab.id
-                      ? 'bg-sig-green text-navy-blue'
-                      : 'text-gray-300 hover:bg-white/5 hover:text-white'
-                  }`}
+                  className={`w-full flex items-center justify-between p-3 rounded-2xl text-xs font-semibold tracking-wide transition duration-200 cursor-pointer ${activeTab === tab.id
+                    ? 'bg-sig-green text-navy-blue'
+                    : 'text-gray-300 hover:bg-white/5 hover:text-white'
+                    }`}
                 >
                   <div className="flex items-center space-x-3">
                     <tab.icon className="w-4 h-4 shrink-0" />
@@ -1969,7 +2022,10 @@ export default function AdminDashboard({ user, onLogout }) {
                       </div>
                     </div>
 
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center space-x-4">
+                    <div 
+                      onClick={() => handleOpenCompletedModal(null)}
+                      className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center space-x-4 cursor-pointer hover:shadow-md hover:border-sig-green/30 transition duration-200"
+                    >
                       <div className="p-3.5 bg-green-50 text-green-600 rounded-2xl">
                         <Check className="w-6 h-6" />
                       </div>
@@ -2292,15 +2348,14 @@ export default function AdminDashboard({ user, onLogout }) {
                                   </td>
                                   <td className="py-3 px-2">
                                     <span
-                                      className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                                        item.status === 'available'
-                                          ? 'bg-green-50 text-green-700 border border-green-200'
-                                          : item.status === 'low stock'
-                                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                            : item.status === 'expired'
-                                              ? 'bg-red-50 text-red-700 border border-red-200'
-                                              : 'bg-red-50 text-red-700 border border-red-200'
-                                      }`}
+                                      className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${item.status === 'available'
+                                        ? 'bg-green-50 text-green-700 border border-green-200'
+                                        : item.status === 'low stock'
+                                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                          : item.status === 'expired'
+                                            ? 'bg-red-50 text-red-700 border border-red-200'
+                                            : 'bg-red-50 text-red-700 border border-red-200'
+                                        }`}
                                     >
                                       {item.status}
                                     </span>
@@ -2521,14 +2576,14 @@ export default function AdminDashboard({ user, onLogout }) {
                                       !itemCategory ||
                                       cat.toLowerCase().includes(itemCategory.toLowerCase())
                                   ).length === 0 && (
-                                    <div
-                                      onMouseDown={(e) => e.preventDefault()}
-                                      onClick={() => setShowAddCategoryDropdown(false)}
-                                      className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
-                                    >
-                                      Use custom: "{itemCategory}"
-                                    </div>
-                                  )}
+                                      <div
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={() => setShowAddCategoryDropdown(false)}
+                                        className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
+                                      >
+                                        Use custom: "{itemCategory}"
+                                      </div>
+                                    )}
                                 </div>
                               )}
                             </div>
@@ -2619,14 +2674,14 @@ export default function AdminDashboard({ user, onLogout }) {
                                     (u) =>
                                       !itemUnit || u.toLowerCase().includes(itemUnit.toLowerCase())
                                   ).length === 0 && (
-                                    <div
-                                      onMouseDown={(e) => e.preventDefault()}
-                                      onClick={() => setShowAddUnitDropdown(false)}
-                                      className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
-                                    >
-                                      Use custom: "{itemUnit}"
-                                    </div>
-                                  )}
+                                      <div
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={() => setShowAddUnitDropdown(false)}
+                                        className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
+                                      >
+                                        Use custom: "{itemUnit}"
+                                      </div>
+                                    )}
                                 </div>
                               )}
                             </div>
@@ -2943,14 +2998,14 @@ export default function AdminDashboard({ user, onLogout }) {
                                       !itemCategory ||
                                       cat.toLowerCase().includes(itemCategory.toLowerCase())
                                   ).length === 0 && (
-                                    <div
-                                      onMouseDown={(e) => e.preventDefault()}
-                                      onClick={() => setShowEditCategoryDropdown(false)}
-                                      className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
-                                    >
-                                      Use custom: "{itemCategory}"
-                                    </div>
-                                  )}
+                                      <div
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={() => setShowEditCategoryDropdown(false)}
+                                        className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
+                                      >
+                                        Use custom: "{itemCategory}"
+                                      </div>
+                                    )}
                                 </div>
                               )}
                             </div>
@@ -3041,14 +3096,14 @@ export default function AdminDashboard({ user, onLogout }) {
                                     (u) =>
                                       !itemUnit || u.toLowerCase().includes(itemUnit.toLowerCase())
                                   ).length === 0 && (
-                                    <div
-                                      onMouseDown={(e) => e.preventDefault()}
-                                      onClick={() => setShowEditUnitDropdown(false)}
-                                      className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
-                                    >
-                                      Use custom: "{itemUnit}"
-                                    </div>
-                                  )}
+                                      <div
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={() => setShowEditUnitDropdown(false)}
+                                        className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
+                                      >
+                                        Use custom: "{itemUnit}"
+                                      </div>
+                                    )}
                                 </div>
                               )}
                             </div>
@@ -3405,10 +3460,10 @@ export default function AdminDashboard({ user, onLogout }) {
                                     .filter((item) =>
                                       item.name.toLowerCase().includes(releaseSearch.toLowerCase())
                                     ).length === 0 && (
-                                    <div className="p-2.5 text-xs text-gray-400 text-left font-semibold">
-                                      No matching items found
-                                    </div>
-                                  )}
+                                      <div className="p-2.5 text-xs text-gray-400 text-left font-semibold">
+                                        No matching items found
+                                      </div>
+                                    )}
                                 </div>
                               )}
                             </div>
@@ -3655,7 +3710,7 @@ export default function AdminDashboard({ user, onLogout }) {
                               onBlur={() =>
                                 setTimeout(() => setIsDonorTypeSuggestionsOpen(false), 200)
                               }
-                              placeholder="e.g. external_sponsor, individual"
+                              placeholder="Donor Type"
                               className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
                               style={{ height: '40px' }}
                             />
@@ -3749,7 +3804,7 @@ export default function AdminDashboard({ user, onLogout }) {
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Purpose / Outreach Drive
+                              Purpose / Outreach 
                             </label>
                             <input
                               type="text"
@@ -3758,7 +3813,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                 setDonPurpose(e.target.value)
                                 clearFieldValError('donPurpose')
                               }}
-                              placeholder="Pamaskong Handog, Relief Drive"
+                              placeholder="Purpose"
                               className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('donPurpose') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
                               style={{ height: '40px' }}
                             />
@@ -4014,14 +4069,14 @@ export default function AdminDashboard({ user, onLogout }) {
                                                   .toLowerCase()
                                                   .includes(item.category.toLowerCase())
                                             ).length === 0 && (
-                                              <div
-                                                onMouseDown={(e) => e.preventDefault()}
-                                                onClick={() => setActiveDonItemCategoryIdx(null)}
-                                                className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
-                                              >
-                                                Use custom: "{item.category}"
-                                              </div>
-                                            )}
+                                                <div
+                                                  onMouseDown={(e) => e.preventDefault()}
+                                                  onClick={() => setActiveDonItemCategoryIdx(null)}
+                                                  className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
+                                                >
+                                                  Use custom: "{item.category}"
+                                                </div>
+                                              )}
                                           </div>
                                         )}
                                       </div>
@@ -4110,14 +4165,14 @@ export default function AdminDashboard({ user, onLogout }) {
                                                 !item.unit ||
                                                 u.toLowerCase().includes(item.unit.toLowerCase())
                                             ).length === 0 && (
-                                              <div
-                                                onMouseDown={(e) => e.preventDefault()}
-                                                onClick={() => setActiveDonItemUnitIdx(null)}
-                                                className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
-                                              >
-                                                Use custom: "{item.unit}"
-                                              </div>
-                                            )}
+                                                <div
+                                                  onMouseDown={(e) => e.preventDefault()}
+                                                  onClick={() => setActiveDonItemUnitIdx(null)}
+                                                  className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
+                                                >
+                                                  Use custom: "{item.unit}"
+                                                </div>
+                                              )}
                                           </div>
                                         )}
                                       </div>
@@ -4353,7 +4408,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             <th className="py-3 px-3">Date</th>
                             <th className="py-3 px-2">Donor Source</th>
                             <th className="py-3 px-2">Purpose</th>
-                            <th className="py-3 px-2">Items Array</th>
+                            <th className="py-3 px-2">Items</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50 text-xs">
@@ -4517,15 +4572,14 @@ export default function AdminDashboard({ user, onLogout }) {
                               <div>
                                 <div className="flex justify-between items-start mb-2">
                                   <span
-                                    className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                                      evt.status === 'completed'
-                                        ? 'bg-green-100 text-green-800'
-                                        : evt.status === 'cancelled'
-                                          ? 'bg-red-100 text-red-800'
-                                          : evt.status === 'planned'
-                                            ? 'bg-blue-100 text-blue-800'
-                                            : 'bg-gray-100 text-gray-800'
-                                    }`}
+                                    className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${evt.status === 'completed'
+                                      ? 'bg-green-100 text-green-800'
+                                      : evt.status === 'cancelled'
+                                        ? 'bg-red-100 text-red-800'
+                                        : evt.status === 'planned'
+                                          ? 'bg-blue-100 text-blue-800'
+                                          : 'bg-gray-100 text-gray-800'
+                                      }`}
                                   >
                                     {evt.status}
                                   </span>
@@ -4965,7 +5019,7 @@ export default function AdminDashboard({ user, onLogout }) {
                           {/* Profile Details Card (Full Width) */}
                           <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col space-y-4 w-full relative overflow-hidden">
                             {isDept && selectedOrgObj.logo && (
-                              <div className="absolute right-[10px] bottom-[-19px] w-[500px] h-[270px] opacity-50 pointer-events-none select-none z-0 overflow-hidden">
+                              <div className="absolute right-[-10px] bottom-[-26px] w-[500px] h-[270px] opacity-50 pointer-events-none select-none z-0 overflow-hidden">
                                 <img
                                   src={selectedOrgObj.logo}
                                   alt=""
@@ -5046,30 +5100,10 @@ export default function AdminDashboard({ user, onLogout }) {
                                     {selectedOrgObj.abbreviation}
                                   </p>
                                 </div>
-                                <div>
-                                  <p className="text-[10px] uppercase font-bold text-gray-400">
-                                    ID / Slug Code
-                                  </p>
-                                  <p className="text-xs font-mono text-gray-600 mt-0.5 bg-gray-50 px-2 py-1 rounded-md w-fit">
-                                    {selectedOrgObj.id}
-                                  </p>
-                                </div>
-                                {!isDept && (
-                                  <div>
-                                    <p className="text-[10px] uppercase font-bold text-gray-400">
-                                      Assigned Coordinator
-                                    </p>
-                                    <p className="text-xs font-semibold text-navy-blue mt-0.5">
-                                      {coord
-                                        ? `${coord.name} (${coord.email || coord.username})`
-                                        : 'No coordinator assigned'}
-                                    </p>
-                                  </div>
-                                )}
                               </div>
                             </div>
 
-                            <div className="w-[60%] border-t border-gray-50 relative z-10" />
+                            <div className="w-[45%] border-t border-gray-300 relative z-10" />
                             <div className="pt-2 relative z-10">
                               <p className="text-[10px] uppercase font-bold text-gray-400">
                                 Description
@@ -5081,7 +5115,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
                             {isDept && (
                               <>
-                                <div className="w-[60%] border-t border-gray-50 relative z-10" />
+                                <div className="w-[45%] border-t border-gray-300 relative z-10" />
                                 <div className="pt-2 relative z-10">
                                   <p className="text-[10px] uppercase font-bold text-gray-400">
                                     Organizations under this Department
@@ -5145,7 +5179,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                       act.eventType === 'organization'
                                         ? act.organizationName
                                         : orgsList.find((o) => o.id === act.assignedOrganizationId)
-                                            ?.abbreviation || 'CES'
+                                          ?.abbreviation || 'CES'
                                     return (
                                       <div
                                         key={act.id}
@@ -5192,7 +5226,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                       act.eventType === 'organization'
                                         ? act.organizationName
                                         : orgsList.find((o) => o.id === act.assignedOrganizationId)
-                                            ?.abbreviation || 'CES'
+                                          ?.abbreviation || 'CES'
                                     return (
                                       <div
                                         key={act.id}
@@ -5234,9 +5268,12 @@ export default function AdminDashboard({ user, onLogout }) {
                                     {upcomingActivities.length + ongoingActivities.length}
                                   </span>
                                 </div>
-                                <div className="bg-sig-green/10 p-3 rounded-2xl flex flex-col justify-between h-20 text-left">
+                                <div 
+                                  onClick={() => handleOpenCompletedModal(selectedOrgObj)}
+                                  className="bg-sig-green/10 p-3 rounded-2xl flex flex-col justify-between h-20 text-left cursor-pointer hover:bg-sig-green/20 hover:shadow-xs transition duration-200"
+                                >
                                   <span className="text-[9px] font-bold text-navy-blue uppercase">
-                                    Completed Outreach
+                                    Completed Activities
                                   </span>
                                   <span className="text-xl font-bold text-navy-blue">
                                     {completedActivities.length}
@@ -5267,23 +5304,6 @@ export default function AdminDashboard({ user, onLogout }) {
                           </button>
                         </div>
                         <form onSubmit={handleCreateOrg} className="space-y-4">
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Slug ID Code (unique)
-                            </label>
-                            <input
-                              type="text"
-                              value={orgId}
-                              disabled={editingOrg !== null}
-                              onChange={(e) => {
-                                setOrgId(e.target.value)
-                                clearFieldValError('orgId')
-                              }}
-                              placeholder="org-ssc, org-redcross"
-                              className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${editingOrg ? 'opacity-65 bg-gray-50 border-gray-200' : validationError?.fields.includes('orgId') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                              style={{ height: '40px' }}
-                            />
-                          </div>
                           <div>
                             <label className="block text-gray-700 text-xs font-semibold mb-1">
                               Organization Name
@@ -5372,23 +5392,6 @@ export default function AdminDashboard({ user, onLogout }) {
                           </button>
                         </div>
                         <form onSubmit={handleCreateOrg} className="space-y-4">
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Slug ID Code (unique)
-                            </label>
-                            <input
-                              type="text"
-                              value={orgId}
-                              disabled={editingOrg !== null}
-                              onChange={(e) => {
-                                setOrgId(e.target.value)
-                                clearFieldValError('orgId')
-                              }}
-                              placeholder="dept-cba, dept-cs"
-                              className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${editingOrg ? 'opacity-65 bg-gray-50 border-gray-200' : validationError?.fields.includes('orgId') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                              style={{ height: '40px' }}
-                            />
-                          </div>
                           <div>
                             <label className="block text-gray-700 text-xs font-semibold mb-1">
                               Department Name
@@ -5549,13 +5552,12 @@ export default function AdminDashboard({ user, onLogout }) {
                               <div className="space-y-1">
                                 <div className="flex items-center space-x-2">
                                   <span
-                                    className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                                      rep.status === 'approved'
-                                        ? 'bg-green-100 text-green-800'
-                                        : rep.status === 'submitted'
-                                          ? 'bg-amber-100 text-amber-800'
-                                          : 'bg-red-100 text-red-800'
-                                    }`}
+                                    className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${rep.status === 'approved'
+                                      ? 'bg-green-100 text-green-800'
+                                      : rep.status === 'submitted'
+                                        ? 'bg-amber-100 text-amber-800'
+                                        : 'bg-red-100 text-red-800'
+                                      }`}
                                   >
                                     {rep.status}
                                   </span>
@@ -5611,171 +5613,27 @@ export default function AdminDashboard({ user, onLogout }) {
                           r.status === 'approved' ||
                           r.status === 'returned'
                       ).length === 0 && (
-                        <div className="text-center py-8 text-gray-400 text-xs">
-                          No reports submitted for review yet.
-                        </div>
-                      )}
+                          <div className="text-center py-8 text-gray-400 text-xs">
+                            No reports submitted for review yet.
+                          </div>
+                        )}
                     </div>
                   </div>
 
-                  {/* Inspect Report Modal */}
+                  {/* Inspect Report Document Viewer */}
                   {selectedReport && (
-                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-                      <div className="bg-white rounded-3xl p-6 w-full max-w-3xl shadow-2xl border border-gray-100 overflow-y-auto max-h-[90vh]">
-                        <div className="flex justify-between items-start border-b border-gray-100 pb-3 mb-4">
-                          <div>
-                            <span className="text-[10px] text-sig-green font-bold uppercase tracking-wider">
-                              Report Assessment
-                            </span>
-                            <h3 className="text-lg font-bold text-navy-blue">
-                              {eventsList.find((e) => e.id === selectedReport.eventId)?.name ||
-                                selectedReport.activityTitle ||
-                                'Outreach Narrative'}
-                            </h3>
-                          </div>
-                          <button
-                            onClick={() => setSelectedReport(null)}
-                            className="text-gray-400 hover:text-gray-600 font-bold"
-                          >
-                            ✕
-                          </button>
-                        </div>
-
-                        {/* Report Details layout */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 border border-gray-50 p-4 rounded-2xl bg-gray-50/50 text-xs text-gray-600 mb-4">
-                          <div>
-                            <strong>Academic Year:</strong>
-                            <div>{selectedReport.academicYear}</div>
-                          </div>
-                          <div>
-                            <strong>Semester:</strong>
-                            <div>{selectedReport.semester}</div>
-                          </div>
-                          <div>
-                            <strong>Assigned Org:</strong>
-                            <div>
-                              {orgsList.find((o) => o.id === selectedReport.organizationId)?.name ||
-                                (selectedReport.organizationId ? 'Unknown' : 'CES Office')}
-                            </div>
-                          </div>
-                          <div>
-                            <strong>Activity Category:</strong>
-                            <div className="capitalize">
-                              {selectedReport.type?.replace('_', ' ')}
-                            </div>
-                          </div>
-                          {selectedReport.activityDate && (
-                            <div>
-                              <strong>Activity Date:</strong>
-                              <div>
-                                {new Date(selectedReport.activityDate).toLocaleDateString()}
-                              </div>
-                            </div>
-                          )}
-                          {selectedReport.location && (
-                            <div className="col-span-1 md:col-span-2">
-                              <strong>Venue / Location:</strong>
-                              <div className="truncate">{selectedReport.location}</div>
-                            </div>
-                          )}
-                          {selectedReport.beneficiaries && (
-                            <div className="col-span-1 md:col-span-2">
-                              <strong>Target Beneficiaries:</strong>
-                              <div className="truncate">{selectedReport.beneficiaries}</div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Narrative document */}
-                        <div className="border border-gray-100 rounded-2xl p-4 bg-white shadow-inner max-h-[300px] overflow-y-auto prose prose-sm text-xs mb-4 text-gray-700">
-                          <div dangerouslySetInnerHTML={{ __html: selectedReport.narrative }} />
-                        </div>
-
-                        {/* Photos Carousel Grid */}
-                        {selectedReport.photos && selectedReport.photos.length > 0 && (
-                          <div className="space-y-2 mb-6">
-                            <h4 className="text-xs font-bold text-navy-blue">
-                              Attached Photographic Evidence (Max 10)
-                            </h4>
-                            <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
-                              {selectedReport.photos.map((p, idx) => (
-                                <div
-                                  key={idx}
-                                  className="relative aspect-video rounded-xl overflow-hidden border border-gray-200 group bg-black"
-                                >
-                                  <img
-                                    src={p.url}
-                                    className="w-full h-full object-cover group-hover:scale-105 transition"
-                                    alt="outreach"
-                                  />
-                                  <div className="absolute inset-0 bg-linear-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition flex items-end p-1 text-[8px] text-white">
-                                    Image {idx + 1}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Review Actions Panel */}
-                        <div className="border-t border-gray-100 pt-4 space-y-4">
-                          {selectedReport.status === 'submitted' && (
-                            <>
-                              <div>
-                                <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                  Feedback/Revision Instructions (required if returning)
-                                </label>
-                                <textarea
-                                  value={feedbackNote}
-                                  onChange={(e) => setFeedbackNote(e.target.value)}
-                                  placeholder="Add clear feedback details to guide the coordinator through revisions..."
-                                  className="w-full p-3 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none"
-                                  rows="2"
-                                ></textarea>
-                              </div>
-
-                              <div className="flex space-x-2">
-                                <button
-                                  onClick={() => handleReviewReport('returned')}
-                                  className="flex-1 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-full font-bold text-xs py-2 cursor-pointer"
-                                >
-                                  Return with Feedback
-                                </button>
-                                <button
-                                  onClick={() => handleReviewReport('approved')}
-                                  className="flex-1 bg-navy-blue text-white rounded-full font-bold text-xs py-2 border-b-2 border-sig-green hover:bg-navy-blue/95 cursor-pointer"
-                                >
-                                  Approve & Lock
-                                </button>
-                              </div>
-                            </>
-                          )}
-                          {selectedReport.status === 'approved' && (
-                            <div className="flex items-center space-x-2 text-green-700 bg-green-50 p-3 rounded-xl border border-green-200 text-xs">
-                              <Check className="w-4.5 h-4.5 shrink-0 bg-green-600 text-white rounded-full p-0.5" />
-                              <span>
-                                This report has been reviewed, approved, and locked. Editing is
-                                disabled.
-                              </span>
-                            </div>
-                          )}
-                          {selectedReport.status === 'returned' && (
-                            <div className="space-y-2">
-                              <div className="flex items-center space-x-2 text-amber-700 bg-amber-50 p-3 rounded-xl border border-amber-200 text-xs">
-                                <Clock className="w-4.5 h-4.5 shrink-0 text-amber-600" />
-                                <span>
-                                  This report has been returned to the coordinator for revisions.
-                                </span>
-                              </div>
-                              <div className="text-xs border border-gray-100 p-3 rounded-xl bg-gray-50 text-gray-600">
-                                <strong>Active Feedback Note:</strong>
-                                <p className="mt-1 font-medium">{selectedReport.adminFeedback}</p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                    <DocumentViewer
+                      report={selectedReport}
+                      onClose={() => setSelectedReport(null)}
+                      eventsList={eventsList}
+                      orgsList={orgsList}
+                      usersList={usersList}
+                      feedbackNote={feedbackNote}
+                      setFeedbackNote={setFeedbackNote}
+                      handleReviewReport={handleReviewReport}
+                      compileReportPDF={compileReportPDF}
+                      loading={loading}
+                    />
                   )}
                 </div>
               )}
@@ -6059,11 +5917,10 @@ export default function AdminDashboard({ user, onLogout }) {
                                   </td>
                                   <td className="py-3 px-2">
                                     <span
-                                      className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                                        u.status === 'inactive'
-                                          ? 'bg-red-50 text-red-700 border border-red-200'
-                                          : 'bg-green-50 text-green-700 border border-green-200'
-                                      }`}
+                                      className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${u.status === 'inactive'
+                                        ? 'bg-red-50 text-red-700 border border-red-200'
+                                        : 'bg-green-50 text-green-700 border border-green-200'
+                                        }`}
                                     >
                                       {u.status || 'active'}
                                     </span>
@@ -6119,13 +5976,12 @@ export default function AdminDashboard({ user, onLogout }) {
                                       onClick={() =>
                                         handleToggleStatus(u.uid, u.status || 'active')
                                       }
-                                      className={`py-1 px-2.5 rounded-full text-[10px] font-semibold border transition cursor-pointer ${
-                                        isSelf
-                                          ? 'opacity-50 cursor-not-allowed'
-                                          : u.status === 'inactive'
-                                            ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
-                                            : 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
-                                      }`}
+                                      className={`py-1 px-2.5 rounded-full text-[10px] font-semibold border transition cursor-pointer ${isSelf
+                                        ? 'opacity-50 cursor-not-allowed'
+                                        : u.status === 'inactive'
+                                          ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
+                                          : 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
+                                        }`}
                                     >
                                       {u.status === 'inactive' ? 'Activate' : 'Deactivate'}
                                     </button>
@@ -6133,11 +5989,10 @@ export default function AdminDashboard({ user, onLogout }) {
                                       type="button"
                                       disabled={isSelf}
                                       onClick={() => handleDeleteUser(u)}
-                                      className={`py-1 px-2.5 rounded-full text-[10px] font-semibold border transition cursor-pointer ${
-                                        isSelf
-                                          ? 'opacity-50 cursor-not-allowed'
-                                          : 'bg-red-600 border-red-600 text-white hover:bg-red-700'
-                                      }`}
+                                      className={`py-1 px-2.5 rounded-full text-[10px] font-semibold border transition cursor-pointer ${isSelf
+                                        ? 'opacity-50 cursor-not-allowed'
+                                        : 'bg-red-600 border-red-600 text-white hover:bg-red-700'
+                                        }`}
                                     >
                                       Delete
                                     </button>
@@ -6147,6 +6002,107 @@ export default function AdminDashboard({ user, onLogout }) {
                             })}
                           </tbody>
                         </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ==================================================== */}
+              {/* ABOUT TAB PANEL */}
+              {/* ==================================================== */}
+              {activeTab === 'about' && (
+                <div className="space-y-6 animate-fade-in w-full text-left">
+                  {/* Header section */}
+                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between">
+                    <div>
+                      <h1 className="text-2xl font-bold text-navy-blue flex items-center gap-2">
+                        About DommUnity
+                      </h1>
+                    </div>
+                  </div>
+
+                  {/* System & Office Info Cards */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Left Column - System and CES Details */}
+                    <div className="lg:col-span-2 space-y-6">
+                      <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
+                        <h2 className="text-lg font-bold text-navy-blue border-b border-gray-100 pb-3">System Information</h2>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">System Name</span>
+                            <span className="text-sm font-semibold text-navy-blue">DommUnity</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Version</span>
+                            <span className="text-sm font-semibold text-navy-blue">1.0.0</span>
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Project Description</span>
+                          <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                            DommUnity is a desktop-based management system developed for the Community Extension & Services (CES) Office of Dominican College of Tarlac, Inc. It streamlines community extension operations by automating inventory tracking (with FIFO & expiration management), donor records, event scheduling, and narrative report generation.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
+                        <h2 className="text-lg font-bold text-navy-blue border-b border-gray-100 pb-3">Community Extension & Services (CES) Office</h2>
+                        <div>
+                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Vision & Mission</span>
+                          <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                            The Community Extension & Services (CES) Office is responsible for community involvement, engagement, and reform towards sustainable development. It transforms both institutional and academic values into ground-level exposure and applications, addressing significant and relevant challenges and problems of the local community, making education a pertinent medium for social and ecological improvement.
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Core Advocacy Areas (CEAP JEEPGY)</span>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {['Justice and Peace', 'Care for the Environment', 'Active Citizenship', 'Poverty Awareness', 'Gender Equality', 'Youth Empowerment'].map((adv, idx) => (
+                              <span key={idx} className="bg-sig-green/10 text-navy-blue text-xs font-semibold px-3 py-1 rounded-full">
+                                {adv}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right Column - Org Chart & Proponents */}
+                    <div className="space-y-6">
+                      {/* CES Organizational Chart */}
+                      <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
+                        <h2 className="text-lg font-bold text-navy-blue border-b border-gray-100 pb-3">CES Org Hierarchy</h2>
+                        <div className="space-y-3">
+                          {[
+                            { name: 'Sr. Lorna I. Ablog, O.P.', role: 'School Administrator' },
+                            { name: 'Dr. Augusto R. Dela Cruz', role: 'Vice President of Academic Affairs' },
+                            { name: 'Mrs. Faithful Anne F. Arugay', role: 'Head of the CES Office' },
+                            { name: 'Mr. Jonnel B. Manio', role: 'Coordinator of the CES Office' }
+                          ].map((person, idx) => (
+                            <div key={idx} className="p-2 border-b border-gray-50 last:border-0 text-left">
+                              <p className="text-xs font-bold text-navy-blue">{person.name}</p>
+                              <p className="text-[9px] text-gray-400 font-medium mt-0.5">{person.role}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Developers section */}
+                      <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
+                        <h2 className="text-lg font-bold text-navy-blue border-b border-gray-100 pb-3">Development System</h2>
+                        <div className="space-y-3">
+                          {[
+                            { name: 'Benidict Justin Salunga', role: 'Lead Programmer' },
+                            { name: 'Mc Harry Tolentino', role: 'Project Manager' },
+                            { name: 'Aron Stefan Taruc', role: 'UI-UX Designer' },
+                            { name: 'John Harold Santos', role: 'Tester' }
+                          ].map((dev, idx) => (
+                            <div key={idx} className="p-2 border-b border-gray-50 last:border-0 text-left">
+                              <p className="text-xs font-bold text-navy-blue">{dev.name}</p>
+                              <p className="text-[9px] text-gray-400 font-semibold mt-0.5">{dev.role}</p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -6293,13 +6249,12 @@ export default function AdminDashboard({ user, onLogout }) {
                         </td>
                         <td className="py-2.5 px-3 capitalize">
                           <span
-                            className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                              tx.action === 'added'
-                                ? 'bg-green-50 text-green-700 border border-green-200'
-                                : tx.action === 'released'
-                                  ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                                  : 'bg-red-50 text-red-700 border border-red-200'
-                            }`}
+                            className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${tx.action === 'added'
+                              ? 'bg-green-50 text-green-700 border border-green-200'
+                              : tx.action === 'released'
+                                ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                : 'bg-red-50 text-red-700 border border-red-200'
+                              }`}
                           >
                             {tx.action}
                           </span>
@@ -6341,6 +6296,114 @@ export default function AdminDashboard({ user, onLogout }) {
                   className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer"
                 >
                   Confirm Download
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* COMPLETED ACTIVITIES MODAL */}
+        {completedActivitiesModal.isOpen && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-xs">
+            <div className="bg-white rounded-3xl p-6 w-full max-w-4xl shadow-2xl border border-gray-100 animate-scale-up space-y-4 max-h-[90vh] flex flex-col">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <div>
+                  <h3 className="font-bold text-navy-blue text-lg">
+                    Completed Outreach Activities
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-0.5 font-medium">
+                    {completedActivitiesModal.selectedDeptId 
+                      ? `Showing activities for: ${completedActivitiesModal.selectedDeptName} (${completedActivitiesModal.selectedDeptAbbr})`
+                      : 'Showing all completed activities across all departments'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCompletedActivitiesModal(prev => ({ ...prev, isOpen: false }))}
+                  className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 cursor-pointer"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="overflow-y-auto flex-1">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-100 bg-gray-50 text-[10px] uppercase font-bold text-gray-500 sticky top-0">
+                      <th className="py-3 px-3">Date</th>
+                      <th className="py-3 px-3">Event Name</th>
+                      <th className="py-3 px-3">Assigned Department</th>
+                      <th className="py-3 px-3">Location</th>
+                      <th className="py-3 px-3">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50 text-xs">
+                    {(() => {
+                      const completed = eventsList.filter((e) => {
+                        const isMatch = e.status === 'completed';
+                        if (!isMatch) return false;
+                        if (completedActivitiesModal.selectedDeptId) {
+                          // Check if assigned or under department
+                          const isAssigned = e.assignedOrganizationId === completedActivitiesModal.selectedDeptId;
+                          const isUnderDept = e.eventType === 'organization' && e.parentDepartmentId === completedActivitiesModal.selectedDeptId;
+                          return isAssigned || isUnderDept;
+                        }
+                        return true;
+                      });
+
+                      if (completed.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan="5" className="text-center py-8 text-gray-400 font-medium">
+                              No completed outreach activities found.
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return completed.map((evt) => {
+                        const dept = orgsList.find((org) => org.id === evt.assignedOrganizationId);
+                        return (
+                          <tr key={evt.id} className="hover:bg-gray-50/50 transition">
+                            <td className="py-3 px-3 font-semibold text-gray-600">
+                              {evt.scheduleDate
+                                ? new Date(evt.scheduleDate).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'short',
+                                    day: 'numeric'
+                                  })
+                                : 'N/A'}
+                            </td>
+                            <td className="py-3 px-3">
+                              <p className="font-bold text-navy-blue">{evt.name}</p>
+                              <p className="text-[10px] text-gray-400 mt-0.5 line-clamp-1">{evt.description}</p>
+                            </td>
+                            <td className="py-3 px-3">
+                              <span className="font-bold text-navy-blue">
+                                {dept ? `${dept.name} (${dept.abbreviation})` : evt.organizationName || 'CES Office'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-3 text-gray-500 font-medium">{evt.location || 'N/A'}</td>
+                            <td className="py-3 px-3">
+                              <span className="bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase">
+                                {evt.status}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex justify-end border-t border-gray-100 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setCompletedActivitiesModal(prev => ({ ...prev, isOpen: false }))}
+                  className="px-5 py-2 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition cursor-pointer"
+                >
+                  Close
                 </button>
               </div>
             </div>
@@ -6396,13 +6459,12 @@ export default function AdminDashboard({ user, onLogout }) {
                     </td>
                     <td className="py-2.5 px-3 capitalize">
                       <span
-                        className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
-                          tx.action === 'added'
-                            ? 'bg-green-100 text-green-800 border border-green-200'
-                            : tx.action === 'released'
-                              ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                              : 'bg-red-100 text-red-800 border border-red-200'
-                        }`}
+                        className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${tx.action === 'added'
+                          ? 'bg-green-100 text-green-800 border border-green-200'
+                          : tx.action === 'released'
+                            ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                            : 'bg-red-100 text-red-800 border border-red-200'
+                          }`}
                       >
                         {tx.action}
                       </span>
