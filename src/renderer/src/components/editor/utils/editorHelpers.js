@@ -190,12 +190,37 @@ export async function handleExportPDF(canvasRef, title) {
   try {
     const { default: html2canvas } = await import('html2canvas');
     const { default: jsPDF } = await import('jspdf');
-    const canvas = await html2canvas(canvasRef.current, { useCORS: true, scale: 2 });
-    const imgData = canvas.toDataURL('image/png');
+    
+    const element = canvasRef.current;
+    const canvas = await html2canvas(element, { 
+      useCORS: true, 
+      scale: 2, 
+      logging: false 
+    });
+    
     const pdf = new jsPDF('p', 'mm', 'a4');
-    const w = 190;
-    const h = (canvas.height * w) / canvas.width;
-    pdf.addImage(imgData, 'PNG', 10, 10, w, h);
+    const pdfWidth = 210;
+    const pdfPageHeight = 297;
+    
+    // Width and height of the canvas in mm
+    const imgWidth = pdfWidth;
+    const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+    
+    let leftHeight = imgHeight;
+    let position = 0;
+    
+    // Add first page
+    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
+    leftHeight -= pdfPageHeight;
+    
+    // Add additional pages if needed
+    while (leftHeight > 0) {
+      position = leftHeight - imgHeight;
+      pdf.addPage();
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
+      leftHeight -= pdfPageHeight;
+    }
+    
     pdf.save(`${title || 'Document'}.pdf`);
   } catch (err) {
     console.error('PDF export failed:', err);

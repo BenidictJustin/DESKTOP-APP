@@ -19,6 +19,7 @@ import CharacterCount from '@tiptap/extension-character-count';
 import Placeholder from '@tiptap/extension-placeholder';
 import FontSize from './FontSize';
 import PageFlow from './PageFlow';
+import PageBreak from './PageBreak';
 
 /**
  * Returns the full array of TipTap extensions for the document editor.
@@ -58,6 +59,7 @@ export function getEditorExtensions() {
       placeholder: 'Start typing your document…',
     }),
     PageFlow,
+    PageBreak,
   ];
 }
 

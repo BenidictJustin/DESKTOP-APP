@@ -357,7 +357,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         </aside>
 
         {/* Main Panel Content Area */}
-        <main className="flex-1 my-4 mx-4 bg-[#F1EFEC] rounded-3xl border border-gray-200/50 shadow-xs overflow-hidden flex flex-col h-[calc(100vh-80px)]">
+        <main className="flex-1 my-4 mx-4 bg-[#F1EFEC] rounded-3xl border border-gray-200/50 shadow-xs overflow-hidden flex flex-col">
           {/* ── DASHBOARD ── */}
           {activeTab === 'dashboard' && (
             <div className="flex-1 overflow-y-auto p-8 bg-[#F1EFEC]">

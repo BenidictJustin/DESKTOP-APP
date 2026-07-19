@@ -96,9 +96,10 @@ export const PageFlow = Extension.create({
           let lastOptions = null;
           let lastSelectionFrom = null;
           let lastDomHeight = null;
+          let debounceTimeout = null;
 
           const recalculate = () => {
-            if (!editorView || !editorView.dom || !editorView.docView) return;
+            if (!editorView || !editorView.dom || !editorView.docView || editorView.isDestroyed) return;
             const currentDoc = editorView.state.doc;
             const currentOptionsStr = JSON.stringify({
               paperKey: extension.storage.options.paperKey,
@@ -155,58 +156,79 @@ export const PageFlow = Extension.create({
             };
             const scale = getScale(editorView.dom);
 
-            editorView.state.doc.forEach((node, offset) => {
-              const dom = editorView.nodeDOM(offset);
-              if (dom && dom.nodeType === Node.ELEMENT_NODE) {
-                const style = window.getComputedStyle(dom);
-                const marginTop = parseFloat(style.marginTop) || 0;
-                const marginBottom = parseFloat(style.marginBottom) || 0;
-                const rect = dom.getBoundingClientRect();
-                const height = (rect.height / scale) + marginTop + marginBottom;
+             editorView.state.doc.forEach((node, offset) => {
+               const dom = editorView.nodeDOM(offset);
+               let height = 0;
+               let marginTop = 0;
+               let marginBottom = 0;
+               
+               if (dom && dom.nodeType === Node.ELEMENT_NODE) {
+                 const style = window.getComputedStyle(dom);
+                 marginTop = parseFloat(style.marginTop) || 0;
+                 marginBottom = parseFloat(style.marginBottom) || 0;
+                 const rect = dom.getBoundingClientRect();
+                 height = (rect.height / scale) + marginTop + marginBottom;
+               } else {
+                 // Fallback estimation if DOM is not ready
+                 if (node.type.name === 'heading') {
+                   height = node.attrs.level === 1 ? 40 : 30;
+                 } else if (node.type.name === 'paragraph') {
+                   height = 20;
+                 } else if (node.type.name === 'table') {
+                   height = 120;
+                 } else if (node.type.name === 'pageBreak') {
+                   height = 1;
+                 } else {
+                   height = 20;
+                 }
+               }
 
-                // Track cursor page
-                if (offset <= cursorFrom) {
-                  cursorPage = pageNum;
-                }
+               const forceBreak = node.type.name === 'pageBreak' || (dom && dom.nodeType === Node.ELEMENT_NODE && (
+                                    dom.classList.contains('page-break') || 
+                                    dom.querySelector('.page-break') !== null ||
+                                    window.getComputedStyle(dom).pageBreakBefore === 'always' || 
+                                    window.getComputedStyle(dom).breakBefore === 'page' ||
+                                    dom.getAttribute('data-page-break') === 'true'
+                                  ));
 
-                if (runningHeight + height > usableHeight && runningHeight > 0) {
-                  const remainingSpace = Math.max(0, usableHeight - runningHeight);
-                  
-                  const widgetEl = document.createElement('div');
-                  widgetEl.className = 'page-break-widget';
-                  widgetEl.setAttribute('contenteditable', 'false');
-                  widgetEl.style.width = '100%';
-                  widgetEl.style.boxSizing = 'border-box';
-                  widgetEl.style.userSelect = 'none';
+               if ((runningHeight + height > usableHeight || forceBreak) && runningHeight > 0) {
+                 const remainingSpace = Math.max(0, usableHeight - runningHeight);
+                 
+                 const widgetEl = document.createElement('div');
+                 widgetEl.className = 'page-break-widget';
+                 widgetEl.setAttribute('contenteditable', 'false');
+                 widgetEl.style.width = '100%';
+                 widgetEl.style.boxSizing = 'border-box';
+                 widgetEl.style.userSelect = 'none';
 
-                    widgetEl.innerHTML = `
-                    <!-- Page N Bottom Margin Area (covers bottom margin, transparent) -->
-                    <div style="height: ${remainingSpace + margin}px; box-sizing: border-box;"></div>
+                 widgetEl.innerHTML = `
+                   <!-- Page N Bottom Margin Area (covers bottom margin, transparent) -->
+                   <div style="height: ${remainingSpace + margin}px; box-sizing: border-box;"></div>
 
-                    <!-- Visual page break gap (transparent, lets gray workspace background show through) -->
-                    <div style="height: 36px; box-sizing: border-box;"></div>
+                   <!-- Visual page break gap (transparent, lets gray workspace background show through) -->
+                   <div style="height: 36px; box-sizing: border-box;"></div>
 
-                    <!-- Page N+1 Top Margin Area (covers top margin, transparent) -->
-                    <div style="height: ${margin}px; box-sizing: border-box;"></div>
-                  `;
+                   <!-- Page N+1 Top Margin Area (covers top margin, transparent) -->
+                   <div style="height: ${margin}px; box-sizing: border-box;"></div>
+                 `;
 
-                  decorations.push(Decoration.widget(offset, widgetEl, {
-                    side: -1,
-                    stopEvent: () => true
-                  }));
+                 decorations.push(Decoration.widget(offset, widgetEl, {
+                   side: -1,
+                   stopEvent: () => true
+                 }));
 
-                  pageNum++;
-                  runningHeight = height;
+                 pageNum++;
+                 const isBreakElementEmpty = (node.type.name === 'pageBreak' || (dom && dom.nodeType === Node.ELEMENT_NODE && dom.classList.contains('page-break'))) && height < 10;
+                 runningHeight = isBreakElementEmpty ? 0 : height;
 
-                  // Update cursor page if this block starts after selection
-                  if (offset <= cursorFrom) {
-                    cursorPage = pageNum;
-                  }
-                } else {
-                  runningHeight += height;
-                }
-              }
-            });
+                 // Update cursor page if this block starts after selection
+                 if (offset <= cursorFrom) {
+                   cursorPage = pageNum;
+                 }
+               } else {
+                 runningHeight += height;
+               }
+             });
 
             // Dispatch layout options callback safely
             if (options.onPageChange) {
@@ -225,6 +247,13 @@ export const PageFlow = Extension.create({
             editorView.dispatch(editorView.state.tr.setMeta(pageFlowKey, decoset));
           };
 
+          const scheduleRecalculate = (delay = 200) => {
+            if (debounceTimeout) clearTimeout(debounceTimeout);
+            debounceTimeout = setTimeout(() => {
+              recalculate();
+            }, delay);
+          };
+
           // Recalculate when images finish loading inside editor view
           const handleImageLoad = () => {
             recalculate();
@@ -233,13 +262,20 @@ export const PageFlow = Extension.create({
             editorView.dom.addEventListener('load', handleImageLoad, true);
           }
 
-          setTimeout(recalculate, 100);
+          // Initial immediate recalculate
+          setTimeout(recalculate, 50);
 
           return {
             update(view, prevState) {
-              requestAnimationFrame(recalculate);
+              // Debounce recalculate to prevent layout thrashing on every keystroke
+              if (prevState.doc !== view.state.doc) {
+                scheduleRecalculate(150);
+              } else {
+                scheduleRecalculate(300);
+              }
             },
             destroy() {
+              if (debounceTimeout) clearTimeout(debounceTimeout);
               if (editorView.dom) {
                 editorView.dom.removeEventListener('load', handleImageLoad, true);
               }

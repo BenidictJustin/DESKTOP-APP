@@ -194,7 +194,7 @@ export default function Login({ onLoginSuccess }) {
                         setEmailError('')
                       }
                     }}
-                    placeholder="faithful@dct.edu.ph"
+                    placeholder="admin@gmail.com"
                     className={`w-full pl-10 pr-4 py-2 text-sm bg-white border rounded-xl focus:outline-none focus:ring-2 transition duration-200 ${emailError
                         ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500'
                         : 'border-gray-200 focus:ring-sig-green/20 focus:border-sig-green'

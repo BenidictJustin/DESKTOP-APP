@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { EditorContent } from "@tiptap/react";
 import { Check } from "lucide-react";
 import { renderAsync } from "docx-preview";
@@ -43,6 +43,8 @@ export default function DocumentCanvas({
   const totalHeight = canvasHeight + (showRuler ? 20 : 0);
 
   const docxRef = useRef(null);
+  const currentPageRef = useRef(1);
+  const [editingPage, setEditingPage] = useState(1);
 
   // Exit header/footer mode with Escape key
   useEffect(() => {
@@ -122,6 +124,23 @@ export default function DocumentCanvas({
       setCurrentPage(activePage);
     }
   };
+ 
+  // Track page navigation scrolling for Tiptap workspace
+  const handleScroll = (e) => {
+    if (docxBuffer) {
+      handleDocxScroll(e);
+      return;
+    }
+    const container = e.currentTarget;
+    const scrollTop = container.scrollTop;
+    const scaledPageHeight = (docH + gapH) * (zoom / 100);
+    const rawPage = Math.floor((scrollTop + (scaledPageHeight / 2)) / scaledPageHeight) + 1;
+    const clampedPage = Math.min(Math.max(1, rawPage), totalPages);
+    if (setCurrentPage && clampedPage !== currentPageRef.current) {
+      currentPageRef.current = clampedPage;
+      setCurrentPage(clampedPage);
+    }
+  };
 
   // If native DOCX workspace is active, render docx-preview container directly
   if (docxBuffer) {
@@ -167,41 +186,30 @@ export default function DocumentCanvas({
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-gray-300 py-6 px-4 flex flex-col items-center select-text relative">
-      
-      {/* -- Header & Footer sticky toolbar notification -- */}
-      {activeEditingArea !== "body" && (
-        <div className="sticky top-0 left-0 right-0 z-[100] w-full max-w-2xl bg-blue-600 text-white px-4 py-2 flex items-center justify-between rounded-lg shadow-lg mb-4 animate-in fade-in slide-in-from-top-4 duration-200">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-white animate-pulse" />
-            <span className="text-xs font-semibold">
-              Header & Footer Tools — Editing {activeEditingArea === "header" ? "Header" : "Footer"}
-            </span>
-          </div>
-          <button
-            onClick={() => setActiveEditingArea("body")}
-            className="bg-white text-blue-600 hover:bg-blue-50 px-3 py-1 rounded-md text-[10px] font-bold transition cursor-pointer shadow-xs"
-          >
-            Close Header and Footer
-          </button>
-        </div>
-      )}
+    <div 
+      onScroll={handleScroll}
+      className="flex-1 overflow-auto bg-gray-300 py-6 px-4 flex flex-col items-center select-text relative w-full h-full"
+    >
 
-      {/* Scaled container for zooming */}
+      {/* Scaled wrapper to reserve correct layout bounds for scrollbars */}
       <div style={{
         width: docW * (zoom / 100),
-        minHeight: totalHeight * (zoom / 100),
+        height: totalHeight * (zoom / 100),
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "flex-start",
         overflow: "visible",
         position: "relative",
+        marginTop: "1.5rem",
+        marginBottom: "1.5rem",
       }}>
         <div style={{
-          position: "absolute",
-          top: 0,
-          left: "50%",
-          transform: `translate(-50%, 0) scale(${zoom / 100})`,
+          transform: `scale(${zoom / 100})`,
           transformOrigin: "top center",
           width: docW,
+          height: totalHeight,
           outline: "none",
+          position: "relative",
         }}>
           {/* -- Horizontal Ruler -- */}
           {showRuler && (
@@ -221,7 +229,7 @@ export default function DocumentCanvas({
           )}
 
           {/* Wrapper housing the background page sheets and the editor content */}
-          <div style={{ width: docW, height: canvasHeight, position: "relative" }}>
+          <div ref={canvasRef} style={{ width: docW, height: canvasHeight, position: "relative" }} className="print-canvas">
             
             {/* -- Page Background Sheets (Physical Paper Shadow Cards) -- */}
             <div className="absolute inset-0 pointer-events-none select-none flex flex-col items-center">
@@ -242,7 +250,10 @@ export default function DocumentCanvas({
                       className="absolute top-0 left-0 right-0 cursor-text z-40 hover:bg-blue-50/20 transition"
                       style={{ height: `${pad}px` }}
                       onDoubleClick={() => {
-                        if (!workspaceIsReadOnly) setActiveEditingArea("header");
+                        if (!workspaceIsReadOnly) {
+                          setEditingPage(pageNum);
+                          setActiveEditingArea("header");
+                        }
                       }}
                       title="Double click to edit Header"
                     />
@@ -252,7 +263,10 @@ export default function DocumentCanvas({
                       className="absolute bottom-0 left-0 right-0 cursor-text z-40 hover:bg-blue-50/20 transition"
                       style={{ height: `${pad}px` }}
                       onDoubleClick={() => {
-                        if (!workspaceIsReadOnly) setActiveEditingArea("footer");
+                        if (!workspaceIsReadOnly) {
+                          setEditingPage(pageNum);
+                          setActiveEditingArea("footer");
+                        }
                       }}
                       title="Double click to edit Footer"
                     />
@@ -260,15 +274,15 @@ export default function DocumentCanvas({
                     {/* -- Page Header -- */}
                     {showHeader && (
                       <div
-                        className="absolute left-0 right-0 z-50 px-4"
+                        className="absolute left-0 right-0 z-50"
                         style={{
-                          top: "16px",
+                          top: "12px",
                           paddingLeft: pad,
                           paddingRight: pad,
                           boxSizing: "border-box",
                         }}
                       >
-                        {activeEditingArea === "header" && pageNum === 1 ? (
+                        {activeEditingArea === "header" && editingPage === pageNum ? (
                           <div className="relative">
                             <div className="w-full bg-blue-50/70 border border-dashed border-blue-400 text-gray-800 text-[10px] px-2 py-1 rounded-sm focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans min-h-[20px] select-text">
                               {headerEditor && <EditorContent editor={headerEditor} />}
@@ -277,9 +291,9 @@ export default function DocumentCanvas({
                           </div>
                         ) : (
                           <div 
-                            className="text-[10px] text-gray-400 font-sans border-b border-dashed border-transparent hover:border-gray-300 cursor-pointer pb-1"
-                            onClick={() => { if (!workspaceIsReadOnly) setActiveEditingArea("header"); }}
-                            dangerouslySetInnerHTML={{ __html: headerText || "Click to add header" }}
+                            className="border-b border-dashed border-transparent hover:border-gray-300 cursor-pointer pb-1"
+                            onClick={() => { if (!workspaceIsReadOnly) { setEditingPage(pageNum); setActiveEditingArea("header"); }}}
+                            dangerouslySetInnerHTML={{ __html: headerText || '<span style="font-size:10px;color:#9ca3af;font-family:sans-serif;">Click to add header</span>' }}
                           />
                         )}
                       </div>
@@ -288,29 +302,27 @@ export default function DocumentCanvas({
                     {/* -- Page Footer -- */}
                     {showFooter && (
                       <div
-                        className="absolute left-0 right-0 z-50 px-4"
+                        className="absolute left-0 right-0 z-50"
                         style={{
-                          bottom: "16px",
+                          bottom: "12px",
                           paddingLeft: pad,
                           paddingRight: pad,
                           boxSizing: "border-box",
                         }}
                       >
-                        {activeEditingArea === "footer" && pageNum === 1 ? (
-                          <div className="relative bg-blue-50/70 border border-dashed border-blue-400 rounded-sm p-1 flex items-center justify-between gap-4 select-text">
-                            <div className="bg-transparent text-gray-800 text-[10px] px-2 py-0.5 focus:outline-none flex-1 font-sans min-h-[20px]">
+                        {activeEditingArea === "footer" && editingPage === pageNum ? (
+                          <div className="relative bg-blue-50/70 border border-dashed border-blue-400 rounded-sm p-1 select-text">
+                            <div className="bg-transparent text-gray-800 text-[10px] px-2 py-0.5 focus:outline-none font-sans min-h-[20px] text-center">
                               {footerEditor && <EditorContent editor={footerEditor} />}
                             </div>
-                            <span className="text-[10px] text-gray-400 font-sans px-2">Page {pageNum}</span>
                             <span className="absolute -top-3.5 right-1 text-[8px] text-blue-500 font-bold uppercase tracking-wider select-none">Footer</span>
                           </div>
                         ) : (
                           <div 
-                            className="flex justify-between items-center text-[10px] text-gray-400 font-sans border-t border-dashed border-transparent hover:border-gray-300 cursor-pointer pt-1"
-                            onClick={() => { if (!workspaceIsReadOnly) setActiveEditingArea("footer"); }}
+                            className="relative border-t border-dashed border-transparent hover:border-gray-300 cursor-pointer pt-1 w-full"
+                            onClick={() => { if (!workspaceIsReadOnly) { setEditingPage(pageNum); setActiveEditingArea("footer"); }}}
                           >
-                            <span dangerouslySetInnerHTML={{ __html: footerText || "Click to add footer" }} />
-                            <span>Page {pageNum}</span>
+                            <div dangerouslySetInnerHTML={{ __html: footerText || '<span style="font-size:10px;color:#9ca3af;font-family:sans-serif;">Click to add footer</span>' }} />
                           </div>
                         )}
                       </div>
@@ -322,7 +334,6 @@ export default function DocumentCanvas({
 
             {/* -- Transparent Editor Canvas overlaying sheets -- */}
             <div
-              ref={canvasRef}
               onClick={(e) => {
                 const target = e.target;
                 if (target === canvasRef.current || target.classList.contains("doc-page") ||
@@ -369,7 +380,7 @@ export default function DocumentCanvas({
                     flex: 1 1 0% !important;
                     height: 100% !important;
                     width: 100% !important;
-                    overflow: hidden !important;
+                    overflow: visible !important;
                   }
                   .ProseMirror {
                     padding: 0 !important;
@@ -380,6 +391,7 @@ export default function DocumentCanvas({
                     line-height: ${lineSpacing};
                     color: #1f2937;
                     font-family: 'Calibri', sans-serif;
+                    overflow: visible !important;
                   }
                   .reactjs-tiptap-editor .ProseMirror.ProseMirror.ProseMirror {
                     min-height: ${docH - pad * 2}px !important;
@@ -459,10 +471,22 @@ export default function DocumentCanvas({
                      text-decoration-color: #16a34a;
                    }
                  ` : ""}
-                 @media print {
-                   body > * { display: none !important; }
-                   .doc-page-container { display: block !important; }
-                 }
+                  @media print {
+                    body > * { display: none !important; }
+                    .print-canvas { 
+                      display: block !important; 
+                      position: absolute !important; 
+                      left: 0 !important; 
+                      top: 0 !important; 
+                      width: 100% !important; 
+                      height: auto !important; 
+                      transform: none !important;
+                      zoom: 100% !important;
+                    }
+                    .page-break-widget {
+                      page-break-after: always;
+                    }
+                  }
                `}</style>
  
                <div className={`doc-page ${hasBeenEdited ? "has-been-edited" : ""}`}>

@@ -80,7 +80,7 @@ const SEED_DATA = {
     {
       uid: 'user-admin',
       username: 'admin',
-      email: 'faithful@dct.edu.ph',
+      email: 'admin@gmail.com',
       name: 'Faithful Anne F. Arugay',
       role: 'admin',
       organizationId: null,
@@ -89,7 +89,7 @@ const SEED_DATA = {
     {
       uid: 'user-office',
       username: 'jonnel',
-      email: 'jonnel@dct.edu.ph',
+      email: 'coordinator@gmail.com',
       name: 'Jonnel B. Manio',
       role: 'office_coordinator',
       organizationId: null,
@@ -379,6 +379,29 @@ const SEED_DATA = {
 
 // Initialize Local Storage helper
 const initLocalStorage = () => {
+  const storedUsers = localStorage.getItem(LOCAL_STORAGE_KEYS.USERS)
+  if (storedUsers) {
+    try {
+      const parsed = JSON.parse(storedUsers)
+      const adminUser = parsed.find((u) => u.role === 'admin')
+      const coordUser = parsed.find((u) => u.role === 'office_coordinator')
+      let updated = false
+      if (adminUser && adminUser.email !== 'admin@gmail.com') {
+        adminUser.email = 'admin@gmail.com'
+        updated = true
+      }
+      if (coordUser && coordUser.email !== 'coordinator@gmail.com') {
+        coordUser.email = 'coordinator@gmail.com'
+        updated = true
+      }
+      if (updated) {
+        localStorage.setItem(LOCAL_STORAGE_KEYS.USERS, JSON.stringify(parsed))
+      }
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
   if (!localStorage.getItem(LOCAL_STORAGE_KEYS.USERS)) {
     localStorage.setItem(LOCAL_STORAGE_KEYS.USERS, JSON.stringify(SEED_DATA.USERS))
     localStorage.setItem(LOCAL_STORAGE_KEYS.ORGANIZATIONS, JSON.stringify(SEED_DATA.ORGANIZATIONS))
@@ -417,11 +440,14 @@ export const login = async (email, password) => {
     )
 
     // Simulate passwords: we will check simple passwords matches
-    // admin -> adminpassword, office -> coordinatorpassword, cba -> cbapassword, cs -> cspassword
+    // admin -> admin12345, office -> coordinator123/coordniator123, cba -> cbapassword, cs -> cspassword
     let valid = false
     if (user) {
-      if (user.role === 'admin' && password === 'adminpassword') valid = true
-      else if (user.role === 'office_coordinator' && password === 'coordinatorpassword')
+      if (user.role === 'admin' && password === 'admin12345') valid = true
+      else if (
+        user.role === 'office_coordinator' &&
+        (password === 'coordinator123' || password === 'coordniator123')
+      )
         valid = true
       else if (user.organizationId === 'dept-cba' && password === 'cbapassword') valid = true
       else if (user.organizationId === 'dept-cs' && password === 'cspassword') valid = true

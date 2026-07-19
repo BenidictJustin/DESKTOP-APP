@@ -8,7 +8,21 @@
   --color-surface-soft: #f3f4f6;
   --color-ink: #111827;
   --color-charcoal: #374151;
-  --color-muted: #6b7280;
+  --color-muted: #f5f5f5;
+  --color-muted-foreground: #737373;
+  --color-border: #e5e5e5;
+  --color-background: #ffffff;
+  --color-foreground: #0a0a0a;
+  --color-primary: #171717;
+  --color-primary-foreground: #fafafa;
+  --color-secondary: #f5f5f5;
+  --color-secondary-foreground: #171717;
+  --color-accent: #f5f5f5;
+  --color-accent-foreground: #171717;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #0a0a0a;
+  --color-card: #ffffff;
+  --color-card-foreground: #0a0a0a;
   
   --font-sans: 'Poppins', 'Inter', sans-serif;
   --font-poppins: 'Poppins', 'Inter', sans-serif;
@@ -32,48 +46,126 @@ html, body {
   width: 8px;
   height: 8px;
 }
-
 ::-webkit-scrollbar-track {
-  background: #f3f4f6;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #f1f1f1;
   border-radius: 4px;
 }
-
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #a8a8a8;
 }
 
-/* Custom styles for Tiptap editor */
+/* Custom styles for Tiptap / ProseMirror editor */
 .ProseMirror {
   outline: none;
-  min-height: 250px;
-  padding: 12px;
-  border-radius: 8px;
+  font-family: var(--font-sans);
+  
+  /* Link styles */
+  a {
+    color: #2563eb;
+    cursor: pointer;
+    text-decoration: none;
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  /* Image-specific styling */
+  img {
+    display: block;
+    height: auto;
+    margin: 1.5rem 0;
+    max-width: 100%;
+    &.ProseMirror-selectednode {
+      outline: 3px solid #3b82f6;
+    }
+  }
+
+  /* Table-specific styling */
+  table {
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+    overflow: hidden;
+    table-layout: fixed;
+    width: 100%;
+
+    td,
+    th {
+      border: 1px solid #c7c7c7;
+      box-sizing: border-box;
+      min-width: 1em;
+      padding: 6px 8px;
+      position: relative;
+      vertical-align: top;
+      > * {
+        margin-bottom: 0;
+      }
+    }
+
+    th {
+      background-color: #f3f4f6;
+      font-weight: bold;
+      text-align: left;
+    }
+  }
+
+  /* Headings */
+  h1, h2, h3, h4, h5, h6 {
+    line-height: 1.1;
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+  }
+  h1 { font-size: 2rem; }
+  h2 { font-size: 1.5rem; }
+  h3 { font-size: 1.25rem; }
+
+  /* Paragraphs and Lists */
+  p {
+    margin-bottom: 8px;
+  }
+
+  ul, ol {
+    padding-left: 24px;
+    margin-bottom: 8px;
+  }
+
+  ul li {
+    list-style-type: disc;
+  }
+
+  ol li {
+    list-style-type: decimal;
+  }
+
+  /* Task lists */
+  ul[data-type="taskList"] {
+    list-style: none;
+    padding-left: 0;
+    margin-left: 0;
+
+    li {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 4px;
+
+      > label {
+        flex: 0 0 auto;
+        margin-right: 8px;
+        user-select: none;
+      }
+
+      > div {
+        flex: 1 1 auto;
+      }
+    }
+
+    input[type="checkbox"] {
+      cursor: pointer;
+    }
+  }
 }
 
-.ProseMirror p {
-  margin-bottom: 8px;
-}
-
-.ProseMirror ul {
-  list-style-type: disc;
-  padding-left: 20px;
-  margin-bottom: 8px;
-}
-
-.ProseMirror ol {
-  list-style-type: decimal;
-  padding-left: 20px;
-  margin-bottom: 8px;
-}
-
-.ProseMirror strong {
-  font-weight: bold;
-}
-
-.ProseMirror em {
-  font-style: italic;
-}
