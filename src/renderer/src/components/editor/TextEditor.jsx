@@ -900,6 +900,9 @@ import { handleExportPDF, handleExportDOCX, handleExportTXT, docxToHtml, parseDo
 import DocumentCanvas from './ui/DocumentCanvas';
 import PageFlow from './extensions/PageFlow';
 import PageBreak from './extensions/PageBreak';
+import FloatingImage from './extensions/FloatingImage';
+import FloatingTextBox from './extensions/FloatingTextBox';
+import FloatingToolbar from './ui/FloatingToolbar';
 import { cn } from './utils/cn';
 
 export default function TextEditor({
@@ -943,7 +946,12 @@ export default function TextEditor({
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [zoom, setZoom] = useState(100);
+  const [isTemplateActive, setIsTemplateActive] = useState(false);
+  const [activeTemplateId, setActiveTemplateId] = useState(null);
   const [docxBuffer, setDocxBuffer] = useState(null);
+  const [paperKey, setPaperKey] = useState('Letter');
+  const [orientation, setOrientation] = useState('portrait');
+  const [marginKey, setMarginKey] = useState('Normal');
 
   const fileMenuRef = useRef(null);
   const templatesMenuRef = useRef(null);
@@ -952,6 +960,7 @@ export default function TextEditor({
   const templateInputRef = useRef(null);
   const canvasRef = useRef(null);
   const autoSaveTimer = useRef(null);
+  const lastLoadedReportIdRef = useRef(null);
 
   const leftMargin = useEditorStore((state) => state.leftMargin);
   const rightMargin = useEditorStore((state) => state.rightMargin);
@@ -970,8 +979,8 @@ export default function TextEditor({
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Link.configure({ openOnClick: false, autolink: true, defaultProtocol: 'https' }),
       Highlight.configure({ multicolor: true }),
-      Image,
-      ImageResize,
+      FloatingImage,
+      FloatingTextBox,
       Table.configure({ resizable: true }),
       TableCell,
       TableHeader,
@@ -1086,17 +1095,18 @@ export default function TextEditor({
   useEffect(() => {
     if (editor && !editor.isDestroyed && editor.commands.updatePageFlowOptions) {
       editor.commands.updatePageFlowOptions({
-        paperKey: 'Letter',
-        orientation: 'portrait',
-        marginKey: 'Normal',
+        paperKey,
+        orientation,
+        marginKey,
         headerText,
         footerText,
         showHeader,
         showFooter,
+        isTemplateActive,
         onPageChange: handlePageChange,
       });
     }
-  }, [editor, headerText, footerText, showHeader, showFooter, handlePageChange]);
+  }, [editor, paperKey, orientation, marginKey, headerText, footerText, showHeader, showFooter, isTemplateActive, handlePageChange]);
 
   // ── Register editor globally ──
   useEffect(() => {
@@ -1132,64 +1142,68 @@ export default function TextEditor({
       id: 'system-dct-narrative',
       name: 'DCT CES Narrative Report',
       description: 'Official multi-page narrative report template with Dominican College of Tarlac styling',
-      paperKey: 'Letter',
+      paperKey: 'Folio',
       orientation: 'portrait',
-      marginKey: 'Normal',
+      marginKey: 'Narrative',
       showHeader: true,
       showFooter: true,
-      headerText: `<table style="width:100%;border-collapse:collapse;border:none;margin:0;padding:0;font-family:'Times New Roman',serif;table-layout:fixed;"><tbody><tr><td style="width:0.85in;vertical-align:middle;border:none;padding:0;text-align:left;"><img src="${logo2Img}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:0.95in;vertical-align:middle;border:none;padding:0 0 0 0.1in;text-align:left;"><img src="${logoImg}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:4.7in;text-align:left;vertical-align:middle;border:none;padding:0 0 0 0.15in;line-height:1.25;"><div style="font-family:'Book Antiqua','Palatino',serif;font-size:14pt;font-weight:bold;color:#000;margin:0 0 1px 0;">DOMINICAN COLLEGE OF TARLAC, INC.</div><div style="font-family:'Times New Roman',serif;font-size:12pt;color:#030e69;margin:0 0 2px 0;">COMMUNITY EXTENSION SERVICES</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">McArthur Highway, Poblacion (Sto. Rosario), Capas, 2315 Tarlac, Philippines</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">Institutional Contact No.: +63938-918-4093</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">Website: dct.edu.ph | E-mail:</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#030e69;margin:0;text-decoration:underline;">domct_2315@yahoo.com.ph / domct_2315@dct.edu.ph</div></td></tr></tbody></table><hr style="border:none;border-top:2px solid #000;margin:6px 0 0 0;width:100%;" />`,
-      footerText: `<hr style="border:none;border-top:2px solid #000;margin:0 0 4px 0;" /><div style="text-align:center;font-family:Arial,sans-serif;line-height:1.25;"><div style="font-size:8.5px;font-weight:bold;color:#000;letter-spacing:0.5px;font-family:Arial,sans-serif;">FIDES. PATRIA. SAPIENTIA</div><div style="font-size:7.5px;font-style:italic;color:#333;font-family:Arial,sans-serif;">A God-loving educational community with passion for truth and compassion for humanity.</div><div style="font-size:7px;color:#555;font-family:Arial,sans-serif;">Department/Office Facebook Page: www.facebook.com/dctces</div></div>`,
-      html: `<p style="text-align: center;"><br></p>
-<p style="text-align: center;"><br></p>
-<p style="text-align: center;"><br></p>
-<p style="text-align: center;"><br></p>
-<p style="text-align: center;"><br></p>
-<p style="text-align: center;"><br></p>
-<p style="text-align: center;"><span style="font-size: 24px; font-weight: bold; color: #030e69; font-family: Arial, sans-serif;">NARRATIVE REPORT</span></p>
-<p style="text-align: center;"><br></p>
-<p style="text-align: center;"><span style="font-size: 14px; font-weight: bold; font-family: Arial, sans-serif;">(PROGRAM)</span></p>
-<p style="text-align: center;"><span style="font-size: 14px; font-weight: bold; font-family: Arial, sans-serif;">(VENUE)</span></p>
-<p style="text-align: center;"><span style="font-size: 14px; font-weight: bold; font-family: Arial, sans-serif;">(DATE)</span></p>
-<p style="text-align: center;"><br></p>
-<p style="text-align: center;"><br></p>
-<p style="text-align: center;"><br></p>
-<p style="text-align: center;"><br></p>
-<table style="width:100%;border-collapse:collapse;border:1px solid #000;font-family:Arial,sans-serif;background-color:#ffffff !important;">
+      headerText: `<table style="width:100%;border-collapse:collapse;border:none;margin:0;padding:0;font-family:'Times New Roman',serif;table-layout:fixed;"><tbody><tr><td style="width:0.85in;vertical-align:middle;border:none;padding:0;text-align:left;"><img src="${logo2Img}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:1.1in;vertical-align:middle;border:none;padding:0 0.15in 0 0.1in;text-align:left;"><img src="${logoImg}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:4.55in;text-align:left;vertical-align:middle;border:none;border-left:2px solid #555;padding:0 0 0 0.15in;line-height:1.25;"><div style="font-family:'Book Antiqua','Palatino',serif;font-size:14pt;font-weight:bold;color:#000;margin:0 0 1px 0;">DOMINICAN COLLEGE OF TARLAC, INC.</div><div style="font-family:'Times New Roman',serif;font-size:12pt;color:#000;margin:0 0 2px 0;">COMMUNITY EXTENSION SERVICES</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">McArthur Highway, Poblacion (Sto. Rosario), Capas, 2315 Tarlac, Philippines</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">Institutional Contact No.: +63938-918-4093</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0;white-space:nowrap;">Website: dct.edu.ph | E-mail: <span style="color:#030e69;text-decoration:underline;">domct_2315@yahoo.com.ph / domct_2315@dct.edu.ph</span></div></td></tr></tbody></table><hr style="border:none;border-top:3px solid #000;margin:8px 0 0 0;width:110%;" />`,
+      footerText: `<hr style="border:none;border-top:3px solid #000;margin:0 0 8px 0;width:100%;" /><div style="text-align:center;font-family:'Times New Roman',serif;line-height:1.25;color:#000;"><div style="font-size:12pt;font-weight:bold;margin:0 0 2px 0;">FIDES. PATRIA. SAPIENTIA.</div><div style="font-size:10pt;font-style:italic;margin:0 0 2px 0;">A God-loving educational community with passion for truth and compassion for humanity.</div><div style="font-size:10pt;margin:0;">Department/Office Facebook Page: www.facebook.com/dctces</div></div>`,
+      html: `<p style="text-align: left;"><br></p>
+<p style="text-align: left;"><br></p>
+<p style="text-align: left;"><br></p>
+<p style="text-align: left;"><br></p>
+<p style="text-align: center;"><span style="font-size: 28pt; font-weight: bold; color: #030e69; font-family: 'Times New Roman', serif;">NARRATIVE REPORT</span></p>
+<p style="text-align: left;"><br></p>
+<p style="text-align: left;"><br></p>
+<p style="text-align: center;"><span style="font-size: 20pt; font-weight: bold; font-family: 'Times New Roman', serif;">(PROGRAM)</span></p>
+<p style="text-align: center;"><span style="font-size: 20pt; font-weight: bold; font-family: 'Times New Roman', serif;">(VENUE)</span></p>
+<p style="text-align: center;"><span style="font-size: 20pt; font-weight: bold; font-family: 'Times New Roman', serif;">(DATE)</span></p>
+<p style="text-align: left;"><br></p>
+<p style="text-align: left;"><br></p>
+<p style="text-align: left;"><br></p>
+<p style="text-align: left;"><br></p>
+<p style="text-align: left;"><br></p>
+<p style="text-align: left;"><br></p>
+<p style="text-align: left;"><br></p>
+<p style="text-align: left;"><br></p>
+<table style="width:100%;border-collapse:collapse;border:1px solid #000;font-family:'Times New Roman',serif;background-color:#ffffff !important;">
   <tbody>
     <tr>
-      <td style="width:25%;font-weight:bold;border:1px solid #000;padding:10px 12px;font-size:11px;font-family:Arial,sans-serif;vertical-align:top;background-color:#ffffff !important;color:#000;">Program:</td>
-      <td style="width:75%;border:1px solid #000;padding:10px 12px;font-size:11px;font-family:Arial,sans-serif;vertical-align:top;background-color:#ffffff !important;color:#000;"> </td>
+      <td style="width:50%;font-weight:bold;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;">Program:</td>
+      <td style="width:50%;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;"> </td>
     </tr>
     <tr>
-      <td style="font-weight:bold;border:1px solid #000;padding:10px 12px;font-size:11px;font-family:Arial,sans-serif;vertical-align:top;background-color:#ffffff !important;color:#000;">Volunteer/s:</td>
-      <td style="border:1px solid #000;padding:10px 12px;font-size:11px;font-family:Arial,sans-serif;vertical-align:top;background-color:#ffffff !important;color:#000;"> </td>
+      <td style="font-weight:bold;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;">Volunteer/s:</td>
+      <td style="border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;"> </td>
     </tr>
     <tr>
-      <td style="font-weight:bold;border:1px solid #000;padding:10px 12px;font-size:11px;font-family:Arial,sans-serif;vertical-align:top;background-color:#ffffff !important;color:#000;">Venue:</td>
-      <td style="border:1px solid #000;padding:10px 12px;font-size:11px;font-family:Arial,sans-serif;vertical-align:top;background-color:#ffffff !important;color:#000;"> </td>
+      <td style="font-weight:bold;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;">Venue:</td>
+      <td style="border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;"> </td>
     </tr>
     <tr>
-      <td style="font-weight:bold;border:1px solid #000;padding:10px 12px;font-size:11px;font-family:Arial,sans-serif;vertical-align:top;background-color:#ffffff !important;color:#000;">Beneficiaries:</td>
-      <td style="border:1px solid #000;padding:10px 12px;font-size:11px;font-family:Arial,sans-serif;vertical-align:top;background-color:#ffffff !important;color:#000;"> </td>
+      <td style="font-weight:bold;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;">Beneficiaries:</td>
+      <td style="border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;"> </td>
     </tr>
   </tbody>
 </table>
 <div class="page-break" data-page-break="true"></div>
-<p style="text-align: left;"><span style="font-size: 11px; font-weight: bold; font-family: Arial, sans-serif;">OBJECTIVES</span></p>
-<p style="text-align: center;"><br></p>
-<p style="text-align: center;"><span style="font-size: 13px; font-weight: bold; font-family: Arial, sans-serif;">NARRATIVE REPORT</span></p>
-<p style="text-align: center;"><br></p>
-<p style="text-align: center;"><br></p>
-<p style="text-align: center;"><br></p>
-<p style="text-align: center;"><br></p>
-<p style="text-align: left;"><span style="font-size: 11px; font-weight: bold; font-style: italic; font-family: Arial, sans-serif;">Reflections:</span></p>
+<p style="text-align: left;"><span style="font-size: 16pt; font-weight: bold; font-family: 'Times New Roman', serif;">OBJECTIVES</span></p>
+<p style="text-align: left;"><br></p>
+<p style="text-align: center;"><span style="font-size: 16pt; font-weight: bold; font-family: 'Times New Roman', serif;">NARRATIVE REPORT</span></p>
+<p style="text-align: left;"><br></p>
+<p style="text-align: left;"><br></p>
+<p style="text-align: left;"><br></p>
+<p style="text-align: left;"><br></p>
+<p style="text-align: left;"><span style="font-size: 16pt; font-weight: bold; font-style: italic; font-family: 'Times New Roman', serif;">Reflections:</span></p>
 <div class="page-break" data-page-break="true"></div>
-<p style="text-align: left;"><span style="font-size: 11px; font-weight: bold; font-family: Arial, sans-serif;">DOCUMENTATION:</span></p>
-<p style="text-align: center;"><br></p>
-<p style="text-align: center;"><br></p>
-<p style="text-align: center;"><span style="font-size: 11px; font-weight: bold; color: #000; font-family: Arial, sans-serif;">(Photos taken on event to be attached.)</span></p>
+<p style="text-align: left;"><span style="font-size: 16pt; font-weight: bold; font-family: 'Times New Roman', serif;">DOCUMENTATION:</span></p>
+<p style="text-align: left;"><br></p>
+<p style="text-align: left;"><br></p>
+<p style="text-align: center;"><span style="font-size: 14pt; font-weight: bold; color: #000; font-family: 'Times New Roman', serif;">(Photos taken on event to be attached.)</span></p>
+<p style="text-align: left;"><br></p>
 <div class="page-break" data-page-break="true"></div>
-<p style="text-align: left;"><span style="font-size: 11px; font-family: Arial, sans-serif;"> </span></p>`
+<p style="text-align: left;"><span style="font-size: 12pt; font-family: 'Times New Roman', serif;"> </span></p>`
     }
   ];
 
@@ -1200,6 +1214,11 @@ export default function TextEditor({
       editor.setEditable(true);
       editor.commands.setContent(tpl.html || '<p></p>');
       editor.chain().focus('start').run();
+
+      // Mark whether this is a built-in system template
+      const isSystem = !!(tpl.id && tpl.id.startsWith('system-'));
+      setIsTemplateActive(isSystem);
+      setActiveTemplateId(isSystem ? tpl.id : null);
 
       if (tpl.headerText !== undefined && tpl.headerText) {
         setHeaderText(tpl.headerText);
@@ -1219,6 +1238,24 @@ export default function TextEditor({
         footerEditor?.commands.setContent('<p></p>');
       }
 
+      const pKey = tpl.paperKey || 'Letter';
+      const orient = tpl.orientation || 'portrait';
+      const mKey = tpl.marginKey || 'Normal';
+      setPaperKey(pKey);
+      setOrientation(orient);
+      setMarginKey(mKey);
+
+      editor.commands.updatePageFlowOptions({
+        paperKey: pKey,
+        orientation: orient,
+        marginKey: mKey,
+        showHeader: tpl.showHeader !== undefined ? tpl.showHeader : true,
+        showFooter: tpl.showFooter !== undefined ? tpl.showFooter : true,
+        headerText: tpl.headerText || '',
+        footerText: tpl.footerText || '',
+        isTemplateActive: isSystem,
+      });
+
       if (setWorkspaceReportTitle) {
         setWorkspaceReportTitle(tpl.name || 'Untitled');
       }
@@ -1229,7 +1266,7 @@ export default function TextEditor({
       setActiveEditingArea('body');
     }
     setShowTemplatesMenu(false);
-  }, [editor, headerEditor, footerEditor, setWorkspaceIsReadOnly, setWorkspaceReportTitle, setWorkspaceReportId]);
+  }, [editor, headerEditor, footerEditor, setWorkspaceIsReadOnly, setWorkspaceReportTitle, setWorkspaceReportId, setPaperKey, setOrientation, setMarginKey, setIsTemplateActive, setActiveTemplateId]);
 
   // ── Load Default Template on mount for new docs ──
   useEffect(() => {
@@ -1239,7 +1276,7 @@ export default function TextEditor({
         const saved = localStorage.getItem('dommunity_doc_templates');
         let tpls = [];
         if (saved) {
-          try { tpls = JSON.parse(saved); } catch (e) {}
+          try { tpls = JSON.parse(saved); } catch (e) { }
         }
         const found = tpls.find(x => x.id === defId);
         if (found) {
@@ -1248,6 +1285,42 @@ export default function TextEditor({
       }
     }
   }, [editor, workspaceReportId, handleSelectTemplate]);
+
+  // ── Load Report Layout configurations when workspaceReportId changes ──
+  useEffect(() => {
+    if (workspaceReportId && reportsList) {
+      if (lastLoadedReportIdRef.current !== workspaceReportId) {
+        const rep = reportsList.find((r) => r.id === workspaceReportId);
+        if (rep) {
+          const defaultHeader = `<table style="width:100%;border-collapse:collapse;border:none;margin:0;padding:0;font-family:'Times New Roman',serif;table-layout:fixed;"><tbody><tr><td style="width:0.85in;vertical-align:middle;border:none;padding:0;text-align:left;"><img src="${logo2Img}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:1.1in;vertical-align:middle;border:none;padding:0 0.15in 0 0.1in;text-align:left;"><img src="${logoImg}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:4.55in;text-align:left;vertical-align:middle;border:none;border-left:2px solid #555;padding:0 0 0 0.15in;line-height:1.25;"><div style="font-family:'Book Antiqua','Palatino',serif;font-size:14pt;font-weight:bold;color:#000;margin:0 0 1px 0;">DOMINICAN COLLEGE OF TARLAC, INC.</div><div style="font-family:'Times New Roman',serif;font-size:12pt;color:#000;margin:0 0 2px 0;">COMMUNITY EXTENSION SERVICES</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">McArthur Highway, Poblacion (Sto. Rosario), Capas, 2315 Tarlac, Philippines</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">Institutional Contact No.: +63938-918-4093</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0;white-space:nowrap;">Website: dct.edu.ph | E-mail: <span style="color:#030e69;text-decoration:underline;">domct_2315@yahoo.com.ph / domct_2315@dct.edu.ph</span></div></td></tr></tbody></table><hr style="border:none;border-top:3px solid #000;margin:8px 0 0 0;width:110%;" />`;
+          const defaultFooter = `<hr style="border:none;border-top:3px solid #000;margin:0 0 8px 0;width:100%;" /><div style="text-align:center;font-family:'Times New Roman',serif;line-height:1.25;color:#000;"><div style="font-size:12pt;font-weight:bold;margin:0 0 2px 0;">FIDES. PATRIA. SAPIENTIA.</div><div style="font-size:10pt;font-style:italic;margin:0 0 2px 0;">A God-loving educational community with passion for truth and compassion for humanity.</div><div style="font-size:10pt;margin:0;">Department/Office Facebook Page: www.facebook.com/dctces</div></div>`;
+
+          const headerVal = rep.headerText !== undefined ? rep.headerText : defaultHeader;
+          const footerVal = rep.footerText !== undefined ? rep.footerText : defaultFooter;
+          const showHeaderVal = rep.showHeader !== undefined ? rep.showHeader : true;
+          const showFooterVal = rep.showFooter !== undefined ? rep.showFooter : true;
+          const paperKeyVal = rep.paperKey || 'Folio';
+          const orientationVal = rep.orientation || 'portrait';
+          const marginKeyVal = rep.marginKey || 'Narrative';
+          const isTemplateActiveVal = rep.isTemplateActive !== undefined ? rep.isTemplateActive : true;
+
+          setHeaderText(headerVal);
+          headerEditor?.commands.setContent(headerVal || '<p></p>');
+          setFooterText(footerVal);
+          footerEditor?.commands.setContent(footerVal || '<p></p>');
+          setShowHeader(showHeaderVal);
+          setShowFooter(showFooterVal);
+          setPaperKey(paperKeyVal);
+          setOrientation(orientationVal);
+          setMarginKey(marginKeyVal);
+          setIsTemplateActive(isTemplateActiveVal);
+          lastLoadedReportIdRef.current = workspaceReportId;
+        }
+      }
+    } else if (!workspaceReportId) {
+      lastLoadedReportIdRef.current = null;
+    }
+  }, [workspaceReportId, reportsList, headerEditor, footerEditor]);
 
   // ── Save current document as a template ──
   const handleSaveAsTemplate = useCallback(() => {
@@ -1442,15 +1515,15 @@ export default function TextEditor({
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
           const textContent = await page.getTextContent();
-          
+
           // Reconstruct lines by grouping text items vertically
           let lastY = null;
           let lineText = '';
-          
+
           for (const item of textContent.items) {
             const y = item.transform[5];
             const fontSize = Math.round(Math.abs(item.transform[3]));
-            
+
             let itemStr = item.str;
             if (item.fontName) {
               const fnLower = item.fontName.toLowerCase();
@@ -1461,7 +1534,7 @@ export default function TextEditor({
                 itemStr = `<em>${itemStr}</em>`;
               }
             }
-            
+
             const styledItem = fontSize && fontSize !== 16
               ? `<span style="font-size: ${fontSize}px;">${itemStr}</span>`
               : itemStr;
@@ -1480,7 +1553,7 @@ export default function TextEditor({
             html += `<p>${lineText}</p>`;
           }
         }
-        
+
         if (editor) {
           if (setWorkspaceIsReadOnly) setWorkspaceIsReadOnly(false);
           editor.setEditable(true);
@@ -1523,8 +1596,17 @@ export default function TextEditor({
       if (!silent) alert('Please write some content before saving.');
       return;
     }
-    await onSave(status, html, silent);
-  }, [editor, onSave]);
+    await onSave(status, html, silent, {
+      headerText,
+      footerText,
+      showHeader,
+      showFooter,
+      paperKey,
+      orientation,
+      marginKey,
+      isTemplateActive
+    });
+  }, [editor, onSave, headerText, footerText, showHeader, showFooter, paperKey, orientation, marginKey, isTemplateActive]);
 
   // ── AutoSave ──
   useEffect(() => {
@@ -1558,7 +1640,146 @@ export default function TextEditor({
 
   // ── File menu actions ──
   const fileMenuItems = [
-    { icon: Plus, l: 'New Blank Document', fn: () => { if (editor) { onResetForm(editor); setActiveEditingArea('body'); } } },
+    {
+      icon: Plus,
+      l: 'New Blank Document',
+      fn: () => {
+        if (editor) {
+          // Helper to calculate insert position at the end of current page
+          const getInsertPositionForBlankPage = () => {
+            const { doc, selection } = editor.state;
+            const cursorFrom = selection.from;
+
+            // Paper configurations
+            const PAPER = {
+              Letter:    { w: 816,  h: 1056 },
+              Folio:     { w: 816,  h: 1248 },
+              Legal:     { w: 816,  h: 1344 },
+              A4:        { w: 794,  h: 1122 },
+            };
+
+            const MARGINS = {
+              Normal:    96,
+              Narrow:    48,
+              Moderate:  72,
+              Wide:      128,
+              Narrative: { top: 96, bottom: 96, left: 144, right: 96 },
+            };
+
+            const getMargins = (key) => {
+              const preset = MARGINS[key] || MARGINS.Normal;
+              if (typeof preset === 'number') {
+                return { top: preset, bottom: preset, left: preset, right: preset };
+              }
+              return preset;
+            };
+
+            const getScale = (el) => {
+              let parent = el;
+              while (parent) {
+                if (parent.style.transform && parent.style.transform.includes('scale')) {
+                  const match = parent.style.transform.match(/scale\(([^)]+)\)/);
+                  if (match) return parseFloat(match[1]) || 1;
+                }
+                parent = parent.parentElement;
+              }
+              return 1;
+            };
+
+            const paper = PAPER[paperKey] || PAPER.A4;
+            const pageHeight = orientation === 'landscape' ? paper.w : paper.h;
+            const margins = getMargins(marginKey);
+            const padTopActual = (showHeader && isTemplateActive) ? 170 : margins.top;
+            const usableHeight = pageHeight - (padTopActual + margins.bottom);
+
+            let runningHeight = 0;
+            let pageNum = 1;
+            let cursorPage = 1;
+            const nodePages = [];
+            const scale = getScale(editor.view.dom);
+
+            doc.forEach((node, offset) => {
+              const dom = editor.view.nodeDOM(offset);
+              let height = 0;
+              let marginTop = 0;
+              let marginBottom = 0;
+
+              if (dom && dom.nodeType === 1) {
+                const style = window.getComputedStyle(dom);
+                marginTop = parseFloat(style.marginTop) || 0;
+                marginBottom = parseFloat(style.marginBottom) || 0;
+                const rect = dom.getBoundingClientRect();
+                height = (rect.height / scale) + marginTop + marginBottom;
+              } else {
+                if (node.type.name === 'heading') {
+                  height = node.attrs.level === 1 ? 40 : 30;
+                } else if (node.type.name === 'paragraph') {
+                  height = 20;
+                } else if (node.type.name === 'table') {
+                  height = 120;
+                } else if (node.type.name === 'pageBreak') {
+                  height = 1;
+                } else {
+                  height = 20;
+                }
+              }
+
+              const forceBreak = node.type.name === 'pageBreak' || (dom && dom.nodeType === 1 && (
+                dom.classList.contains('page-break') || 
+                dom.querySelector('.page-break') !== null ||
+                window.getComputedStyle(dom).pageBreakBefore === 'always' || 
+                window.getComputedStyle(dom).breakBefore === 'page' ||
+                dom.getAttribute('data-page-break') === 'true'
+              ));
+
+              if ((runningHeight + height > usableHeight || forceBreak) && runningHeight > 0) {
+                pageNum++;
+                const isBreakElementEmpty = (node.type.name === 'pageBreak' || (dom && dom.nodeType === 1 && dom.classList.contains('page-break'))) && height < 10;
+                runningHeight = isBreakElementEmpty ? 0 : height;
+              } else {
+                runningHeight += height;
+              }
+
+              nodePages.push({ start: offset, end: offset + node.nodeSize, page: pageNum });
+              if (offset <= cursorFrom) {
+                cursorPage = pageNum;
+              }
+            });
+
+            const currentNodes = nodePages.filter(n => n.page === cursorPage);
+            if (currentNodes.length > 0) {
+              return currentNodes[currentNodes.length - 1].end;
+            }
+            return cursorFrom;
+          };
+
+          const insertPos = getInsertPositionForBlankPage();
+          const isAtEnd = (insertPos >= editor.state.doc.content.size - 2);
+
+          if (isAtEnd) {
+            editor.chain()
+              .focus()
+              .insertContentAt(insertPos, [
+                { type: 'pageBreak' },
+                { type: 'paragraph' }
+              ])
+              .setTextSelection(insertPos + 2)
+              .run();
+          } else {
+            editor.chain()
+              .focus()
+              .insertContentAt(insertPos, [
+                { type: 'pageBreak' },
+                { type: 'paragraph' },
+                { type: 'pageBreak' }
+              ])
+              .setTextSelection(insertPos + 2)
+              .run();
+          }
+          setActiveEditingArea('body');
+        }
+      }
+    },
     { icon: FolderOpen, l: 'Open .docx…', fn: () => docxInputRef.current?.click() },
     { icon: FolderOpen, l: 'Open .pdf…', fn: () => pdfInputRef.current?.click() },
     null,
@@ -1719,7 +1940,7 @@ export default function TextEditor({
         </div>
 
         <div className="h-4 w-px bg-neutral-300 mx-1" />
-        
+
         {/* Zoom Controls */}
         <div className="flex items-center gap-1 bg-neutral-200/60 rounded px-1.5 py-0.5">
           <button
@@ -1750,9 +1971,9 @@ export default function TextEditor({
         <DocumentCanvas
           editor={editor}
           canvasRef={canvasRef}
-          paperKey="Letter"
-          orientation="portrait"
-          marginKey="Normal"
+          paperKey={paperKey}
+          orientation={orientation}
+          marginKey={marginKey}
           zoom={zoom}
           lineSpacing="1.5"
           columns={1}
@@ -1766,6 +1987,7 @@ export default function TextEditor({
           footerText={footerText}
           setFooterText={setFooterText}
           workspaceIsReadOnly={workspaceIsReadOnly}
+          isTemplateActive={isTemplateActive}
           totalPages={totalPages}
           activeEditingArea={activeEditingArea}
           setActiveEditingArea={setActiveEditingArea}
@@ -1784,9 +2006,9 @@ export default function TextEditor({
       <StatusBar
         wordCount={wordCount}
         charCount={charCount}
-        paperKey="Letter"
-        orientation="portrait"
-        marginKey="Normal"
+        paperKey={paperKey}
+        orientation={orientation}
+        marginKey={marginKey}
         zoom={zoom}
         setZoom={setZoom}
         loading={loading}
@@ -1840,6 +2062,7 @@ export default function TextEditor({
         onChange={handleOpenLocalPdf}
       />
 
+      <FloatingToolbar editor={editor} />
     </div>
   );
 }

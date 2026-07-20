@@ -20,6 +20,8 @@ import Placeholder from '@tiptap/extension-placeholder';
 import FontSize from './FontSize';
 import PageFlow from './PageFlow';
 import PageBreak from './PageBreak';
+import FloatingImage from './FloatingImage';
+import FloatingTextBox from './FloatingTextBox';
 
 /**
  * Returns the full array of TipTap extensions for the document editor.
@@ -36,12 +38,8 @@ export function getEditorExtensions() {
     Color.configure({ types: ['textStyle'] }),
     FontSize,
     Highlight.configure({ multicolor: true }),
-    TiptapImage.configure({
-      inline: false,
-      allowBase64: true,
-      acceptMimes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
-      multiple: false,
-    }),
+    FloatingImage,
+    FloatingTextBox,
     Table.configure({ resizable: true }),
     TableRow,
     TableCell,

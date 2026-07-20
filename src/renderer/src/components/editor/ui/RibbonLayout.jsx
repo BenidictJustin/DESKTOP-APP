@@ -134,7 +134,7 @@ export default function RibbonLayout({
 
       {/* ── Page Break ── */}
       <RGroup label="Breaks">
-        <RBtn title="Insert Page Break" onClick={() => editor?.chain().focus().setHorizontalRule().run()} className="px-2 text-[10px]">
+        <RBtn title="Insert Page Break" onClick={() => editor?.chain().focus().insertContent({ type: 'pageBreak' }).insertContent('<p></p>').run()} className="px-2 text-[10px]">
           Page Break
         </RBtn>
       </RGroup>

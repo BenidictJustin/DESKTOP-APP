@@ -18,6 +18,7 @@ export default function DocumentCanvas({
   showHeader, headerText, setHeaderText,
   showFooter, footerText, setFooterText,
   workspaceIsReadOnly,
+  isTemplateActive = false,
   trackChanges,
   totalPages = 1,
   hasBeenEdited = false,
@@ -35,7 +36,20 @@ export default function DocumentCanvas({
   const paper = PAPER[paperKey] || PAPER.Letter;
   const docW = orientation === "landscape" ? paper.h : paper.w;
   const docH = orientation === "landscape" ? paper.w : paper.h;
-  const pad = MARGINS[marginKey] || 96;
+  
+  const getMargins = (key) => {
+    const preset = MARGINS[key] || MARGINS.Normal;
+    if (typeof preset === 'number') {
+      return { top: preset, bottom: preset, left: preset, right: preset };
+    }
+    return preset;
+  };
+  const margins = getMargins(marginKey);
+  const padTop = margins.top;
+  const padBottom = margins.bottom;
+  const padLeft = margins.left;
+  const padRight = margins.right;
+  const padTopActual = (showHeader && isTemplateActive) ? 170 : padTop;
   const gapH = 36; // Constant page gap height (matching visual page breaks)
 
   // Strictly bound layout height by physical pages count
@@ -217,10 +231,10 @@ export default function DocumentCanvas({
               className="bg-linear-to-b from-gray-50 to-gray-100 border border-gray-300 h-5 flex items-center relative select-none shrink-0"
               style={{ width: docW, marginBottom: "2px" }}
             >
-              <div className="absolute left-0 h-full bg-gray-200/80 border-r border-gray-300" style={{ width: pad }} />
-              <div className="absolute right-0 h-full bg-gray-200/80 border-l border-gray-300" style={{ width: pad }} />
+              <div className="absolute left-0 h-full bg-gray-200/80 border-r border-gray-300" style={{ width: padLeft }} />
+              <div className="absolute right-0 h-full bg-gray-200/80 border-l border-gray-300" style={{ width: padRight }} />
               {Array.from({ length: 8 }, (_, i) => (
-                <div key={i} className="absolute flex flex-col items-center" style={{ left: pad + i * ((docW - 2 * pad) / 7) }}>
+                <div key={i} className="absolute flex flex-col items-center" style={{ left: padLeft + i * ((docW - (padLeft + padRight)) / 7) }}>
                   <div className="h-2 w-px bg-gray-400" />
                   <span className="text-[7px] text-gray-500">{i === 0 ? "" : `${i}"`}</span>
                 </div>
@@ -248,7 +262,7 @@ export default function DocumentCanvas({
                     {/* Double-click zone to trigger Header Edit */}
                     <div
                       className="absolute top-0 left-0 right-0 cursor-text z-40 hover:bg-blue-50/20 transition"
-                      style={{ height: `${pad}px` }}
+                      style={{ height: `${padTopActual}px` }}
                       onDoubleClick={() => {
                         if (!workspaceIsReadOnly) {
                           setEditingPage(pageNum);
@@ -261,7 +275,7 @@ export default function DocumentCanvas({
                     {/* Double-click zone to trigger Footer Edit */}
                     <div
                       className="absolute bottom-0 left-0 right-0 cursor-text z-40 hover:bg-blue-50/20 transition"
-                      style={{ height: `${pad}px` }}
+                      style={{ height: `${padBottom}px` }}
                       onDoubleClick={() => {
                         if (!workspaceIsReadOnly) {
                           setEditingPage(pageNum);
@@ -276,9 +290,9 @@ export default function DocumentCanvas({
                       <div
                         className="absolute left-0 right-0 z-50"
                         style={{
-                          top: "12px",
-                          paddingLeft: pad,
-                          paddingRight: pad,
+                          top: "48px",
+                          paddingLeft: 96,
+                          paddingRight: 96,
                           boxSizing: "border-box",
                         }}
                       >
@@ -304,9 +318,10 @@ export default function DocumentCanvas({
                       <div
                         className="absolute left-0 right-0 z-50"
                         style={{
-                          bottom: "12px",
-                          paddingLeft: pad,
-                          paddingRight: pad,
+                          bottom: "0px",
+                          paddingLeft: 96,
+                          paddingRight: 96,
+                          paddingBottom: "24px",
                           boxSizing: "border-box",
                         }}
                       >
@@ -354,10 +369,10 @@ export default function DocumentCanvas({
               style={{
                 width: docW,
                 minHeight: canvasHeight,
-                paddingTop: pad,
-                paddingBottom: pad,
-                paddingLeft: pad,
-                paddingRight: pad,
+                paddingTop: padTopActual,
+                paddingBottom: padBottom,
+                paddingLeft: padLeft,
+                paddingRight: padRight,
                 cursor: activeEditingArea === "body" ? "text" : "pointer",
                 background: "transparent",
                 boxSizing: "border-box",
@@ -394,12 +409,12 @@ export default function DocumentCanvas({
                     overflow: visible !important;
                   }
                   .reactjs-tiptap-editor .ProseMirror.ProseMirror.ProseMirror {
-                    min-height: ${docH - pad * 2}px !important;
+                    min-height: ${docH - (padTopActual + padBottom)}px !important;
                     column-count: ${columns};
                     column-gap: 32px;
                   }
                  .doc-page .ProseMirror {
-                   min-height: ${docH - pad * 2}px;
+                   min-height: ${docH - (padTopActual + padBottom)}px;
                    column-count: ${columns};
                    column-gap: 32px;
                  }

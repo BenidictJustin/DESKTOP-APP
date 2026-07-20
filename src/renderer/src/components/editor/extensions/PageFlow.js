@@ -6,16 +6,18 @@ const pageFlowKey = new PluginKey('pageFlow');
 
 // Paper configurations (matches constants)
 const PAPER = {
-  A4:     { w: 816,  h: 1056 },
-  Letter: { w: 850,  h: 1100 },
-  Legal:  { w: 850,  h: 1400 },
+  Letter:    { w: 816,  h: 1056 },
+  Folio:     { w: 816,  h: 1248 },
+  Legal:     { w: 816,  h: 1344 },
+  A4:        { w: 794,  h: 1122 },
 };
 
 const MARGINS = {
-  Normal:   96,
-  Narrow:   48,
-  Moderate: 72,
-  Wide:     128,
+  Normal:    96,
+  Narrow:    48,
+  Moderate:  72,
+  Wide:      128,
+  Narrative: { top: 96, bottom: 96, left: 144, right: 96 },
 };
 
 export const PageFlow = Extension.create({
@@ -30,6 +32,7 @@ export const PageFlow = Extension.create({
       footerText: '',
       showHeader: false,
       showFooter: false,
+      isTemplateActive: false,
       onPageChange: null,
     };
   },
@@ -44,6 +47,7 @@ export const PageFlow = Extension.create({
         footerText: '',
         showHeader: false,
         showFooter: false,
+        isTemplateActive: false,
         onPageChange: null,
       }
     };
@@ -109,6 +113,7 @@ export const PageFlow = Extension.create({
               footerText: extension.storage.options.footerText,
               showHeader: extension.storage.options.showHeader,
               showFooter: extension.storage.options.showFooter,
+              isTemplateActive: extension.storage.options.isTemplateActive,
             });
             const cursorFrom = editorView.state.selection?.from || 0;
             const callbackChanged = lastCallback !== extension.storage.options.onPageChange;
@@ -133,8 +138,16 @@ export const PageFlow = Extension.create({
             const options = extension.storage.options;
             const paper = PAPER[options.paperKey] || PAPER.A4;
             const pageHeight = options.orientation === 'landscape' ? paper.w : paper.h;
-            const margin = MARGINS[options.marginKey] || 96;
-            const usableHeight = pageHeight - margin * 2;
+            const getMargins = (key) => {
+              const preset = MARGINS[key] || MARGINS.Normal;
+              if (typeof preset === 'number') {
+                return { top: preset, bottom: preset, left: preset, right: preset };
+              }
+              return preset;
+            };
+            const margins = getMargins(options.marginKey);
+            const padTopActual = (options.showHeader && options.isTemplateActive) ? 170 : margins.top;
+            const usableHeight = pageHeight - (padTopActual + margins.bottom);
 
             const decorations = [];
             let runningHeight = 0;
@@ -203,13 +216,13 @@ export const PageFlow = Extension.create({
 
                  widgetEl.innerHTML = `
                    <!-- Page N Bottom Margin Area (covers bottom margin, transparent) -->
-                   <div style="height: ${remainingSpace + margin}px; box-sizing: border-box;"></div>
+                   <div style="height: ${remainingSpace + margins.bottom}px; box-sizing: border-box;"></div>
 
                    <!-- Visual page break gap (transparent, lets gray workspace background show through) -->
                    <div style="height: 36px; box-sizing: border-box;"></div>
 
                    <!-- Page N+1 Top Margin Area (covers top margin, transparent) -->
-                   <div style="height: ${margin}px; box-sizing: border-box;"></div>
+                   <div style="height: ${padTopActual}px; box-sizing: border-box;"></div>
                  `;
 
                  decorations.push(Decoration.widget(offset, widgetEl, {

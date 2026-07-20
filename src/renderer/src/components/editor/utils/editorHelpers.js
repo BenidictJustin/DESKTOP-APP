@@ -81,11 +81,20 @@ export function insertSmartArt(editor) {
 /** Insert a text box with border. */
 export function insertTextBox(editor) {
   if (!editor) return;
-  editor.chain().focus().insertContent(`
-    <div style="border: 2px solid #d1d5db; border-radius: 6px; padding: 16px; margin: 12px 0; min-height: 60px; background: #fafafa;">
-      <p>Type your text here…</p>
-    </div>
-  `).run();
+  editor.chain().focus().insertContent({
+    type: 'floatingTextBox',
+    content: [
+      {
+        type: 'paragraph',
+        content: [
+          {
+            type: 'text',
+            text: 'Type your text here…'
+          }
+        ]
+      }
+    ]
+  }).run();
 }
 
 /** Insert a hyperlink via prompt. */
@@ -106,7 +115,12 @@ export function handleInsertImage(editor, e) {
   const file = e.target.files?.[0];
   if (!file || !editor) return;
   const reader = new FileReader();
-  reader.onload = () => editor.chain().focus().setImage({ src: reader.result }).run();
+  reader.onload = () => {
+    editor.chain().focus().insertContent({
+      type: 'floatingImage',
+      attrs: { src: reader.result }
+    }).run();
+  };
   reader.readAsDataURL(file);
   e.target.value = '';
 }

@@ -141,7 +141,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
   // ── Save/Submit handler ──
   const handleSave = useCallback(
-    async (status, html, silent = false) => {
+    async (status, html, silent = false, layoutOptions = {}) => {
       if (!html || html === '<p></p>') {
         if (!silent) alert('Please write some content before saving.')
         return
@@ -179,7 +179,15 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           authorId: user.uid,
           authorName: user.name,
           authorEmail: user.email,
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
+          headerText: layoutOptions.headerText || '',
+          footerText: layoutOptions.footerText || '',
+          showHeader: layoutOptions.showHeader !== undefined ? layoutOptions.showHeader : true,
+          showFooter: layoutOptions.showFooter !== undefined ? layoutOptions.showFooter : true,
+          paperKey: layoutOptions.paperKey || 'Letter',
+          orientation: layoutOptions.orientation || 'portrait',
+          marginKey: layoutOptions.marginKey || 'Normal',
+          isTemplateActive: layoutOptions.isTemplateActive !== undefined ? layoutOptions.isTemplateActive : true
         }
 
         if (workspaceReportId) {

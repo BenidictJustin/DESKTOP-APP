@@ -155,7 +155,7 @@ export default function RibbonInsert({
         <RBtn title="Page Number" onClick={() => insertPageNumber(editor)}>
           <span className="text-[10px] font-bold">#</span>
         </RBtn>
-        <RBtn title="Page Break / Horizontal Rule" onClick={() => editor?.chain().focus().setHorizontalRule().run()}>
+        <RBtn title="Insert Page Break" onClick={() => editor?.chain().focus().insertContent({ type: 'pageBreak' }).insertContent('<p></p>').run()}>
           <Minus className="w-3.5 h-3.5" />
         </RBtn>
       </RGroup>

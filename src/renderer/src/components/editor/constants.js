@@ -48,6 +48,7 @@ export const LINE_SPACINGS = [
 // Paper sizes in px at 96dpi
 export const PAPER = {
   Letter:    { w: 816,  h: 1056, label: '8.5" × 11"', name: 'Letter' },
+  Folio:     { w: 816,  h: 1248, label: '8.5" × 13"', name: 'Folio (8.5" × 13")' },
   Legal:     { w: 816,  h: 1344, label: '8.5" × 14"', name: 'Legal' },
   Tabloid:   { w: 1056, h: 1632, label: '11" × 17"', name: 'Tabloid' },
   Statement: { w: 528,  h: 816,  label: '5.5" × 8.5"', name: 'Statement' },
@@ -60,10 +61,11 @@ export const PAPER = {
 };
 
 export const MARGINS = {
-  Normal:   96,
-  Narrow:   48,
-  Moderate: 72,
-  Wide:     128,
+  Normal:    96,
+  Narrow:    48,
+  Moderate:  72,
+  Wide:      128,
+  Narrative: { top: 96, bottom: 96, left: 144, right: 96 },
 };
 
 export const HEADING_OPTIONS = [

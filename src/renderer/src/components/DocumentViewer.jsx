@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import {
   ChevronLeft,
   ChevronRight,
@@ -22,6 +22,48 @@ import {
   FileText
 } from 'lucide-react'
 import logo from '../assets/logo.png'
+import logo2Img from '../assets/logo2.png'
+
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import Underline from '@tiptap/extension-underline'
+import { Image } from '@tiptap/extension-image'
+import { Table } from '@tiptap/extension-table'
+import { TableCell } from '@tiptap/extension-table-cell'
+import { TableHeader } from '@tiptap/extension-table-header'
+import { TableRow } from '@tiptap/extension-table-row'
+import { TaskItem } from '@tiptap/extension-task-item'
+import { TaskList } from '@tiptap/extension-task-list'
+import TextAlign from '@tiptap/extension-text-align'
+import Link from '@tiptap/extension-link'
+import { Color } from '@tiptap/extension-color'
+import Highlight from '@tiptap/extension-highlight'
+import { FontFamily } from '@tiptap/extension-font-family'
+import { TextStyle } from '@tiptap/extension-text-style'
+import ImageResize from 'tiptap-extension-resize-image'
+
+import { FontSizeExtension } from './editor/extensions/fontSize'
+import { LineHeightExtension } from './editor/extensions/lineHeight'
+import PageFlow from './editor/extensions/PageFlow'
+import PageBreak from './editor/extensions/PageBreak'
+import FloatingImage from './editor/extensions/FloatingImage'
+import FloatingTextBox from './editor/extensions/FloatingTextBox'
+
+const PAPER = {
+  Letter:    { w: 816,  h: 1056 },
+  Folio:     { w: 816,  h: 1248 },
+  Legal:     { w: 816,  h: 1344 },
+  A4:        { w: 794,  h: 1122 },
+}
+
+const MARGINS = {
+  Normal:    96,
+  Narrow:    48,
+  Moderate:  72,
+  Wide:      128,
+  Narrative: { top: 96, bottom: 96, left: 144, right: 96 },
+}
+
 
 export default function DocumentViewer({
   report,
@@ -40,6 +82,7 @@ export default function DocumentViewer({
   const [currentPageNum, setCurrentPageNum] = useState(1)
   const [zoomScale, setZoomScale] = useState(1.0)
   const [viewMode, setViewMode] = useState('select') // 'select' or 'pan'
+  const [narrativeTotalPages, setNarrativeTotalPages] = useState(1)
   
   // Panning State
   const [isPanning, setIsPanning] = useState(false)
@@ -52,7 +95,7 @@ export default function DocumentViewer({
   const org = orgsList.find((o) => o.id === report.organizationId)
   const author = usersList.find((u) => u.uid === report.authorId)
 
-  // Parse HTML into paginated blocks without breaking tags
+  // Parse HTML into paginated blocks without breaking tags (used for sidebar thumbnails)
   const parseNarrativePages = (htmlString) => {
     if (!htmlString) return []
     const tempDiv = document.createElement('div')
@@ -66,9 +109,6 @@ export default function DocumentViewer({
     const pages = []
     let currentPageHtml = ''
     let currentPageTextLength = 0
-    
-    // Page 1 has header and metadata block, so space is limited. Limit to ~1000 characters.
-    // Subsequent pages have more space. Limit to ~1600 characters.
     let maxChars = 1000
     
     children.forEach((child) => {
@@ -93,36 +133,124 @@ export default function DocumentViewer({
     return pages
   }
 
-  // Pre-generate pages
+  // Layout settings with fallbacks
+  const defaultHeader = `<table style="width:100%;border-collapse:collapse;border:none;margin:0;padding:0;font-family:'Times New Roman',serif;table-layout:fixed;"><tbody><tr><td style="width:0.85in;vertical-align:middle;border:none;padding:0;text-align:left;"><img src="${logo2Img}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:1.1in;vertical-align:middle;border:none;padding:0 0.15in 0 0.1in;text-align:left;"><img src="${logo}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:4.55in;text-align:left;vertical-align:middle;border:none;border-left:2px solid #555;padding:0 0 0 0.15in;line-height:1.25;"><div style="font-family:'Book Antiqua','Palatino',serif;font-size:14pt;font-weight:bold;color:#000;margin:0 0 1px 0;">DOMINICAN COLLEGE OF TARLAC, INC.</div><div style="font-family:'Times New Roman',serif;font-size:12pt;color:#000;margin:0 0 2px 0;">COMMUNITY EXTENSION SERVICES</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">McArthur Highway, Poblacion (Sto. Rosario), Capas, 2315 Tarlac, Philippines</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">Institutional Contact No.: +63938-918-4093</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0;white-space:nowrap;">Website: dct.edu.ph | E-mail: <span style="color:#030e69;text-decoration:underline;">domct_2315@yahoo.com.ph / domct_2315@dct.edu.ph</span></div></td></tr></tbody></table><hr style="border:none;border-top:3px solid #000;margin:8px 0 0 0;width:110%;" />`
+  const defaultFooter = `<hr style="border:none;border-top:3px solid #000;margin:0 0 8px 0;width:100%;" /><div style="text-align:center;font-family:'Times New Roman',serif;line-height:1.25;color:#000;"><div style="font-size:12pt;font-weight:bold;margin:0 0 2px 0;">FIDES. PATRIA. SAPIENTIA.</div><div style="font-size:10pt;font-style:italic;margin:0 0 2px 0;">A God-loving educational community with passion for truth and compassion for humanity.</div><div style="font-size:10pt;margin:0;">Department/Office Facebook Page: www.facebook.com/dctces</div></div>`
+
+  const headerText = report.headerText !== undefined ? report.headerText : defaultHeader
+  const footerText = report.footerText !== undefined ? report.footerText : defaultFooter
+  const showHeader = report.showHeader !== undefined ? report.showHeader : true
+  const showFooter = report.showFooter !== undefined ? report.showFooter : true
+  const paperKey = report.paperKey || 'Folio'
+  const orientation = report.orientation || 'portrait'
+  const marginKey = report.marginKey || 'Narrative'
+  const isTemplateActive = report.isTemplateActive !== undefined ? report.isTemplateActive : true
+
+  const getMargins = (key) => {
+    const preset = MARGINS[key] || MARGINS.Normal
+    if (typeof preset === 'number') {
+      return { top: preset, bottom: preset, left: preset, right: preset }
+    }
+    return preset
+  }
+  const margins = getMargins(marginKey)
+  const padTop = margins.top
+  const padBottom = margins.bottom
+  const padLeft = margins.left
+  const padRight = margins.right
+  const padTopActual = (showHeader && isTemplateActive) ? 170 : padTop
+  const gapH = 36
+
+  const paper = PAPER[paperKey] || PAPER.Letter
+  const docW = orientation === 'landscape' ? paper.h : paper.w
+  const docH = orientation === 'landscape' ? paper.w : paper.h
+
+  const canvasHeight = docH * narrativeTotalPages + gapH * (narrativeTotalPages - 1)
+  const totalHeight = canvasHeight
+
+  // Read-only Editor Instance
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Underline,
+      Color,
+      TextStyle,
+      FontFamily,
+      FontSizeExtension,
+      LineHeightExtension,
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      Link.configure({ openOnClick: false, autolink: true }),
+      Highlight.configure({ multicolor: true }),
+      FloatingImage,
+      FloatingTextBox,
+      Table.configure({ resizable: false }),
+      TableCell,
+      TableHeader,
+      TableRow,
+      TaskItem.configure({ nested: true }),
+      TaskList,
+      PageFlow,
+      PageBreak,
+    ],
+    content: report.narrative || '<p></p>',
+    editable: false
+  })
+
+  const handlePageChange = useCallback((cur, tot) => {
+    setNarrativeTotalPages(tot)
+  }, [])
+
+  useEffect(() => {
+    if (editor && !editor.isDestroyed && editor.commands.updatePageFlowOptions) {
+      editor.commands.updatePageFlowOptions({
+        paperKey,
+        orientation,
+        marginKey,
+        headerText,
+        footerText,
+        showHeader,
+        showFooter,
+        isTemplateActive,
+        onPageChange: handlePageChange,
+      })
+    }
+  }, [editor, paperKey, orientation, marginKey, headerText, footerText, showHeader, showFooter, isTemplateActive, handlePageChange])
+
+  useEffect(() => {
+    if (editor && report.narrative) {
+      editor.commands.setContent(report.narrative)
+    }
+  }, [editor, report.narrative])
+
+  // Pre-generate pages for indexing and sidebar
   const pages = []
   const narrativePages = parseNarrativePages(report.narrative || '')
   
-  if (narrativePages.length === 0) {
-    pages.push({ type: 'narrative', content: '', pageNum: 1 })
-  } else {
-    narrativePages.forEach((content, index) => {
-      pages.push({
-        type: 'narrative',
-        content,
-        pageNum: index + 1
-      })
+  for (let i = 1; i <= narrativeTotalPages; i++) {
+    pages.push({
+      type: 'narrative',
+      content: narrativePages[i - 1] || '',
+      pageNum: i
     })
   }
 
-  const narrativePageCount = pages.length
+  const photoPages = []
   if (report.photos && report.photos.length > 0) {
     const photoChunks = []
-    const chunkSize = 4 // 4 photos max per evidence page (2x2 grid)
+    const chunkSize = 4
     for (let i = 0; i < report.photos.length; i += chunkSize) {
       photoChunks.push(report.photos.slice(i, i + chunkSize))
     }
     
     photoChunks.forEach((photos, index) => {
-      pages.push({
+      const pageNum = narrativeTotalPages + index + 1
+      const pageObj = {
         type: 'photos',
         photos,
-        pageNum: narrativePageCount + index + 1
-      })
+        pageNum
+      }
+      pages.push(pageObj)
+      photoPages.push(pageObj)
     })
   }
 
@@ -513,7 +641,6 @@ export default function DocumentViewer({
               </button>
             ))}
           </aside>
-
           {/* Central Scrollable Page Viewport */}
           <main
             ref={viewportRef}
@@ -524,146 +651,255 @@ export default function DocumentViewer({
             onMouseLeave={handleMouseUpOrLeave}
             className={`flex-1 bg-slate-100 p-8 overflow-auto flex flex-col items-center gap-6 relative ${viewMode === 'pan' ? (isPanning ? 'cursor-grabbing' : 'cursor-grab select-none') : 'cursor-default'}`}
           >
-            {pages.map((page, idx) => (
+            {/* CSS styles to overlay Tiptap pages */}
+            <style>{`
+              .reactjs-tiptap-editor {
+                display: flex !important;
+                flex-direction: column !important;
+                flex: 1 1 0% !important;
+                height: 100% !important;
+                width: 100% !important;
+                overflow: visible !important;
+              }
+              .ProseMirror {
+                min-height: 100% !important;
+                outline: none !important;
+                box-sizing: border-box !important;
+                white-space: pre-wrap !important;
+                word-wrap: break-word !important;
+                padding: 0 !important;
+                background-color: transparent !important;
+                background-image: none !important;
+                font-size: 13px;
+                line-height: 1.5;
+                color: #1f2937;
+                font-family: 'Calibri', sans-serif;
+                overflow: visible !important;
+              }
+              .reactjs-tiptap-editor .ProseMirror.ProseMirror.ProseMirror {
+                min-height: ${docH - (padTopActual + padBottom)}px !important;
+              }
+              .doc-page .ProseMirror {
+                min-height: ${docH - (padTopActual + padBottom)}px;
+              }
+              .page-break-widget {
+                position: relative;
+                margin-left: -${padLeft}px;
+                margin-right: -${padRight}px;
+                background: transparent;
+                pointer-events: none;
+                user-select: none;
+              }
+              .page-break {
+                display: none !important;
+              }
+              .ProseMirror p { margin-bottom: 8px; }
+              .ProseMirror h1 { font-size: 24px; font-weight: 700; margin-bottom: 12px; color: #111827; }
+              .ProseMirror h2 { font-size: 18px; font-weight: 700; margin-bottom: 10px; color: #1f2937; }
+              .ProseMirror h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; color: #374151; }
+              .ProseMirror h4 { font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #374151; }
+              .ProseMirror h5 { font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #4b5563; }
+              .ProseMirror ul { list-style: disc; padding-left: 22px; margin-bottom: 8px; }
+              .ProseMirror ol { list-style: decimal; padding-left: 22px; margin-bottom: 8px; }
+              .ProseMirror li p { margin-bottom: 2px; }
+              .ProseMirror ul[data-type="taskList"] { list-style: none; padding-left: 4px; }
+              .ProseMirror ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 6px; }
+              .ProseMirror ul[data-type="taskList"] li > label { margin-top: 2px; }
+              .ProseMirror blockquote {
+                border-left: 3px solid #d1d5db; padding-left: 14px;
+                margin: 0 0 8px; color: #6b7280; font-style: italic;
+              }
+              .ProseMirror img {
+                max-width: 100%; height: auto;
+              }
+              .ProseMirror table {
+                border-collapse: collapse; width: 100%; margin: 12px 0;
+                table-layout: auto;
+              }
+              .ProseMirror th,
+              .ProseMirror td {
+                border: 1px solid #c0c0c0; padding: 6px 10px;
+                font-size: 12px; text-align: left; position: relative;
+              }
+              .ProseMirror th { background: #f3f4f6; font-weight: 600; }
+              .ProseMirror tr:nth-child(even) td { background: #fafafa; }
+              .ProseMirror hr { border: none; border-top: 1px solid #d1d5db; margin: 14px 0; }
+              .ProseMirror mark { padding: 1px 2px; border-radius: 2px; }
+              .ProseMirror a { color: #2563eb; text-decoration: underline; }
+              .ProseMirror sub { font-size: 0.75em; }
+              .ProseMirror sup { font-size: 0.75em; }
+            `}</style>
+
+            {/* 1. Narrative Content (Tiptap Canvas layout) */}
+            <div style={{
+              width: `${docW * zoomScale}px`,
+              height: `${totalHeight * zoomScale}px`,
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'flex-start',
+              overflow: 'visible',
+              position: 'relative',
+              flexShrink: 0
+            }}>
+              <div style={{
+                transform: `scale(${zoomScale})`,
+                transformOrigin: 'top center',
+                width: `${docW}px`,
+                height: `${totalHeight}px`,
+                outline: 'none',
+                position: 'relative',
+              }}>
+                <div style={{ width: `${docW}px`, height: `${canvasHeight}px`, position: 'relative' }} className="print-canvas">
+                  
+                  {/* Page background sheets */}
+                  <div className="absolute inset-0 pointer-events-none select-none flex flex-col items-center">
+                    {Array.from({ length: narrativeTotalPages }).map((_, i) => {
+                      const pageNum = i + 1;
+                      return (
+                        <div
+                          key={i}
+                          id={`doc-viewer-page-${pageNum}`}
+                          className="bg-white shadow-xl border border-gray-300/70 rounded-xs shrink-0 relative pointer-events-auto"
+                          style={{
+                            width: `${docW}px`,
+                            height: `${docH}px`,
+                            marginBottom: `${gapH}px`,
+                          }}
+                        >
+                          {/* Page Header */}
+                          {showHeader && (
+                            <div
+                              className="absolute left-0 right-0 z-50"
+                              style={{
+                                top: '48px',
+                                paddingLeft: '96px',
+                                paddingRight: '96px',
+                                boxSizing: 'border-box',
+                              }}
+                              dangerouslySetInnerHTML={{ __html: headerText }}
+                            />
+                          )}
+
+                          {/* Page Footer */}
+                          {showFooter && (
+                            <div
+                              className="absolute left-0 right-0 z-50"
+                              style={{
+                                bottom: '0px',
+                                paddingLeft: '96px',
+                                paddingRight: '96px',
+                                paddingBottom: '24px',
+                                boxSizing: 'border-box',
+                              }}
+                              dangerouslySetInnerHTML={{ __html: footerText }}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Editor Content Area */}
+                  <div
+                    className="relative doc-page select-text"
+                    style={{
+                      width: `${docW}px`,
+                      minHeight: `${canvasHeight}px`,
+                      paddingTop: `${padTopActual}px`,
+                      paddingBottom: `${padBottom}px`,
+                      paddingLeft: `${padLeft}px`,
+                      paddingRight: `${padRight}px`,
+                      background: 'transparent',
+                      boxSizing: 'border-box',
+                      cursor: 'text',
+                    }}
+                  >
+                    {editor && <EditorContent editor={editor} className="outline-none" />}
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Photo Evidence Pages */}
+            {photoPages.map((page, pIdx) => (
               <div
                 key={page.pageNum}
                 id={`doc-viewer-page-${page.pageNum}`}
                 style={{
-                  width: `${800 * zoomScale}px`,
-                  height: `${1123 * zoomScale}px`,
+                  width: `${docW * zoomScale}px`,
+                  height: `${docH * zoomScale}px`,
                   display: 'flex',
                   justifyContent: 'center',
                   alignItems: 'flex-start',
-                  flexShrink: 0
+                  flexShrink: 0,
                 }}
               >
                 <div
-                  className={`bg-white shadow-md border border-gray-200 text-left p-12 relative flex flex-col justify-between ${viewMode === 'select' ? 'select-text pointer-events-auto cursor-text' : 'select-none pointer-events-none'}`}
+                  className="bg-white shadow-xl border border-gray-300/70 rounded-xs text-left relative flex flex-col justify-between"
                   style={{
-                    width: '800px',
-                    height: '1123px',
+                    width: `${docW}px`,
+                    height: `${docH}px`,
                     transform: `scale(${zoomScale})`,
                     transformOrigin: 'top left',
-                    boxSizing: 'border-box'
+                    boxSizing: 'border-box',
+                    paddingTop: `${padTop}px`,
+                    paddingBottom: `${padBottom}px`,
+                    paddingLeft: `${padLeft}px`,
+                    paddingRight: `${padRight}px`,
                   }}
                 >
-                  
-                  {/* Page Top Content */}
-                  <div className="w-full">
-                    {/* First Page Institutional Header */}
-                    {page.type === 'narrative' && idx === 0 ? (
-                      <div>
-                        {/* Header Title Banner */}
-                        <div className="flex items-center space-x-3.5 border-b-2 border-sig-green pb-4 mb-6 select-none">
-                          <img src={logo} alt="CES Logo" className="h-12 w-12 object-contain" />
-                          <div className="flex flex-col text-left leading-none">
-                            <span className="text-sm font-extrabold text-navy-blue tracking-wide uppercase">
-                              DOMINICAN COLLEGE OF TARLAC, INC.
-                            </span>
-                            <span className="text-[11px] font-bold text-gray-600 uppercase mt-0.5">
-                              Community Extension & Services (CES) Office
-                            </span>
-                            <span className="text-[8px] text-gray-400 mt-0.5">
-                              Tarlac, Philippines · Official Document Archive
-                            </span>
-                          </div>
-                        </div>
+                  {/* Photo Header */}
+                  {showHeader && (
+                    <div
+                      style={{
+                        paddingBottom: '12px',
+                        marginBottom: '20px',
+                        borderBottom: '1px solid #f1f5f9',
+                        fontSize: '9px',
+                        color: '#94a3b8',
+                        fontWeight: 'bold',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        fontFamily: 'sans-serif'
+                      }}
+                    >
+                      <span>CES Narrative Report - Photographic Evidence</span>
+                      <span>Page {page.pageNum}</span>
+                    </div>
+                  )}
 
-                        {/* Page 1 metadata grid details */}
-                        <div className="grid grid-cols-2 gap-x-6 gap-y-3.5 border border-gray-150 p-4 rounded-2xl bg-gray-50/50 text-xs mb-6 font-poppins select-none">
-                          <div>
-                            <span className="text-[10px] text-navy-blue font-bold block">Extension Outreach Program:</span>
-                            <span className="font-bold text-gray-800 text-[11px] truncate block">
-                              {event ? event.name : report.activityTitle || 'Outreach'}
-                            </span>
+                  {/* Photo Grid content */}
+                  <div className="space-y-4 flex-1">
+                    <h4 className="text-xs font-bold text-navy-blue uppercase tracking-wider mb-2 flex items-center gap-1.5 select-none font-poppins">
+                      <Layers className="w-3.5 h-3.5 text-sig-green" />
+                      Photographic Evidence Documentation
+                    </h4>
+                    
+                    <div className={`grid ${page.photos.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} gap-4 w-full`}>
+                      {page.photos.map((photo, pIdx2) => (
+                        <div key={pIdx2} className="border border-gray-100 p-2 rounded-2xl bg-gray-50 flex flex-col items-center justify-center shadow-2xs">
+                          <div className="w-full aspect-video rounded-xl overflow-hidden bg-black flex items-center justify-center border border-gray-200">
+                            <img
+                              src={photo.url}
+                              className="w-full h-full object-contain"
+                              alt="outreach evidence"
+                            />
                           </div>
-                          <div>
-                            <span className="text-[10px] text-navy-blue font-bold block">Academic Schedule:</span>
-                            <span className="font-semibold text-gray-800 block">
-                              {report.semester} | AY {report.academicYear}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-[10px] text-navy-blue font-bold block">Department / Organization:</span>
-                            <span className="font-semibold text-gray-800 block truncate">
-                              {org ? org.name : report.organizationId ? 'Unknown' : 'CES Office'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-[10px] text-navy-blue font-bold block">Activity Details:</span>
-                            <span className="font-semibold text-gray-800 block truncate">
-                              {report.activityDate ? new Date(report.activityDate).toLocaleDateString() : ''} 
-                              {report.location ? ` @ ${report.location}` : ''}
-                            </span>
-                          </div>
-                          <div className="col-span-2 grid grid-cols-2 gap-4 border-t border-gray-150 pt-2.5">
-                            <div>
-                              <span className="text-[10px] text-navy-blue font-bold block">Target Beneficiaries:</span>
-                              <span className="font-semibold text-gray-800 block truncate">{report.beneficiaries || 'N/A'}</span>
-                            </div>
-                            <div>
-                              <span className="text-[10px] text-navy-blue font-bold block">Category:</span>
-                              <span className="font-semibold text-gray-800 block capitalize">{(report.type || 'outreach').replace('_', ' ')}</span>
-                            </div>
-                          </div>
+                          <span className="text-[9px] text-gray-550 font-bold mt-2 font-poppins">
+                            Photo Documentation Item {pIdx * 4 + pIdx2 + 1}
+                          </span>
                         </div>
-
-                        <h4 className="text-xs font-bold text-navy-blue uppercase tracking-wider mb-3 pb-1.5 border-b border-gray-150 flex items-center gap-1.5 select-none">
-                          <FileText className="w-3.5 h-3.5 text-sig-green" />
-                          Activity Description Narrative
-                        </h4>
-                      </div>
-                    ) : (
-                      /* Subsequent Page Running Header */
-                      <div className="flex justify-between items-center border-b border-gray-100 pb-2.5 mb-6 text-[10px] text-gray-400 font-bold select-none">
-                        <span className="flex items-center gap-1">
-                          <img src={logo} className="h-4 w-4 object-contain" />
-                          Community Extension & Services (CES)
-                        </span>
-                        <span>Page {page.pageNum}</span>
-                      </div>
-                    )}
-
-                    {/* Page Content Body */}
-                    {page.type === 'narrative' ? (
-                      <div
-                        className="prose prose-sm text-xs max-w-none text-gray-700 leading-relaxed font-poppins"
-                        dangerouslySetInnerHTML={{ __html: page.content }}
-                      />
-                    ) : (
-                      /* Photos evidence page layout */
-                      <div className="space-y-4">
-                        <h4 className="text-xs font-bold text-navy-blue uppercase tracking-wider mb-2 flex items-center gap-1.5 select-none">
-                          <Layers className="w-3.5 h-3.5 text-sig-green" />
-                          Photographic Evidence Documentation
-                        </h4>
-                        
-                        <div className={`grid ${page.photos.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} gap-4 w-full`}>
-                          {page.photos.map((photo, pIdx) => (
-                            <div key={pIdx} className="border border-gray-100 p-2 rounded-2xl bg-gray-50 flex flex-col items-center justify-center shadow-2xs">
-                              <div className="w-full aspect-video rounded-xl overflow-hidden bg-black flex items-center justify-center border border-gray-200">
-                                <img
-                                  src={photo.url}
-                                  className="w-full h-full object-contain"
-                                  alt="outreach evidence"
-                                />
-                              </div>
-                              <span className="text-[9px] text-gray-500 font-bold mt-2">
-                                Photo Documentation Item {idx * 4 - narrativePageCount * 4 + pIdx + 1}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                      ))}
+                    </div>
                   </div>
 
-                  {/* Page Bottom Footer */}
-                  <footer className="w-full border-t border-gray-100 pt-3 text-[9px] text-gray-400 font-bold flex justify-between select-none">
-                    <span>Dominican College of Tarlac - Narrative Archival</span>
-                    <span>Document Page {page.pageNum} of {pages.length}</span>
-                  </footer>
-
+                  {/* Photo Footer */}
+                  {showFooter && (
+                    <footer className="w-full border-t border-gray-100 pt-3 text-[9px] text-gray-400 font-bold flex justify-between select-none font-poppins">
+                      <span>Dominican College of Tarlac - Narrative Archival</span>
+                      <span>Document Page {page.pageNum} of {pages.length}</span>                    </footer>
+                  )}
                 </div>
               </div>
             ))}
@@ -686,35 +922,12 @@ export default function DocumentViewer({
                 <div className="flex items-start space-x-3 p-3 rounded-2xl bg-gray-50 border border-gray-100/50">
                   <User className="w-4 h-4 text-navy-blue shrink-0 mt-0.5" />
                   <div className="text-left">
-                    <span className="text-[9px] text-gray-450 block font-bold uppercase">Submitted By</span>
+                    <span className="text-[9px] text-gray-455 block font-bold uppercase">Submitted By</span>
                     <span className="text-[11px] font-bold text-navy-blue block leading-tight mt-0.5">
                       {author ? author.name : 'Coordinator'}
                     </span>
-                    <span className="text-[9px] text-gray-500 block">
+                    <span className="text-[9px] text-gray-550 block">
                       Submitted: {new Date(report.updatedAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-3 p-3 rounded-2xl bg-gray-50 border border-gray-100/50">
-                  <Calendar className="w-4 h-4 text-navy-blue shrink-0 mt-0.5" />
-                  <div className="text-left">
-                    <span className="text-[9px] text-gray-450 block font-bold uppercase">Academic Term</span>
-                    <span className="text-[11px] font-bold text-navy-blue block leading-tight mt-0.5">
-                      {report.semester}
-                    </span>
-                    <span className="text-[9px] text-gray-500 block leading-tight">
-                      AY {report.academicYear}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-start space-x-3 p-3 rounded-2xl bg-gray-50 border border-gray-100/50">
-                  <MapPin className="w-4 h-4 text-navy-blue shrink-0 mt-0.5" />
-                  <div className="text-left">
-                    <span className="text-[9px] text-gray-450 block font-bold uppercase">Location details</span>
-                    <span className="text-[11px] font-bold text-navy-blue block leading-tight mt-0.5 truncate max-w-[200px]">
-                      {report.location || 'Not Specified'}
                     </span>
                   </div>
                 </div>
