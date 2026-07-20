@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { NodeSelection } from 'prosemirror-state';
 import {
   Bold, Italic, Underline as UnderlineIcon, ChevronDown, Plus, Minus,
   Palette, Highlighter, List, ListOrdered, MessageSquare
@@ -37,6 +38,7 @@ const HEADING_STYLES = [
 export default function FloatingToolbar({ editor }) {
   const [visible, setVisible] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
+  const [fontSizeInfo, setFontSizeInfo] = useState({ value: '16', isMixed: false });
   
   const [activeDropdown, setActiveDropdown] = useState(null); 
   
@@ -45,13 +47,48 @@ export default function FloatingToolbar({ editor }) {
   const updatePosition = useCallback(() => {
     if (!editor) return;
     const { state } = editor;
-    const { from, to } = state.selection;
+    const { from, to, $from } = state.selection;
 
+    // Hide for empty selections
     if (from === to || !editor.isFocused) {
       setVisible(false);
       setActiveDropdown(null);
       return;
     }
+
+    // Hide for node selections (images, text boxes, etc.)
+    if (state.selection instanceof NodeSelection) {
+      setVisible(false);
+      setActiveDropdown(null);
+      return;
+    }
+
+    // Calculate selection font size dynamically across the selection range
+    const sizes = new Set();
+    state.doc.nodesBetween(from, to, (node) => {
+      if (node.isText) {
+        const textStyleMark = node.marks.find(m => m.type.name === 'textStyle');
+        if (textStyleMark && textStyleMark.attrs.fontSize) {
+          sizes.add(textStyleMark.attrs.fontSize.replace('px', '').replace('pt', ''));
+        } else {
+          sizes.add('16');
+        }
+      }
+    });
+
+    let val = '16';
+    let mixed = false;
+    if (sizes.size > 1) {
+      val = '—';
+      mixed = true;
+    } else if (sizes.size === 1) {
+      val = Array.from(sizes)[0];
+    } else {
+      const sizePx = editor.getAttributes('textStyle').fontSize || '16pt';
+      val = sizePx.replace('px', '').replace('pt', '');
+    }
+
+    setFontSizeInfo({ value: val, isMixed: mixed });
 
     const { view } = editor;
     const start = view.coordsAtPos(from);
@@ -76,6 +113,7 @@ export default function FloatingToolbar({ editor }) {
 
     editor.on('selectionUpdate', handleUpdate);
     editor.on('focus', handleUpdate);
+    editor.on('transaction', handleUpdate);
     
     window.addEventListener('scroll', handleUpdate, true);
 
@@ -91,6 +129,7 @@ export default function FloatingToolbar({ editor }) {
     return () => {
       editor.off('selectionUpdate', handleUpdate);
       editor.off('focus', handleUpdate);
+      editor.off('transaction', handleUpdate);
       window.removeEventListener('scroll', handleUpdate, true);
     };
   }, [editor, updatePosition]);
@@ -101,19 +140,79 @@ export default function FloatingToolbar({ editor }) {
     setActiveDropdown(prev => prev === name ? null : name);
   };
 
-  const currentSizePx = editor.getAttributes('textStyle').fontSize || '16px';
-  const currentSizeNum = parseFloat(currentSizePx.replace('px', '')) || 16;
+  const currentSizeNum = parseFloat(fontSizeInfo.value) || 16;
 
-  const setFontSize = (sizeNum) => {
-    editor.chain().focus().setFontSize(`${sizeNum}px`).run();
+  // Use setMark('textStyle') — the same approach as the ribbon — for reliable font size change.
+  const applyFontSize = (sizeNum) => {
+    editor.chain().focus().setMark('textStyle', { fontSize: `${sizeNum}pt` }).run();
   };
 
   const increaseFontSize = () => {
-    setFontSize(currentSizeNum + 1);
+    const { from, to } = editor.state;
+    editor.chain().focus().run();
+
+    if (from !== to) {
+      let tr = editor.state.tr;
+      let modified = false;
+      editor.state.doc.nodesBetween(from, to, (node, pos) => {
+        if (node.isText) {
+          const textStyleMark = node.marks.find(m => m.type.name === 'textStyle');
+          const currentSizePx = textStyleMark?.attrs?.fontSize || '16pt';
+          const currentSize = parseFloat(currentSizePx.replace('px', '').replace('pt', '')) || 16;
+          const newSize = currentSize + 1;
+          
+          const startPos = Math.max(from, pos);
+          const endPos = Math.min(to, pos + node.nodeSize);
+          
+          const textStyleType = editor.state.schema.marks.textStyle;
+          const newAttrs = { ...textStyleMark?.attrs, fontSize: `${newSize}pt` };
+          tr.addMark(startPos, endPos, textStyleType.create(newAttrs));
+          modified = true;
+        }
+      });
+      if (modified) {
+        editor.view.dispatch(tr);
+        return;
+      }
+    }
+
+    const liveSizePx = editor.getAttributes('textStyle').fontSize || '16pt';
+    const liveSize = parseFloat(liveSizePx.replace('px', '').replace('pt', '')) || 16;
+    applyFontSize(liveSize + 1);
   };
 
   const decreaseFontSize = () => {
-    setFontSize(Math.max(1, currentSizeNum - 1));
+    const { from, to } = editor.state;
+    editor.chain().focus().run();
+
+    if (from !== to) {
+      let tr = editor.state.tr;
+      let modified = false;
+      editor.state.doc.nodesBetween(from, to, (node, pos) => {
+        if (node.isText) {
+          const textStyleMark = node.marks.find(m => m.type.name === 'textStyle');
+          const currentSizePx = textStyleMark?.attrs?.fontSize || '16pt';
+          const currentSize = parseFloat(currentSizePx.replace('px', '').replace('pt', '')) || 16;
+          const newSize = Math.max(1, currentSize - 1);
+          
+          const startPos = Math.max(from, pos);
+          const endPos = Math.min(to, pos + node.nodeSize);
+          
+          const textStyleType = editor.state.schema.marks.textStyle;
+          const newAttrs = { ...textStyleMark?.attrs, fontSize: `${newSize}pt` };
+          tr.addMark(startPos, endPos, textStyleType.create(newAttrs));
+          modified = true;
+        }
+      });
+      if (modified) {
+        editor.view.dispatch(tr);
+        return;
+      }
+    }
+
+    const liveSizePx = editor.getAttributes('textStyle').fontSize || '16pt';
+    const liveSize = parseFloat(liveSizePx.replace('px', '').replace('pt', '')) || 16;
+    applyFontSize(Math.max(1, liveSize - 1));
   };
 
   const currentStyleLabel = () => {
@@ -196,10 +295,10 @@ export default function FloatingToolbar({ editor }) {
         <div className="relative">
           <button
             onMouseDown={e => { e.preventDefault(); toggleDropdown('size'); }}
-            className="text-[10px] font-semibold text-gray-200 hover:text-white px-1.5 py-1 rounded hover:bg-white/10 cursor-pointer flex items-center gap-0.5"
+            className="text-[10px] font-semibold text-gray-200 hover:text-white px-1.5 py-1 rounded hover:bg-white/10 cursor-pointer flex items-center gap-0.5 animate-in fade-in duration-100"
             title="Font Size"
           >
-            {currentSizeNum}
+            {fontSizeInfo.value}
             <ChevronDown className="w-2 h-2 opacity-60" />
           </button>
           {activeDropdown === 'size' && (
@@ -207,7 +306,7 @@ export default function FloatingToolbar({ editor }) {
               {FONT_SIZES.map(s => (
                 <button
                   key={s}
-                  onMouseDown={e => { e.preventDefault(); setFontSize(s); setActiveDropdown(null); }}
+                  onMouseDown={e => { e.preventDefault(); applyFontSize(s); setActiveDropdown(null); }}
                   className="w-full text-center px-2 py-1 text-xs text-gray-300 hover:bg-white/10 hover:text-white cursor-pointer"
                 >
                   {s}

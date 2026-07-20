@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { SketchPicker } from "react-color";
 import {
   AlignCenter,
@@ -85,20 +85,53 @@ const LineHeightButton = () => {
 const FontSizeButton = () => {
   const { editor } = useEditorStore();
 
-  const currentFontSize = editor?.getAttributes("textStyle").fontSize
-    ? editor?.getAttributes("textStyle").fontSize.replace("px", "")
-    : "16";
+  const getSelectionFontSize = () => {
+    if (!editor) return "16";
+    const { from, to, doc } = editor.state;
+    
+    if (from === to) {
+      const sizePx = editor.getAttributes('textStyle').fontSize || '16pt';
+      return sizePx.replace('px', '').replace('pt', '');
+    }
 
-  const [fontSize, setFontSize] = useState(currentFontSize);
-  const [inputValue, setInputValue] = useState(fontSize);
+    const sizes = new Set();
+    doc.nodesBetween(from, to, (node) => {
+      if (node.isText) {
+        const textStyleMark = node.marks.find(m => m.type.name === 'textStyle');
+        if (textStyleMark && textStyleMark.attrs.fontSize) {
+          sizes.add(textStyleMark.attrs.fontSize.replace('px', '').replace('pt', ''));
+        } else {
+          sizes.add('16');
+        }
+      }
+    });
+
+    if (sizes.size === 0) {
+      const sizePx = editor.getAttributes('textStyle').fontSize || '16pt';
+      return sizePx.replace('px', '').replace('pt', '');
+    }
+
+    if (sizes.size > 1) {
+      return "—";
+    }
+
+    return Array.from(sizes)[0];
+  };
+
+  const currentFontSize = getSelectionFontSize();
+  const [inputValue, setInputValue] = useState("");
   const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    if (!isEditing) {
+      setInputValue(currentFontSize);
+    }
+  }, [currentFontSize, isEditing]);
 
   const updateFontSize = (newSize) => {
     const size = parseInt(newSize);
     if (!isNaN(size) && size > 0) {
-      editor?.chain().focus().setFontSize(`${size}px`).run();
-      setFontSize(newSize);
-      setInputValue(newSize);
+      editor?.chain().focus().setFontSize(`${size}pt`).run();
       setIsEditing(false);
     }
   };
@@ -120,15 +153,69 @@ const FontSizeButton = () => {
   };
 
   const increment = () => {
-    const newSize = parseInt(fontSize) + 1;
-    updateFontSize(newSize.toString());
+    const { from, to } = editor.state;
+    editor.chain().focus().run();
+
+    if (from !== to) {
+      let tr = editor.state.tr;
+      let modified = false;
+      editor.state.doc.nodesBetween(from, to, (node, pos) => {
+        if (node.isText) {
+          const textStyleMark = node.marks.find(m => m.type.name === 'textStyle');
+          const currentSizePx = textStyleMark?.attrs?.fontSize || '16pt';
+          const currentSize = parseFloat(currentSizePx.replace('px', '').replace('pt', '')) || 16;
+          const newSize = currentSize + 1;
+          
+          const startPos = Math.max(from, pos);
+          const endPos = Math.min(to, pos + node.nodeSize);
+          
+          const textStyleType = editor.state.schema.marks.textStyle;
+          const newAttrs = { ...textStyleMark?.attrs, fontSize: `${newSize}pt` };
+          tr.addMark(startPos, endPos, textStyleType.create(newAttrs));
+          modified = true;
+        }
+      });
+      if (modified) {
+        editor.view.dispatch(tr);
+        return;
+      }
+    }
+
+    const liveSize = parseFloat(getSelectionFontSize()) || 16;
+    editor?.chain().focus().setFontSize(`${liveSize + 1}pt`).run();
   };
 
   const decrement = () => {
-    const newSize = parseInt(fontSize) - 1;
-    if (newSize > 0) {
-      updateFontSize(newSize.toString());
+    const { from, to } = editor.state;
+    editor.chain().focus().run();
+
+    if (from !== to) {
+      let tr = editor.state.tr;
+      let modified = false;
+      editor.state.doc.nodesBetween(from, to, (node, pos) => {
+        if (node.isText) {
+          const textStyleMark = node.marks.find(m => m.type.name === 'textStyle');
+          const currentSizePx = textStyleMark?.attrs?.fontSize || '16pt';
+          const currentSize = parseFloat(currentSizePx.replace('px', '').replace('pt', '')) || 16;
+          const newSize = Math.max(1, currentSize - 1);
+          
+          const startPos = Math.max(from, pos);
+          const endPos = Math.min(to, pos + node.nodeSize);
+          
+          const textStyleType = editor.state.schema.marks.textStyle;
+          const newAttrs = { ...textStyleMark?.attrs, fontSize: `${newSize}pt` };
+          tr.addMark(startPos, endPos, textStyleType.create(newAttrs));
+          modified = true;
+        }
+      });
+      if (modified) {
+        editor.view.dispatch(tr);
+        return;
+      }
     }
+
+    const liveSize = parseFloat(getSelectionFontSize()) || 16;
+    editor?.chain().focus().setFontSize(`${Math.max(1, liveSize - 1)}pt`).run();
   };
 
   return (
@@ -152,7 +239,7 @@ const FontSizeButton = () => {
         <button
           onClick={() => {
             setIsEditing(true);
-            setFontSize(currentFontSize);
+            setInputValue(currentFontSize);
           }}
           className="h-7 w-10 text-sm text-center border border-neutral-400 rounded-sm hover:bg-neutral-200/80 cursor-pointer"
         >
@@ -545,6 +632,20 @@ const ToolbarButton = ({ onClick, isActive, icon: Icon }) => {
 
 export const Toolbar = () => {
   const { editor } = useEditorStore();
+  const [, setUpdateTrigger] = useState(0);
+
+  useEffect(() => {
+    if (!editor) return;
+    const handleUpdate = () => {
+      setUpdateTrigger((prev) => prev + 1);
+    };
+    editor.on("transaction", handleUpdate);
+    editor.on("selectionUpdate", handleUpdate);
+    return () => {
+      editor.off("transaction", handleUpdate);
+      editor.off("selectionUpdate", handleUpdate);
+    };
+  }, [editor]);
 
   const sections = [
     [

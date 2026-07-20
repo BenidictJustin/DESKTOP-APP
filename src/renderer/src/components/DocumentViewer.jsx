@@ -693,6 +693,20 @@ export default function DocumentViewer({
               .page-break {
                 display: none !important;
               }
+              .ProseMirror p,
+              .ProseMirror h1,
+              .ProseMirror h2,
+              .ProseMirror h3,
+              .ProseMirror h4,
+              .ProseMirror h5,
+              .ProseMirror ul,
+              .ProseMirror ol,
+              .ProseMirror table,
+              .ProseMirror blockquote,
+              .ProseMirror hr {
+                position: relative;
+                z-index: 10;
+              }
               .ProseMirror p { margin-bottom: 8px; }
               .ProseMirror h1 { font-size: 24px; font-weight: 700; margin-bottom: 12px; color: #111827; }
               .ProseMirror h2 { font-size: 18px; font-weight: 700; margin-bottom: 10px; color: #1f2937; }

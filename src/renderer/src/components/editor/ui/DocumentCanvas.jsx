@@ -306,8 +306,8 @@ export default function DocumentCanvas({
                         ) : (
                           <div 
                             className="border-b border-dashed border-transparent hover:border-gray-300 cursor-pointer pb-1"
-                            onClick={() => { if (!workspaceIsReadOnly) { setEditingPage(pageNum); setActiveEditingArea("header"); }}}
-                            dangerouslySetInnerHTML={{ __html: headerText || '<span style="font-size:10px;color:#9ca3af;font-family:sans-serif;">Click to add header</span>' }}
+                            onDoubleClick={() => { if (!workspaceIsReadOnly && !isTemplateActive) { setEditingPage(pageNum); setActiveEditingArea("header"); }}}
+                            dangerouslySetInnerHTML={{ __html: headerText || '<div style="min-height: 20px;"></div>' }}
                           />
                         )}
                       </div>
@@ -335,9 +335,9 @@ export default function DocumentCanvas({
                         ) : (
                           <div 
                             className="relative border-t border-dashed border-transparent hover:border-gray-300 cursor-pointer pt-1 w-full"
-                            onClick={() => { if (!workspaceIsReadOnly) { setEditingPage(pageNum); setActiveEditingArea("footer"); }}}
+                            onDoubleClick={() => { if (!workspaceIsReadOnly && !isTemplateActive) { setEditingPage(pageNum); setActiveEditingArea("footer"); }}}
                           >
-                            <div dangerouslySetInnerHTML={{ __html: footerText || '<span style="font-size:10px;color:#9ca3af;font-family:sans-serif;">Click to add footer</span>' }} />
+                            <div dangerouslySetInnerHTML={{ __html: footerText || '<div style="min-height: 20px;"></div>' }} />
                           </div>
                         )}
                       </div>
@@ -351,13 +351,14 @@ export default function DocumentCanvas({
             <div
               onClick={(e) => {
                 const target = e.target;
-                if (target === canvasRef.current || target.classList.contains("doc-page") ||
-                    (!target.closest(".ProseMirror") && target.closest(".doc-page-container"))) {
-                  if (activeEditingArea === "body") {
-                    editor?.commands.focus("end");
-                  } else {
+                // Only handle clicks on the container background itself, not on text content
+                const isContainerClick = target === e.currentTarget || target.classList.contains("doc-page");
+                const isEmptyAreaClick = !target.closest(".ProseMirror") && target.closest(".doc-page-container") && target === e.currentTarget;
+                if (isContainerClick || isEmptyAreaClick) {
+                  if (activeEditingArea !== "body") {
                     setActiveEditingArea("body");
                   }
+                  // Do NOT call editor.commands.focus("end") — let ProseMirror handle caret placement naturally
                 }
               }}
               onDoubleClick={() => {
@@ -377,7 +378,7 @@ export default function DocumentCanvas({
                 background: "transparent",
                 boxSizing: "border-box",
                 opacity: activeEditingArea !== "body" ? 0.35 : 1,
-                pointerEvents: activeEditingArea !== "body" ? "none" : "auto",
+                pointerEvents: "auto", // Always allow interaction so double-click works
                 transition: "opacity 0.2s ease-in-out",
               }}
             >
@@ -413,12 +414,29 @@ export default function DocumentCanvas({
                     column-count: ${columns};
                     column-gap: 32px;
                   }
-                 .doc-page .ProseMirror {
-                   min-height: ${docH - (padTopActual + padBottom)}px;
-                   column-count: ${columns};
-                   column-gap: 32px;
-                 }
-                 .ProseMirror p { margin-bottom: 8px; }
+                  .doc-page .ProseMirror {
+                    min-height: ${docH - (padTopActual + padBottom)}px;
+                    column-count: ${columns};
+                    column-gap: 32px;
+                  }
+                  .doc-page {
+                    pointer-events: ${activeEditingArea !== "body" ? "none" : "auto"};
+                  }
+                  .ProseMirror p,
+                  .ProseMirror h1,
+                  .ProseMirror h2,
+                  .ProseMirror h3,
+                  .ProseMirror h4,
+                  .ProseMirror h5,
+                  .ProseMirror ul,
+                  .ProseMirror ol,
+                  .ProseMirror table,
+                  .ProseMirror blockquote,
+                  .ProseMirror hr {
+                    position: relative;
+                    z-index: 10;
+                  }
+                  .ProseMirror p { margin-bottom: 8px; }
                  .ProseMirror h1 { font-size: 24px; font-weight: 700; margin-bottom: 12px; color: #111827; }
                  .ProseMirror h2 { font-size: 18px; font-weight: 700; margin-bottom: 10px; color: #1f2937; }
                  .ProseMirror h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; color: #374151; }

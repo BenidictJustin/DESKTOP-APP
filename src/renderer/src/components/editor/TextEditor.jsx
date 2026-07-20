@@ -1780,23 +1780,13 @@ export default function TextEditor({
         }
       }
     },
-    { icon: FolderOpen, l: 'Open .docx…', fn: () => docxInputRef.current?.click() },
-    { icon: FolderOpen, l: 'Open .pdf…', fn: () => pdfInputRef.current?.click() },
     null,
     { icon: Save, l: 'Save Draft (Ctrl+S)', fn: () => handleSave('draft') },
-    { icon: Save, l: 'Save as Template…', fn: () => handleSaveAsTemplate() },
     { icon: Send, l: 'Submit to Admin', fn: () => handleSave('submitted') },
-    null,
-    { icon: FileText, l: 'Document Properties…', fn: () => setShowDocProps(true) },
-    { icon: ChevronDown, l: showHeader ? 'Header: ON' : 'Header: OFF', fn: () => setShowHeader(p => !p), active: showHeader },
-    { icon: ChevronDown, l: showFooter ? 'Footer: ON' : 'Footer: OFF', fn: () => setShowFooter(p => !p), active: showFooter },
     null,
     { icon: Printer, l: 'Print (Ctrl+P)', fn: () => window.print() },
     { icon: FileDown, l: 'Export as PDF', fn: () => handleExportPDF(canvasRef, workspaceReportTitle || 'Report') },
     { icon: Download, l: 'Export as DOCX', fn: () => handleExportDOCX(editor, workspaceReportTitle || 'Report') },
-    { icon: Download, l: 'Export as TXT', fn: () => handleExportTXT(editor, workspaceReportTitle || 'Report') },
-    null,
-    { icon: RefreshCw, l: autoSave ? 'AutoSave: ON' : 'AutoSave: OFF', fn: () => setAutoSave(a => !a), active: autoSave },
   ];
 
   const docTitle = workspaceReportTitle || eventsList.find(x => x.id === workspaceReportEventId)?.name || 'Document1';
@@ -1862,32 +1852,10 @@ export default function TextEditor({
             onClick={() => setShowTemplatesMenu(!showTemplatesMenu)}
             className="px-3 py-1 text-xs font-semibold bg-neutral-200 text-neutral-700 rounded hover:bg-neutral-300 transition cursor-pointer"
           >
-            Templates
+            Template
           </button>
-          <DropdownWrapper open={showTemplatesMenu} onClose={() => setShowTemplatesMenu(false)} triggerRef={templatesMenuRef} width={280}>
-            <div className="py-1 w-64 bg-white border border-neutral-200 shadow-lg rounded max-h-80 overflow-y-auto">
-              {/* Import/Save actions */}
-              <button
-                onClick={() => { templateInputRef.current?.click(); setShowTemplatesMenu(false); }}
-                className="w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 hover:bg-blue-50 cursor-pointer transition text-blue-600 font-semibold"
-              >
-                <Plus className="w-3.5 h-3.5 shrink-0" />
-                <span>Import Template (.docx)…</span>
-              </button>
-              <button
-                onClick={() => { handleSaveAsTemplate(); setShowTemplatesMenu(false); }}
-                className="w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 hover:bg-blue-50 cursor-pointer transition text-blue-600 font-semibold"
-              >
-                <Save className="w-3.5 h-3.5 shrink-0" />
-                <span>Save Current as Template…</span>
-              </button>
-
-              <div className="my-1 border-t border-neutral-100" />
-
-              {/* System Templates Section */}
-              <div className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-neutral-50 select-none">
-                System Templates
-              </div>
+          <DropdownWrapper open={showTemplatesMenu} onClose={() => setShowTemplatesMenu(false)} triggerRef={templatesMenuRef} width={240}>
+            <div className="py-1 w-56 bg-white border border-neutral-200 shadow-lg rounded max-h-80 overflow-y-auto">
               {systemTemplates.map((tpl) => (
                 <button
                   key={tpl.id}
@@ -1901,40 +1869,6 @@ export default function TextEditor({
                   <span className="text-[9px] text-neutral-500 truncate pl-5.5">{tpl.description}</span>
                 </button>
               ))}
-
-              <div className="my-1 border-t border-neutral-100" />
-
-              {/* Custom Templates Section */}
-              <div className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-neutral-50 select-none">
-                My Saved Templates
-              </div>
-              {customTemplates.length === 0 ? (
-                <div className="px-3 py-3 text-left text-[10px] text-gray-400 font-medium italic">
-                  No custom templates yet.
-                </div>
-              ) : (
-                customTemplates.map((tpl) => (
-                  <div
-                    key={tpl.id}
-                    className="group flex items-center justify-between px-3 py-2 hover:bg-neutral-50 transition"
-                  >
-                    <button
-                      onClick={() => handleSelectTemplate(tpl)}
-                      className="flex-1 text-left text-xs font-semibold text-neutral-800 truncate cursor-pointer flex items-center gap-2"
-                    >
-                      <FileText className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
-                      <span className="truncate">{tpl.name}</span>
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDeleteTemplate(tpl.id); }}
-                      className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition cursor-pointer p-0.5"
-                      title="Remove template"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))
-              )}
             </div>
           </DropdownWrapper>
         </div>

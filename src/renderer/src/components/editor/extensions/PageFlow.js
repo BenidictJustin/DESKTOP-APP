@@ -81,12 +81,11 @@ export const PageFlow = Extension.create({
             if (meta) {
               return meta;
             }
-            const hasUpdate = tr.docChanged || tr.getMeta('pageFlowUpdate');
-            if (hasUpdate) {
-              // Mark state as needing recalculation
-              return value;
+            if (tr.docChanged) {
+              // Map existing decorations through document changes to preserve positions
+              return value.map(tr.mapping, tr.doc);
             }
-            return value.map(tr.mapping, tr.doc);
+            return value;
           }
         },
         props: {
@@ -95,203 +94,228 @@ export const PageFlow = Extension.create({
           }
         },
         view(editorView) {
-          let lastCallback = null;
-          let lastDocVersion = null;
-          let lastOptions = null;
-          let lastSelectionFrom = null;
-          let lastDomHeight = null;
-          let debounceTimeout = null;
+          let rafId = null;
+          let pendingTimer = null;
+          let isDispatching = false; // Re-entrancy guard - CRITICAL
+          let lastDescriptorsStr = null;
+          let lastOptionsStr = null;
+          let lastDocSize = null;
 
-          const recalculate = () => {
-            if (!editorView || !editorView.dom || !editorView.docView || editorView.isDestroyed) return;
-            const currentDoc = editorView.state.doc;
-            const currentOptionsStr = JSON.stringify({
-              paperKey: extension.storage.options.paperKey,
-              orientation: extension.storage.options.orientation,
-              marginKey: extension.storage.options.marginKey,
-              headerText: extension.storage.options.headerText,
-              footerText: extension.storage.options.footerText,
-              showHeader: extension.storage.options.showHeader,
-              showFooter: extension.storage.options.showFooter,
-              isTemplateActive: extension.storage.options.isTemplateActive,
-            });
-            const cursorFrom = editorView.state.selection?.from || 0;
-            const callbackChanged = lastCallback !== extension.storage.options.onPageChange;
-            const currentHeight = editorView.dom.scrollHeight;
-            
-            // Check if version, options, selection, callback, or visual DOM height changed
-            if (
-              lastDocVersion === currentDoc &&
-              lastOptions === currentOptionsStr &&
-              lastSelectionFrom === cursorFrom &&
-              lastDomHeight === currentHeight &&
-              !callbackChanged
-            ) {
-              return;
+          const getScale = (el) => {
+            let parent = el;
+            while (parent) {
+              if (parent.style && parent.style.transform && parent.style.transform.includes('scale')) {
+                const match = parent.style.transform.match(/scale\(([^)]+)\)/);
+                if (match) return parseFloat(match[1]) || 1;
+              }
+              parent = parent.parentElement;
             }
-            lastDocVersion = currentDoc;
-            lastOptions = currentOptionsStr;
-            lastSelectionFrom = cursorFrom;
-            lastCallback = extension.storage.options.onPageChange;
-            lastDomHeight = currentHeight;
+            return 1;
+          };
 
+          const getMargins = (key) => {
+            const preset = MARGINS[key] || MARGINS.Normal;
+            if (typeof preset === 'number') {
+              return { top: preset, bottom: preset, left: preset, right: preset };
+            }
+            return preset;
+          };
+
+          // Core recalculation - MUST only be called from outside the ProseMirror update cycle
+          const doRecalculate = () => {
+            // Safety: never run if already dispatching or view is dead
+            if (isDispatching) return;
+            if (!editorView || editorView.isDestroyed) return;
+            const dom = editorView.dom;
+            if (!dom || !dom.isConnected) return;
+
+            const state = editorView.state;
             const options = extension.storage.options;
+
+            // Quick change detection — skip if nothing relevant has changed
+            const optionsStr = JSON.stringify({
+              paperKey: options.paperKey,
+              orientation: options.orientation,
+              marginKey: options.marginKey,
+              showHeader: options.showHeader,
+              isTemplateActive: options.isTemplateActive,
+            });
+            const docSize = state.doc.nodeSize;
+
+            // Always recalculate if options changed, but throttle on doc changes
+            const optionsChanged = lastOptionsStr !== optionsStr;
+            lastOptionsStr = optionsStr;
+
             const paper = PAPER[options.paperKey] || PAPER.A4;
             const pageHeight = options.orientation === 'landscape' ? paper.w : paper.h;
-            const getMargins = (key) => {
-              const preset = MARGINS[key] || MARGINS.Normal;
-              if (typeof preset === 'number') {
-                return { top: preset, bottom: preset, left: preset, right: preset };
-              }
-              return preset;
-            };
             const margins = getMargins(options.marginKey);
             const padTopActual = (options.showHeader && options.isTemplateActive) ? 170 : margins.top;
             const usableHeight = pageHeight - (padTopActual + margins.bottom);
+            const scale = getScale(dom);
 
             const decorations = [];
+            const descriptors = [];
             let runningHeight = 0;
             let pageNum = 1;
-            
-            // Selection cursor tracking
             let cursorPage = 1;
+            const cursorFrom = state.selection ? state.selection.from : 0;
 
-            const getScale = (el) => {
-              let parent = el;
-              while (parent) {
-                if (parent.style.transform && parent.style.transform.includes('scale')) {
-                  const match = parent.style.transform.match(/scale\(([^)]+)\)/);
-                  if (match) return parseFloat(match[1]) || 1;
+            state.doc.forEach((node, offset) => {
+              const nodeDom = editorView.nodeDOM(offset);
+              let height = 0;
+              let marginTop = 0;
+              let marginBottom = 0;
+
+              if (nodeDom && nodeDom.nodeType === 1) {
+                const style = window.getComputedStyle(nodeDom);
+                marginTop = parseFloat(style.marginTop) || 0;
+                marginBottom = parseFloat(style.marginBottom) || 0;
+                const rect = nodeDom.getBoundingClientRect();
+                // Use offsetHeight when rect.height is 0 (hidden or off-screen)
+                const rawH = rect.height > 0 ? rect.height : nodeDom.offsetHeight;
+                height = (rawH / scale) + marginTop + marginBottom;
+              } else {
+                if (node.type.name === 'heading') {
+                  height = node.attrs.level === 1 ? 40 : 30;
+                } else if (node.type.name === 'paragraph') {
+                  height = 24;
+                } else if (node.type.name === 'table') {
+                  height = 120;
+                } else if (node.type.name === 'pageBreak') {
+                  height = 1;
+                } else {
+                  height = 24;
                 }
-                parent = parent.parentElement;
               }
-              return 1;
-            };
-            const scale = getScale(editorView.dom);
 
-             editorView.state.doc.forEach((node, offset) => {
-               const dom = editorView.nodeDOM(offset);
-               let height = 0;
-               let marginTop = 0;
-               let marginBottom = 0;
-               
-               if (dom && dom.nodeType === Node.ELEMENT_NODE) {
-                 const style = window.getComputedStyle(dom);
-                 marginTop = parseFloat(style.marginTop) || 0;
-                 marginBottom = parseFloat(style.marginBottom) || 0;
-                 const rect = dom.getBoundingClientRect();
-                 height = (rect.height / scale) + marginTop + marginBottom;
-               } else {
-                 // Fallback estimation if DOM is not ready
-                 if (node.type.name === 'heading') {
-                   height = node.attrs.level === 1 ? 40 : 30;
-                 } else if (node.type.name === 'paragraph') {
-                   height = 20;
-                 } else if (node.type.name === 'table') {
-                   height = 120;
-                 } else if (node.type.name === 'pageBreak') {
-                   height = 1;
-                 } else {
-                   height = 20;
-                 }
-               }
+              const isPageBreakNode = node.type.name === 'pageBreak';
+              const forceBreak = isPageBreakNode || (nodeDom && nodeDom.nodeType === 1 && (
+                nodeDom.classList.contains('page-break') ||
+                (nodeDom.querySelector && nodeDom.querySelector('.page-break') !== null) ||
+                window.getComputedStyle(nodeDom).pageBreakBefore === 'always' ||
+                window.getComputedStyle(nodeDom).breakBefore === 'page' ||
+                nodeDom.getAttribute('data-page-break') === 'true'
+              ));
 
-               const forceBreak = node.type.name === 'pageBreak' || (dom && dom.nodeType === Node.ELEMENT_NODE && (
-                                    dom.classList.contains('page-break') || 
-                                    dom.querySelector('.page-break') !== null ||
-                                    window.getComputedStyle(dom).pageBreakBefore === 'always' || 
-                                    window.getComputedStyle(dom).breakBefore === 'page' ||
-                                    dom.getAttribute('data-page-break') === 'true'
-                                  ));
+              if ((runningHeight + height > usableHeight || forceBreak) && runningHeight > 0) {
+                const remainingSpace = Math.max(0, usableHeight - runningHeight);
 
-               if ((runningHeight + height > usableHeight || forceBreak) && runningHeight > 0) {
-                 const remainingSpace = Math.max(0, usableHeight - runningHeight);
-                 
-                 const widgetEl = document.createElement('div');
-                 widgetEl.className = 'page-break-widget';
-                 widgetEl.setAttribute('contenteditable', 'false');
-                 widgetEl.style.width = '100%';
-                 widgetEl.style.boxSizing = 'border-box';
-                 widgetEl.style.userSelect = 'none';
+                descriptors.push({ offset, remainingSpace, padTopActual, bottomMargin: margins.bottom });
 
-                 widgetEl.innerHTML = `
-                   <!-- Page N Bottom Margin Area (covers bottom margin, transparent) -->
-                   <div style="height: ${remainingSpace + margins.bottom}px; box-sizing: border-box;"></div>
+                const widgetEl = document.createElement('div');
+                widgetEl.className = 'page-break-widget';
+                widgetEl.setAttribute('contenteditable', 'false');
+                widgetEl.style.cssText = 'width:100%;box-sizing:border-box;user-select:none;pointer-events:none;';
+                widgetEl.innerHTML =
+                  `<div style="height:${remainingSpace + margins.bottom}px;box-sizing:border-box;"></div>` +
+                  `<div style="height:36px;box-sizing:border-box;"></div>` +
+                  `<div style="height:${padTopActual}px;box-sizing:border-box;"></div>`;
 
-                   <!-- Visual page break gap (transparent, lets gray workspace background show through) -->
-                   <div style="height: 36px; box-sizing: border-box;"></div>
+                decorations.push(Decoration.widget(offset, widgetEl, {
+                  side: -1,
+                  stopEvent: () => true,
+                }));
 
-                   <!-- Page N+1 Top Margin Area (covers top margin, transparent) -->
-                   <div style="height: ${padTopActual}px; box-sizing: border-box;"></div>
-                 `;
+                pageNum++;
+                const isEmptyBreak = isPageBreakNode && height < 10;
+                runningHeight = isEmptyBreak ? 0 : height;
 
-                 decorations.push(Decoration.widget(offset, widgetEl, {
-                   side: -1,
-                   stopEvent: () => true
-                 }));
+                if (offset <= cursorFrom) cursorPage = pageNum;
+              } else {
+                runningHeight += height;
+              }
+            });
 
-                 pageNum++;
-                 const isBreakElementEmpty = (node.type.name === 'pageBreak' || (dom && dom.nodeType === Node.ELEMENT_NODE && dom.classList.contains('page-break'))) && height < 10;
-                 runningHeight = isBreakElementEmpty ? 0 : height;
+            // Skip dispatch if page break positions haven't changed — this is the key to stability
+            const descriptorsStr = JSON.stringify(descriptors);
+            if (descriptorsStr === lastDescriptorsStr && !optionsChanged) {
+              // Still report page change if cursor moved between pages
+              if (options.onPageChange) {
+                if (editorView._lastCursorPage !== cursorPage || editorView._lastTotalPages !== pageNum) {
+                  editorView._lastCursorPage = cursorPage;
+                  editorView._lastTotalPages = pageNum;
+                  setTimeout(() => options.onPageChange && options.onPageChange(cursorPage, pageNum), 0);
+                }
+              }
+              return;
+            }
+            lastDescriptorsStr = descriptorsStr;
+            lastDocSize = docSize;
 
-                 // Update cursor page if this block starts after selection
-                 if (offset <= cursorFrom) {
-                   cursorPage = pageNum;
-                 }
-               } else {
-                 runningHeight += height;
-               }
-             });
-
-            // Dispatch layout options callback safely
+            // Notify page change callback
             if (options.onPageChange) {
-              if (editorView.lastReportedCurrentPage !== cursorPage || editorView.lastReportedTotalPages !== pageNum) {
-                editorView.lastReportedCurrentPage = cursorPage;
-                editorView.lastReportedTotalPages = pageNum;
-                setTimeout(() => {
-                  if (options.onPageChange) {
-                    options.onPageChange(cursorPage, pageNum);
-                  }
-                }, 0);
-              }
+              editorView._lastCursorPage = cursorPage;
+              editorView._lastTotalPages = pageNum;
+              setTimeout(() => options.onPageChange && options.onPageChange(cursorPage, pageNum), 0);
             }
 
-            const decoset = DecorationSet.create(editorView.state.doc, decorations);
-            editorView.dispatch(editorView.state.tr.setMeta(pageFlowKey, decoset));
+            // Dispatch OUTSIDE ProseMirror's update cycle using the re-entrancy guard
+            // CRITICAL: use editorView.state (not captured `state`) to avoid doc mismatch
+            const currentState = editorView.state;
+            if (currentState.doc !== state.doc) {
+              // Doc changed during our async calculation — re-schedule instead of dispatching stale data
+              scheduleRecalculate(100);
+              return;
+            }
+            const decoset = DecorationSet.create(currentState.doc, decorations);
+            isDispatching = true;
+            try {
+              editorView.dispatch(currentState.tr.setMeta(pageFlowKey, decoset));
+            } finally {
+              isDispatching = false;
+            }
           };
 
-          const scheduleRecalculate = (delay = 200) => {
-            if (debounceTimeout) clearTimeout(debounceTimeout);
-            debounceTimeout = setTimeout(() => {
-              recalculate();
-            }, delay);
+          // Schedule recalculation safely outside the current update cycle
+          const scheduleRecalculate = (delay) => {
+            // Cancel any pending RAF and timer
+            if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+            if (pendingTimer !== null) { clearTimeout(pendingTimer); pendingTimer = null; }
+
+            if (delay === 0) {
+              // Use RAF to run after browser has painted — safe from ProseMirror update loop
+              rafId = requestAnimationFrame(() => {
+                rafId = null;
+                doRecalculate();
+              });
+            } else {
+              pendingTimer = setTimeout(() => {
+                pendingTimer = null;
+                rafId = requestAnimationFrame(() => {
+                  rafId = null;
+                  doRecalculate();
+                });
+              }, delay);
+            }
           };
 
-          // Recalculate when images finish loading inside editor view
-          const handleImageLoad = () => {
-            recalculate();
-          };
-          if (editorView.dom) {
-            editorView.dom.addEventListener('load', handleImageLoad, true);
-          }
+          // Listen for image loads inside the editor
+          const handleImageLoad = () => scheduleRecalculate(200);
+          editorView.dom.addEventListener('load', handleImageLoad, true);
 
-          // Initial immediate recalculate
-          setTimeout(recalculate, 50);
+          // Initial calculation after first render
+          scheduleRecalculate(100);
 
           return {
             update(view, prevState) {
-              // Debounce recalculate to prevent layout thrashing on every keystroke
+              // NEVER call dispatch synchronously here — that causes the re-entrant loop.
+              // Always schedule via RAF + timer so we exit ProseMirror's update stack first.
+              if (isDispatching) return; // Ignore updates caused by our own dispatches
+
               if (prevState.doc !== view.state.doc) {
-                scheduleRecalculate(150);
-              } else {
-                scheduleRecalculate(300);
+                // Document content changed (typing/paste/delete) — use longer delay
+                // so the user can keep typing uninterrupted
+                scheduleRecalculate(600);
+              } else if (prevState.selection !== view.state.selection) {
+                // Cursor moved but content unchanged — quick page counter update
+                scheduleRecalculate(200);
               }
+              // Ignore all other update reasons (decorations from our own dispatch, etc.)
             },
             destroy() {
-              if (debounceTimeout) clearTimeout(debounceTimeout);
-              if (editorView.dom) {
-                editorView.dom.removeEventListener('load', handleImageLoad, true);
-              }
+              if (rafId !== null) cancelAnimationFrame(rafId);
+              if (pendingTimer !== null) clearTimeout(pendingTimer);
+              editorView.dom.removeEventListener('load', handleImageLoad, true);
             }
           };
         }

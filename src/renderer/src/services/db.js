@@ -421,8 +421,22 @@ if (isDemoMode) {
   initLocalStorage()
 }
 
-const getLocalData = (key) => JSON.parse(localStorage.getItem(key))
-const saveLocalData = (key, data) => localStorage.setItem(key, JSON.stringify(data))
+const getLocalData = (key) => {
+  try {
+    const data = localStorage.getItem(key)
+    return data ? JSON.parse(data) : null
+  } catch (e) {
+    console.error(`Failed to parse localStorage key "${key}":`, e)
+    return null
+  }
+}
+const saveLocalData = (key, data) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data))
+  } catch (e) {
+    console.error(`Failed to save localStorage key "${key}":`, e)
+  }
+}
 
 // ==========================================
 // 2. EXPOSED API SERVICES
@@ -501,24 +515,38 @@ export const getCurrentUser = () => {
 
 export const listenToAuthChanges = (callback) => {
   if (isDemoMode) {
-    // In demo mode we poll local storage or run immediately
-    const user = getLocalData(LOCAL_STORAGE_KEYS.LOGGED_IN_USER)
-    callback(user)
-    // Return dummy unsubscriber
+    try {
+      const user = getLocalData(LOCAL_STORAGE_KEYS.LOGGED_IN_USER)
+      callback(user)
+    } catch (e) {
+      console.error("Auth change listener failed in Demo Mode:", e)
+      callback(null)
+    }
     return () => {}
   } else {
-    return onAuthStateChanged(fauth, async (firebaseUser) => {
-      if (firebaseUser) {
-        const userDoc = await getDoc(doc(fdb, 'users', firebaseUser.uid))
-        if (userDoc.exists()) {
-          callback(userDoc.data())
-        } else {
+    try {
+      return onAuthStateChanged(fauth, async (firebaseUser) => {
+        try {
+          if (firebaseUser) {
+            const userDoc = await getDoc(doc(fdb, 'users', firebaseUser.uid))
+            if (userDoc.exists()) {
+              callback(userDoc.data())
+            } else {
+              callback(null)
+            }
+          } else {
+            callback(null)
+          }
+        } catch (err) {
+          console.error("Firestore user fetch failed in auth listener:", err)
           callback(null)
         }
-      } else {
-        callback(null)
-      }
-    })
+      })
+    } catch (e) {
+      console.error("Auth listener registration failed:", e)
+      callback(null)
+      return () => {}
+    }
   }
 }
 

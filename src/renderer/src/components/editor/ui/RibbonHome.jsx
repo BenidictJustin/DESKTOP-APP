@@ -28,7 +28,7 @@ export default function RibbonHome({ editor, lineSpacing, setLineSpacing, onOpen
   const headingRef = useRef(null);
 
   const currentFont = editor?.getAttributes('textStyle').fontFamily?.split(',')[0]?.replace(/"/g, '') || 'Calibri';
-  const currentSize = editor?.getAttributes('textStyle').fontSize?.replace('px', '') || '11';
+  const currentSize = editor?.getAttributes('textStyle').fontSize?.replace('px', '').replace('pt', '') || '11';
   const currentHeading = editor?.isActive('heading', { level: 1 }) ? 'Heading 1'
     : editor?.isActive('heading', { level: 2 }) ? 'Heading 2'
     : editor?.isActive('heading', { level: 3 }) ? 'Heading 3'
@@ -109,7 +109,7 @@ export default function RibbonHome({ editor, lineSpacing, setLineSpacing, onOpen
                 <button
                   key={s}
                   onClick={() => {
-                    editor?.chain().focus().setMark('textStyle', { fontSize: `${s}px` }).run();
+                    editor?.chain().focus().setMark('textStyle', { fontSize: `${s}pt` }).run();
                     setShowSizeDD(false);
                   }}
                   className={`w-full text-left px-2 py-1 text-xs hover:bg-blue-50 cursor-pointer transition
