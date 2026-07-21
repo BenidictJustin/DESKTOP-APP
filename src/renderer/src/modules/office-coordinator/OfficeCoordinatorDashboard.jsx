@@ -13,9 +13,15 @@ import {
   Check,
   Home,
   Info,
-  Users
+  Users,
+  Eye,
+  Download
 } from 'lucide-react'
 import TextEditor from '../../components/editor/TextEditor'
+import DocumentViewer from '../../components/DocumentViewer'
+import html2canvas from 'html2canvas'
+import jsPDF from 'jspdf'
+import { sanitizeOklchInDocument } from '../../components/editor/utils/editorHelpers'
 
 // ─── Status Badge helper ───────────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
@@ -56,6 +62,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   const [loading, setLoading] = useState(false)
   const [saveStatus, setSaveStatus] = useState('')
   const [autoSave, setAutoSave] = useState(false)
+  const [selectedViewerReport, setSelectedViewerReport] = useState(null)
+  const [exportingReport, setExportingReport] = useState(null)
 
   // ── Database ──
   const [reportsList, setReportsList] = useState([])
@@ -243,8 +251,82 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     ]
   )
 
+  const compileReportPDF = useCallback((report) => {
+    setExportingReport(report)
+
+    setTimeout(async () => {
+      const input = document.getElementById('report-pdf-target')
+      if (!input) {
+        setExportingReport(null)
+        alert('PDF template target element not found.')
+        return
+      }
+
+      // Wait for images inside target to load
+      const imgs = Array.from(input.querySelectorAll('img'))
+      await Promise.all(
+        imgs.map(
+          (img) =>
+            new Promise((resolve) => {
+              if (img.complete) resolve()
+              else {
+                img.onload = resolve
+                img.onerror = resolve
+              }
+            })
+        )
+      )
+
+      try {
+        const canvas = await html2canvas(input, {
+          useCORS: true,
+          allowTaint: true,
+          scale: 2,
+          backgroundColor: '#ffffff',
+          logging: false,
+          onclone: (clonedDoc) => {
+            sanitizeOklchInDocument(clonedDoc)
+          }
+        })
+
+        const pdf = new jsPDF('p', 'mm', 'a4')
+        const pdfWidth = 210
+        const pdfPageHeight = 297
+        const margin = 10
+        const imgWidth = pdfWidth - margin * 2
+        const imgHeight = (canvas.height * imgWidth) / canvas.width
+        const printablePageHeight = pdfPageHeight - margin * 2
+
+        let leftHeight = imgHeight
+        let position = margin
+
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight)
+        leftHeight -= printablePageHeight
+
+        while (leftHeight > 0) {
+          position = leftHeight - imgHeight + margin
+          pdf.addPage()
+          pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight)
+          leftHeight -= printablePageHeight
+        }
+
+        pdf.save(`CES_Narrative_Report_${report.academicYear || 'AY'}_${(report.id || 'doc').substring(0, 6)}.pdf`)
+      } catch (err) {
+        console.error('PDF export failed:', err)
+        alert('PDF export failed: ' + (err.message || 'Error compiling report'))
+      } finally {
+        setExportingReport(null)
+      }
+    }, 500)
+  }, [eventsList, orgsList])
+
   // ── Derived ──
-  const myReports = reportsList.filter((r) => r.authorId === user.uid)
+  const myReports = reportsList.filter((r) => {
+    if (r.authorId !== user.uid) return false
+    const ev = eventsList.find((e) => e.id === r.eventId)
+    const title = ev?.name || r.activityTitle
+    return !!(title && title.trim())
+  })
   const stats = {
     total: myReports.length,
     drafts: myReports.filter((r) => r.status === 'draft').length,
@@ -281,7 +363,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
             type="button"
             onClick={() => setActiveTab('editor')}
             className="text-navy-blue hover:opacity-85 transition cursor-pointer p-1"
-            title="Start New Document"
+            title="Document Editor"
           >
             <FileText className="w-5 h-5" />
           </button>
@@ -319,7 +401,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
             <nav className="p-4 space-y-1">
               {[
                 { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-                { id: 'editor', label: 'Start New Document', icon: FileText },
+                { id: 'editor', label: 'Document Editor', icon: FileText },
                 {
                   id: 'reports',
                   label: 'Compiled Reports',
@@ -331,9 +413,6 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                 <button
                   key={tab.id}
                   onClick={() => {
-                    if (tab.id === 'editor') {
-                      resetForm()
-                    }
                     setActiveTab(tab.id)
                   }}
                   className={`w-full flex items-center justify-between p-3 rounded-2xl text-xs font-semibold tracking-wide transition duration-200 cursor-pointer
@@ -462,15 +541,32 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                 {ev?.name || rep.activityTitle || 'Untitled'}
                               </p>
                             </div>
-                            <button
-                              onClick={() => {
-                                openReport(rep)
-                              }}
-                              className="text-[10px] font-semibold text-navy-blue hover:text-sig-green transition cursor-pointer flex items-center gap-1"
-                            >
-                              <Edit3 className="w-3 h-3" />
-                              Open
-                            </button>
+                            {rep.status === 'submitted' || rep.status === 'approved' ? (
+                              <button
+                                onClick={() => setSelectedViewerReport(rep)}
+                                className="text-[10px] font-semibold text-navy-blue hover:text-sig-green transition cursor-pointer flex items-center gap-1"
+                              >
+                                <Eye className="w-3 h-3" />
+                                View
+                              </button>
+                            ) : (
+                              <div className="flex items-center gap-3">
+                                <button
+                                  onClick={() => setSelectedViewerReport(rep)}
+                                  className="text-[10px] font-semibold text-navy-blue hover:text-sig-green transition cursor-pointer flex items-center gap-1"
+                                >
+                                  <Eye className="w-3 h-3" />
+                                  View
+                                </button>
+                                <button
+                                  onClick={() => openReport(rep)}
+                                  className="text-[10px] font-semibold text-navy-blue hover:text-sig-green transition cursor-pointer flex items-center gap-1"
+                                >
+                                  <Edit3 className="w-3 h-3" />
+                                  Edit
+                                </button>
+                              </div>
+                            )}
                           </div>
                         )
                       })}
@@ -584,17 +680,32 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                             )}
                           </div>
                           <div className="mt-3 md:mt-0">
-                            <button
-                              onClick={() => openReport(rep)}
-                              className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:opacity-90 transition cursor-pointer"
-                            >
-                              <Edit3 className="w-3 h-3" />
-                              <span>
-                                {rep.status === 'submitted' || rep.status === 'approved'
-                                  ? 'View'
-                                  : 'Edit'}
-                              </span>
-                            </button>
+                            {rep.status === 'submitted' || rep.status === 'approved' ? (
+                              <button
+                                onClick={() => setSelectedViewerReport(rep)}
+                                className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:opacity-90 transition cursor-pointer shadow-xs"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>View</span>
+                              </button>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => setSelectedViewerReport(rep)}
+                                  className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-gray-55 transition cursor-pointer shadow-2xs"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                  <span>View</span>
+                                </button>
+                                <button
+                                  onClick={() => openReport(rep)}
+                                  className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:opacity-90 transition cursor-pointer shadow-xs"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                  <span>Edit</span>
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       )
@@ -706,6 +817,120 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           )}
         </main>
       </div>
+
+      {selectedViewerReport && (
+        <DocumentViewer
+          report={selectedViewerReport}
+          onClose={() => setSelectedViewerReport(null)}
+          eventsList={eventsList}
+          orgsList={orgsList}
+          usersList={[user]}
+          compileReportPDF={compileReportPDF}
+        />
+      )}
+
+      {/* ==================================================== */}
+      {/* HIDDEN CES OFFICIAL PDF TEMPLATE CONVERTER */}
+      {/* ==================================================== */}
+      {exportingReport && (
+        <div className="absolute top-[-9999px] left-[-9999px]">
+          <div
+            id="report-pdf-target"
+            className="w-[800px] bg-white p-12 text-gray-900 font-poppins relative"
+            style={{ boxSizing: 'border-box' }}
+          >
+            {/* Header Block */}
+            <div className="text-center border-b-2 border-sig-green pb-4 mb-6">
+              <h2 className="text-xl font-bold text-navy-blue tracking-wide">
+                DOMINICAN COLLEGE OF TARLAC, INC.
+              </h2>
+              <h3 className="text-sm font-semibold text-gray-700">
+                Community Extension & Services (CES) Office
+              </h3>
+              <p className="text-[10px] text-gray-400">
+                Tarlac, Philippines · Official Document Archive
+              </p>
+            </div>
+
+            {/* Document Details Metadata */}
+            <div className="grid grid-cols-2 gap-4 border border-gray-100 p-4 rounded-xl bg-gray-50/50 text-xs mb-6">
+              <div>
+                <strong className="text-navy-blue">Extension Outreach Program:</strong>
+                <p className="text-sm font-bold text-gray-800">
+                  {eventsList.find((e) => e.id === exportingReport.eventId)?.name ||
+                    exportingReport.activityTitle ||
+                    'Outreach'}
+                </p>
+              </div>
+              <div>
+                <strong className="text-navy-blue">Academic Schedule:</strong>
+                <p className="text-xs font-semibold text-gray-800">
+                  {exportingReport.semester} | AY {exportingReport.academicYear}
+                </p>
+              </div>
+              <div>
+                <strong className="text-navy-blue">Department / Organization:</strong>
+                <p className="text-xs font-semibold text-gray-800">
+                  {orgsList.find((o) => o.id === exportingReport.organizationId)?.name ||
+                    (exportingReport.organizationId ? 'Unknown' : 'CES Office')}
+                </p>
+              </div>
+              <div>
+                <strong className="text-navy-blue">Activity Details:</strong>
+                <p className="text-xs font-semibold text-gray-800">
+                  {exportingReport.activityDate
+                    ? new Date(exportingReport.activityDate).toLocaleDateString()
+                    : ''}
+                  {exportingReport.location ? ` @ ${exportingReport.location}` : ''}
+                </p>
+              </div>
+            </div>
+
+            {/* Narrative text description */}
+            <div className="space-y-4 text-xs leading-relaxed text-gray-800 border-b border-gray-100 pb-6 mb-6">
+              <style>{`
+                #report-pdf-target table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+                #report-pdf-target th, #report-pdf-target td { border: 1px solid #c0c0c0; padding: 6px 10px; font-size: 11px; text-align: left; }
+                #report-pdf-target th { background: #f3f4f6; font-weight: 600; }
+                #report-pdf-target ul { list-style: disc; padding-left: 20px; margin-bottom: 8px; }
+                #report-pdf-target ol { list-style: decimal; padding-left: 20px; margin-bottom: 8px; }
+                #report-pdf-target p { margin-bottom: 8px; }
+                #report-pdf-target img { max-width: 100%; height: auto; border-radius: 4px; }
+              `}</style>
+              <h4 className="text-sm font-bold text-navy-blue mb-2">
+                Activity Description Narrative
+              </h4>
+              <div
+                className="prose prose-sm text-xs max-w-none text-gray-700"
+                dangerouslySetInnerHTML={{ __html: exportingReport.narrative }}
+              />
+            </div>
+
+            {/* Photos collage */}
+            {exportingReport.photos && exportingReport.photos.length > 0 && (
+              <div>
+                <h4 className="text-sm font-bold text-navy-blue mb-3">
+                  Photographic Documentation
+                </h4>
+                <div className="grid grid-cols-2 gap-3">
+                  {exportingReport.photos.map((p, idx) => (
+                    <div key={idx} className="border border-gray-100 p-1.5 rounded-lg bg-gray-50">
+                      <img
+                        src={p.url}
+                        className="w-full h-44 object-cover rounded"
+                        alt="evidence"
+                      />
+                      <p className="text-center text-[9px] text-gray-400 font-semibold mt-1">
+                        Photo Documentation {idx + 1}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

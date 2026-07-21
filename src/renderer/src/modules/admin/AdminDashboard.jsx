@@ -93,6 +93,7 @@ import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import SearchableDropdown from '../../components/SearchableDropdown'
 import DocumentViewer from '../../components/DocumentViewer'
+import { sanitizeOklchInDocument } from '../../components/editor/utils/editorHelpers'
 
 export default function AdminDashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -1097,18 +1098,41 @@ export default function AdminDashboard({ user, onLogout }) {
 
   const handleConfirmDownloadPDF = () => {
     const input = document.getElementById('inventory-history-pdf-target')
-    if (!input) return
+    if (!input) {
+      alert('Inventory transaction history print target not found.')
+      return
+    }
 
-    html2canvas(input, { scale: 2 }).then((canvas) => {
-      const imgData = canvas.toDataURL('image/png')
-      const pdf = new jsPDF('p', 'mm', 'a4')
-      const imgWidth = 190
-      const imgHeight = (canvas.height * imgWidth) / canvas.width
+    html2canvas(input, { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', logging: false })
+      .then((canvas) => {
+        const pdf = new jsPDF('p', 'mm', 'a4')
+        const pdfWidth = 210
+        const pdfPageHeight = 297
+        const margin = 10
+        const imgWidth = pdfWidth - margin * 2
+        const imgHeight = (canvas.height * imgWidth) / canvas.width
+        const printablePageHeight = pdfPageHeight - margin * 2
 
-      pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight)
-      pdf.save(`CES_Inventory_History_${new Date().toISOString().split('T')[0]}.pdf`)
-      setShowReportPreview(false)
-    })
+        let leftHeight = imgHeight
+        let position = margin
+
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight)
+        leftHeight -= printablePageHeight
+
+        while (leftHeight > 0) {
+          position = leftHeight - imgHeight + margin
+          pdf.addPage()
+          pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight)
+          leftHeight -= printablePageHeight
+        }
+
+        pdf.save(`CES_Inventory_History_${new Date().toISOString().split('T')[0]}.pdf`)
+        setShowReportPreview(false)
+      })
+      .catch((err) => {
+        console.error('Inventory PDF Export Error:', err)
+        alert('Failed to generate Inventory PDF: ' + (err.message || err))
+      })
   }
 
   const handleDeleteDonor = async (donorId) => {
@@ -1670,14 +1694,22 @@ export default function AdminDashboard({ user, onLogout }) {
     const input = document.getElementById('inventory-table-container')
     if (!input) return
 
-    html2canvas(input, { scale: 2 }).then((canvas) => {
-      const imgData = canvas.toDataURL('image/png')
+    html2canvas(input, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+      onclone: (clonedDoc) => {
+        sanitizeOklchInDocument(clonedDoc)
+      }
+    }).then((canvas) => {
       const pdf = new jsPDF('p', 'mm', 'a4')
-      const imgWidth = 210 // A4 size width in mm
-      const pageHeight = 295
+      const pdfWidth = 210
+      const pdfPageHeight = 297
+      const margin = 15
+      const imgWidth = pdfWidth - margin * 2
       const imgHeight = (canvas.height * imgWidth) / canvas.width
-      let heightLeft = imgHeight
-      let position = 10
 
       // Add Header
       pdf.setFontSize(14)
@@ -1686,12 +1718,24 @@ export default function AdminDashboard({ user, onLogout }) {
       pdf.setFontSize(10)
       pdf.setTextColor(107, 114, 128) // Muted
       pdf.text('Community Extension & Services (CES) Office', 15, 20)
-      pdf.text(`Inventory Status Log - Generated: ${new Date().toLocaleDateString()}`, 15, 25)
+      pdf.text(`Inventory Status Summary - Generated: ${new Date().toLocaleDateString()}`, 15, 25)
       pdf.setLineWidth(0.5)
       pdf.setDrawColor(128, 204, 42) // Sig Green
       pdf.line(15, 28, 195, 28)
 
-      pdf.addImage(imgData, 'PNG', 15, 33, imgWidth - 30, imgHeight - 20)
+      let leftHeight = imgHeight
+      let position = 33
+
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight)
+      leftHeight -= (pdfPageHeight - 38)
+
+      while (leftHeight > 0) {
+        position = leftHeight - imgHeight + 15
+        pdf.addPage()
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight)
+        leftHeight -= (pdfPageHeight - 30)
+      }
+
       pdf.save(`CES_Inventory_Summary_${new Date().toISOString().split('T')[0]}.pdf`)
     })
   }
@@ -1700,30 +1744,70 @@ export default function AdminDashboard({ user, onLogout }) {
   const compileReportPDF = (report) => {
     setExportingReport(report)
 
-    // Allow React to render the template in a hidden container
-    setTimeout(() => {
+    setTimeout(async () => {
       const input = document.getElementById('report-pdf-target')
       if (!input) {
         setExportingReport(null)
+        alert('PDF template target element not found.')
         return
       }
 
-      html2canvas(input, { useCORS: true, scale: 2 })
-        .then((canvas) => {
-          const imgData = canvas.toDataURL('image/png')
-          const pdf = new jsPDF('p', 'mm', 'a4')
-          const imgWidth = 190
-          const imgHeight = (canvas.height * imgWidth) / canvas.width
+      // Wait for images inside target to load
+      const imgs = Array.from(input.querySelectorAll('img'))
+      await Promise.all(
+        imgs.map(
+          (img) =>
+            new Promise((resolve) => {
+              if (img.complete) resolve()
+              else {
+                img.onload = resolve
+                img.onerror = resolve
+              }
+            })
+        )
+      )
 
-          pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight)
-          pdf.save(`CES_Narrative_Report_${report.academicYear}_${report.id.substring(0, 6)}.pdf`)
-          setExportingReport(null)
+      try {
+        const canvas = await html2canvas(input, {
+          useCORS: true,
+          allowTaint: true,
+          scale: 2,
+          backgroundColor: '#ffffff',
+          logging: false,
+          onclone: (clonedDoc) => {
+            sanitizeOklchInDocument(clonedDoc)
+          }
         })
-        .catch((err) => {
-          console.error(err)
-          setExportingReport(null)
-        })
-    }, 1000)
+
+        const pdf = new jsPDF('p', 'mm', 'a4')
+        const pdfWidth = 210
+        const pdfPageHeight = 297
+        const margin = 10
+        const imgWidth = pdfWidth - margin * 2
+        const imgHeight = (canvas.height * imgWidth) / canvas.width
+        const printablePageHeight = pdfPageHeight - margin * 2
+
+        let leftHeight = imgHeight
+        let position = margin
+
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight)
+        leftHeight -= printablePageHeight
+
+        while (leftHeight > 0) {
+          position = leftHeight - imgHeight + margin
+          pdf.addPage()
+          pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight)
+          leftHeight -= printablePageHeight
+        }
+
+        pdf.save(`CES_Narrative_Report_${report.academicYear || 'AY'}_${(report.id || 'doc').substring(0, 6)}.pdf`)
+      } catch (err) {
+        console.error('PDF export failed:', err)
+        alert('PDF export failed: ' + (err.message || 'Error compiling report'))
+      } finally {
+        setExportingReport(null)
+      }
+    }, 500)
   }
 
   return (
@@ -6171,6 +6255,15 @@ export default function AdminDashboard({ user, onLogout }) {
 
               {/* Narrative text description */}
               <div className="space-y-4 text-xs leading-relaxed text-gray-800 border-b border-gray-100 pb-6 mb-6">
+                <style>{`
+                  #report-pdf-target table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+                  #report-pdf-target th, #report-pdf-target td { border: 1px solid #c0c0c0; padding: 6px 10px; font-size: 11px; text-align: left; }
+                  #report-pdf-target th { background: #f3f4f6; font-weight: 600; }
+                  #report-pdf-target ul { list-style: disc; padding-left: 20px; margin-bottom: 8px; }
+                  #report-pdf-target ol { list-style: decimal; padding-left: 20px; margin-bottom: 8px; }
+                  #report-pdf-target p { margin-bottom: 8px; }
+                  #report-pdf-target img { max-width: 100%; height: auto; border-radius: 4px; }
+                `}</style>
                 <h4 className="text-sm font-bold text-navy-blue mb-2">
                   Activity Description Narrative
                 </h4>

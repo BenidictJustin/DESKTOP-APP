@@ -198,47 +198,96 @@ export function handleExportDOCX(editor, title) {
   URL.revokeObjectURL(url);
 }
 
+/**
+ * Sanitizes oklch() color functions in document stylesheets and inline styles
+ * by converting them to browser-computed rgb()/rgba() strings for html2canvas compatibility.
+ */
+export function sanitizeOklchInDocument(doc) {
+  if (!doc) return;
+  let tempDiv = null;
+  const colorCache = new Map();
+
+  function convertOklch(match) {
+    if (colorCache.has(match)) return colorCache.get(match);
+    try {
+      if (!tempDiv) {
+        tempDiv = doc.createElement('div');
+        tempDiv.style.display = 'none';
+        (doc.body || doc.documentElement).appendChild(tempDiv);
+      }
+      tempDiv.style.color = match;
+      const computed = doc.defaultView ? doc.defaultView.getComputedStyle(tempDiv).color : '';
+      const result = (computed && computed !== 'transparent') ? computed : match;
+      colorCache.set(match, result);
+      return result;
+    } catch {
+      colorCache.set(match, match);
+      return match;
+    }
+  }
+
+  // 1. Convert oklch in <style> elements
+  const styleTags = doc.querySelectorAll('style');
+  styleTags.forEach((styleTag) => {
+    if (styleTag.textContent && styleTag.textContent.includes('oklch')) {
+      styleTag.textContent = styleTag.textContent.replace(/oklch\([^)]+\)/g, convertOklch);
+    }
+  });
+
+  // 2. Convert oklch in inline style attributes
+  const elementsWithStyle = doc.querySelectorAll('[style*="oklch"]');
+  elementsWithStyle.forEach((el) => {
+    const styleAttr = el.getAttribute('style');
+    if (styleAttr) {
+      el.setAttribute('style', styleAttr.replace(/oklch\([^)]+\)/g, convertOklch));
+    }
+  });
+
+  if (tempDiv) tempDiv.remove();
+}
+
 /** Export the editor content as a PDF using html2canvas + jsPDF. */
 export async function handleExportPDF(canvasRef, title) {
   if (!canvasRef?.current) return;
   try {
     const { default: html2canvas } = await import('html2canvas');
     const { default: jsPDF } = await import('jspdf');
-    
+
     const element = canvasRef.current;
-    const canvas = await html2canvas(element, { 
-      useCORS: true, 
-      scale: 2, 
-      logging: false 
-    });
     
+    const canvas = await html2canvas(element, {
+      useCORS: true,
+      allowTaint: true,
+      scale: 2,
+      logging: false,
+      backgroundColor: '#ffffff',
+      onclone: (clonedDoc) => {
+        sanitizeOklchInDocument(clonedDoc);
+      }
+    });
+
     const pdf = new jsPDF('p', 'mm', 'a4');
     const pdfWidth = 210;
     const pdfPageHeight = 297;
-    
-    // Width and height of the canvas in mm
     const imgWidth = pdfWidth;
     const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-    
     let leftHeight = imgHeight;
     let position = 0;
-    
-    // Add first page
+
     pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
     leftHeight -= pdfPageHeight;
-    
-    // Add additional pages if needed
+
     while (leftHeight > 0) {
       position = leftHeight - imgHeight;
       pdf.addPage();
       pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
       leftHeight -= pdfPageHeight;
     }
-    
+
     pdf.save(`${title || 'Document'}.pdf`);
   } catch (err) {
     console.error('PDF export failed:', err);
-    alert('PDF export failed.');
+    alert('PDF export failed: ' + (err.message || 'Error generating PDF'));
   }
 }
 

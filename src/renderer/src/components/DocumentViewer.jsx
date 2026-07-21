@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import logo from '../assets/logo.png'
 import logo2Img from '../assets/logo2.png'
+import { sanitizeOklchInDocument } from './editor/utils/editorHelpers'
 
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -352,6 +353,54 @@ export default function DocumentViewer({
     setIsPanning(false)
   }
 
+  const handleDownloadPDF = async () => {
+    if (typeof compileReportPDF === 'function') {
+      compileReportPDF(report)
+      return
+    }
+    if (!viewportRef?.current) {
+      alert('Report viewport not available.')
+      return
+    }
+    try {
+      const { default: html2canvas } = await import('html2canvas')
+      const { default: jsPDF } = await import('jspdf')
+
+      const canvas = await html2canvas(viewportRef.current, {
+        useCORS: true,
+        allowTaint: true,
+        scale: 2,
+        backgroundColor: '#ffffff',
+        logging: false,
+        onclone: (clonedDoc) => {
+          sanitizeOklchInDocument(clonedDoc)
+        }
+      })
+      const pdf = new jsPDF('p', 'mm', 'a4')
+      const pdfWidth = 210
+      const pdfPageHeight = 297
+      const imgWidth = pdfWidth
+      const imgHeight = (canvas.height * pdfWidth) / canvas.width
+      let leftHeight = imgHeight
+      let position = 0
+
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight)
+      leftHeight -= pdfPageHeight
+
+      while (leftHeight > 0) {
+        position = leftHeight - imgHeight
+        pdf.addPage()
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight)
+        leftHeight -= pdfPageHeight
+      }
+
+      pdf.save(`CES_Report_${report.academicYear || 'AY'}_${(report.id || 'doc').substring(0, 6)}.pdf`)
+    } catch (err) {
+      console.error('DocumentViewer PDF export failed:', err)
+      alert('Failed to download PDF: ' + (err.message || err))
+    }
+  }
+
   // Custom Printable Content using sandbox iframe
   const handlePrint = () => {
     const iframe = document.createElement('iframe')
@@ -430,15 +479,19 @@ export default function DocumentViewer({
         page.photos.forEach((photo, pIdx) => {
           pagesHtml += `
             <div class="photo-card-print">
-              <img src="${photo.url}" />
-              <div class="photo-caption-print">Photo Evidence ${pIdx + 1}</div>
+              <img src="${photo.url}" alt="evidence" />
+              <div class="photo-caption-print">Photo Documentation Item ${page.pageNum * 4 + pIdx + 1}</div>
             </div>
           `
         })
         pagesHtml += `</div>`
       }
       
-      pagesHtml += `<div class="page-footer-print">DOMMUNITY CODE | Page ${page.pageNum} of ${pages.length}</div>`
+      pagesHtml += `
+        <div class="page-footer-print">
+          Dominican College of Tarlac - Narrative Archival · Page ${page.pageNum} of ${pages.length}
+        </div>
+      `
       pagesHtml += `</div>`
     })
     
@@ -446,12 +499,13 @@ export default function DocumentViewer({
     doc.write('</body></html>')
     doc.close()
     
-    // Trigger print
-    iframe.contentWindow.focus()
     setTimeout(() => {
+      iframe.contentWindow.focus()
       iframe.contentWindow.print()
-      document.body.removeChild(iframe)
-    }, 600)
+      setTimeout(() => {
+        document.body.removeChild(iframe)
+      }, 500)
+    }, 500)
   }
 
   return (
@@ -572,7 +626,7 @@ export default function DocumentViewer({
               <Printer className="w-4 h-4" />
             </button>
             <button
-              onClick={() => compileReportPDF(report)}
+              onClick={handleDownloadPDF}
               className="p-2 bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 rounded-xl transition cursor-pointer flex items-center justify-center"
               title="Download PDF"
             >
@@ -967,37 +1021,61 @@ export default function DocumentViewer({
             {/* Assessment Input & Actions Panel */}
             <div className="border-t border-gray-150 pt-5 mt-6 space-y-4">
               {report.status === 'submitted' && (
-                <>
-                  <div className="text-left">
-                    <label className="block text-gray-700 text-xs font-semibold mb-1">
-                      Feedback/Revision Instructions <span className="text-red-500">*</span>
-                    </label>
-                    <textarea
-                      value={feedbackNote}
-                      onChange={(e) => setFeedbackNote(e.target.value)}
-                      placeholder="Specify required corrections clearly. Needed if returning for revision..."
-                      className="w-full p-3 text-xs bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-medium text-navy-blue placeholder-gray-400"
-                      rows="3"
-                    ></textarea>
-                  </div>
+                handleReviewReport ? (
+                  <>
+                    <div className="text-left">
+                      <label className="block text-gray-700 text-xs font-semibold mb-1">
+                        Feedback/Revision Instructions <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        value={feedbackNote}
+                        onChange={(e) => setFeedbackNote(e.target.value)}
+                        placeholder="Specify required corrections clearly. Needed if returning for revision..."
+                        className="w-full p-3 text-xs bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-medium text-navy-blue placeholder-gray-400"
+                        rows="3"
+                      ></textarea>
+                    </div>
 
-                  <div className="flex flex-col space-y-2">
-                    <button
-                      onClick={() => handleReviewReport('returned')}
-                      disabled={loading}
-                      className="w-full bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-full font-bold text-xs py-2.5 transition duration-200 cursor-pointer text-center disabled:opacity-50"
-                    >
-                      {loading ? 'Processing...' : 'Return with Feedback'}
-                    </button>
-                    <button
-                      onClick={() => handleReviewReport('approved')}
-                      disabled={loading}
-                      className="w-full bg-navy-blue text-white rounded-full font-bold text-xs py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition duration-200 cursor-pointer text-center disabled:opacity-50"
-                    >
-                      {loading ? 'Processing...' : 'Approve & Lock'}
-                    </button>
+                    <div className="flex flex-col space-y-2">
+                      <button
+                        onClick={() => handleReviewReport('returned')}
+                        disabled={loading}
+                        className="w-full bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-full font-bold text-xs py-2.5 transition duration-200 cursor-pointer text-center disabled:opacity-50"
+                      >
+                        {loading ? 'Processing...' : 'Return with Feedback'}
+                      </button>
+                      <button
+                        onClick={() => handleReviewReport('approved')}
+                        disabled={loading}
+                        className="w-full bg-navy-blue text-white rounded-full font-bold text-xs py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition duration-200 cursor-pointer text-center disabled:opacity-50"
+                      >
+                        {loading ? 'Processing...' : 'Approve & Lock'}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-start space-x-2 text-amber-700 bg-amber-50/50 p-4 rounded-2xl border border-amber-200/50 text-xs text-left">
+                    <Clock className="w-4.5 h-4.5 shrink-0 text-amber-650 mt-0.5" />
+                    <div>
+                      <span className="font-bold">Pending Review</span>
+                      <p className="mt-1 text-amber-650/80 leading-normal font-medium">
+                        This report has been submitted and is currently pending review by the Admin.
+                      </p>
+                    </div>
                   </div>
-                </>
+                )
+              )}
+
+              {report.status === 'draft' && (
+                <div className="flex items-start space-x-2 text-gray-700 bg-gray-50 p-4 rounded-2xl border border-gray-250 text-xs text-left">
+                  <FileText className="w-4.5 h-4.5 shrink-0 text-gray-550 mt-0.5" />
+                  <div>
+                    <span className="font-bold">Draft Document</span>
+                    <p className="mt-1 text-gray-500 leading-normal font-medium">
+                      This is a draft version. You can close this viewer and click "Edit" to complete and submit it to the Admin.
+                    </p>
+                  </div>
+                </div>
               )}
 
               {report.status === 'approved' && (
