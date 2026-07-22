@@ -1,4 +1,34 @@
 import JSZip from 'jszip';
+import { EditorState } from 'prosemirror-state';
+import { createDocument } from '@tiptap/core';
+
+/**
+ * Loads baseline content into a Tiptap editor and resets the ProseMirror undo/redo history state to 0 steps.
+ * Prevents Ctrl+Z from undoing or erasing the loaded document/template/report content.
+ */
+export function loadInitialContentAndResetHistory(editor, content) {
+  if (!editor || editor.isDestroyed) return;
+  try {
+    const docNode = createDocument(content || '<p></p>', editor.schema);
+    const newState = EditorState.create({
+      schema: editor.schema,
+      doc: docNode,
+      plugins: editor.state.plugins,
+    });
+    editor.view.updateState(newState);
+  } catch (err) {
+    console.warn('loadInitialContentAndResetHistory fallback:', err);
+    try {
+      const docNode = createDocument(content || '<p></p>', editor.schema);
+      const tr = editor.state.tr;
+      tr.replaceWith(0, editor.state.doc.content.size, docNode);
+      tr.setMeta('addToHistory', false);
+      editor.view.dispatch(tr);
+    } catch (e) {
+      editor.commands.setContent(content || '<p></p>');
+    }
+  }
+}
 
 /**
  * Shared helper functions for the document editor.

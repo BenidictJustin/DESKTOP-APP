@@ -21,7 +21,7 @@ import TextEditor from '../../components/editor/TextEditor'
 import DocumentViewer from '../../components/DocumentViewer'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
-import { sanitizeOklchInDocument } from '../../components/editor/utils/editorHelpers'
+import { sanitizeOklchInDocument, loadInitialContentAndResetHistory } from '../../components/editor/utils/editorHelpers'
 
 // ─── Status Badge helper ───────────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
@@ -107,11 +107,19 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     setWorkspaceFeedback(null)
     setLinkToEvent(true)
     // Reset editor content
-    const ed = editor || window.__dommunityEditor
-    if (ed) {
-      ed.setEditable(true)
-      ed.commands.setContent('<p></p>')
-      setTimeout(() => ed.commands.focus('start'), 50)
+    if (window.__dommunityResetEditorLayout) {
+      try {
+        window.__dommunityResetEditorLayout()
+      } catch (err) {
+        console.error('Reset editor layout failed:', err)
+      }
+    } else {
+      const ed = editor || window.__dommunityEditor
+      if (ed) {
+        ed.setEditable(true)
+        loadInitialContentAndResetHistory(ed, '<p></p>')
+        setTimeout(() => ed.commands.focus('start'), 50)
+      }
     }
   }, [])
 
@@ -138,8 +146,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     const ed = editor || window.__dommunityEditor
     if (ed) {
       ed.setEditable(!isReadOnly)
-      ed.commands.setContent(rep.narrative || '<p></p>')
-      // Focus after content is set to fix "cannot type" issue
+      loadInitialContentAndResetHistory(ed, rep.narrative || '<p></p>')
       setTimeout(() => {
         if (!isReadOnly) ed.commands.focus('end')
       }, 100)
@@ -216,8 +223,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
               ? 'Draft saved successfully!'
               : 'Report submitted to Admin successfully!'
           )
+          resetForm()
           if (status === 'submitted') {
-            resetForm()
             setActiveTab('reports')
           }
         }

@@ -11,14 +11,17 @@ import {
   where,
   Timestamp
 } from 'firebase/firestore'
+import { initializeApp } from 'firebase/app'
 import {
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  getAuth,
   signOut,
   onAuthStateChanged,
   sendPasswordResetEmail
 } from 'firebase/auth'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { db as fdb, auth as fauth, storage as fstorage, isDemoMode } from '../firebase'
+import { db as fdb, auth as fauth, storage as fstorage, isDemoMode, firebaseConfig } from '../firebase'
 
 // ==========================================
 // 1. DEMO MODE DATA STORAGE (LOCAL STORAGE)
@@ -480,7 +483,23 @@ export const login = async (email, password) => {
       throw new Error('Invalid email or password credentials.')
     }
   } else {
-    const userCredential = await signInWithEmailAndPassword(fauth, email, password)
+    let loginEmail = email.trim()
+    if (!loginEmail.includes('@')) {
+      const q = query(collection(fdb, 'users'), where('username', '==', loginEmail))
+      const querySnapshot = await getDocs(q)
+      if (!querySnapshot.empty) {
+        loginEmail = querySnapshot.docs[0].data().email
+      } else {
+        const q2 = query(collection(fdb, 'users'), where('username', '==', loginEmail.toLowerCase()))
+        const querySnapshot2 = await getDocs(q2)
+        if (!querySnapshot2.empty) {
+          loginEmail = querySnapshot2.docs[0].data().email
+        } else {
+          throw new Error('User record not found in system database.')
+        }
+      }
+    }
+    const userCredential = await signInWithEmailAndPassword(fauth, loginEmail, password)
     const userDoc = await getDoc(doc(fdb, 'users', userCredential.user.uid))
     if (userDoc.exists()) {
       const userData = userDoc.data()
@@ -513,6 +532,221 @@ export const getCurrentUser = () => {
   }
 }
 
+export const migrateLocalDataToFirebase = async () => {
+  if (isDemoMode) return
+
+  try {
+    const migrationDocRef = doc(fdb, 'system', 'migration')
+    const migrationDoc = await getDoc(migrationDocRef)
+    if (migrationDoc.exists() && migrationDoc.data().completed) {
+      console.log('Firebase migration already completed previously.')
+      return
+    }
+
+    console.log('Starting local data migration to Firebase...')
+
+    // Load data from LocalStorage or SEED_DATA
+    const localUsers = getLocalData(LOCAL_STORAGE_KEYS.USERS) || SEED_DATA.USERS || []
+    const localOrgs = getLocalData(LOCAL_STORAGE_KEYS.ORGANIZATIONS) || SEED_DATA.ORGANIZATIONS || []
+    const localInventory = getLocalData(LOCAL_STORAGE_KEYS.INVENTORY) || SEED_DATA.INVENTORY || []
+    const localDonors = getLocalData(LOCAL_STORAGE_KEYS.DONORS) || SEED_DATA.DONORS || []
+    const localDonations = getLocalData(LOCAL_STORAGE_KEYS.DONATIONS) || SEED_DATA.DONATIONS || []
+    const localEvents = getLocalData(LOCAL_STORAGE_KEYS.EVENTS) || SEED_DATA.EVENTS || []
+    const localReports = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || SEED_DATA.REPORTS || []
+    const localTransactions = getLocalData('dommunity_inventory_transactions') || []
+
+    const uidMap = {}
+
+    // Initialize a secondary Firebase App to create users without signing out current admin session
+    const secondaryAppName = 'MigrationApp_' + Date.now()
+    const secondaryApp = initializeApp(firebaseConfig, secondaryAppName)
+    const secondaryAuth = getAuth(secondaryApp)
+
+    console.log('Migrating users to Firebase Auth and Firestore...')
+    for (const user of localUsers) {
+      const pwd = user.email === 'admin@gmail.com' ? 'admin12345' : 
+                  (user.email === 'coordinator@gmail.com' ? 'coordinator123' : 
+                   (user.password || 'password123'))
+      
+      let authUid = null
+      try {
+        const cred = await createUserWithEmailAndPassword(secondaryAuth, user.email, pwd)
+        authUid = cred.user.uid
+        console.log(`Created Auth user for ${user.email}: ${authUid}`)
+      } catch (authErr) {
+        if (authErr.code === 'auth/email-already-in-use') {
+          try {
+            const cred = await signInWithEmailAndPassword(secondaryAuth, user.email, pwd)
+            authUid = cred.user.uid
+            console.log(`Auth user for ${user.email} already exists: ${authUid}`)
+          } catch (signInErr) {
+            console.error(`Sign in failed for existing user ${user.email}:`, signInErr.message)
+          }
+        } else {
+          console.error(`Error creating Auth user for ${user.email}:`, authErr.message)
+        }
+      }
+
+      // If we couldn't create/find auth user, fallback to using their old uid
+      const finalUid = authUid || user.uid
+      uidMap[user.uid] = finalUid
+
+      // Save user doc to Firestore
+      const userDocData = {
+        uid: finalUid,
+        username: user.username || user.email.split('@')[0],
+        email: user.email,
+        name: user.name || user.username || 'User',
+        role: user.role || 'office_coordinator',
+        organizationId: user.organizationId || null,
+        status: user.status || 'active',
+        createdAt: user.createdAt ? Timestamp.fromDate(new Date(user.createdAt)) : Timestamp.now(),
+        updatedAt: user.updatedAt ? Timestamp.fromDate(new Date(user.updatedAt)) : Timestamp.now()
+      }
+      await setDoc(doc(fdb, 'users', finalUid), userDocData)
+    }
+
+    // Clean up secondary app
+    await secondaryApp.delete()
+
+    const mapUid = (id) => uidMap[id] || id
+
+    // 2. Migrate Organizations
+    console.log('Migrating organizations...')
+    for (const org of localOrgs) {
+      const orgData = {
+        id: org.id,
+        name: org.name,
+        abbreviation: org.abbreviation,
+        description: org.description || '',
+        coordinatorId: org.coordinatorId ? mapUid(org.coordinatorId) : null,
+        type: org.type || 'department',
+        logo: org.logo || null,
+        createdAt: org.createdAt ? Timestamp.fromDate(new Date(org.createdAt)) : Timestamp.now()
+      }
+      await setDoc(doc(fdb, 'organizations', org.id), orgData)
+    }
+
+    // 3. Migrate Inventory
+    console.log('Migrating inventory...')
+    for (const inv of localInventory) {
+      const invData = {
+        name: inv.name,
+        category: inv.category,
+        unit: inv.unit,
+        quantity: inv.quantity,
+        expiryDate: inv.expiryDate ? Timestamp.fromDate(new Date(inv.expiryDate)) : null,
+        receivedDate: inv.receivedDate ? Timestamp.fromDate(new Date(inv.receivedDate)) : Timestamp.now(),
+        status: inv.status || 'available',
+        lastUpdatedBy: inv.lastUpdatedBy ? mapUid(inv.lastUpdatedBy) : null,
+        createdAt: inv.createdAt ? Timestamp.fromDate(new Date(inv.createdAt)) : Timestamp.now(),
+        updatedAt: inv.updatedAt ? Timestamp.fromDate(new Date(inv.updatedAt)) : Timestamp.now()
+      }
+      await setDoc(doc(fdb, 'inventory', inv.id), invData)
+    }
+
+    // 4. Migrate Donors
+    console.log('Migrating donors...')
+    for (const donor of localDonors) {
+      const donorData = {
+        id: donor.id,
+        name: donor.name,
+        type: donor.type,
+        contactPerson: donor.contactPerson || '',
+        email: donor.email || '',
+        phone: donor.phone || '',
+        address: donor.address || '',
+        createdAt: donor.createdAt ? Timestamp.fromDate(new Date(donor.createdAt)) : Timestamp.now()
+      }
+      await setDoc(doc(fdb, 'donors', donor.id), donorData)
+    }
+
+    // 5. Migrate Donations
+    console.log('Migrating donations...')
+    for (const don of localDonations) {
+      const donData = {
+        id: don.id,
+        donorId: don.donorId,
+        donorName: don.donorName,
+        dateOfDonation: don.dateOfDonation ? Timestamp.fromDate(new Date(don.dateOfDonation)) : Timestamp.now(),
+        notes: don.notes || '',
+        items: (don.items || []).map(item => ({
+          name: item.name,
+          category: item.category,
+          quantity: item.quantity,
+          unit: item.unit,
+          expiryDate: item.expiryDate ? Timestamp.fromDate(new Date(item.expiryDate)) : null
+        }))
+      }
+      await setDoc(doc(fdb, 'donations', don.id), donData)
+    }
+
+    // 6. Migrate Events
+    console.log('Migrating events...')
+    for (const ev of localEvents) {
+      const evData = {
+        id: ev.id,
+        title: ev.title,
+        description: ev.description || '',
+        scheduleDate: ev.scheduleDate ? Timestamp.fromDate(new Date(ev.scheduleDate)) : Timestamp.now(),
+        status: ev.status || 'pending',
+        organizationId: ev.organizationId || null,
+        coordinatorId: ev.coordinatorId ? mapUid(ev.coordinatorId) : null,
+        createdAt: ev.createdAt ? Timestamp.fromDate(new Date(ev.createdAt)) : Timestamp.now()
+      }
+      await setDoc(doc(fdb, 'events', ev.id), evData)
+    }
+
+    // 7. Migrate Reports
+    console.log('Migrating narrative reports...')
+    for (const rep of localReports) {
+      const repData = {
+        id: rep.id,
+        eventId: rep.eventId,
+        title: rep.title,
+        academicYear: rep.academicYear,
+        venue: rep.venue || '',
+        attendance: rep.attendance || 0,
+        narrative: rep.narrative || '',
+        photos: rep.photos || [],
+        status: rep.status || 'draft',
+        adminFeedback: rep.adminFeedback || null,
+        history: (rep.history || []).map(h => ({
+          status: h.status,
+          changedBy: h.changedBy ? mapUid(h.changedBy) : null,
+          timestamp: h.timestamp ? Timestamp.fromDate(new Date(h.timestamp)) : Timestamp.now(),
+          notes: h.notes || ''
+        })),
+        createdAt: rep.createdAt ? Timestamp.fromDate(new Date(rep.createdAt)) : Timestamp.now(),
+        updatedAt: rep.updatedAt ? Timestamp.fromDate(new Date(rep.updatedAt)) : Timestamp.now()
+      }
+      await setDoc(doc(fdb, 'narrative_reports', rep.id), repData)
+    }
+
+    // 8. Migrate Transactions
+    console.log('Migrating inventory transactions...')
+    for (const tx of localTransactions) {
+      const txData = {
+        itemId: tx.itemId,
+        itemName: tx.itemName,
+        type: tx.type,
+        quantity: tx.quantity,
+        date: tx.date ? Timestamp.fromDate(new Date(tx.date)) : Timestamp.now(),
+        notes: tx.notes || ''
+      }
+      const txId = tx.id || 'tx-' + Math.random().toString(36).substr(2, 9)
+      await setDoc(doc(fdb, 'inventory_transactions', txId), txData)
+    }
+
+    // Mark migration as completed in Firestore
+    await setDoc(migrationDocRef, { completed: true, migratedAt: Timestamp.now() })
+    console.log('Firebase migration completed successfully!')
+
+  } catch (err) {
+    console.error('Error during Firebase migration:', err)
+  }
+}
+
 export const listenToAuthChanges = (callback) => {
   if (isDemoMode) {
     try {
@@ -525,6 +759,9 @@ export const listenToAuthChanges = (callback) => {
     return () => {}
   } else {
     try {
+      // Trigger migration check/run in Cloud Mode
+      migrateLocalDataToFirebase().catch(err => console.error("Migration error:", err))
+
       return onAuthStateChanged(fauth, async (firebaseUser) => {
         try {
           if (firebaseUser) {
@@ -580,26 +817,32 @@ export const registerUser = async (
     return newUser
   } else {
     // Real mode (Admin registers using Firebase Auth)
-    // To prevent logging out the admin, we can create credentials using a secondary app instance or custom backend.
-    // For standalone React apps, we write directly to Firestore database since users are synced,
-    // or trigger creation. We'll simulate user creation in DB, and let auth sync.
-    const newUid = 'real-uid-' + Math.random().toString(36).substr(2, 9)
+    // To prevent logging out the admin, we initialize a secondary Firebase app instance.
+    const secondaryAppName = 'SecondaryApp_' + Date.now()
+    const secondaryApp = initializeApp(firebaseConfig, secondaryAppName)
+    const secondaryAuth = getAuth(secondaryApp)
+    try {
+      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password)
+      const newUid = userCredential.user.uid
 
-    const userDocRef = doc(fdb, 'users', newUid)
-    const userData = {
-      uid: newUid,
-      username,
-      email,
-      name,
-      role,
-      organizationId,
-      status: 'active',
-      createdAt: new Date(),
-      updatedAt: new Date()
+      const userDocRef = doc(fdb, 'users', newUid)
+      const userData = {
+        uid: newUid,
+        username,
+        email,
+        name,
+        role,
+        organizationId,
+        status: 'active',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+      await setDoc(userDocRef, userData)
+
+      return userData
+    } finally {
+      await secondaryApp.delete()
     }
-    await setDoc(userDocRef, userData)
-
-    return userData
   }
 }
 

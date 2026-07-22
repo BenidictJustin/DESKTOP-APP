@@ -232,6 +232,79 @@ The academic department coordinators and student organizations coordinate with t
 
 This section details the system's design and operational behavior using standard Unified Modeling Language (UML) notation. The diagrams reflect the system's modules, user roles, databases, and structural workflows based on the latest implementation of the system.
 
+### 4.0.1 Functional Decomposition Diagram (FDD)
+
+The Functional Decomposition Diagram (FDD) breaks down the **DommUnity** system into its high-level modules and sub-functions, illustrating the hierarchical structure of the system's operational capabilities.
+
+> 🔗 **[Open in Draw.io (Native XML Diagram)](../drawio/fdd.drawio)** | **[View Functional Design Document (FDD)](./FDD.md)**
+
+```mermaid
+graph TD
+    System[DommUnity System] --> Auth[Authentication & User Management]
+    System --> Inv[Inventory Management]
+    System --> Evt[Event & Department Coordination]
+    System --> Dnr[Donor & Donation Management]
+    System --> Rep[Narrative Reports Module]
+    System --> Inf[Information & Reference Module]
+
+    subgraph AuthModule [Authentication & User Management]
+        Auth --> Auth1[Secure Credentials Login]
+        Auth --> Auth2[Forgot Password Gateway]
+        Auth --> Auth3[Admin User Creation Dashboard]
+        Auth --> Auth4[Office Coordinator Access Control]
+        Auth --> Auth5[Account Status Toggle]
+        Auth --> Auth6[One Coordinator Constraint]
+    end
+
+    subgraph InvModule [Inventory Management]
+        Inv --> Inv1[Item Catalog CRUD]
+        Inv --> Inv2[Real-Time Stock Level Tracking]
+        Inv --> Inv3[FIFO & Nearest-Expiry Sorting]
+        Inv --> Inv4[Batch-Level Tracking Engine]
+        Inv --> Inv5[Expiring Soon Alerts]
+        Inv --> Inv6[Category & Unit Classifications]
+        Inv --> Inv7[Search & Filtering Indicators]
+        Inv --> Inv8[Inventory Summary Exports]
+    end
+
+    subgraph EvtModule [Event & Department Coordination]
+        Evt --> Evt1[Calendar Event Scheduler]
+        Evt --> Evt2[Department/Organization Profiles]
+        Evt --> Evt3[Department-Event Mapper]
+        Evt --> Evt4[Target Community Selection]
+        Evt --> Evt5[Event Status Tracker Logs]
+    end
+
+    subgraph DnrModule [Donor & Donation Management]
+        Dnr --> Dnr1[Donor Profile CRUD Database]
+        Dnr --> Dnr2[Donation Batch Receipt Logger]
+        Dnr --> Dnr3[Consumables Expiration Tracker]
+    end
+
+    subgraph RepModule [Narrative Reports Module]
+        Rep --> Rep1[Report Semester & AY Selection]
+        Rep --> Rep2[Scoped Department Event Selector]
+        Rep --> Rep3[Tiptap Rich Text Diary Editor]
+        Rep --> Rep4[Photo Upload max 10, PNG/JPG]
+        Rep --> Rep5[Save Draft vs Submit Workflow]
+        Rep --> Rep6[Submissions Review Queue]
+        Rep --> Rep7[Returned Feedback Remarks]
+        Rep --> Rep8[PDF/Word CES Compiler]
+    end
+
+    subgraph InfModule [Information & Reference Module]
+        Inf --> Inf1[CES Institutional Info]
+        Inf --> Inf2[CEAP JEEPGY Reference]
+        Inf --> Inf3[Developer/Proponent Profiles]
+    end
+
+    %% Styling
+    style System fill:#fff,stroke:#111827,stroke-width:2px;
+    style Auth,Inv,Evt,Dnr,Rep,Inf fill:#fff,stroke:#111827,stroke-width:2px;
+    classDef default fill:#fff,stroke:#111827,stroke-width:1px;
+```
+
+
 ### 4.1 The operational capabilities of **DommUnity** are modeled below through three separate, detailed Use Case Diagrams. Every action, process, button trigger, validation rule, and Firebase database interaction is mapped within its respective boundary.
 
 #### 4.1.1 Login Module

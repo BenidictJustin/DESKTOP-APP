@@ -41,4 +41,4 @@ if (isFirebaseConfigured) {
   console.log("No Firebase config detected. Running in Demo Mode (Local Storage fallback).");
 }
 
-export { app, auth, db, storage, isDemoMode };
+export { app, auth, db, storage, isDemoMode, firebaseConfig };

@@ -259,88 +259,143 @@ export default function DocumentCanvas({
                       marginBottom: gapH,
                     }}
                   >
-                    {/* Double-click zone to trigger Header Edit */}
-                    <div
-                      className="absolute top-0 left-0 right-0 cursor-text z-40 hover:bg-blue-50/20 transition"
-                      style={{ height: `${padTopActual}px` }}
-                      onDoubleClick={() => {
-                        if (!workspaceIsReadOnly) {
-                          setEditingPage(pageNum);
-                          setActiveEditingArea("header");
-                        }
-                      }}
-                      title="Double click to edit Header"
-                    />
-
-                    {/* Double-click zone to trigger Footer Edit */}
-                    <div
-                      className="absolute bottom-0 left-0 right-0 cursor-text z-40 hover:bg-blue-50/20 transition"
-                      style={{ height: `${padBottom}px` }}
-                      onDoubleClick={() => {
-                        if (!workspaceIsReadOnly) {
-                          setEditingPage(pageNum);
-                          setActiveEditingArea("footer");
-                        }
-                      }}
-                      title="Double click to edit Footer"
-                    />
-
-                    {/* -- Page Header -- */}
-                    {showHeader && (
-                      <div
-                        className="absolute left-0 right-0 z-50"
-                        style={{
-                          top: "48px",
-                          paddingLeft: 96,
-                          paddingRight: 96,
-                          boxSizing: "border-box",
-                        }}
-                      >
-                        {activeEditingArea === "header" && editingPage === pageNum ? (
-                          <div className="relative">
-                            <div className="w-full bg-blue-50/70 border border-dashed border-blue-400 text-gray-800 text-[10px] px-2 py-1 rounded-sm focus:outline-none focus:ring-1 focus:ring-blue-500 font-sans min-h-[20px] select-text">
-                              {headerEditor && <EditorContent editor={headerEditor} />}
-                            </div>
-                            <span className="absolute -top-3.5 right-1 text-[8px] text-blue-500 font-bold uppercase tracking-wider select-none">Header</span>
+                    {/* -- System Template Header/Footer Rendering (100% Static & Preserved) -- */}
+                    {isTemplateActive ? (
+                      <>
+                        {/* -- Static Template Header -- */}
+                        {showHeader && (
+                          <div
+                            className="absolute left-0 right-0 z-50 pointer-events-none select-none"
+                            style={{
+                              top: "48px",
+                              paddingLeft: 96,
+                              paddingRight: 96,
+                              boxSizing: "border-box",
+                            }}
+                          >
+                            <div 
+                              dangerouslySetInnerHTML={{ __html: headerText || '<div style="min-height: 20px;"></div>' }}
+                            />
                           </div>
-                        ) : (
-                          <div 
-                            className="border-b border-dashed border-transparent hover:border-gray-300 cursor-pointer pb-1"
-                            onDoubleClick={() => { if (!workspaceIsReadOnly && !isTemplateActive) { setEditingPage(pageNum); setActiveEditingArea("header"); }}}
-                            dangerouslySetInnerHTML={{ __html: headerText || '<div style="min-height: 20px;"></div>' }}
-                          />
                         )}
-                      </div>
-                    )}
 
-                    {/* -- Page Footer -- */}
-                    {showFooter && (
-                      <div
-                        className="absolute left-0 right-0 z-50"
-                        style={{
-                          bottom: "0px",
-                          paddingLeft: 96,
-                          paddingRight: 96,
-                          paddingBottom: "24px",
-                          boxSizing: "border-box",
-                        }}
-                      >
-                        {activeEditingArea === "footer" && editingPage === pageNum ? (
-                          <div className="relative bg-blue-50/70 border border-dashed border-blue-400 rounded-sm p-1 select-text">
-                            <div className="bg-transparent text-gray-800 text-[10px] px-2 py-0.5 focus:outline-none font-sans min-h-[20px] text-center">
-                              {footerEditor && <EditorContent editor={footerEditor} />}
-                            </div>
-                            <span className="absolute -top-3.5 right-1 text-[8px] text-blue-500 font-bold uppercase tracking-wider select-none">Footer</span>
-                          </div>
-                        ) : (
-                          <div 
-                            className="relative border-t border-dashed border-transparent hover:border-gray-300 cursor-pointer pt-1 w-full"
-                            onDoubleClick={() => { if (!workspaceIsReadOnly && !isTemplateActive) { setEditingPage(pageNum); setActiveEditingArea("footer"); }}}
+                        {/* -- Static Template Footer -- */}
+                        {showFooter && (
+                          <div
+                            className="absolute left-0 right-0 z-50 pointer-events-none select-none"
+                            style={{
+                              bottom: "0px",
+                              paddingLeft: 96,
+                              paddingRight: 96,
+                              paddingBottom: "24px",
+                              boxSizing: "border-box",
+                            }}
                           >
                             <div dangerouslySetInnerHTML={{ __html: footerText || '<div style="min-height: 20px;"></div>' }} />
                           </div>
                         )}
-                      </div>
+                      </>
+                    ) : (
+                      /* -- Normal Document Microsoft Word-Style Header & Footer UI -- */
+                      <>
+                        {/* Header Region */}
+                        {showHeader && (
+                          <div
+                            className={`absolute top-0 left-0 right-0 z-50 select-text transition-colors ${
+                              activeEditingArea === "header" && editingPage === pageNum
+                                ? "bg-white"
+                                : "hover:bg-blue-50/20 cursor-pointer"
+                            }`}
+                            style={{
+                              height: `${padTopActual}px`,
+                              paddingLeft: padLeft,
+                              paddingRight: padRight,
+                              paddingTop: "20px",
+                              boxSizing: "border-box",
+                            }}
+                            onClick={(e) => {
+                              if (!workspaceIsReadOnly && activeEditingArea !== "header") {
+                                e.stopPropagation();
+                                setEditingPage(pageNum);
+                                setActiveEditingArea("header");
+                              }
+                            }}
+                            onDoubleClick={(e) => {
+                              if (!workspaceIsReadOnly) {
+                                e.stopPropagation();
+                                setEditingPage(pageNum);
+                                setActiveEditingArea("header");
+                              }
+                            }}
+                          >
+                            {activeEditingArea === "header" && editingPage === pageNum ? (
+                              <div className="w-full h-full relative flex flex-col justify-end pb-2">
+                                <div className="w-full text-gray-800 text-xs font-sans min-h-[20px] outline-none">
+                                  {headerEditor && <EditorContent editor={headerEditor} />}
+                                </div>
+                                {/* MS Word-style full-width horizontal boundary line */}
+                                <div className="absolute left-0 right-0 bottom-0 border-b border-dashed border-gray-400 pointer-events-none" />
+                              </div>
+                            ) : (
+                              <div className="w-full h-full flex flex-col justify-end pb-2 border-b border-dashed border-transparent hover:border-gray-300">
+                                <div
+                                  className="w-full text-gray-800 text-xs font-sans min-h-[20px]"
+                                  dangerouslySetInnerHTML={{ __html: headerText || '<div style="min-height: 20px;"></div>' }}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Footer Region */}
+                        {showFooter && (
+                          <div
+                            className={`absolute bottom-0 left-0 right-0 z-50 select-text transition-colors ${
+                              activeEditingArea === "footer" && editingPage === pageNum
+                                ? "bg-white"
+                                : "hover:bg-blue-50/20 cursor-pointer"
+                            }`}
+                            style={{
+                              height: `${padBottom}px`,
+                              paddingLeft: padLeft,
+                              paddingRight: padRight,
+                              paddingBottom: "20px",
+                              boxSizing: "border-box",
+                            }}
+                            onClick={(e) => {
+                              if (!workspaceIsReadOnly && activeEditingArea !== "footer") {
+                                e.stopPropagation();
+                                setEditingPage(pageNum);
+                                setActiveEditingArea("footer");
+                              }
+                            }}
+                            onDoubleClick={(e) => {
+                              if (!workspaceIsReadOnly) {
+                                e.stopPropagation();
+                                setEditingPage(pageNum);
+                                setActiveEditingArea("footer");
+                              }
+                            }}
+                          >
+                            {activeEditingArea === "footer" && editingPage === pageNum ? (
+                              <div className="w-full h-full relative flex flex-col justify-start pt-2">
+                                {/* MS Word-style full-width horizontal boundary line */}
+                                <div className="absolute left-0 right-0 top-0 border-t border-dashed border-gray-400 pointer-events-none" />
+                                <div className="w-full text-gray-800 text-xs font-sans min-h-[20px] outline-none">
+                                  {footerEditor && <EditorContent editor={footerEditor} />}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="w-full h-full flex flex-col justify-start pt-2 border-t border-dashed border-transparent hover:border-gray-300">
+                                <div
+                                  className="w-full text-gray-800 text-xs font-sans min-h-[20px]"
+                                  dangerouslySetInnerHTML={{ __html: footerText || '<div style="min-height: 20px;"></div>' }}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 );
@@ -457,12 +512,14 @@ export default function DocumentCanvas({
                  }
                  .ProseMirror table {
                    border-collapse: collapse; width: 100%; margin: 12px 0;
-                   table-layout: auto;
+                   table-layout: fixed;
                  }
                  .ProseMirror th,
                  .ProseMirror td {
                    border: 1px solid #c0c0c0; padding: 6px 10px;
                    font-size: 12px; text-align: left; position: relative;
+                   word-break: break-word; overflow-wrap: break-word;
+                   box-sizing: border-box;
                  }
                  .ProseMirror th { background: #f3f4f6; font-weight: 600; }
                  .ProseMirror tr:nth-child(even) td { background: #fafafa; }
@@ -471,6 +528,23 @@ export default function DocumentCanvas({
                    position: absolute; right: -2px; top: 0; bottom: 0;
                    width: 4px; background: #2563eb; cursor: col-resize;
                    pointer-events: auto; z-index: 20;
+                 }
+                 .ProseMirror table.movable-table {
+                   position: relative !important;
+                   overflow: visible !important;
+                   transition: outline 0.15s ease-in-out;
+                 }
+                 .ProseMirror table.movable-table:hover {
+                   outline: 1px dashed #9ca3af;
+                 }
+                 .ProseMirror table.movable-table .table-move-handle,
+                 .ProseMirror table.movable-table .table-resize-handle {
+                   opacity: 0;
+                   transition: opacity 0.15s ease-in-out;
+                 }
+                 .ProseMirror table.movable-table:hover .table-move-handle,
+                 .ProseMirror table.movable-table:hover .table-resize-handle {
+                   opacity: 1;
                  }
                  .ProseMirror hr { border: none; border-top: 1px solid #d1d5db; margin: 14px 0; }
                  .ProseMirror mark { padding: 1px 2px; border-radius: 2px; }

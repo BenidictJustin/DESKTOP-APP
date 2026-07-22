@@ -1,0 +1,364 @@
+<mxfile host="65bd71144e">
+    <diagram id="page_gb44dn2kd" name="Functional Decomposition Diagram">
+        <mxGraphModel dx="569" dy="381" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="950" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="system" value="DommUnity System" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontStyle=1;fontSize=14;" parent="1" vertex="1">
+                    <mxGeometry x="700" y="40" width="200" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="mod_auth" value="Authentication &amp; User Management" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontStyle=1;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="50" y="180" width="210" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="mod_inventory" value="Inventory Management" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontStyle=1;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="310" y="180" width="210" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="mod_events" value="Event &amp; Department Coordination" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontStyle=1;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="570" y="180" width="210" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="mod_donors" value="Donor &amp; Donation Management" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontStyle=1;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="830" y="180" width="210" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="mod_reports" value="Narrative Reports Module" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontStyle=1;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="1090" y="180" width="210" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="mod_info" value="Information &amp; Reference Module" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=1.5;strokeColor=#000000;fillColor=none;fontStyle=1;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="1350" y="180" width="210" height="45" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_sys_auth" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="system" target="mod_auth" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="conn_sys_inv" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="system" target="mod_inventory" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="conn_sys_evt" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="system" target="mod_events" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="conn_sys_dnr" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="system" target="mod_donors" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="conn_sys_rep" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="system" target="mod_reports" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="conn_sys_inf" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="system" target="mod_info" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_auth_0" value="Secure Credentials Login" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="260" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_auth_0" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_auth" target="sub_auth_0" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_auth_1" value="Forgot Password recovery gateway" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="310" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_auth_1" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_auth" target="sub_auth_1" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_auth_2" value="Admin user creation dashboard" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="360" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_auth_2" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_auth" target="sub_auth_2" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_auth_3" value="Office Coordinator access control" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="410" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_auth_3" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_auth" target="sub_auth_3" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_auth_4" value="Account activation/deactivation toggle" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="460" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_auth_4" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_auth" target="sub_auth_4" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_auth_5" value="One Department Coordinator constraint" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="510" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_auth_5" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_auth" target="sub_auth_5" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_inv_0" value="Item catalog management (CRUD)" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="340" y="260" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_inv_0" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_inventory" target="sub_inv_0" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_inv_1" value="Real-time stock levels tracking" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="340" y="310" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_inv_1" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_inventory" target="sub_inv_1" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_inv_2" value="Expiration-based sorting (FIFO)" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="340" y="360" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_inv_2" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_inventory" target="sub_inv_2" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_inv_3" value="Batch-level tracking engine" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="340" y="410" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_inv_3" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_inventory" target="sub_inv_3" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_inv_4" value="Expiring soon alerts (30 days)" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="340" y="460" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_inv_4" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_inventory" target="sub_inv_4" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_inv_5" value="Category &amp; unit classifications" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="340" y="510" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_inv_5" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_inventory" target="sub_inv_5" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_inv_6" value="Search &amp; filtering indicators" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="340" y="560" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_inv_6" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_inventory" target="sub_inv_6" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_inv_7" value="Inventory summary exports (PDF)" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="340" y="610" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_inv_7" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_inventory" target="sub_inv_7" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_evt_0" value="Monthly calendar event scheduler" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="600" y="260" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_evt_0" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_events" target="sub_evt_0" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_evt_1" value="Department/Organization profiles" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="600" y="310" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_evt_1" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_events" target="sub_evt_1" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_evt_2" value="Department-event assignment mapper" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="600" y="360" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_evt_2" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_events" target="sub_evt_2" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_evt_3" value="Target community selection" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="600" y="410" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_evt_3" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_events" target="sub_evt_3" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_evt_4" value="Event status tracker logs" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="600" y="460" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_evt_4" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_events" target="sub_evt_4" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_dnr_0" value="Donor profile CRUD database" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="860" y="260" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_dnr_0" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_donors" target="sub_dnr_0" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_dnr_1" value="Donation batch receipt logger" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="860" y="310" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_dnr_1" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_donors" target="sub_dnr_1" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_dnr_2" value="Consumables expiration tracker" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="860" y="360" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_dnr_2" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_donors" target="sub_dnr_2" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_rep_0" value="Report Semester &amp; AY selection" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="1120" y="260" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_rep_0" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_reports" target="sub_rep_0" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_rep_1" value="Scoped department event selector" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="1120" y="310" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_rep_1" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_reports" target="sub_rep_1" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_rep_2" value="Tiptap rich text diary editor" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="1120" y="360" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_rep_2" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_reports" target="sub_rep_2" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_rep_3" value="Photo Documentation (max 10, PNG/JPG)" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="1120" y="410" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_rep_3" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_reports" target="sub_rep_3" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_rep_4" value="Save draft vs Submit workflow" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="1120" y="460" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_rep_4" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_reports" target="sub_rep_4" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_rep_5" value="Submissions review queue (Admin)" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="1120" y="510" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_rep_5" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_reports" target="sub_rep_5" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_rep_6" value="Returned feedback remarks view" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="1120" y="560" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_rep_6" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_reports" target="sub_rep_6" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_rep_7" value="PDF/Word compiler (standard CES)" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="1120" y="610" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_rep_7" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_reports" target="sub_rep_7" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_inf_0" value="CES institutional details display" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="1380" y="260" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_inf_0" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_info" target="sub_inf_0" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_inf_1" value="CEAP JEEPGY advocacy reference" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="1380" y="310" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_inf_1" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_info" target="sub_inf_1" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="sub_inf_2" value="Developer/Proponent profiles" style="whiteSpace=wrap;html=1;strokeWidth=1;strokeColor=#000000;fillColor=none;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="1380" y="360" width="200" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="conn_inf_2" value="" style="endArrow=classic;html=1;rounded=0;strokeWidth=1.2;strokeColor=#000000;edgeStyle=orthogonalEdgeStyle;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="mod_info" target="sub_inf_2" edge="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint as="sourcePoint"/>
+                        <mxPoint as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

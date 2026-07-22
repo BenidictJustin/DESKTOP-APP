@@ -896,7 +896,7 @@ import { Ruler } from './ui/Ruler';
 import StatusBar from './ui/StatusBar';
 import { DropdownWrapper } from './ui/DropdownWrapper';
 import { DocPropertiesDialog } from './ui/Dialogs';
-import { handleExportPDF, handleExportDOCX, handleExportTXT, docxToHtml, parseDocxLayout } from './utils/editorHelpers';
+import { handleExportPDF, handleExportDOCX, handleExportTXT, docxToHtml, parseDocxLayout, loadInitialContentAndResetHistory } from './utils/editorHelpers';
 import DocumentCanvas from './ui/DocumentCanvas';
 import PageFlow from './extensions/PageFlow';
 import PageBreak from './extensions/PageBreak';
@@ -904,6 +904,236 @@ import FloatingImage from './extensions/FloatingImage';
 import FloatingTextBox from './extensions/FloatingTextBox';
 import FloatingToolbar from './ui/FloatingToolbar';
 import { cn } from './utils/cn';
+import { mergeAttributes } from '@tiptap/core';
+
+const MovableTable = Table.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      leftOffset: {
+        default: 0,
+        parseHTML: element => {
+          const match = (element.style.transform || '').match(/translate\(([^px]+)px,\s*([^px]+)px\)/);
+          if (match) return parseFloat(match[1]);
+          const leftVal = element.style.left;
+          return leftVal ? parseFloat(leftVal) : 0;
+        },
+        renderHTML: attributes => {
+          if (!attributes.leftOffset && !attributes.topOffset) return {};
+          return { style: `transform: translate(${attributes.leftOffset || 0}px, ${attributes.topOffset || 0}px); position: relative;` };
+        },
+      },
+      topOffset: {
+        default: 0,
+        parseHTML: element => {
+          const match = (element.style.transform || '').match(/translate\(([^px]+)px,\s*([^px]+)px\)/);
+          if (match) return parseFloat(match[2]);
+          const topVal = element.style.top;
+          return topVal ? parseFloat(topVal) : 0;
+        },
+        renderHTML: attributes => {
+          if (!attributes.leftOffset && !attributes.topOffset) return {};
+          return { style: `transform: translate(${attributes.leftOffset || 0}px, ${attributes.topOffset || 0}px); position: relative;` };
+        },
+      },
+      tableWidth: {
+        default: null,
+        parseHTML: element => element.style.width || null,
+        renderHTML: attributes => {
+          if (!attributes.tableWidth) return {};
+          return { style: `width: ${attributes.tableWidth}; max-width: none;` };
+        },
+      },
+    };
+  },
+
+  renderHTML({ node, HTMLAttributes }) {
+    const styles = ['position: relative'];
+    if (node.attrs.leftOffset || node.attrs.topOffset) {
+      styles.push(`transform: translate(${node.attrs.leftOffset || 0}px, ${node.attrs.topOffset || 0}px)`);
+    }
+    if (node.attrs.tableWidth) {
+      styles.push(`width: ${node.attrs.tableWidth}`, 'max-width: none');
+    }
+    const styleAttr = { style: styles.join(';') };
+    return ['table', mergeAttributes(HTMLAttributes, styleAttr), 0];
+  },
+
+  addNodeView() {
+    return ({ node, HTMLAttributes, getPos, editor }) => {
+      let currentNode = node;
+      const tableDOM = document.createElement('table');
+      Object.entries(HTMLAttributes).forEach(([key, val]) => {
+        if (key !== 'style') tableDOM.setAttribute(key, val);
+      });
+      tableDOM.style.position = 'relative';
+      tableDOM.style.width = currentNode.attrs.tableWidth || '100%';
+      tableDOM.style.maxWidth = 'none';
+      tableDOM.style.transform = `translate(${currentNode.attrs.leftOffset || 0}px, ${currentNode.attrs.topOffset || 0}px)`;
+      tableDOM.classList.add('movable-table');
+
+      const contentDOM = document.createElement('tbody');
+      tableDOM.appendChild(contentDOM);
+
+      if (!editor.isEditable) {
+        return {
+          dom: tableDOM,
+          contentDOM,
+        };
+      }
+
+      // Create MS Word-style table move handle icon (straddling top-left corner)
+      const moveHandle = document.createElement('div');
+      moveHandle.className = 'table-move-handle';
+      moveHandle.setAttribute('contenteditable', 'false');
+      moveHandle.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4b5563" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>`;
+      moveHandle.style.position = 'absolute';
+      moveHandle.style.left = '-10px';
+      moveHandle.style.top = '-10px';
+      moveHandle.style.width = '18px';
+      moveHandle.style.height = '18px';
+      moveHandle.style.background = '#ffffff';
+      moveHandle.style.border = '1px solid #9ca3af';
+      moveHandle.style.borderRadius = '2px';
+      moveHandle.style.display = 'flex';
+      moveHandle.style.alignItems = 'center';
+      moveHandle.style.justifyContent = 'center';
+      moveHandle.style.cursor = 'move';
+      moveHandle.style.zIndex = '9999';
+      moveHandle.style.userSelect = 'none';
+      moveHandle.style.boxShadow = '0 1px 3px rgba(0,0,0,0.15)';
+      tableDOM.appendChild(moveHandle);
+
+      // Create MS Word-style table resize handle (bottom-right corner)
+      const resizeHandle = document.createElement('div');
+      resizeHandle.className = 'table-resize-handle';
+      resizeHandle.setAttribute('contenteditable', 'false');
+      resizeHandle.style.position = 'absolute';
+      resizeHandle.style.right = '-4px';
+      resizeHandle.style.bottom = '-4px';
+      resizeHandle.style.width = '8px';
+      resizeHandle.style.height = '8px';
+      resizeHandle.style.background = '#ffffff';
+      resizeHandle.style.border = '1px solid #6b7280';
+      resizeHandle.style.cursor = 'se-resize';
+      resizeHandle.style.zIndex = '9999';
+      resizeHandle.style.boxShadow = '0 1px 2px rgba(0,0,0,0.2)';
+      tableDOM.appendChild(resizeHandle);
+
+      // Drag/move event handlers
+      moveHandle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const initialLeft = currentNode.attrs.leftOffset || 0;
+        const initialTop = currentNode.attrs.topOffset || 0;
+        let currentLeft = initialLeft;
+        let currentTop = initialTop;
+
+        const onMouseMove = (moveEvent) => {
+          const dx = moveEvent.clientX - startX;
+          const dy = moveEvent.clientY - startY;
+          currentLeft = initialLeft + dx;
+          currentTop = initialTop + dy;
+          tableDOM.style.transform = `translate(${currentLeft}px, ${currentTop}px)`;
+        };
+
+        const onMouseUp = () => {
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+
+          if (typeof getPos === 'function') {
+            const pos = getPos();
+            if (typeof pos === 'number') {
+              editor.view.dispatch(
+                editor.view.state.tr.setNodeMarkup(pos, undefined, {
+                  ...currentNode.attrs,
+                  leftOffset: currentLeft,
+                  topOffset: currentTop,
+                })
+              );
+            }
+          }
+        };
+
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      });
+
+      // Resize event handlers
+      resizeHandle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const startX = e.clientX;
+        const initialWidth = tableDOM.offsetWidth;
+        let currentWidth = `${initialWidth}px`;
+
+        const onMouseMove = (moveEvent) => {
+          const dx = moveEvent.clientX - startX;
+          const newWidth = Math.max(100, initialWidth + dx);
+          currentWidth = `${newWidth}px`;
+          tableDOM.style.width = currentWidth;
+          tableDOM.style.maxWidth = 'none';
+        };
+
+        const onMouseUp = () => {
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+
+          if (typeof getPos === 'function') {
+            const pos = getPos();
+            if (typeof pos === 'number') {
+              editor.view.dispatch(
+                editor.view.state.tr.setNodeMarkup(pos, undefined, {
+                  ...currentNode.attrs,
+                  tableWidth: currentWidth,
+                })
+              );
+            }
+          }
+        };
+
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      });
+
+      return {
+        dom: tableDOM,
+        contentDOM,
+        update: (updatedNode) => {
+          if (updatedNode.type.name !== 'table') return false;
+          currentNode = updatedNode;
+          const left = updatedNode.attrs.leftOffset || 0;
+          const top = updatedNode.attrs.topOffset || 0;
+          tableDOM.style.transform = `translate(${left}px, ${top}px)`;
+          tableDOM.style.position = 'relative';
+          if (updatedNode.attrs.tableWidth) {
+            tableDOM.style.width = updatedNode.attrs.tableWidth;
+            tableDOM.style.maxWidth = 'none';
+          }
+          return true;
+        },
+        stopEvent: (event) => {
+          const target = event.target;
+          if (target && (target.closest('.table-move-handle') || target.closest('.table-resize-handle'))) {
+            return true;
+          }
+          return false;
+        },
+        ignoreMutation: (mutation) => {
+          const target = mutation.target;
+          if (target && (target.closest('.table-move-handle') || target.closest('.table-resize-handle'))) {
+            return true;
+          }
+          return false;
+        },
+      };
+    };
+  },
+});
 
 export default function TextEditor({
   user,
@@ -962,6 +1192,11 @@ export default function TextEditor({
   const autoSaveTimer = useRef(null);
   const lastLoadedReportIdRef = useRef(null);
 
+  const zoomRef = useRef(zoom);
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
+
   const leftMargin = useEditorStore((state) => state.leftMargin);
   const rightMargin = useEditorStore((state) => state.rightMargin);
   const setEditor = useEditorStore((state) => state.setEditor);
@@ -981,7 +1216,7 @@ export default function TextEditor({
       Highlight.configure({ multicolor: true }),
       FloatingImage,
       FloatingTextBox,
-      Table.configure({ resizable: true }),
+      MovableTable.configure({ resizable: true }),
       TableCell,
       TableHeader,
       TableRow,
@@ -992,6 +1227,19 @@ export default function TextEditor({
     ],
     content: '<p></p>',
     editable: !workspaceIsReadOnly && activeEditingArea === 'body',
+    onCreate: ({ editor: ed }) => {
+      try { ed.commands.clearHistory(); } catch (e) {}
+
+      const originalPosAtCoords = ed.view.posAtCoords.bind(ed.view);
+      ed.view.posAtCoords = (coords) => {
+        const scale = zoomRef.current / 100;
+        if (scale === 1) return originalPosAtCoords(coords);
+        const rect = ed.view.dom.getBoundingClientRect();
+        const left = rect.left + (coords.left - rect.left) / scale;
+        const top = rect.top + (coords.top - rect.top) / scale;
+        return originalPosAtCoords({ left, top });
+      };
+    },
     onUpdate: ({ editor: ed }) => {
       const txt = ed.getText();
       const words = txt.trim() ? txt.trim().split(/\s+/).length : 0;
@@ -1012,7 +1260,7 @@ export default function TextEditor({
       LineHeightExtension,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Image,
-      Table.configure({ resizable: true }),
+      MovableTable.configure({ resizable: true }),
       TableCell,
       TableHeader,
       TableRow,
@@ -1023,6 +1271,19 @@ export default function TextEditor({
       attributes: {
         class: 'focus:outline-none text-[10px] text-gray-800 font-sans',
       },
+    },
+    onCreate: ({ editor: ed }) => {
+      try { ed.commands.clearHistory(); } catch (e) {}
+
+      const originalPosAtCoords = ed.view.posAtCoords.bind(ed.view);
+      ed.view.posAtCoords = (coords) => {
+        const scale = zoomRef.current / 100;
+        if (scale === 1) return originalPosAtCoords(coords);
+        const rect = ed.view.dom.getBoundingClientRect();
+        const left = rect.left + (coords.left - rect.left) / scale;
+        const top = rect.top + (coords.top - rect.top) / scale;
+        return originalPosAtCoords({ left, top });
+      };
     },
     onUpdate: ({ editor: ed }) => {
       if (ed.isFocused) {
@@ -1042,7 +1303,7 @@ export default function TextEditor({
       LineHeightExtension,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Image,
-      Table.configure({ resizable: true }),
+      MovableTable.configure({ resizable: true }),
       TableCell,
       TableHeader,
       TableRow,
@@ -1054,6 +1315,19 @@ export default function TextEditor({
         class: 'focus:outline-none text-[10px] text-gray-800 font-sans',
       },
     },
+    onCreate: ({ editor: ed }) => {
+      try { ed.commands.clearHistory(); } catch (e) {}
+
+      const originalPosAtCoords = ed.view.posAtCoords.bind(ed.view);
+      ed.view.posAtCoords = (coords) => {
+        const scale = zoomRef.current / 100;
+        if (scale === 1) return originalPosAtCoords(coords);
+        const rect = ed.view.dom.getBoundingClientRect();
+        const left = rect.left + (coords.left - rect.left) / scale;
+        const top = rect.top + (coords.top - rect.top) / scale;
+        return originalPosAtCoords({ left, top });
+      };
+    },
     onUpdate: ({ editor: ed }) => {
       if (ed.isFocused) {
         setFooterText(ed.getHTML());
@@ -1061,7 +1335,7 @@ export default function TextEditor({
     },
   });
 
-  // ── Sync Editable State ──
+  // ── Sync Editable State & Focus ──
   useEffect(() => {
     const isReadOnly = !!workspaceIsReadOnly;
     if (editor) {
@@ -1069,9 +1343,19 @@ export default function TextEditor({
     }
     if (headerEditor) {
       headerEditor.setEditable(!isReadOnly && activeEditingArea === 'header');
+      if (!isReadOnly && activeEditingArea === 'header') {
+        setTimeout(() => {
+          try { headerEditor.commands.focus(); } catch (e) {}
+        }, 50);
+      }
     }
     if (footerEditor) {
       footerEditor.setEditable(!isReadOnly && activeEditingArea === 'footer');
+      if (!isReadOnly && activeEditingArea === 'footer') {
+        setTimeout(() => {
+          try { footerEditor.commands.focus(); } catch (e) {}
+        }, 50);
+      }
     }
   }, [editor, headerEditor, footerEditor, workspaceIsReadOnly, activeEditingArea]);
 
@@ -1108,17 +1392,48 @@ export default function TextEditor({
     }
   }, [editor, paperKey, orientation, marginKey, headerText, footerText, showHeader, showFooter, isTemplateActive, handlePageChange]);
 
-  // ── Register editor globally ──
+  const activeEditor = (activeEditingArea === 'header' && headerEditor)
+    ? headerEditor
+    : (activeEditingArea === 'footer' && footerEditor)
+      ? footerEditor
+      : editor;
+
+  // ── Register active editor globally ──
   useEffect(() => {
-    if (editor) {
-      setEditor(editor);
-      window.__dommunityEditor = editor;
+    if (activeEditor) {
+      setEditor(activeEditor);
+      window.__dommunityEditor = activeEditor;
     }
+
+    window.__dommunityResetEditorLayout = () => {
+      setHeaderText('');
+      loadInitialContentAndResetHistory(headerEditor, '<p></p>');
+      setFooterText('');
+      loadInitialContentAndResetHistory(footerEditor, '<p></p>');
+      setShowHeader(true);
+      setShowFooter(true);
+      setPaperKey('Letter');
+      setOrientation('portrait');
+      setMarginKey('Normal');
+      setIsTemplateActive(false);
+      setActiveTemplateId(null);
+      setDocxBuffer(null);
+      setActiveEditingArea('body');
+      if (editor) {
+        editor.setEditable(true);
+        loadInitialContentAndResetHistory(editor, '<p></p>');
+        setTimeout(() => {
+          try { editor.commands.focus('start'); } catch (e) {}
+        }, 50);
+      }
+    };
+
     return () => {
       setEditor(null);
       window.__dommunityEditor = null;
+      delete window.__dommunityResetEditorLayout;
     };
-  }, [editor, setEditor]);
+  }, [activeEditor, setEditor, editor, headerEditor, footerEditor]);
 
   // ── Load template library on mount ──
   useEffect(() => {
@@ -1167,23 +1482,23 @@ export default function TextEditor({
 <p style="text-align: left;"><br></p>
 <p style="text-align: left;"><br></p>
 <p style="text-align: left;"><br></p>
-<table style="width:100%;border-collapse:collapse;border:1px solid #000;font-family:'Times New Roman',serif;background-color:#ffffff !important;">
+<table style="width:100%;table-layout:fixed;border-collapse:collapse;border:1px solid #000;font-family:'Times New Roman',serif;background-color:#ffffff !important;">
   <tbody>
     <tr>
-      <td style="width:50%;font-weight:bold;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;">Program:</td>
-      <td style="width:50%;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;"> </td>
+      <td style="width:35%;font-weight:bold;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p>Program:</p></td>
+      <td style="width:65%;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p></p></td>
     </tr>
     <tr>
-      <td style="font-weight:bold;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;">Volunteer/s:</td>
-      <td style="border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;"> </td>
+      <td style="width:35%;font-weight:bold;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p>Volunteer/s:</p></td>
+      <td style="width:65%;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p></p></td>
     </tr>
     <tr>
-      <td style="font-weight:bold;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;">Venue:</td>
-      <td style="border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;"> </td>
+      <td style="width:35%;font-weight:bold;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p>Venue:</p></td>
+      <td style="width:65%;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p></p></td>
     </tr>
     <tr>
-      <td style="font-weight:bold;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;">Beneficiaries:</td>
-      <td style="border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;"> </td>
+      <td style="width:35%;font-weight:bold;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p>Beneficiaries:</p></td>
+      <td style="width:65%;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p></p></td>
     </tr>
   </tbody>
 </table>
@@ -1212,7 +1527,7 @@ export default function TextEditor({
     if (editor) {
       if (setWorkspaceIsReadOnly) setWorkspaceIsReadOnly(false);
       editor.setEditable(true);
-      editor.commands.setContent(tpl.html || '<p></p>');
+      loadInitialContentAndResetHistory(editor, tpl.html || '<p></p>');
       editor.chain().focus('start').run();
 
       // Mark whether this is a built-in system template
@@ -1222,20 +1537,20 @@ export default function TextEditor({
 
       if (tpl.headerText !== undefined && tpl.headerText) {
         setHeaderText(tpl.headerText);
-        headerEditor?.commands.setContent(tpl.headerText);
+        loadInitialContentAndResetHistory(headerEditor, tpl.headerText);
         setShowHeader(true);
       } else {
         setHeaderText('');
-        headerEditor?.commands.setContent('<p></p>');
+        loadInitialContentAndResetHistory(headerEditor, '<p></p>');
       }
 
       if (tpl.footerText !== undefined && tpl.footerText) {
         setFooterText(tpl.footerText);
-        footerEditor?.commands.setContent(tpl.footerText);
+        loadInitialContentAndResetHistory(footerEditor, tpl.footerText);
         setShowFooter(true);
       } else {
         setFooterText('');
-        footerEditor?.commands.setContent('<p></p>');
+        loadInitialContentAndResetHistory(footerEditor, '<p></p>');
       }
 
       const pKey = tpl.paperKey || 'Letter';
@@ -1305,9 +1620,9 @@ export default function TextEditor({
           const isTemplateActiveVal = rep.isTemplateActive !== undefined ? rep.isTemplateActive : true;
 
           setHeaderText(headerVal);
-          headerEditor?.commands.setContent(headerVal || '<p></p>');
+          loadInitialContentAndResetHistory(headerEditor, headerVal || '<p></p>');
           setFooterText(footerVal);
-          footerEditor?.commands.setContent(footerVal || '<p></p>');
+          loadInitialContentAndResetHistory(footerEditor, footerVal || '<p></p>');
           setShowHeader(showHeaderVal);
           setShowFooter(showFooterVal);
           setPaperKey(paperKeyVal);
@@ -1320,7 +1635,7 @@ export default function TextEditor({
     } else if (!workspaceReportId) {
       lastLoadedReportIdRef.current = null;
     }
-  }, [workspaceReportId, reportsList, headerEditor, footerEditor]);
+  }, [workspaceReportId, reportsList, editor, headerEditor, footerEditor]);
 
   // ── Save current document as a template ──
   const handleSaveAsTemplate = useCallback(() => {
@@ -1468,25 +1783,25 @@ export default function TextEditor({
           if (layout) {
             if (layout.headerText) {
               setHeaderText(layout.headerText);
-              headerEditor?.commands.setContent(layout.headerText);
+              loadInitialContentAndResetHistory(headerEditor, layout.headerText);
             } else {
               setHeaderText('');
-              headerEditor?.commands.setContent('<p></p>');
+              loadInitialContentAndResetHistory(headerEditor, '<p></p>');
             }
 
             if (layout.footerText) {
               setFooterText(layout.footerText);
-              footerEditor?.commands.setContent(layout.footerText);
+              loadInitialContentAndResetHistory(footerEditor, layout.footerText);
             } else {
               setFooterText('');
-              footerEditor?.commands.setContent('<p></p>');
+              loadInitialContentAndResetHistory(footerEditor, '<p></p>');
             }
 
             setShowHeader(layout.showHeader !== false);
             setShowFooter(layout.showFooter !== false);
           }
 
-          editor.commands.setContent(html || '<p></p>');
+          loadInitialContentAndResetHistory(editor, html || '<p></p>');
           setActiveEditingArea('body');
         }
       } catch (err) {
@@ -1790,11 +2105,6 @@ export default function TextEditor({
   ];
 
   const docTitle = workspaceReportTitle || eventsList.find(x => x.id === workspaceReportEventId)?.name || 'Document1';
-  const activeEditor = (activeEditingArea === 'header' && headerEditor)
-    ? headerEditor
-    : (activeEditingArea === 'footer' && footerEditor)
-      ? footerEditor
-      : editor;
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[#FAFBFD] border border-neutral-200 rounded-lg">
