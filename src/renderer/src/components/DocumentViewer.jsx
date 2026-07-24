@@ -91,6 +91,17 @@ export default function DocumentViewer({
   
   const viewportRef = useRef(null)
 
+  // Keyboard shortcut listener for Escape key to close modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
   // Resolve metadata fields
   const event = eventsList.find((e) => e.id === report.eventId)
   const org = orgsList.find((o) => o.id === report.organizationId)
@@ -509,13 +520,13 @@ export default function DocumentViewer({
   }
 
   return (
-    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in font-poppins text-slate-800">
-      <div className="w-[98vw] h-[95vh] bg-[#f8fafc] rounded-3xl flex flex-col overflow-hidden shadow-2xl border border-white/10">
+    <div className="fixed inset-0 bg-navy-blue/40 backdrop-blur-md flex items-center justify-center p-3 md:p-6 z-[9999] animate-fade-in font-poppins text-slate-800">
+      <div className="w-full max-w-[1400px] h-[92vh] max-h-[960px] bg-[#f8fafc] rounded-2xl flex flex-col overflow-hidden shadow-2xl border border-white/60">
         
         {/* ==================================================== */}
         {/* TOP BAR / VIEWBAR TOOLBAR */}
         {/* ==================================================== */}
-        <header className="h-14 border-b border-gray-200 bg-white flex items-center justify-between px-6 shrink-0 z-10 shadow-xs">
+        <header className="h-16 border-b border-gray-200 bg-white flex items-center justify-between px-6 shrink-0 z-20 shadow-xs">
           {/* Left Panel Toggle & Title */}
           <div className="flex items-center space-x-3.5">
             <button
@@ -635,10 +646,11 @@ export default function DocumentViewer({
             <div className="w-px h-6 bg-gray-200 mx-1"></div>
             <button
               onClick={onClose}
-              className="p-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 rounded-xl transition cursor-pointer flex items-center justify-center font-bold"
-              title="Close Inspect"
+              className="p-2.5 bg-red-50 hover:bg-red-500 text-red-600 hover:text-white border border-red-200/80 rounded-xl transition-all duration-150 cursor-pointer flex items-center justify-center font-bold shadow-xs shrink-0 ml-2"
+              title="Close Inspect (Esc)"
+              aria-label="Close"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
           </div>
         </header>

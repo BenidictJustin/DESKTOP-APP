@@ -1,47 +1,47 @@
-<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.3.6 Chrome/140.0.7339.249 Electron/38.8.0 Safari/537.36" version="29.3.6">
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.3.6 Chrome/140.0.7339.249 Electron/38.8.0 Safari/537.36">
   <diagram id="diag_pik6i312j" name="3.3 Scenario C: Narrative Report Life-Cycle (Create -&gt; Submit -&gt; Return/Approve -&gt; PDF Export)">
-    <mxGraphModel dx="744" dy="447" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="1255" dy="548" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
         <UserObject label="" mermaidData="{&quot;data&quot;:&quot;sequenceDiagram\n    actor Coord as Office Coordinator (Mr. Jonnel B. Manio)\n    actor Admin as Admin (Mrs. Faithful Anne F. Arugay)\n    participant UI_C as Coordinator Dashboard\n    participant UI_A as Admin Dashboard\n    participant ST as Firebase Storage\n    participant FS as Cloud Firestore (narrative_reports collection)\n    participant Local as Local OS File System\n\n    %% 1. Report Draft &amp; Photo Upload\n    Coord-&gt;&gt;UI_C: Create new report, select event, write narrative in Tiptap\n    loop Drag-and-drop photos (max 10)\n        Coord-&gt;&gt;UI_C: Drop photo file (PNG/JPG)\n        UI_C-&gt;&gt;ST: Upload file to /narratives/AY_XXXX-XXXX/event_uuid/photo.jpg\n        ST--&gt;&gt;UI_C: Return Download URL\n        UI_C-&gt;&gt;UI_C: Append photo URL to local draft state\n    end\n\n    %% 2. Save &amp; Submit\n    alt Save Draft\n        Coord-&gt;&gt;UI_C: Click \&quot;Save Draft\&quot;\n        UI_C-&gt;&gt;FS: Write to narrative_reports/ (status=\&quot;draft\&quot;, authorId, content, photo URLs)\n        FS--&gt;&gt;UI_C: Confirm draft saved\n    else Submit for Approval\n        Coord-&gt;&gt;UI_C: Click \&quot;Submit for Approval\&quot;\n        UI_C-&gt;&gt;FS: Write to narrative_reports/ (status=\&quot;submitted\&quot;, authorId, content, photo URLs)\n        FS--&gt;&gt;UI_C: Confirm submission (Report state set to Read-Only)\n    end\n\n    %% 3. Admin Review Queue\n    Admin-&gt;&gt;UI_A: Open Reports Review tab\n    UI_A-&gt;&gt;FS: Query reports where status == \&quot;submitted\&quot;\n    FS--&gt;&gt;UI_A: Return list of submitted reports\n    Admin-&gt;&gt;UI_A: Click inspect report\n    UI_A-&gt;&gt;UI_A: Display Tiptap narrative &amp; photo carousel\n\n    %% 4. Review Decisions\n    alt Decision: Return Report\n        Admin-&gt;&gt;UI_A: Input feedback notes &amp; click \&quot;Return\&quot;\n        UI_A-&gt;&gt;FS: Update narrative_reports/{id} (status=\&quot;returned\&quot;, adminFeedback=\&quot;notes\&quot;)\n        FS--&gt;&gt;UI_A: Confirm return status\n        UI_A--&gt;&gt;Admin: Show success message\n        %% Coord gets updated status on dashboard refresh\n        Coord-&gt;&gt;UI_C: Refresh Compiled Reports list\n        UI_C-&gt;&gt;FS: Query reports\n        FS--&gt;&gt;UI_C: Return list (one marked \&quot;returned\&quot; with feedback)\n        UI_C-&gt;&gt;Coord: Display report as editable with feedback notes\n    else Decision: Approve Report\n        Admin-&gt;&gt;UI_A: Click \&quot;Approve Report\&quot;\n        UI_A-&gt;&gt;FS: Update narrative_reports/{id} (status=\&quot;approved\&quot;)\n        FS--&gt;&gt;UI_A: Confirm approval status\n        UI_A--&gt;&gt;Admin: Show success message (Report is locked from edits)\n        \n        %% 5. Export PDF\n        Admin-&gt;&gt;UI_A: Click \&quot;Export PDF\&quot;\n        UI_A-&gt;&gt;UI_A: Compile HTML content, fetch photos from Storage URLs\n        UI_A-&gt;&gt;Local: Generate and save PDF file locally (CES standard layout)\n        Local--&gt;&gt;UI_A: Return save path confirmation\n        UI_A--&gt;&gt;Admin: Open saved PDF file locally\n    end&quot;,&quot;config&quot;:null}" id="oSy4BkIkn8blRTtzt744-472">
           <mxCell connectable="0" parent="1" style="group;transparentBounds=1;editIcon=1;lockedGroup=0;groupPadding=20;" vertex="1">
-            <mxGeometry height="2320" width="1832" as="geometry" />
+            <mxGeometry height="2370" width="1832" as="geometry" />
           </mxCell>
         </UserObject>
         <UserObject label="Office Coordinator (Mr. Jonnel B. Manio)" mermaidId="n:Coord" mermaidBaseStyle="html=1;shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};lifelineDashed=1;strokeWidth=1;rounded=0;lifelineColor=#000000;participant=seqActorStick;verticalAlign=bottom;align=center;spacingBottom=4;size=90;lifelineMirror=1;fillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontFamily=Helvetica;fontSize=12;" mermaidBaseValue="Office Coordinator (Mr. Jonnel B. Manio)" id="oSy4BkIkn8blRTtzt744-473">
           <mxCell parent="oSy4BkIkn8blRTtzt744-472" style="html=1;shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};lifelineDashed=1;strokeWidth=1;rounded=0;lifelineColor=#000000;participant=seqActorStick;verticalAlign=bottom;align=center;spacingBottom=4;size=90;lifelineMirror=1;fillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontFamily=Helvetica;fontSize=12;" vertex="1">
-            <mxGeometry height="2200" width="150" x="145" y="120" as="geometry" />
+            <mxGeometry height="2230" width="150" x="145" y="120" as="geometry" />
           </mxCell>
         </UserObject>
         <UserObject label="Admin (Mrs. Faithful Anne F. Arugay)" mermaidId="n:Admin" mermaidBaseStyle="html=1;shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};lifelineDashed=1;strokeWidth=1;rounded=0;lifelineColor=#000000;participant=seqActorStick;verticalAlign=bottom;align=center;spacingBottom=4;size=90;lifelineMirror=1;fillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontFamily=Helvetica;fontSize=12;" mermaidBaseValue="Admin (Mrs. Faithful Anne F. Arugay)" id="oSy4BkIkn8blRTtzt744-474">
           <mxCell parent="oSy4BkIkn8blRTtzt744-472" style="html=1;shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};lifelineDashed=1;strokeWidth=1;rounded=0;lifelineColor=#000000;participant=seqActorStick;verticalAlign=bottom;align=center;spacingBottom=4;size=90;lifelineMirror=1;fillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontFamily=Helvetica;fontSize=12;" vertex="1">
-            <mxGeometry height="2190" width="150" x="379" y="120" as="geometry" />
+            <mxGeometry height="2230" width="150" x="379" y="120" as="geometry" />
           </mxCell>
         </UserObject>
         <UserObject label="Coordinator Dashboard" mermaidId="n:UI_C" mermaidBaseStyle="html=1;shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};lifelineDashed=1;strokeWidth=1;rounded=0;lifelineColor=#000000;size=65;lifelineMirror=1;fillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontFamily=Helvetica;fontSize=12;" mermaidBaseValue="Coordinator Dashboard" id="oSy4BkIkn8blRTtzt744-475">
           <mxCell parent="oSy4BkIkn8blRTtzt744-472" style="html=1;shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};lifelineDashed=1;strokeWidth=1;rounded=0;lifelineColor=#000000;size=65;lifelineMirror=1;fillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontFamily=Helvetica;fontSize=12;" vertex="1">
-            <mxGeometry height="2170" width="150" x="613" y="120" as="geometry" />
+            <mxGeometry height="2220" width="150" x="613" y="120" as="geometry" />
           </mxCell>
         </UserObject>
         <UserObject label="Admin Dashboard" mermaidId="n:UI_A" mermaidBaseStyle="html=1;shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};lifelineDashed=1;strokeWidth=1;rounded=0;lifelineColor=#000000;size=65;lifelineMirror=1;fillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontFamily=Helvetica;fontSize=12;" mermaidBaseValue="Admin Dashboard" id="oSy4BkIkn8blRTtzt744-476">
           <mxCell parent="oSy4BkIkn8blRTtzt744-472" style="html=1;shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};lifelineDashed=1;strokeWidth=1;rounded=0;lifelineColor=#000000;size=65;lifelineMirror=1;fillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontFamily=Helvetica;fontSize=12;" vertex="1">
-            <mxGeometry height="2190" width="150" x="869" y="120" as="geometry" />
+            <mxGeometry height="2220" width="150" x="869" y="120" as="geometry" />
           </mxCell>
         </UserObject>
         <UserObject label="Firebase Storage" mermaidId="n:ST" mermaidBaseStyle="html=1;shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};lifelineDashed=1;strokeWidth=1;rounded=0;lifelineColor=#000000;size=65;lifelineMirror=1;fillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontFamily=Helvetica;fontSize=12;" mermaidBaseValue="Firebase Storage" id="oSy4BkIkn8blRTtzt744-477">
           <mxCell parent="oSy4BkIkn8blRTtzt744-472" style="html=1;shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};lifelineDashed=1;strokeWidth=1;rounded=0;lifelineColor=#000000;size=65;lifelineMirror=1;fillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontFamily=Helvetica;fontSize=12;" vertex="1">
-            <mxGeometry height="2180" width="150" x="1163" y="120" as="geometry" />
+            <mxGeometry height="2220" width="150" x="1163" y="120" as="geometry" />
           </mxCell>
         </UserObject>
         <UserObject label="Cloud Firestore" mermaidId="n:FS" mermaidBaseStyle="html=1;shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};lifelineDashed=1;strokeWidth=1;rounded=0;lifelineColor=#000000;size=65;lifelineMirror=1;fillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontFamily=Helvetica;fontSize=12;" mermaidBaseValue="Cloud Firestore (narrative_reports collection)" id="oSy4BkIkn8blRTtzt744-478">
           <mxCell parent="oSy4BkIkn8blRTtzt744-472" style="html=1;shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};lifelineDashed=1;strokeWidth=1;rounded=0;lifelineColor=#000000;size=65;lifelineMirror=1;fillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontFamily=Helvetica;fontSize=12;" vertex="1">
-            <mxGeometry height="2190" width="150" x="1457" y="120" as="geometry" />
+            <mxGeometry height="2210" width="150" x="1457" y="120" as="geometry" />
           </mxCell>
         </UserObject>
         <UserObject label="Local OS File System" mermaidId="n:Local" mermaidBaseStyle="html=1;shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};lifelineDashed=1;strokeWidth=1;rounded=0;lifelineColor=#000000;size=65;lifelineMirror=1;fillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontFamily=Helvetica;fontSize=12;" mermaidBaseValue="Local OS File System" id="oSy4BkIkn8blRTtzt744-479">
           <mxCell parent="oSy4BkIkn8blRTtzt744-472" style="html=1;shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;edgeStyle&quot;:&quot;elbowEdgeStyle&quot;,&quot;elbow&quot;:&quot;vertical&quot;,&quot;curved&quot;:0,&quot;rounded&quot;:0};lifelineDashed=1;strokeWidth=1;rounded=0;lifelineColor=#000000;size=65;lifelineMirror=1;fillColor=#ffffff;strokeColor=#000000;fontColor=#000000;fontFamily=Helvetica;fontSize=12;" vertex="1">
-            <mxGeometry height="2190" width="150" x="1657" y="120" as="geometry" />
+            <mxGeometry height="2210" width="150" x="1657" y="120" as="geometry" />
           </mxCell>
         </UserObject>
         <UserObject label="loop" mermaidId="n:f0" mermaidBaseStyle="html=1;shape=umlFrame;strokeWidth=1;pointerEvents=0;dropTarget=0;fillColor=none;strokeColor=#000000;fontSize=12;align=center;verticalAlign=middle;fontFamily=Helvetica;fontColor=#000000;height=20;width=50;" mermaidBaseValue="loop" id="oSy4BkIkn8blRTtzt744-480">
@@ -305,9 +305,10 @@
             </mxGeometry>
           </mxCell>
         </UserObject>
-        <UserObject label="Refresh Compiled Reports list" mermaidId="e:Coord-&gt;UI_C#4" mermaidBaseStyle="endArrow=block;endSize=9;verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=16;labelBackgroundColor=none;strokeWidth=1.5;strokeColor=#000000;fontColor=#000000;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;" mermaidBaseValue="Refresh Compiled Reports list" id="oSy4BkIkn8blRTtzt744-532">
+        <UserObject label="                                                        Refresh Compiled Reports list" mermaidId="e:Coord-&gt;UI_C#4" mermaidBaseStyle="endArrow=block;endSize=9;verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=16;labelBackgroundColor=none;strokeWidth=1.5;strokeColor=#000000;fontColor=#000000;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;" mermaidBaseValue="Refresh Compiled Reports list" id="oSy4BkIkn8blRTtzt744-532">
           <mxCell edge="1" parent="oSy4BkIkn8blRTtzt744-472" source="oSy4BkIkn8blRTtzt744-473" style="endArrow=block;endSize=9;verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=12;labelBackgroundColor=none;strokeWidth=1;strokeColor=#000000;fontColor=#000000;fontFamily=Helvetica;" target="oSy4BkIkn8blRTtzt744-475">
             <mxGeometry relative="1" as="geometry">
+              <mxPoint as="offset" />
               <Array as="points">
                 <mxPoint x="454" y="1562" />
               </Array>
@@ -338,7 +339,7 @@
             </mxGeometry>
           </mxCell>
         </UserObject>
-        <UserObject label="Display report as editable with feedback notes" mermaidId="e:UI_C-&gt;Coord#0" mermaidBaseStyle="endArrow=block;endSize=9;verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=16;labelBackgroundColor=none;strokeWidth=1.5;strokeColor=#000000;fontColor=#000000;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;" mermaidBaseValue="Display report as editable with feedback notes" id="oSy4BkIkn8blRTtzt744-538">
+        <UserObject label="                                                   Display report as editable&#xa;                                          with feedback notes" mermaidId="e:UI_C-&gt;Coord#0" mermaidBaseStyle="endArrow=block;endSize=9;verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=16;labelBackgroundColor=none;strokeWidth=1.5;strokeColor=#000000;fontColor=#000000;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;" mermaidBaseValue="Display report as editable with feedback notes" id="oSy4BkIkn8blRTtzt744-538">
           <mxCell edge="1" parent="oSy4BkIkn8blRTtzt744-472" source="oSy4BkIkn8blRTtzt744-475" style="endArrow=block;endSize=9;verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=12;labelBackgroundColor=none;strokeWidth=1;strokeColor=#000000;fontColor=#000000;fontFamily=Helvetica;" target="oSy4BkIkn8blRTtzt744-473">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
@@ -349,7 +350,7 @@
             </mxGeometry>
           </mxCell>
         </UserObject>
-        <UserObject label="Click &quot;Approve Report&quot;" mermaidId="e:Admin-&gt;UI_A#3" mermaidBaseStyle="endArrow=block;endSize=9;verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=16;labelBackgroundColor=none;strokeWidth=1.5;strokeColor=#000000;fontColor=#000000;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;" mermaidBaseValue="Click &quot;Approve Report&quot;" id="oSy4BkIkn8blRTtzt744-540">
+        <UserObject label="                                  Click &quot;Approve Report&quot;" mermaidId="e:Admin-&gt;UI_A#3" mermaidBaseStyle="endArrow=block;endSize=9;verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=16;labelBackgroundColor=none;strokeWidth=1.5;strokeColor=#000000;fontColor=#000000;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;" mermaidBaseValue="Click &quot;Approve Report&quot;" id="oSy4BkIkn8blRTtzt744-540">
           <mxCell edge="1" parent="oSy4BkIkn8blRTtzt744-472" source="oSy4BkIkn8blRTtzt744-474" style="endArrow=block;endSize=9;verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=12;labelBackgroundColor=none;strokeWidth=1;strokeColor=#000000;fontColor=#000000;fontFamily=Helvetica;" target="oSy4BkIkn8blRTtzt744-476">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
@@ -382,7 +383,7 @@
             </mxGeometry>
           </mxCell>
         </UserObject>
-        <UserObject label="Show success message " mermaidId="e:UI_A-&gt;Admin#1" mermaidBaseStyle="dashed=1;fixDash=1;dashPattern=3 3;endArrow=block;endSize=9;verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=16;labelBackgroundColor=none;strokeWidth=1.5;strokeColor=#000000;fontColor=#000000;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;" mermaidBaseValue="Show success message (Report is locked from edits)" id="oSy4BkIkn8blRTtzt744-546">
+        <UserObject label="                                       Show success message " mermaidId="e:UI_A-&gt;Admin#1" mermaidBaseStyle="dashed=1;fixDash=1;dashPattern=3 3;endArrow=block;endSize=9;verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=16;labelBackgroundColor=none;strokeWidth=1.5;strokeColor=#000000;fontColor=#000000;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;" mermaidBaseValue="Show success message (Report is locked from edits)" id="oSy4BkIkn8blRTtzt744-546">
           <mxCell edge="1" parent="oSy4BkIkn8blRTtzt744-472" source="oSy4BkIkn8blRTtzt744-476" style="dashed=1;fixDash=1;dashPattern=3 3;endArrow=block;endSize=9;verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=12;labelBackgroundColor=none;strokeWidth=1;strokeColor=#000000;fontColor=#000000;fontFamily=Helvetica;" target="oSy4BkIkn8blRTtzt744-474">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
@@ -393,7 +394,7 @@
             </mxGeometry>
           </mxCell>
         </UserObject>
-        <UserObject label="Click &quot;Export PDF&quot;" mermaidId="e:Admin-&gt;UI_A#4" mermaidBaseStyle="endArrow=block;endSize=9;verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=16;labelBackgroundColor=none;strokeWidth=1.5;strokeColor=#000000;fontColor=#000000;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;" mermaidBaseValue="Click &quot;Export PDF&quot;" id="oSy4BkIkn8blRTtzt744-548">
+        <UserObject label="                             Click &quot;Export PDF&quot;" mermaidId="e:Admin-&gt;UI_A#4" mermaidBaseStyle="endArrow=block;endSize=9;verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=16;labelBackgroundColor=none;strokeWidth=1.5;strokeColor=#000000;fontColor=#000000;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;" mermaidBaseValue="Click &quot;Export PDF&quot;" id="oSy4BkIkn8blRTtzt744-548">
           <mxCell edge="1" parent="oSy4BkIkn8blRTtzt744-472" source="oSy4BkIkn8blRTtzt744-474" style="endArrow=block;endSize=9;verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=12;labelBackgroundColor=none;strokeWidth=1;strokeColor=#000000;fontColor=#000000;fontFamily=Helvetica;" target="oSy4BkIkn8blRTtzt744-476">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
@@ -438,7 +439,7 @@
             </mxGeometry>
           </mxCell>
         </UserObject>
-        <UserObject label="Open saved PDF file locally" mermaidId="e:UI_A-&gt;Admin#2" mermaidBaseStyle="dashed=1;fixDash=1;dashPattern=3 3;endArrow=block;endSize=9;verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=16;labelBackgroundColor=none;strokeWidth=1.5;strokeColor=#000000;fontColor=#000000;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;" mermaidBaseValue="Open saved PDF file locally" id="oSy4BkIkn8blRTtzt744-557">
+        <UserObject label="                                 Open saved PDF file" mermaidId="e:UI_A-&gt;Admin#2" mermaidBaseStyle="dashed=1;fixDash=1;dashPattern=3 3;endArrow=block;endSize=9;verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=16;labelBackgroundColor=none;strokeWidth=1.5;strokeColor=#000000;fontColor=#000000;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;" mermaidBaseValue="Open saved PDF file locally" id="oSy4BkIkn8blRTtzt744-557">
           <mxCell edge="1" parent="oSy4BkIkn8blRTtzt744-472" style="dashed=1;fixDash=1;dashPattern=3 3;endArrow=block;endSize=9;verticalAlign=bottom;edgeStyle=elbowEdgeStyle;elbow=vertical;curved=0;rounded=0;fontSize=12;labelBackgroundColor=none;strokeWidth=1;strokeColor=#000000;fontColor=#000000;fontFamily=Helvetica;">
             <mxGeometry relative="1" as="geometry">
               <Array as="points">
@@ -494,12 +495,6 @@
             <mxPoint x="700.5" y="512" as="sourcePoint" />
             <mxPoint x="700.5" y="542" as="targetPoint" />
           </mxGeometry>
-        </mxCell>
-        <mxCell id="6ABlVND74ZxllF6V--Hz-4" parent="oSy4BkIkn8blRTtzt744-472" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" value="" vertex="1">
-          <mxGeometry height="60" width="30" x="439" y="110" as="geometry" />
-        </mxCell>
-        <mxCell id="6ABlVND74ZxllF6V--Hz-7" parent="oSy4BkIkn8blRTtzt744-472" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" value="" vertex="1">
-          <mxGeometry height="60" width="30" x="205" y="110" as="geometry" />
         </mxCell>
         <mxCell id="oSy4BkIkn8blRTtzt744-522" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontFamily=Helvetica;fontSize=12;fontColor=#000000;" value="Display narrative &amp;amp; photo" vertex="1">
           <mxGeometry height="18" width="200" x="923" y="1207" as="geometry" />

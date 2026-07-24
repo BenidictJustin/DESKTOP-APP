@@ -93,6 +93,7 @@ import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import SearchableDropdown from '../../components/SearchableDropdown'
 import DocumentViewer from '../../components/DocumentViewer'
+import GlassDatePicker from '../../components/GlassDatePicker'
 import { sanitizeOklchInDocument } from '../../components/editor/utils/editorHelpers'
 
 export default function AdminDashboard({ user, onLogout }) {
@@ -212,6 +213,13 @@ export default function AdminDashboard({ user, onLogout }) {
   const [isReleaseModalOpen, setIsReleaseModalOpen] = useState(false)
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false)
   const [isEventModalOpen, setIsEventModalOpen] = useState(false)
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false)
+  const [isAddOrgModalOpen, setIsAddOrgModalOpen] = useState(false)
+  const [isAddDeptModalOpen, setIsAddDeptModalOpen] = useState(false)
+  const [selectedReport, setSelectedReport] = useState(null)
+  const [feedbackNote, setFeedbackNote] = useState('')
+  const [editingOrg, setEditingOrg] = useState(null) // null means registering, object means updating
+  const [editingEvent, setEditingEvent] = useState(null)
 
   // States for donation batch item dropdown inputs
   const [activeDonItemSuggestionsIdx, setActiveDonItemSuggestionsIdx] = useState(null)
@@ -232,6 +240,7 @@ export default function AdminDashboard({ user, onLogout }) {
   const prevDonCategoryRef = useRef({ idx: -1, value: '' })
   const prevDonUnitRef = useRef({ idx: -1, value: '' })
   const prevDonQtyRef = useRef({ idx: -1, value: '' })
+  const mainRef = useRef(null)
 
   useEffect(() => {
     if ((actionError || validationError) && errorOkButtonRef.current) {
@@ -244,6 +253,76 @@ export default function AdminDashboard({ user, onLogout }) {
       confirmButtonRef.current.focus()
     }
   }, [confirmDialog])
+
+  // Body scroll lock effect whenever any modal/popup is open
+  useEffect(() => {
+    const isAnyModalOpen =
+      Boolean(isAddUserModalOpen) ||
+      Boolean(isAddModalOpen) ||
+      Boolean(isReleaseModalOpen) ||
+      Boolean(isReviewModalOpen) ||
+      Boolean(isEventModalOpen) ||
+      Boolean(isAddOrgModalOpen) ||
+      Boolean(isAddDeptModalOpen) ||
+      Boolean(editingOrg) ||
+      Boolean(editingEvent) ||
+      Boolean(itemEditing) ||
+      Boolean(editingUser) ||
+      Boolean(confirmDialog) ||
+      Boolean(actionError) ||
+      Boolean(validationError) ||
+      Boolean(actionSuccess) ||
+      Boolean(selectedReport) ||
+      Boolean(completedActivitiesModal?.isOpen)
+
+    const mainEl = mainRef.current
+
+    if (isAnyModalOpen) {
+      document.body.style.overflow = 'hidden'
+      document.documentElement.style.overflow = 'hidden'
+      if (mainEl) mainEl.style.overflow = 'hidden'
+
+      const preventBackgroundScroll = (e) => {
+        const scrollableModal = e.target.closest('.glass-modal, .glass-modal-overlay, [role="dialog"]')
+        if (!scrollableModal) {
+          e.preventDefault()
+        }
+      }
+
+      window.addEventListener('wheel', preventBackgroundScroll, { passive: false })
+      window.addEventListener('touchmove', preventBackgroundScroll, { passive: false })
+
+      return () => {
+        document.body.style.overflow = ''
+        document.documentElement.style.overflow = ''
+        if (mainEl) mainEl.style.overflow = ''
+        window.removeEventListener('wheel', preventBackgroundScroll)
+        window.removeEventListener('touchmove', preventBackgroundScroll)
+      }
+    } else {
+      document.body.style.overflow = ''
+      document.documentElement.style.overflow = ''
+      if (mainEl) mainEl.style.overflow = ''
+    }
+  }, [
+    isAddUserModalOpen,
+    isAddModalOpen,
+    isReleaseModalOpen,
+    isReviewModalOpen,
+    isEventModalOpen,
+    isAddOrgModalOpen,
+    isAddDeptModalOpen,
+    editingOrg,
+    editingEvent,
+    itemEditing,
+    editingUser,
+    confirmDialog,
+    actionError,
+    validationError,
+    actionSuccess,
+    selectedReport,
+    completedActivitiesModal
+  ])
 
   useEffect(() => {
     if ((itemCategory || '').toLowerCase().trim() === 'school supplies') {
@@ -461,11 +540,8 @@ export default function AdminDashboard({ user, onLogout }) {
   const [orgName, setOrgName] = useState('')
   const [orgAbbr, setOrgAbbr] = useState('')
   const [orgDesc, setOrgDesc] = useState('')
-  const [editingOrg, setEditingOrg] = useState(null) // null means registering, object means updating
   const [orgSearchQuery, setOrgSearchQuery] = useState('')
   const [selectedOrgSubTab, setSelectedOrgSubTab] = useState('department')
-  const [isAddOrgModalOpen, setIsAddOrgModalOpen] = useState(false)
-  const [isAddDeptModalOpen, setIsAddDeptModalOpen] = useState(false)
   const [deptLogo, setDeptLogo] = useState('')
   const [deptCoordinatorId, setDeptCoordinatorId] = useState('')
 
@@ -480,17 +556,12 @@ export default function AdminDashboard({ user, onLogout }) {
   const [evtDate, setEvtDate] = useState('')
   const [evtLoc, setEvtLoc] = useState('')
   const [evtOrgId, setEvtOrgId] = useState('')
-  const [editingEvent, setEditingEvent] = useState(null)
   const [evtStatus, setEvtStatus] = useState('planned')
   const [eventSearchQuery, setEventSearchQuery] = useState('')
   const [eventMonthFilter, setEventMonthFilter] = useState('')
   const [evtType, setEvtType] = useState('department')
   const [evtOrgName, setEvtOrgName] = useState('')
   const [evtParentDeptId, setEvtParentDeptId] = useState('')
-
-  // Review Report detail modal state
-  const [selectedReport, setSelectedReport] = useState(null)
-  const [feedbackNote, setFeedbackNote] = useState('')
 
   // Sync data from DB
   const loadData = async () => {
@@ -581,53 +652,6 @@ export default function AdminDashboard({ user, onLogout }) {
       errors.coordRole = 'Role is required.'
     }
 
-    // 6. Password & Confirm Password Validation
-    const passwordRequired = !editingUser
-    if (passwordRequired) {
-      if (!coordPassword) {
-        errors.coordPassword = 'Password is required.'
-      } else {
-        if (coordPassword.length < 8) {
-          errors.coordPassword = 'Password must be at least 8 characters long.'
-        } else if (!/[A-Z]/.test(coordPassword)) {
-          errors.coordPassword = 'Password must contain at least 1 uppercase letter.'
-        } else if (!/[a-z]/.test(coordPassword)) {
-          errors.coordPassword = 'Password must contain at least 1 lowercase letter.'
-        } else if (!/[0-9]/.test(coordPassword)) {
-          errors.coordPassword = 'Password must contain at least 1 number.'
-        } else if (!/[^A-Za-z0-9]/.test(coordPassword)) {
-          errors.coordPassword = 'Password must contain at least 1 special character.'
-        }
-      }
-
-      if (!coordConfirmPassword) {
-        errors.coordConfirmPassword = 'Confirm password is required.'
-      } else if (coordConfirmPassword !== coordPassword) {
-        errors.coordConfirmPassword = 'Passwords do not match.'
-      }
-    } else {
-      // Editing Mode - Password is optional, but if entered it must follow complexity rules
-      if (coordPassword) {
-        if (coordPassword.length < 8) {
-          errors.coordPassword = 'Password must be at least 8 characters long.'
-        } else if (!/[A-Z]/.test(coordPassword)) {
-          errors.coordPassword = 'Password must contain at least 1 uppercase letter.'
-        } else if (!/[a-z]/.test(coordPassword)) {
-          errors.coordPassword = 'Password must contain at least 1 lowercase letter.'
-        } else if (!/[0-9]/.test(coordPassword)) {
-          errors.coordPassword = 'Password must contain at least 1 number.'
-        } else if (!/[^A-Za-z0-9]/.test(coordPassword)) {
-          errors.coordPassword = 'Password must contain at least 1 special character.'
-        }
-
-        if (!coordConfirmPassword) {
-          errors.coordConfirmPassword = 'Confirm password is required when changing password.'
-        } else if (coordConfirmPassword !== coordPassword) {
-          errors.coordConfirmPassword = 'Passwords do not match.'
-        }
-      }
-    }
-
     setCoordErrors(errors)
     if (Object.keys(errors).length > 0) {
       return
@@ -637,7 +661,7 @@ export default function AdminDashboard({ user, onLogout }) {
     try {
       const fullName = `${coordFirstName.trim()} ${coordLastName.trim()}`
       const username = coordUsername || coordEmail.split('@')[0] || ''
-      const assignedOrg = null
+      const assignedOrg = coordOrgId || null
 
       if (editingUser) {
         const payload = {
@@ -647,17 +671,15 @@ export default function AdminDashboard({ user, onLogout }) {
           role: coordRole,
           organizationId: assignedOrg
         }
-        if (coordPassword) {
-          payload.password = coordPassword
-        }
         await updateUser(editingUser.uid, payload)
         triggerSuccess(`Account successfully updated for ${fullName}.`)
       } else {
-        await registerUser(coordEmail, username, coordPassword, fullName, coordRole, assignedOrg)
-        triggerSuccess(`Account successfully established for ${fullName}.`)
+        const initialPassword = 'Dommunity@123'
+        await registerUser(coordEmail, username, initialPassword, fullName, coordRole, assignedOrg)
+        triggerSuccess(`Account successfully established for ${fullName}. Initial reset link can be sent via Reset Password.`)
       }
 
-      // Reset form
+      // Reset form & close modal
       setEditingUser(null)
       setCoordName('')
       setCoordFirstName('')
@@ -671,6 +693,7 @@ export default function AdminDashboard({ user, onLogout }) {
       setIsDeptSearchOpen(false)
       setCoordRole('office_coordinator')
       setCoordErrors({})
+      setIsAddUserModalOpen(false)
       loadData()
     } catch (err) {
       triggerError(err.message)
@@ -1811,20 +1834,20 @@ export default function AdminDashboard({ user, onLogout }) {
   }
 
   return (
-    <div className="h-screen max-h-screen flex flex-col bg-canvas font-poppins selection:bg-sig-green selection:text-white overflow-hidden">
-      {/* Top Header Bar */}
-      <header className="mx-4 mt-4 bg-white border border-gray-200/50 rounded-3xl flex items-center justify-between px-8 py-3 shrink-0 shadow-xs backdrop-blur-md">
+    <div className="h-screen max-h-screen flex flex-col font-poppins selection:bg-sig-green/20 selection:text-navy-blue overflow-hidden">
+      {/* Top Glass Header Bar */}
+      <header className="mx-4 mt-4 glass-header rounded-2xl flex items-center justify-between px-6 py-2.5 shrink-0 shadow-glass-sm">
         {/* Left: Logo and Title */}
-        <div className="flex items-center space-x-3.5 bg-white p-2 pr-4 rounded-2xl border border-gray-100/50">
-          <div className="h-12 w-12 rounded-xl bg-white flex items-center justify-center border border-gray-100 overflow-hidden shrink-0">
-            <img src={logo} alt="CES Logo" className="h-10 w-10 object-contain" />
+        <div className="flex items-center space-x-3 bg-white/60 backdrop-blur-sm p-2 pr-4 rounded-xl border border-white/60">
+          <div className="h-11 w-11 rounded-lg bg-white/90 flex items-center justify-center border border-white/80 overflow-hidden shrink-0 shadow-2xs">
+            <img src={logo} alt="CES Logo" className="h-9 w-9 object-contain" />
           </div>
           <div className="flex flex-col text-left leading-none">
-            <span className="text-[13px] font-extrabold text-navy-blue tracking-wider uppercase">
-              COMMUNITY EXTENSION & SERVICES
+            <span className="text-[12px] font-bold text-navy-blue tracking-wide uppercase leading-tight">
+              Community Extension & Services
             </span>
-            <span className="text-[11px] font-bold text-sig-green tracking-wider uppercase mt-0.5">
-              DOMINICAN COLLEGE OF TARLAC
+            <span className="text-[10px] font-semibold text-sig-green tracking-wide uppercase mt-0.5 leading-tight">
+              Dominican College of Tarlac
             </span>
           </div>
         </div>
@@ -1848,8 +1871,8 @@ export default function AdminDashboard({ user, onLogout }) {
             <Home className="w-5 h-5" />
           </button>
 
-          <div className="flex items-center space-x-3 bg-canvas-white p-2 pr-4 pl-3 rounded-2xl border border-gray-100/50 h-14">
-            <div className="w-9 h-9 rounded-xl border border-navy-blue/20 flex items-center justify-center text-navy-blue bg-white shadow-2xs">
+          <div className="flex items-center space-x-3 bg-white/60 backdrop-blur-sm p-2 pr-4 pl-3 rounded-xl border border-white/60">
+            <div className="w-9 h-9 rounded-lg border border-navy-blue/15 flex items-center justify-center text-navy-blue bg-white shadow-2xs">
               <Users className="w-4.5 h-4.5" />
             </div>
             <div className="text-left leading-none">
@@ -1865,8 +1888,8 @@ export default function AdminDashboard({ user, onLogout }) {
       {/* Main Layout Area */}
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar Navigation */}
-        <aside className="w-64 bg-navy-blue flex flex-col justify-between shrink-0 relative rounded-3xl my-4 ml-4 shadow-sm border border-white/10 overflow-hidden">
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-sig-green"></div>
+        <aside className="w-60 glass-sidebar flex flex-col justify-between shrink-0 relative rounded-2xl my-4 ml-4 shadow-glass-navy overflow-hidden">
+          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-sig-green via-sig-green to-sig-green/40"></div>
 
           <div className="pt-4">
             {/* Navigation Links */}
@@ -1896,9 +1919,9 @@ export default function AdminDashboard({ user, onLogout }) {
                   onClick={() => {
                     setActiveTab(tab.id)
                   }}
-                  className={`w-full flex items-center justify-between p-3 rounded-2xl text-xs font-semibold tracking-wide transition duration-200 cursor-pointer ${activeTab === tab.id
-                    ? 'bg-sig-green text-navy-blue'
-                    : 'text-gray-300 hover:bg-white/5 hover:text-white'
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-[13px] font-semibold tracking-normal transition-all duration-150 cursor-pointer ${activeTab === tab.id
+                    ? 'bg-sig-green/20 text-sig-green backdrop-blur-md border-l-[3px] border-sig-green shadow-xs'
+                    : 'text-gray-300 hover:bg-white/10 hover:text-white border-l-[3px] border-transparent'
                     }`}
                 >
                   <div className="flex items-center space-x-3">
@@ -1906,7 +1929,7 @@ export default function AdminDashboard({ user, onLogout }) {
                     <span>{tab.label}</span>
                   </div>
                   {tab.badge > 0 && (
-                    <span className="bg-red-500 text-white rounded-full px-2 py-0.5 text-[9px] font-bold">
+                    <span className="bg-error-500 text-white rounded-full px-2 py-0.5 text-[9px] font-semibold min-w-[20px] text-center">
                       {tab.badge}
                     </span>
                   )}
@@ -1916,10 +1939,10 @@ export default function AdminDashboard({ user, onLogout }) {
           </div>
 
           {/* Footer info & Logout */}
-          <div className="p-4 border-t border-white/10 bg-navy-blue/90">
+          <div className="p-4 border-t border-white/[0.08]">
             <button
               onClick={onLogout}
-              className="w-full bg-sig-green hover:bg-sig-green/90 text-navy-blue py-2.5 px-4 rounded-xl text-xs font-bold transition duration-200 cursor-pointer text-center flex items-center justify-center shadow-xs"
+              className="w-full bg-sig-green hover:bg-sig-green-600 active:bg-sig-green-700 text-navy-blue py-2.5 px-4 rounded-xl text-xs font-extrabold transition-all duration-150 cursor-pointer text-center flex items-center justify-center shadow-glass-sm hover:shadow-md border border-white/40"
             >
               Logout
             </button>
@@ -1927,7 +1950,7 @@ export default function AdminDashboard({ user, onLogout }) {
         </aside>
 
         {/* Main Panel Content Area */}
-        <main className="flex-1 my-4 mx-4 p-8 overflow-y-auto bg-white rounded-3xl border border-gray-200/50 shadow-xs">
+        <main ref={mainRef} className="flex-1 my-4 mx-4 p-8 overflow-y-auto glass-panel rounded-2xl shadow-glass-md">
           <div className="flex flex-col xl:flex-row gap-6 max-w-[1600px] mx-auto items-start w-full">
             {/* Left / Center Content Column */}
             <div className="flex-1 w-full space-y-6">
@@ -2033,8 +2056,8 @@ export default function AdminDashboard({ user, onLogout }) {
               {activeTab === 'dashboard' && user.role === 'admin' && (
                 <div className="space-y-6 animate-fade-in">
                   {/* Header section */}
-                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-                    <h1 className="text-2xl font-bold text-navy-blue">Dashboard</h1>
+                  <div className="glass-card rounded-2xl p-6">
+                    <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">Dashboard</h1>
                   </div>
 
                   {/* Quick Stats Grid */}
@@ -2128,6 +2151,82 @@ export default function AdminDashboard({ user, onLogout }) {
                         </span>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Pending Submitted Reports Section */}
+                  <div className="glass-card rounded-2xl p-6 space-y-4 w-full">
+                    <div className="flex items-center justify-between border-b border-gray-200/60 pb-3">
+                      <div className="flex items-center space-x-2">
+                        <FileText className="w-4 h-4 text-navy-blue" />
+                        <h3 className="font-bold text-navy-blue text-sm">Pending Submitted Reports</h3>
+                        {reportsList.filter((r) => r.status === 'submitted').length > 0 && (
+                          <span className="bg-amber-500 text-white rounded-full px-2 py-0.5 text-[10px] font-bold">
+                            {reportsList.filter((r) => r.status === 'submitted').length}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => setActiveTab('reports')}
+                        className="text-[11px] text-sig-green-600 font-bold hover:underline cursor-pointer flex items-center"
+                      >
+                        <span>Review All Reports</span>
+                        <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
+                      </button>
+                    </div>
+
+                    {reportsList.filter((r) => r.status === 'submitted').length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {reportsList
+                          .filter((r) => r.status === 'submitted')
+                          .map((rep) => {
+                            const ev = eventsList.find((e) => e.id === rep.eventId)
+                            const org = orgsList.find((o) => o.id === rep.organizationId)
+                            const author = usersList.find((u) => u.uid === rep.authorId)
+                            return (
+                              <div
+                                key={rep.id}
+                                className="p-4 bg-white/70 backdrop-blur-sm rounded-xl border border-white/80 shadow-xs flex flex-col justify-between space-y-3 hover:shadow-sm transition-all"
+                              >
+                                <div>
+                                  <div className="flex items-center justify-between text-[11px] font-semibold text-gray-500 mb-1">
+                                    <span className="text-navy-blue font-bold">
+                                      {org ? org.abbreviation : 'CES'}
+                                    </span>
+                                    <span>
+                                      {new Date(rep.updatedAt || Date.now()).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                  <h4 className="font-bold text-navy-blue text-sm line-clamp-1">
+                                    {ev ? ev.name : rep.activityTitle || 'Submitted Report'}
+                                  </h4>
+                                  <p className="text-[11px] text-gray-500 mt-1">
+                                    Submitted by{' '}
+                                    <span className="font-semibold text-gray-700">
+                                      {author ? author.name : 'Coordinator'}
+                                    </span>
+                                  </p>
+                                </div>
+                                <div className="flex justify-end pt-2 border-t border-gray-100">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedReport(rep)
+                                      setFeedbackNote('')
+                                    }}
+                                    className="bg-navy-blue hover:bg-navy-blue-600 text-white font-semibold py-1.5 px-3 rounded-lg text-xs flex items-center space-x-1.5 shadow-xs transition-all cursor-pointer"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                    <span>Inspect Report</span>
+                                  </button>
+                                </div>
+                              </div>
+                            )
+                          })}
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 text-gray-400 text-xs font-medium">
+                        No pending submitted reports requiring review.
+                      </div>
+                    )}
                   </div>
 
                   {/* Live Alerts & Action Center section */}
@@ -2488,8 +2587,8 @@ export default function AdminDashboard({ user, onLogout }) {
 
                   {/* Modal Overlay for Add Catalog Item */}
                   {isAddModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-blue/40 backdrop-blur-sm p-4 animate-fade-in">
-                      <div className="bg-white rounded-3xl p-6 shadow-xl border border-gray-100 w-full max-w-md space-y-4 max-h-[90vh] overflow-y-auto">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
+                      <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center border-b border-gray-100 pb-3">
                           <h3 className="font-bold text-navy-blue text-sm">Add Catalog Item</h3>
                           <button
@@ -2946,13 +3045,12 @@ export default function AdminDashboard({ user, onLogout }) {
                                 <span className="text-red-500">*</span>
                               )}
                             </label>
-                            <input
-                              type="date"
+                            <GlassDatePicker
                               value={itemExpiry ? itemExpiry.split('T')[0] : ''}
                               disabled={itemCategory.toLowerCase().trim() === 'school supplies'}
-                              onChange={(e) => setItemExpiry(e.target.value)}
-                              className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 disabled:bg-gray-100 disabled:text-gray-400 font-semibold"
-                              style={{ height: '40px' }}
+                              onChange={(val) => setItemExpiry(val)}
+                              showTime={false}
+                              placeholder="dd/mm/yyyy"
                             />
                           </div>
 
@@ -2971,8 +3069,8 @@ export default function AdminDashboard({ user, onLogout }) {
 
                   {/* Modal Overlay for Edit */}
                   {itemEditing && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-blue/40 backdrop-blur-sm p-4">
-                      <div className="bg-white rounded-3xl p-6 shadow-xl border border-gray-100 w-full max-w-md space-y-4 animate-fade-in">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
+                      <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center border-b border-gray-100 pb-3">
                           <h3 className="font-bold text-navy-blue text-sm">Modify Catalog Item</h3>
                           <button
@@ -3368,13 +3466,12 @@ export default function AdminDashboard({ user, onLogout }) {
                                 <span className="text-red-500">*</span>
                               )}
                             </label>
-                            <input
-                              type="date"
+                            <GlassDatePicker
                               value={itemExpiry ? itemExpiry.split('T')[0] : ''}
                               disabled={itemCategory.toLowerCase().trim() === 'school supplies'}
-                              onChange={(e) => setItemExpiry(e.target.value)}
-                              className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 disabled:bg-gray-100 disabled:text-gray-400 font-semibold"
-                              style={{ height: '40px' }}
+                              onChange={(val) => setItemExpiry(val)}
+                              showTime={false}
+                              placeholder="dd/mm/yyyy"
                             />
                           </div>
 
@@ -3409,8 +3506,8 @@ export default function AdminDashboard({ user, onLogout }) {
 
                   {/* Modal Overlay for Release Item */}
                   {isReleaseModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-blue/40 backdrop-blur-sm p-4 animate-fade-in">
-                      <div className="bg-white rounded-3xl p-6 shadow-xl border border-gray-100 w-full max-w-md space-y-4 max-h-[90vh] overflow-y-auto">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
+                      <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center border-b border-gray-100 pb-3">
                           <h3 className="font-bold text-navy-blue text-sm">Release Item</h3>
                           <button
@@ -3643,10 +3740,10 @@ export default function AdminDashboard({ user, onLogout }) {
                     </div>
                   )}
 
-                  {/* Modal Overlay for Release Review List */}
+                  {/* Modal Overlay for Review List */}
                   {isReviewModalOpen && pendingReleaseItems.length > 0 && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-blue/40 backdrop-blur-sm p-4 animate-fade-in">
-                      <div className="bg-white rounded-3xl p-6 shadow-xl border border-gray-100 w-full max-w-md space-y-4 max-h-[90vh] overflow-y-auto relative overflow-hidden">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
+                      <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto relative overflow-hidden">
                         <div className="absolute top-0 left-0 right-0 h-1 bg-sig-green"></div>
                         <div className="flex justify-between items-center border-b border-dashed border-gray-200 pb-3">
                           <h3 className="font-bold text-navy-blue text-sm flex items-center space-x-2">
@@ -3875,12 +3972,11 @@ export default function AdminDashboard({ user, onLogout }) {
                             <label className="block text-gray-700 text-xs font-semibold mb-1">
                               Donation Date
                             </label>
-                            <input
-                              type="date"
+                            <GlassDatePicker
                               value={donDate}
-                              onChange={(e) => setDonDate(e.target.value)}
-                              className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none"
-                              style={{ height: '40px' }}
+                              onChange={(val) => setDonDate(val)}
+                              showTime={false}
+                              placeholder="dd/mm/yyyy"
                             />
                           </div>
                         </div>
@@ -4449,16 +4545,15 @@ export default function AdminDashboard({ user, onLogout }) {
                                           <span className="text-red-500">*</span>
                                         )}
                                       </label>
-                                      <input
-                                        type="date"
+                                      <GlassDatePicker
                                         value={item.expiryDate ? item.expiryDate.split('T')[0] : ''}
                                         disabled={isSchoolSupplies}
-                                        onChange={(e) => {
-                                          handleDonItemChange(idx, 'expiryDate', e.target.value)
+                                        onChange={(val) => {
+                                          handleDonItemChange(idx, 'expiryDate', val)
                                           clearFieldValError(`donItem-${idx}-expiryDate`)
                                         }}
-                                        className={`w-full px-2 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 disabled:bg-gray-100 disabled:text-gray-400 font-semibold ${validationError?.fields.includes(`donItem-${idx}-expiryDate`) ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                        style={{ height: '40px' }}
+                                        showTime={false}
+                                        placeholder="dd/mm/yyyy"
                                       />
                                     </div>
                                   </div>
@@ -4718,8 +4813,8 @@ export default function AdminDashboard({ user, onLogout }) {
 
                   {/* SCHEDULE / EDIT EVENT MODAL */}
                   {isEventModalOpen && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-xs">
-                      <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 animate-scale-up space-y-4">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
+                      <div className="glass-modal rounded-2xl p-6 max-w-lg w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                           <h3 className="font-bold text-navy-blue text-base">
                             {editingEvent ? 'Edit Event' : 'Schedule Event'}
@@ -4779,15 +4874,14 @@ export default function AdminDashboard({ user, onLogout }) {
                             <label className="block text-gray-700 text-xs font-semibold mb-1">
                               Scheduled Date & Time
                             </label>
-                            <input
-                              type="datetime-local"
+                            <GlassDatePicker
                               value={evtDate}
-                              onChange={(e) => {
-                                setEvtDate(e.target.value)
+                              onChange={(val) => {
+                                setEvtDate(val)
                                 clearFieldValError('evtDate')
                               }}
-                              className={`w-full px-2 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('evtDate') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                              style={{ height: '40px' }}
+                              showTime={true}
+                              placeholder="dd/mm/yyyy, --:-- --"
                             />
                           </div>
 
@@ -5372,8 +5466,8 @@ export default function AdminDashboard({ user, onLogout }) {
 
                   {/* ADD / EDIT ORGANIZATION MODAL */}
                   {isAddOrgModalOpen && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-xs">
-                      <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 animate-scale-up space-y-4">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
+                      <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                           <h3 className="font-bold text-navy-blue text-base">
                             {editingOrg
@@ -5462,8 +5556,8 @@ export default function AdminDashboard({ user, onLogout }) {
 
                   {/* ADD / EDIT DEPARTMENT MODAL */}
                   {isAddDeptModalOpen && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-xs">
-                      <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 animate-scale-up space-y-4">
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
+                      <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                           <h3 className="font-bold text-navy-blue text-base">
                             {editingOrg ? 'Update Department Profile' : 'Register New Department'}
@@ -5704,21 +5798,6 @@ export default function AdminDashboard({ user, onLogout }) {
                     </div>
                   </div>
 
-                  {/* Inspect Report Document Viewer */}
-                  {selectedReport && (
-                    <DocumentViewer
-                      report={selectedReport}
-                      onClose={() => setSelectedReport(null)}
-                      eventsList={eventsList}
-                      orgsList={orgsList}
-                      usersList={usersList}
-                      feedbackNote={feedbackNote}
-                      setFeedbackNote={setFeedbackNote}
-                      handleReviewReport={handleReviewReport}
-                      compileReportPDF={compileReportPDF}
-                      loading={loading}
-                    />
-                  )}
                 </div>
               )}
 
@@ -5728,365 +5807,163 @@ export default function AdminDashboard({ user, onLogout }) {
               {activeTab === 'accounts' && user.role === 'admin' && (
                 <div className="space-y-6 animate-fade-in w-full">
                   {/* Header section */}
-                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between">
+                  <div className="glass-card rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                      <h1 className="text-2xl font-bold text-navy-blue">User Account Management</h1>
+                      <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">User Account Management</h1>
+                      <p className="text-xs text-gray-500 font-medium mt-0.5">Manage system access, roles, and coordinator accounts.</p>
                     </div>
+                    <button
+                      onClick={() => {
+                        setEditingUser(null)
+                        setCoordFirstName('')
+                        setCoordLastName('')
+                        setCoordEmail('')
+                        setCoordRole('office_coordinator')
+                        setCoordOrgId('')
+                        setDeptSearchVal('')
+                        setCoordErrors({})
+                        setIsAddUserModalOpen(true)
+                      }}
+                      className="flex items-center space-x-1.5 bg-navy-blue hover:bg-navy-blue-600 text-white rounded-lg text-xs font-semibold py-2 px-4 border border-navy-blue shadow-xs transition-all duration-150 cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add User</span>
+                    </button>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Creator/Editor form */}
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 h-fit space-y-4">
-                      <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3">
-                        {editingUser ? 'Modify User Account' : 'Create User Account'}
-                      </h3>
-
-                      <form onSubmit={handleSaveUser} className="space-y-3">
-                        <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">
-                            Role
-                          </label>
-                          <select
-                            value={coordRole}
-                            onChange={(e) => {
-                              const newRole = e.target.value
-                              setCoordRole(newRole)
-                              setCoordErrors((prev) => {
-                                const copy = { ...prev }
-                                delete copy.coordRole
-                                return copy
-                              })
-                            }}
-                            className={`w-full px-2 text-xs bg-white border rounded-xl focus:outline-none ${coordErrors.coordRole ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                            style={{ height: '40px' }}
-                          >
-                            <option value="admin">Admin</option>
-                            <option value="office_coordinator">Office Coordinator</option>
-                          </select>
-                          {coordErrors.coordRole && (
-                            <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                              {coordErrors.coordRole}
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="space-y-3">
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              First Name
-                            </label>
-                            <input
-                              type="text"
-                              value={coordFirstName}
-                              onChange={(e) => {
-                                setCoordFirstName(e.target.value)
-                                if (coordErrors.coordFirstName) {
-                                  setCoordErrors((prev) => {
-                                    const copy = { ...prev }
-                                    delete copy.coordFirstName
-                                    return copy
-                                  })
-                                }
-                              }}
-                              placeholder="e.g. Alan"
-                              className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${coordErrors.coordFirstName ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                              style={{ height: '40px' }}
-                            />
-                            {coordErrors.coordFirstName && (
-                              <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                {coordErrors.coordFirstName}
-                              </p>
-                            )}
-                          </div>
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Last Name
-                            </label>
-                            <input
-                              type="text"
-                              value={coordLastName}
-                              onChange={(e) => {
-                                setCoordLastName(e.target.value)
-                                if (coordErrors.coordLastName) {
-                                  setCoordErrors((prev) => {
-                                    const copy = { ...prev }
-                                    delete copy.coordLastName
-                                    return copy
-                                  })
-                                }
-                              }}
-                              placeholder="e.g. Turing"
-                              className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${coordErrors.coordLastName ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                              style={{ height: '40px' }}
-                            />
-                            {coordErrors.coordLastName && (
-                              <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                {coordErrors.coordLastName}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">
-                            Email
-                          </label>
-                          <input
-                            type="email"
-                            value={coordEmail}
-                            onChange={(e) => {
-                              setCoordEmail(e.target.value)
-                              if (coordErrors.coordEmail) {
-                                setCoordErrors((prev) => {
-                                  const copy = { ...prev }
-                                  delete copy.coordEmail
-                                  return copy
-                                })
-                              }
-                            }}
-                            placeholder="turing@dct.edu.ph"
-                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${coordErrors.coordEmail ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                            style={{ height: '40px' }}
-                          />
-                          {coordErrors.coordEmail && (
-                            <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                              {coordErrors.coordEmail}
-                            </p>
-                          )}
-                        </div>
-
-                        <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">
-                            {editingUser
-                              ? 'New Password (leave blank to keep current)'
-                              : 'Password'}
-                          </label>
-                          <input
-                            type="password"
-                            value={coordPassword}
-                            onChange={(e) => {
-                              setCoordPassword(e.target.value)
-                              if (coordErrors.coordPassword) {
-                                setCoordErrors((prev) => {
-                                  const copy = { ...prev }
-                                  delete copy.coordPassword
-                                  return copy
-                                })
-                              }
-                            }}
-                            placeholder="••••••••"
-                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${coordErrors.coordPassword ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                            style={{ height: '40px' }}
-                          />
-                          {coordErrors.coordPassword && (
-                            <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                              {coordErrors.coordPassword}
-                            </p>
-                          )}
-                        </div>
-
-                        {(!editingUser || coordPassword.length > 0) && (
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Confirm Password
-                            </label>
-                            <input
-                              type="password"
-                              value={coordConfirmPassword}
-                              onChange={(e) => {
-                                setCoordConfirmPassword(e.target.value)
-                                if (coordErrors.coordConfirmPassword) {
-                                  setCoordErrors((prev) => {
-                                    const copy = { ...prev }
-                                    delete copy.coordConfirmPassword
-                                    return copy
-                                  })
-                                }
-                              }}
-                              placeholder="••••••••"
-                              className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${coordErrors.coordConfirmPassword ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                              style={{ height: '40px' }}
-                            />
-                            {coordErrors.coordConfirmPassword && (
-                              <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                {coordErrors.coordConfirmPassword}
-                              </p>
-                            )}
-                          </div>
-                        )}
-
-                        <div className="flex space-x-2 pt-2">
-                          {editingUser && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingUser(null)
-                                setCoordName('')
-                                setCoordFirstName('')
-                                setCoordLastName('')
-                                setCoordEmail('')
-                                setCoordUsername('')
-                                setCoordPassword('')
-                                setCoordConfirmPassword('')
-                                setCoordOrgId('')
-                                setDeptSearchVal('')
-                                setIsDeptSearchOpen(false)
-                                setCoordRole('office_coordinator')
-                                setCoordErrors({})
-                              }}
-                              className="flex-1 bg-gray-100 hover:bg-red-500 hover:text-white text-navy-blue rounded-full text-xs font-semibold py-2 px-4 transition cursor-pointer"
-                              style={{ height: '40px' }}
-                            >
-                              Cancel
-                            </button>
-                          )}
-                          <button
-                            type="submit"
-                            disabled={loading}
-                            className="flex-2 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center justify-center cursor-pointer"
-                            style={{ height: '40px' }}
-                          >
-                            {editingUser ? 'Update Account' : 'Create User Account'}
-                          </button>
-                        </div>
-                      </form>
-                    </div>
-
-                    {/* Data Table list */}
-                    <div className="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-                      <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3 mb-4">
-                        User Accounts Directory
-                      </h3>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="border-b border-gray-100 bg-gray-50 text-[10px] uppercase font-bold text-gray-500">
-                              <th className="py-3 px-3">Full Name</th>
-                              <th className="py-3 px-2">Role</th>
-                              <th className="py-3 px-2">Assigned Org</th>
-                              <th className="py-3 px-2">Status</th>
-                              <th className="py-3 px-3 text-right">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-50 text-xs">
-                            {usersList.map((u) => {
-                              const org = orgsList.find((o) => o.id === u.organizationId)
-                              const isSelf = u.uid === user.uid
-                              return (
-                                <tr key={u.uid} className="hover:bg-gray-50/50 transition">
-                                  <td className="py-3 px-3 font-semibold text-navy-blue">
-                                    <div>
-                                      {u.name}{' '}
-                                      {isSelf && (
-                                        <span className="text-[9px] bg-navy-blue/10 text-navy-blue px-1.5 py-0.2 rounded font-bold ml-1">
-                                          You
-                                        </span>
-                                      )}
-                                    </div>
-                                    <span className="text-[10px] text-gray-400 font-normal">
-                                      {u.email}
-                                    </span>
-                                  </td>
-                                  <td className="py-3 px-2 text-gray-500 capitalize">
-                                    {u.role.replace('_', ' ')}
-                                  </td>
-                                  <td className="py-3 px-2 font-medium">
-                                    {org
-                                      ? org.abbreviation
-                                      : u.organizationId
-                                        ? u.organizationId
-                                        : u.role === 'admin'
-                                          ? 'System Admin'
-                                          : 'CES Office'}
-                                  </td>
-                                  <td className="py-3 px-2">
-                                    <span
-                                      className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${u.status === 'inactive'
-                                        ? 'bg-red-50 text-red-700 border border-red-200'
-                                        : 'bg-green-50 text-green-700 border border-green-200'
-                                        }`}
-                                    >
-                                      {u.status || 'active'}
-                                    </span>
-                                  </td>
-                                  <td className="py-3 px-3 text-right space-x-1.5">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setEditingUser(u)
-                                        const nameParts = (u.name || '').trim().split(' ')
-                                        let first = ''
-                                        let last = ''
-                                        if (nameParts.length > 1) {
-                                          last = nameParts.pop()
-                                          first = nameParts.join(' ')
-                                        } else {
-                                          first = u.name || ''
-                                          last = ''
-                                        }
-                                        setCoordFirstName(first)
-                                        setCoordLastName(last)
-                                        setCoordName(u.name || '')
-                                        setCoordEmail(u.email || '')
-                                        setCoordUsername(u.username || '')
-                                        setCoordPassword('')
-                                        setCoordConfirmPassword('')
-                                        setCoordRole(u.role)
-                                        setCoordOrgId(u.organizationId || '')
-                                        const matchedOrg = orgsList.find(
-                                          (o) => o.id === u.organizationId
-                                        )
-                                        setDeptSearchVal(
-                                          matchedOrg ? matchedOrg.name : u.organizationId || ''
-                                        )
-                                        setCoordErrors({})
-                                      }}
-                                      className="py-1 px-2.5 rounded-full text-[10px] font-semibold border bg-white border-gray-200 text-navy-blue hover:bg-gray-50 transition cursor-pointer"
-                                    >
-                                      Edit
-                                    </button>
-                                    {u.role === 'office_coordinator' && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleSendCoordinatorReset(u)}
-                                        className="py-1 px-2.5 rounded-full text-[10px] font-semibold border bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 transition cursor-pointer"
-                                      >
-                                        Reset Password
-                                      </button>
+                  {/* Full Width User Accounts Directory Table */}
+                  <div className="glass-card rounded-2xl p-6">
+                    <h3 className="font-bold text-navy-blue text-sm border-b border-gray-200/60 pb-3 mb-4">
+                      User Accounts Directory
+                    </h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-gray-200/60 bg-gray-50/80 text-[10px] uppercase font-bold text-gray-500">
+                            <th className="py-3 px-3">Full Name</th>
+                            <th className="py-3 px-2">Role</th>
+                            <th className="py-3 px-2">Assigned Org</th>
+                            <th className="py-3 px-2">Status</th>
+                            <th className="py-3 px-3 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 text-xs">
+                          {usersList.map((u) => {
+                            const org = orgsList.find((o) => o.id === u.organizationId)
+                            const isSelf = u.uid === user.uid
+                            return (
+                              <tr key={u.uid} className="hover:bg-gray-50/60 transition">
+                                <td className="py-3.5 px-3 font-semibold text-navy-blue">
+                                  <div>
+                                    {u.name}{' '}
+                                    {isSelf && (
+                                      <span className="text-[9px] bg-navy-blue/10 text-navy-blue px-1.5 py-0.2 rounded font-bold ml-1">
+                                        You
+                                      </span>
                                     )}
-                                    <button
-                                      type="button"
-                                      disabled={isSelf}
-                                      onClick={() =>
-                                        handleToggleStatus(u.uid, u.status || 'active')
+                                  </div>
+                                  <span className="text-[10px] text-gray-400 font-normal">
+                                    {u.email}
+                                  </span>
+                                </td>
+                                <td className="py-3.5 px-2 text-gray-600 font-medium capitalize">
+                                  {u.role.replace('_', ' ')}
+                                </td>
+                                <td className="py-3.5 px-2 font-medium">
+                                  {org
+                                    ? org.abbreviation
+                                    : u.organizationId
+                                      ? u.organizationId
+                                      : u.role === 'admin'
+                                        ? 'System Admin'
+                                        : 'CES Office'}
+                                </td>
+                                <td className="py-3.5 px-2">
+                                  <span
+                                    className={`inline-block text-[9px] font-bold px-2.5 py-0.5 rounded-full uppercase ${u.status === 'inactive'
+                                      ? 'bg-red-50 text-red-700 border border-red-200'
+                                      : 'bg-green-50 text-green-700 border border-green-200'
+                                      }`}
+                                  >
+                                    {u.status || 'active'}
+                                  </span>
+                                </td>
+                                <td className="py-3.5 px-3 text-right space-x-1.5 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingUser(u)
+                                      const nameParts = (u.name || '').trim().split(' ')
+                                      let first = ''
+                                      let last = ''
+                                      if (nameParts.length > 1) {
+                                        last = nameParts.pop()
+                                        first = nameParts.join(' ')
+                                      } else {
+                                        first = u.name || ''
+                                        last = ''
                                       }
-                                      className={`py-1 px-2.5 rounded-full text-[10px] font-semibold border transition cursor-pointer ${isSelf
-                                        ? 'opacity-50 cursor-not-allowed'
-                                        : u.status === 'inactive'
-                                          ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
-                                          : 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'
-                                        }`}
-                                    >
-                                      {u.status === 'inactive' ? 'Activate' : 'Deactivate'}
-                                    </button>
+                                      setCoordFirstName(first)
+                                      setCoordLastName(last)
+                                      setCoordName(u.name || '')
+                                      setCoordEmail(u.email || '')
+                                      setCoordUsername(u.username || '')
+                                      setCoordRole(u.role)
+                                      setCoordOrgId(u.organizationId || '')
+                                      const matchedOrg = orgsList.find(
+                                        (o) => o.id === u.organizationId
+                                      )
+                                      setDeptSearchVal(
+                                        matchedOrg ? matchedOrg.name : u.organizationId || ''
+                                      )
+                                      setCoordErrors({})
+                                      setIsAddUserModalOpen(true)
+                                    }}
+                                    className="py-1 px-2.5 rounded-lg text-xs font-semibold border bg-white hover:bg-gray-50 text-navy-blue border-gray-200 shadow-2xs transition-all duration-150 cursor-pointer"
+                                  >
+                                    Edit
+                                  </button>
+                                  {u.role === 'office_coordinator' && (
                                     <button
                                       type="button"
-                                      disabled={isSelf}
-                                      onClick={() => handleDeleteUser(u)}
-                                      className={`py-1 px-2.5 rounded-full text-[10px] font-semibold border transition cursor-pointer ${isSelf
-                                        ? 'opacity-50 cursor-not-allowed'
-                                        : 'bg-red-600 border-red-600 text-white hover:bg-red-700'
-                                        }`}
+                                      onClick={() => handleSendCoordinatorReset(u)}
+                                      className="py-1 px-2.5 rounded-lg text-xs font-semibold border bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200/80 shadow-2xs transition-all duration-150 cursor-pointer"
                                     >
-                                      Delete
+                                      Reset Password
                                     </button>
-                                  </td>
-                                </tr>
-                              )
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
+                                  )}
+                                  <button
+                                    type="button"
+                                    disabled={isSelf}
+                                    onClick={() =>
+                                      handleToggleStatus(u.uid, u.status || 'active')
+                                    }
+                                    className={`py-1 px-2.5 rounded-lg text-xs font-semibold border shadow-2xs transition-all duration-150 cursor-pointer ${isSelf
+                                      ? 'opacity-40 cursor-not-allowed bg-gray-100 text-gray-400 border-gray-200'
+                                      : u.status === 'inactive'
+                                        ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
+                                        : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
+                                      }`}
+                                  >
+                                    {u.status === 'inactive' ? 'Activate' : 'Deactivate'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={isSelf}
+                                    onClick={() => handleDeleteUser(u)}
+                                    className={`py-1 px-2.5 rounded-lg text-xs font-semibold border shadow-2xs transition-all duration-150 cursor-pointer ${isSelf
+                                      ? 'opacity-40 cursor-not-allowed bg-gray-100 text-gray-400 border-gray-200'
+                                      : 'bg-red-50 hover:bg-red-500 hover:text-white text-red-600 border-red-200/80'
+                                      }`}
+                                  >
+                                    Delete
+                                  </button>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 </div>
@@ -6580,6 +6457,187 @@ export default function AdminDashboard({ user, onLogout }) {
           </div>
         </div>
       </div>
+
+      {/* Centered Glassmorphic Add / Edit User Modal */}
+      {isAddUserModalOpen && (
+        <div className="fixed inset-0 glass-modal-overlay flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto animate-fade-in-scale">
+            <div className="flex items-center justify-between border-b border-gray-200/60 pb-3">
+              <h3 className="font-bold text-navy-blue text-base">
+                {editingUser ? 'Edit User Account' : 'Create User Account'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsAddUserModalOpen(false)}
+                className="text-gray-400 hover:text-navy-blue transition-colors cursor-pointer p-1 rounded-lg hover:bg-gray-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveUser} className="space-y-4 text-left">
+              <div>
+                <label className="block text-navy-blue text-xs font-semibold mb-1">
+                  Role
+                </label>
+                <select
+                  value={coordRole}
+                  onChange={(e) => {
+                    setCoordRole(e.target.value)
+                    setCoordErrors((prev) => {
+                      const copy = { ...prev }
+                      delete copy.coordRole
+                      return copy
+                    })
+                  }}
+                  className={`w-full px-3 py-2 text-xs glass-input rounded-xl focus:outline-none font-semibold text-navy-blue ${coordErrors.coordRole ? 'border-red-500 ring-2 ring-red-500/10' : ''}`}
+                >
+                  <option value="admin">Admin</option>
+                  <option value="office_coordinator">Office Coordinator</option>
+                </select>
+                {coordErrors.coordRole && (
+                  <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                    {coordErrors.coordRole}
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-navy-blue text-xs font-semibold mb-1">
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    value={coordFirstName}
+                    onChange={(e) => {
+                      setCoordFirstName(e.target.value)
+                      if (coordErrors.coordFirstName) {
+                        setCoordErrors((prev) => {
+                          const copy = { ...prev }
+                          delete copy.coordFirstName
+                          return copy
+                        })
+                      }
+                    }}
+                    placeholder="e.g. Alan"
+                    className={`w-full p-2.5 text-xs glass-input rounded-xl focus:outline-none font-semibold text-navy-blue ${coordErrors.coordFirstName ? 'border-red-500 ring-2 ring-red-500/10' : ''}`}
+                  />
+                  {coordErrors.coordFirstName && (
+                    <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                      {coordErrors.coordFirstName}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-navy-blue text-xs font-semibold mb-1">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    value={coordLastName}
+                    onChange={(e) => {
+                      setCoordLastName(e.target.value)
+                      if (coordErrors.coordLastName) {
+                        setCoordErrors((prev) => {
+                          const copy = { ...prev }
+                          delete copy.coordLastName
+                          return copy
+                        })
+                      }
+                    }}
+                    placeholder="e.g. Turing"
+                    className={`w-full p-2.5 text-xs glass-input rounded-xl focus:outline-none font-semibold text-navy-blue ${coordErrors.coordLastName ? 'border-red-500 ring-2 ring-red-500/10' : ''}`}
+                  />
+                  {coordErrors.coordLastName && (
+                    <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                      {coordErrors.coordLastName}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-navy-blue text-xs font-semibold mb-1">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  value={coordEmail}
+                  onChange={(e) => {
+                    setCoordEmail(e.target.value)
+                    if (coordErrors.coordEmail) {
+                      setCoordErrors((prev) => {
+                        const copy = { ...prev }
+                        delete copy.coordEmail
+                        return copy
+                      })
+                    }
+                  }}
+                  placeholder="turing@dct.edu.ph"
+                  className={`w-full p-2.5 text-xs glass-input rounded-xl focus:outline-none font-semibold text-navy-blue ${coordErrors.coordEmail ? 'border-red-500 ring-2 ring-red-500/10' : ''}`}
+                />
+                {coordErrors.coordEmail && (
+                  <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                    {coordErrors.coordEmail}
+                  </p>
+                )}
+              </div>
+
+              {coordRole === 'office_coordinator' && (
+                <div>
+                  <label className="block text-navy-blue text-xs font-semibold mb-1">
+                    Assign Department / Organization
+                  </label>
+                  <SearchableDropdown
+                    value={coordOrgId}
+                    onChange={(orgId) => setCoordOrgId(orgId)}
+                    options={orgsList.map((o) => ({
+                      id: o.id,
+                      name: o.name,
+                      abbreviation: o.abbreviation
+                    }))}
+                    placeholder="Select Department..."
+                  />
+                </div>
+              )}
+
+              <div className="flex space-x-3 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAddUserModalOpen(false)}
+                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 bg-navy-blue hover:bg-navy-blue-600 text-white font-extrabold py-2.5 rounded-xl text-xs shadow-glass-sm transition cursor-pointer border border-white/20"
+                >
+                  {editingUser ? 'Save Changes' : 'Create Account'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Inspect Report Document Viewer Modal (Fixed to Viewport Root) */}
+      {selectedReport && (
+        <DocumentViewer
+          report={selectedReport}
+          onClose={() => setSelectedReport(null)}
+          eventsList={eventsList}
+          orgsList={orgsList}
+          usersList={usersList}
+          feedbackNote={feedbackNote}
+          setFeedbackNote={setFeedbackNote}
+          handleReviewReport={handleReviewReport}
+          compileReportPDF={compileReportPDF}
+          loading={loading}
+        />
+      )}
     </div>
   )
 }

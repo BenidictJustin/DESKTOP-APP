@@ -26,14 +26,14 @@ import { sanitizeOklchInDocument, loadInitialContentAndResetHistory } from '../.
 // ─── Status Badge helper ───────────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
   const map = {
-    draft: 'bg-gray-100 text-gray-700',
-    submitted: 'bg-amber-100 text-amber-800',
-    approved: 'bg-green-100 text-green-800',
-    returned: 'bg-red-100 text-red-700'
+    draft: 'bg-gray-100 text-gray-600',
+    submitted: 'bg-warning-100 text-warning-700',
+    approved: 'bg-success-100 text-success-700',
+    returned: 'bg-error-100 text-error-700'
   }
   return (
     <span
-      className={`text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${map[status] || 'bg-gray-100 text-gray-600'}`}
+      className={`text-[10px] font-semibold uppercase px-2.5 py-0.5 rounded-full ${map[status] || 'bg-gray-100 text-gray-600'}`}
     >
       {status}
     </span>
@@ -89,6 +89,18 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   useEffect(() => {
     loadData()
   }, [loadData])
+
+  // Body scroll lock effect whenever any modal/dialog is open
+  useEffect(() => {
+    if (selectedViewerReport || exportingReport) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [selectedViewerReport, exportingReport])
 
   // ── Reset form (clear all fields + editor) ──
   const resetForm = useCallback((editor) => {
@@ -346,19 +358,19 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   // ── RENDER ────────────────────────────────────────────────────────────────────
   // ─────────────────────────────────────────────────────────────────────────────
   return (
-    <div className="h-screen max-h-screen flex flex-col bg-[#D4C9BE] font-poppins selection:bg-sig-green selection:text-white overflow-hidden">
-      {/* Top Header Bar */}
-      <header className="mx-4 mt-4 bg-white/95 border border-gray-200/50 rounded-3xl flex items-center justify-between px-8 py-3 shrink-0 shadow-xs backdrop-blur-md">
+    <div className="h-screen max-h-screen flex flex-col font-poppins selection:bg-sig-green/20 selection:text-navy-blue overflow-hidden">
+      {/* Top Glass Header Bar */}
+      <header className="mx-4 mt-4 glass-header rounded-2xl flex items-center justify-between px-6 py-2.5 shrink-0 shadow-glass-sm">
         {/* Left: Logo and Title */}
-        <div className="flex items-center space-x-3.5 bg-gray-50/80 p-2 pr-4 rounded-2xl border border-gray-100/50">
-          <div className="h-12 w-12 rounded-xl bg-white flex items-center justify-center border border-gray-100 overflow-hidden shrink-0">
-            <img src={logo} alt="CES Logo" className="h-10 w-10 object-contain" />
+        <div className="flex items-center space-x-3 bg-white/60 backdrop-blur-sm p-2 pr-4 rounded-xl border border-white/60">
+          <div className="h-11 w-11 rounded-lg bg-white/90 flex items-center justify-center border border-white/80 overflow-hidden shrink-0 shadow-2xs">
+            <img src={logo} alt="CES Logo" className="h-9 w-9 object-contain" />
           </div>
           <div className="flex flex-col text-left leading-none">
-            <span className="text-[13px] font-extrabold text-navy-blue tracking-wider uppercase">
+            <span className="text-[12px] font-bold text-navy-blue tracking-wide uppercase leading-tight">
               COMMUNITY EXTENSION & SERVICES
             </span>
-            <span className="text-[11px] font-bold text-sig-green tracking-wider uppercase mt-0.5">
+            <span className="text-[10px] font-semibold text-sig-green tracking-wide uppercase mt-0.5 leading-tight">
               DOMINICAN COLLEGE OF TARLAC
             </span>
           </div>
@@ -383,8 +395,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
             <Home className="w-5 h-5" />
           </button>
 
-          <div className="flex items-center space-x-3 bg-gray-50/80 p-2 pr-4 pl-3 rounded-2xl border border-gray-100/50 h-14">
-            <div className="w-9 h-9 rounded-xl border border-navy-blue/20 flex items-center justify-center text-navy-blue bg-white shadow-2xs">
+          <div className="flex items-center space-x-3 bg-white/60 backdrop-blur-sm p-2 pr-4 pl-3 rounded-xl border border-white/60">
+            <div className="w-9 h-9 rounded-lg border border-navy-blue/15 flex items-center justify-center text-navy-blue bg-white shadow-2xs">
               <Users className="w-4.5 h-4.5" />
             </div>
             <div className="text-left leading-none">
@@ -400,8 +412,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       {/* Main Layout Area */}
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar Navigation */}
-        <aside className="w-64 bg-navy-blue flex flex-col justify-between shrink-0 relative rounded-3xl my-4 ml-4 shadow-sm border border-white/10 overflow-hidden">
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-sig-green" />
+        <aside className="w-60 glass-sidebar flex flex-col justify-between shrink-0 relative rounded-2xl my-4 ml-4 shadow-glass-navy overflow-hidden">
+          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-sig-green via-sig-green to-sig-green/40" />
 
           <div className="pt-4">
             {/* Nav Links */}
@@ -422,15 +434,15 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                   onClick={() => {
                     setActiveTab(tab.id)
                   }}
-                  className={`w-full flex items-center justify-between p-3 rounded-2xl text-xs font-semibold tracking-wide transition duration-200 cursor-pointer
-                    ${activeTab === tab.id ? 'bg-sig-green text-navy-blue' : 'text-gray-300 hover:bg-white/5 hover:text-white'}`}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-[13px] font-semibold tracking-normal transition-all duration-150 cursor-pointer
+                    ${activeTab === tab.id ? 'bg-sig-green/20 text-sig-green backdrop-blur-md border-l-[3px] border-sig-green shadow-xs' : 'text-gray-300 hover:bg-white/10 hover:text-white border-l-[3px] border-transparent'}`}
                 >
                   <div className="flex items-center space-x-3">
                     <tab.icon className="w-4 h-4 shrink-0" />
                     <span>{tab.label}</span>
                   </div>
                   {tab.badge > 0 && (
-                    <span className="bg-red-500 text-white rounded-full px-2 py-0.5 text-[9px] font-bold">
+                    <span className="bg-error-500 text-white rounded-full px-2 py-0.5 text-[9px] font-semibold min-w-[20px] text-center">
                       {tab.badge}
                     </span>
                   )}
@@ -440,10 +452,10 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           </div>
 
           {/* Footer containing green Logout button */}
-          <div className="p-4 border-t border-white/10 bg-navy-blue/90">
+          <div className="p-4 border-t border-white/[0.08]">
             <button
               onClick={onLogout}
-              className="w-full bg-sig-green hover:bg-sig-green/90 text-navy-blue py-2.5 px-4 rounded-xl text-xs font-bold transition duration-200 cursor-pointer text-center flex items-center justify-center shadow-xs"
+              className="w-full bg-sig-green hover:bg-sig-green-600 active:bg-sig-green-700 text-navy-blue py-2.5 px-4 rounded-xl text-xs font-extrabold transition-all duration-150 cursor-pointer text-center flex items-center justify-center shadow-glass-sm hover:shadow-md border border-white/40"
             >
               Logout
             </button>
@@ -451,10 +463,10 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         </aside>
 
         {/* Main Panel Content Area */}
-        <main className="flex-1 my-4 mx-4 bg-[#F1EFEC] rounded-3xl border border-gray-200/50 shadow-xs overflow-hidden flex flex-col">
+        <main className="flex-1 my-4 mx-4 glass-panel rounded-2xl shadow-glass-md overflow-hidden flex flex-col">
           {/* ── DASHBOARD ── */}
           {activeTab === 'dashboard' && (
-            <div className="flex-1 overflow-y-auto p-8 bg-[#F1EFEC]">
+            <div className="flex-1 overflow-y-auto p-8">
               <div className="max-w-5xl mx-auto space-y-6">
                 {/* Stats row */}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -492,12 +504,12 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                   ].map((s) => (
                     <div
                       key={s.label}
-                      className={`${s.bg} rounded-2xl p-4 border border-white shadow-xs`}
+                      className={`${s.bg} rounded-xl p-4 border border-gray-200/60 shadow-sm transition-all duration-150 hover:shadow-md`}
                     >
-                      <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wide">
+                      <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">
                         {s.label}
                       </p>
-                      <p className={`text-3xl font-bold mt-1 ${s.color}`}>{s.value}</p>
+                      <p className={`text-2xl font-bold mt-1 ${s.color}`}>{s.value}</p>
                     </div>
                   ))}
                 </div>
@@ -637,7 +649,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
           {/* ── COMPILED REPORTS ── */}
           {activeTab === 'reports' && (
-            <div className="flex-1 overflow-y-auto p-8 bg-[#F1EFEC]">
+            <div className="flex-1 overflow-y-auto p-8 bg-surface-soft">
               <div className="max-w-4xl mx-auto space-y-4">
                 <div className="flex items-center justify-between mb-2">
                   <h1 className="text-lg font-bold text-navy-blue">Compiled Reports</h1>
@@ -727,7 +739,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
             <div className="flex-1 overflow-y-auto p-8 bg-[#F1EFEC] text-left">
               <div className="max-w-5xl mx-auto space-y-6">
                 {/* Header section */}
-                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between">
+                <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between">
                   <div>
                     <h1 className="text-2xl font-bold text-navy-blue flex items-center gap-2">
                       <Info className="w-6 h-6 text-sig-green" /> About DommUnity
@@ -739,8 +751,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   {/* Left Column - System and CES Details */}
                   <div className="lg:col-span-2 space-y-6">
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
-                      <h2 className="text-lg font-bold text-navy-blue border-b border-gray-100 pb-3">System Information</h2>
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
+                      <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">System Information</h2>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">System Name</span>
@@ -759,8 +771,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                       </div>
                     </div>
 
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
-                      <h2 className="text-lg font-bold text-navy-blue border-b border-gray-100 pb-3">Community Extension & Services (CES) Office</h2>
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
+                      <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">Community Extension & Services (CES) Office</h2>
                       <div>
                         <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Vision & Mission</span>
                         <p className="text-xs text-gray-600 mt-1 leading-relaxed">
@@ -783,8 +795,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                   {/* Right Column - Org Chart & Proponents */}
                   <div className="space-y-6">
                     {/* CES Organizational Chart */}
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
-                      <h2 className="text-lg font-bold text-navy-blue border-b border-gray-100 pb-3">CES Org Hierarchy</h2>
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
+                      <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">CES Org Hierarchy</h2>
                       <div className="space-y-3">
                         {[
                           { name: 'Sr. Lorna I. Ablog, O.P.', role: 'School Administrator' },
@@ -801,8 +813,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                     </div>
 
                     {/* Developers section */}
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
-                      <h2 className="text-lg font-bold text-navy-blue border-b border-gray-100 pb-3">Development Team</h2>
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
+                      <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">Development Team</h2>
                       <div className="space-y-3">
                         {[
                           { name: 'Benidict Justin Salunga', role: 'Lead Programmer' },

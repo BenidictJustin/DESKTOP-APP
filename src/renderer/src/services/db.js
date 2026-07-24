@@ -11,7 +11,7 @@ import {
   where,
   Timestamp
 } from 'firebase/firestore'
-import { initializeApp } from 'firebase/app'
+import { initializeApp, deleteApp } from 'firebase/app'
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -607,7 +607,7 @@ export const migrateLocalDataToFirebase = async () => {
     }
 
     // Clean up secondary app
-    await secondaryApp.delete()
+    await deleteApp(secondaryApp)
 
     const mapUid = (id) => uidMap[id] || id
 
@@ -841,7 +841,7 @@ export const registerUser = async (
 
       return userData
     } finally {
-      await secondaryApp.delete()
+      await deleteApp(secondaryApp)
     }
   }
 }

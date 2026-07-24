@@ -2,170 +2,277 @@
 @import "tailwindcss";
 
 @theme {
+  /* ── Brand Colors (CES Identity) ── */
   --color-sig-green: #80CC2A;
+  --color-sig-green-50: #f0fce0;
+  --color-sig-green-100: #ddf8b8;
+  --color-sig-green-600: #6db824;
+  --color-sig-green-700: #5a9e1e;
   --color-navy-blue: #030E69;
-  --color-canvas-white: #ffffff;
-  --color-surface-soft: #f3f4f6;
+  --color-navy-blue-50: #eceeff;
+  --color-navy-blue-100: #d5d9ff;
+  --color-navy-blue-600: #020b54;
+  --color-navy-blue-700: #010840;
+
+  /* ── Glass Fills & Surfaces ── */
+  --color-glass-white: rgba(255, 255, 255, 0.75);
+  --color-glass-white-dense: rgba(255, 255, 255, 0.88);
+  --color-glass-white-soft: rgba(255, 255, 255, 0.55);
+  --color-glass-navy: rgba(3, 14, 105, 0.88);
+
+  /* ── Text Hierarchy ── */
   --color-ink: #111827;
   --color-charcoal: #374151;
-  --color-muted: #f5f5f5;
-  --color-muted-foreground: #737373;
-  --color-border: #e5e5e5;
-  --color-background: #ffffff;
-  --color-foreground: #0a0a0a;
-  --color-primary: #171717;
-  --color-primary-foreground: #fafafa;
-  --color-secondary: #f5f5f5;
-  --color-secondary-foreground: #171717;
-  --color-accent: #f5f5f5;
-  --color-accent-foreground: #171717;
-  --color-popover: #ffffff;
-  --color-popover-foreground: #0a0a0a;
-  --color-card: #ffffff;
-  --color-card-foreground: #0a0a0a;
-  
-  --font-sans: 'Poppins', 'Inter', sans-serif;
-  --font-poppins: 'Poppins', 'Inter', sans-serif;
-  
-  --radius-hero: 32px;
+  --color-muted-foreground: #6b7280;
+
+  /* ── Status Colors ── */
+  --color-success-50: rgba(236, 253, 245, 0.85);
+  --color-success-100: #d1fae5;
+  --color-success-600: #059669;
+  --color-success-700: #047857;
+  --color-warning-50: rgba(255, 251, 235, 0.85);
+  --color-warning-100: #fef3c7;
+  --color-warning-600: #d97706;
+  --color-warning-700: #b45309;
+  --color-error-50: rgba(254, 242, 242, 0.85);
+  --color-error-100: #fee2e2;
+  --color-error-500: #ef4444;
+  --color-error-600: #dc2626;
+  --color-error-700: #b91c1c;
+
+  /* ── Typography ── */
+  --font-sans: 'Poppins', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-poppins: 'Poppins', 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* ── Border Radius Scale ── */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: 24px;
+  --radius-full: 9999px;
+
+  /* ── Glass Elevation & Glow Shadows ── */
+  --shadow-glass-sm: 0 4px 16px 0 rgba(31, 38, 135, 0.06);
+  --shadow-glass-md: 0 8px 24px 0 rgba(31, 38, 135, 0.09);
+  --shadow-glass-lg: 0 12px 32px 0 rgba(31, 38, 135, 0.12);
+  --shadow-glass-xl: 0 20px 48px 0 rgba(31, 38, 135, 0.16);
+  --shadow-glass-navy: 0 8px 32px 0 rgba(3, 14, 105, 0.25);
 }
 
-/* Base custom styles to complement Tailwind utility classes */
+/* ══════════════════════════════════════════════════════════════════════════════
+   GLASSMORPHISM UTILITIES
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* Standard Light Glass Panel */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+}
+
+/* Dense Light Glass Card */
+.glass-card {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.05);
+  transition: all 200ms ease;
+}
+.glass-card:hover {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 10px 30px 0 rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+/* Header Glass Bar */
+.glass-header {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 4px 20px 0 rgba(31, 38, 135, 0.06);
+}
+
+/* Dark Navy Glass Sidebar */
+.glass-sidebar {
+  background: rgba(3, 14, 105, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 32px 0 rgba(3, 14, 105, 0.3);
+}
+
+/* Glass Form Control */
+.glass-input {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(209, 213, 219, 0.8);
+  transition: all 150ms ease;
+}
+.glass-input:focus {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: #80CC2A;
+  box-shadow: 0 0 0 3px rgba(128, 204, 42, 0.2);
+}
+
+/* Glass Modal Overlay & Container */
+.glass-modal-overlay {
+  background: rgba(3, 14, 105, 0.35);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.glass-modal {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 24px 48px -12px rgba(31, 38, 135, 0.2);
+}
+
+/* Glass Date Picker / Calendar Style */
+.glass-calendar {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 12px 36px 0 rgba(31, 38, 135, 0.12);
+  border-radius: 16px;
+}
+.glass-calendar-day {
+  transition: all 150ms ease;
+  border-radius: 8px;
+}
+.glass-calendar-day:hover {
+  background: rgba(128, 204, 42, 0.15);
+  color: #030E69;
+}
+.glass-calendar-day-active {
+  background: #80CC2A;
+  color: #030E69;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(128, 204, 42, 0.35);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   BASE STYLES & ACCESSIBILITY
+   ══════════════════════════════════════════════════════════════════════════════ */
+
 html, body {
-  font-family: 'Poppins', 'Inter', sans-serif;
-  background-color: #f3f4f6;
+  font-family: 'Poppins', 'Inter', system-ui, -apple-system, sans-serif;
+  background: linear-gradient(135deg, #eef2f7 0%, #e2e8f0 50%, #edf2f7 100%);
   color: #111827;
   margin: 0;
   padding: 0;
   min-height: 100vh;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  line-height: 1.5;
 }
 
-/* Custom scrollbars */
+/* Custom subtle scrollbars */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 4px;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 4px;
+  background: rgba(156, 163, 175, 0.5);
+  border-radius: 9999px;
+  backdrop-filter: blur(4px);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: rgba(107, 114, 128, 0.8);
 }
 
-/* Custom styles for Tiptap / ProseMirror editor */
+/* Focus ring accessibility */
+:focus-visible {
+  outline: 2px solid #80CC2A;
+  outline-offset: 2px;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   ANIMATION KEYFRAMES
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in-scale {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-in {
+  animation: fade-in 200ms ease-out;
+}
+.animate-fade-in-scale {
+  animation: fade-in-scale 200ms ease-out;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   TIPTAP / PROSEMIRROR EDITOR (Glassmorphic)
+   ══════════════════════════════════════════════════════════════════════════════ */
+
 .ProseMirror {
   outline: none;
   font-family: var(--font-sans);
   
-  /* Link styles */
   a {
-    color: #2563eb;
+    color: #030E69;
+    font-weight: 500;
     cursor: pointer;
-    text-decoration: none;
-    &:hover {
-      text-decoration: underline;
-    }
+    text-decoration: underline;
+    text-decoration-color: #80CC2A;
   }
 
-  /* Image-specific styling */
   img {
     display: block;
     height: auto;
     margin: 1.5rem 0;
     max-width: 100%;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
     &.ProseMirror-selectednode {
-      outline: 3px solid #3b82f6;
+      outline: 3px solid #80CC2A;
+      outline-offset: 2px;
     }
   }
 
-  /* Table-specific styling */
   table {
     border-collapse: collapse;
     margin: 1.5rem 0;
     overflow: hidden;
     table-layout: fixed;
     width: 100%;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
 
-    td,
-    th {
-      border: 1px solid #c7c7c7;
-      box-sizing: border-box;
-      min-width: 1em;
-      padding: 6px 8px;
-      position: relative;
+    td, th {
+      border: 1px solid rgba(229, 231, 235, 0.8);
+      padding: 10px 14px;
       vertical-align: top;
-      > * {
-        margin-bottom: 0;
-      }
     }
 
     th {
-      background-color: #f3f4f6;
-      font-weight: bold;
+      background: rgba(243, 244, 246, 0.8);
+      backdrop-filter: blur(8px);
+      font-weight: 600;
       text-align: left;
-    }
-  }
-
-  /* Headings */
-  h1, h2, h3, h4, h5, h6 {
-    line-height: 1.1;
-    margin-top: 1.5rem;
-    margin-bottom: 0.5rem;
-    font-weight: 600;
-  }
-  h1 { font-size: 2rem; }
-  h2 { font-size: 1.5rem; }
-  h3 { font-size: 1.25rem; }
-
-  /* Paragraphs and Lists */
-  p {
-    margin-bottom: 8px;
-  }
-
-  ul, ol {
-    padding-left: 24px;
-    margin-bottom: 8px;
-  }
-
-  ul li {
-    list-style-type: disc;
-  }
-
-  ol li {
-    list-style-type: decimal;
-  }
-
-  /* Task lists */
-  ul[data-type="taskList"] {
-    list-style: none;
-    padding-left: 0;
-    margin-left: 0;
-
-    li {
-      display: flex;
-      align-items: flex-start;
-      margin-bottom: 4px;
-
-      > label {
-        flex: 0 0 auto;
-        margin-right: 8px;
-        user-select: none;
-      }
-
-      > div {
-        flex: 1 1 auto;
-      }
-    }
-
-    input[type="checkbox"] {
-      cursor: pointer;
+      font-size: 0.8125rem;
+      color: #030E69;
     }
   }
 }
-

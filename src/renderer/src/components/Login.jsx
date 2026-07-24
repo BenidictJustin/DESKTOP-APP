@@ -1,7 +1,7 @@
 /* eslint-disable react/prop-types */
 import { useState } from 'react'
 import { login, requestPasswordReset } from '../services/db'
-import { KeyRound, Mail, Eye, EyeOff, CheckCircle2 } from 'lucide-react'
+import { KeyRound, Mail, Eye, EyeOff, CheckCircle2, AlertCircle } from 'lucide-react'
 import logo from '../assets/logo.png'
 
 export default function Login({ onLoginSuccess }) {
@@ -112,23 +112,24 @@ export default function Login({ onLoginSuccess }) {
   }
 
   return (
-    <div className="min-h-screen w-screen flex flex-col items-center justify-center bg-gray-100 p-4 md:p-8 font-poppins selection:bg-sig-green selection:text-white">
-      {/* Container Card */}
-      <div className="w-full max-w-md md:max-w-4xl bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden flex flex-col md:flex-row">
-        {/* Banner Headers (Left Side) */}
-        <div className="w-full md:w-[45%] bg-white p-8 md:p-12 relative flex flex-col justify-between overflow-hidden min-h-[320px] md:min-h-[500px]">
-          {/* Decorative Circular Background Elements */}
-          {/* Top Right Rings */}
-          <div className="absolute -top-10 -right-10 w-40 h-40 border-8 border-sig-green/15 rounded-full pointer-events-none"></div>
-          <div className="absolute -top-20 -right-20 w-48 h-48 border-8 border-sig-green/10 rounded-full pointer-events-none"></div>
+    <div className="min-h-screen w-screen flex flex-col items-center justify-center p-4 md:p-8 font-poppins selection:bg-sig-green/20 selection:text-navy-blue">
+      {/* Container Card with Glassmorphic Frosted Styling */}
+      <div className="w-full max-w-md md:max-w-4xl bg-white/75 backdrop-blur-xl rounded-2xl shadow-glass-xl border border-white/60 overflow-hidden flex flex-col md:flex-row animate-fade-in-scale">
+        {/* Banner Headers (Left Side - Frosted Light Glass) */}
+        <div className="w-full md:w-[45%] bg-white/40 backdrop-blur-md p-8 md:p-12 relative flex flex-col justify-between overflow-hidden min-h-[320px] md:min-h-[500px]">
+          {/* Decorative Circular Glass Orbs */}
+          <div className="absolute -top-10 -right-10 w-40 h-40 border-[6px] border-sig-green/20 rounded-full pointer-events-none backdrop-blur-xs"></div>
+          <div className="absolute -top-20 -right-20 w-48 h-48 border-[6px] border-sig-green/10 rounded-full pointer-events-none"></div>
 
           {/* Bottom Left Circles & Rings */}
-          <div className="absolute -bottom-28 -left-28 w-80 h-80 border-16 border-sig-green/15 rounded-full pointer-events-none"></div>
+          <div className="absolute -bottom-28 -left-28 w-80 h-80 border-[12px] border-sig-green/15 rounded-full pointer-events-none"></div>
           <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-navy-blue/5 rounded-full pointer-events-none"></div>
 
           {/* Logo Header */}
           <div className="flex items-center space-x-3 self-start z-10">
-            <img src={logo} alt="CES Logo" className="h-12 w-12 object-contain" />
+            <div className="h-12 w-12 rounded-xl bg-white/90 backdrop-blur-sm border border-white/80 flex items-center justify-center overflow-hidden shadow-glass-sm">
+              <img src={logo} alt="CES Logo" className="h-10 w-10 object-contain" />
+            </div>
             <div className="text-left font-poppins">
               <div className="text-navy-blue font-extrabold text-[10px] leading-tight tracking-wider uppercase">
                 Community Extension & Services
@@ -141,49 +142,47 @@ export default function Login({ onLoginSuccess }) {
 
           {/* Welcome Text & Tagline */}
           <div className="flex-1 flex flex-col justify-center my-8 z-10 text-left">
-            <h1 className="text-sig-green text-5xl md:text-6xl font-black tracking-wide leading-none">
+            <h1 className="text-sig-green text-5xl md:text-6xl font-black tracking-tight leading-none drop-shadow-xs">
               HELLO,
             </h1>
-            <h1 className="text-navy-blue text-5xl md:text-6xl font-black tracking-wide leading-none mt-1">
+            <h1 className="text-navy-blue text-5xl md:text-6xl font-black tracking-tight leading-none mt-1 drop-shadow-xs">
               WELCOME!
             </h1>
-            <div className="flex space-x-2 mt-4 text-[10px] md:text-[11px] font-extrabold tracking-widest uppercase">
+            <div className="flex space-x-2 mt-5 text-[10px] md:text-[11px] font-extrabold tracking-[0.2em] uppercase">
               <span className="text-sig-green">FIDES,</span>
               <span className="text-navy-blue">PATRIA,</span>
               <span className="text-sig-green">SAPIENTIA</span>
             </div>
           </div>
 
-          {/* Decorative Divider Line - bottom on mobile, right side on desktop */}
-          <div className="absolute bottom-0 left-0 right-0 h-1 md:h-full md:w-1 md:bottom-0 md:top-0 md:right-0 md:left-auto bg-sig-green"></div>
+          {/* Decorative Gradient Glass Edge */}
+          <div className="absolute bottom-0 left-0 right-0 h-1 md:h-full md:w-1 md:bottom-0 md:top-0 md:right-0 md:left-auto bg-gradient-to-r md:bg-gradient-to-b from-sig-green via-sig-green to-sig-green/40"></div>
         </div>
 
-        {/* Form Body (Right Side) */}
-        <div className="w-full md:w-[55%] p-8 md:p-12 flex flex-col justify-center bg-navy-blue relative overflow-hidden min-h-[400px]">
-          {/* Decorative vertical rounded shapes */}
-          {/* Top-Right Pills */}
-          <div className="absolute top-0 right-16 w-10 h-28 bg-black/15 rounded-b-full pointer-events-none"></div>
-          <div className="absolute top-0 right-6 w-10 h-40 bg-white/10 rounded-b-full pointer-events-none"></div>
-
-          {/* Bottom-Left Pills */}
-          <div className="absolute bottom-0 left-6 w-10 h-40 bg-white/10 rounded-t-full pointer-events-none"></div>
-          <div className="absolute bottom-0 left-16 w-10 h-28 bg-black/15 rounded-t-full pointer-events-none"></div>
+        {/* Form Body (Right Side - Frosted Dark Navy Glass) */}
+        <div className="w-full md:w-[55%] p-8 md:p-12 flex flex-col justify-center bg-navy-blue/90 backdrop-blur-lg relative overflow-hidden min-h-[400px]">
+          {/* Glass Pillar Accents */}
+          <div className="absolute top-0 right-16 w-8 h-24 bg-white/10 backdrop-blur-xs rounded-b-full pointer-events-none border-b border-white/20"></div>
+          <div className="absolute top-0 right-6 w-8 h-36 bg-white/5 rounded-b-full pointer-events-none"></div>
+          <div className="absolute bottom-0 left-6 w-8 h-36 bg-white/5 rounded-t-full pointer-events-none"></div>
+          <div className="absolute bottom-0 left-16 w-8 h-24 bg-white/10 backdrop-blur-xs rounded-t-full pointer-events-none border-t border-white/20"></div>
 
           <div className="z-10 flex flex-col justify-center w-full">
             {error && (
-              <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-xs flex items-start space-x-2 border border-red-200">
-                <span>{error}</span>
+              <div className="mb-5 p-3.5 bg-error-500/20 backdrop-blur-md text-red-100 rounded-xl text-xs flex items-start space-x-2.5 border border-error-500/30 animate-fade-in shadow-glass-sm">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-300" />
+                <span className="leading-relaxed">{error}</span>
               </div>
             )}
 
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={handleLogin} className="space-y-5">
               <div>
-                <label className="block text-gray-200 text-xs font-semibold mb-1">
+                <label className="block text-white/90 text-xs font-semibold mb-1.5 tracking-wide drop-shadow-xs">
                   Username / Email Address
                 </label>
                 <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
-                    <Mail className="w-4 h-4" />
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 pointer-events-none">
+                    <Mail className="w-[18px] h-[18px]" />
                   </span>
                   <input
                     type="email"
@@ -195,23 +194,23 @@ export default function Login({ onLoginSuccess }) {
                       }
                     }}
                     placeholder="admin@gmail.com"
-                    className={`w-full pl-10 pr-4 py-2 text-sm bg-white border rounded-xl focus:outline-none focus:ring-2 transition duration-200 ${emailError
-                        ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500'
-                        : 'border-gray-200 focus:ring-sig-green/20 focus:border-sig-green'
+                    className={`w-full pl-11 pr-4 py-2.5 text-sm bg-white/90 backdrop-blur-md border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 placeholder:text-gray-400 text-navy-blue font-semibold shadow-inner ${emailError
+                        ? 'border-red-400 focus:ring-red-400/30 focus:border-red-400'
+                        : 'border-white/80 focus:ring-sig-green/40 focus:border-sig-green'
                       }`}
-                    style={{ height: '40px' }}
                   />
                 </div>
                 {emailError && (
-                  <p className="text-red-500 text-[10px] mt-1 text-left font-poppins font-medium">
-                    {emailError}
+                  <p className="text-red-300 text-[11px] mt-1.5 text-left font-poppins font-medium flex items-center space-x-1 drop-shadow-xs">
+                    <AlertCircle className="w-3 h-3 shrink-0" />
+                    <span>{emailError}</span>
                   </p>
                 )}
               </div>
 
               <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="block text-gray-200 text-xs font-semibold">Password</label>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-white/90 text-xs font-semibold tracking-wide drop-shadow-xs">Password</label>
                   <button
                     type="button"
                     onClick={() => {
@@ -222,14 +221,14 @@ export default function Login({ onLoginSuccess }) {
                       setForgotLoading(false)
                       setShowForgotModal(true)
                     }}
-                    className="text-xs text-gray-300 hover:text-sig-green font-medium transition duration-200 cursor-pointer"
+                    className="text-[11px] text-gray-300 hover:text-sig-green font-semibold transition-colors duration-150 cursor-pointer"
                   >
                     Forgot password?
                   </button>
                 </div>
                 <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
-                    <KeyRound className="w-4 h-4" />
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 pointer-events-none">
+                    <KeyRound className="w-[18px] h-[18px]" />
                   </span>
                   <input
                     type={showPassword ? 'text' : 'password'}
@@ -241,23 +240,23 @@ export default function Login({ onLoginSuccess }) {
                       }
                     }}
                     placeholder="••••••••"
-                    className={`w-full pl-10 pr-10 py-2 text-sm bg-white border rounded-xl focus:outline-none focus:ring-2 transition duration-200 ${passwordError
-                        ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500'
-                        : 'border-gray-200 focus:ring-sig-green/20 focus:border-sig-green'
+                    className={`w-full pl-11 pr-11 py-2.5 text-sm bg-white/90 backdrop-blur-md border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 placeholder:text-gray-400 text-navy-blue font-semibold shadow-inner ${passwordError
+                        ? 'border-red-400 focus:ring-red-400/30 focus:border-red-400'
+                        : 'border-white/80 focus:ring-sig-green/40 focus:border-sig-green'
                       }`}
-                    style={{ height: '40px' }}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-white focus:outline-none transition duration-200 cursor-pointer"
+                    className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400 hover:text-navy-blue focus:outline-none transition-colors duration-150 cursor-pointer"
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showPassword ? <EyeOff className="w-[18px] h-[18px]" /> : <Eye className="w-[18px] h-[18px]" />}
                   </button>
                 </div>
                 {passwordError && (
-                  <p className="text-red-500 text-[10px] mt-1 text-left font-poppins font-medium">
-                    {passwordError}
+                  <p className="text-red-300 text-[11px] mt-1.5 text-left font-poppins font-medium flex items-center space-x-1 drop-shadow-xs">
+                    <AlertCircle className="w-3 h-3 shrink-0" />
+                    <span>{passwordError}</span>
                   </p>
                 )}
               </div>
@@ -265,11 +264,10 @@ export default function Login({ onLoginSuccess }) {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-[45%] mx-auto bg-sig-green hover:bg-sig-green/90 text-navy-blue font-bold py-2 px-4 rounded-full transition duration-200 flex items-center justify-center space-x-2 text-sm mt-6 border-b-2 border-navy-blue/30 disabled:bg-gray-400 disabled:border-transparent cursor-pointer"
-                style={{ height: '42px' }}
+                className="w-full bg-sig-green hover:bg-sig-green-600 active:bg-sig-green-700 text-navy-blue font-extrabold py-3 px-6 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 text-sm mt-3 shadow-glass-navy hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border border-white/40"
               >
                 {loading ? (
-                  <div className="w-5 h-5 border-2 border-navy-blue border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-5 h-5 border-2 border-navy-blue/30 border-t-navy-blue rounded-full animate-spin"></div>
                 ) : (
                   <span>Log In</span>
                 )}
@@ -279,49 +277,51 @@ export default function Login({ onLoginSuccess }) {
         </div>
       </div>
 
-      {/* Forgot Password Modal */}
+      {/* Forgot Password Glass Modal */}
       {showForgotModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-gray-100 relative">
+        <div className="fixed inset-0 glass-modal-overlay flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="glass-modal rounded-2xl p-7 w-full max-w-md relative animate-fade-in-scale">
             {/* Top Close Button */}
             <button
               onClick={closeForgotModal}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition cursor-pointer font-bold text-lg focus:outline-none"
+              className="absolute top-4 right-4 text-gray-400 hover:text-navy-blue transition-colors duration-150 cursor-pointer p-1 rounded-lg hover:bg-white/50"
               aria-label="Close"
             >
-              ✕
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
 
             {forgotStep === 'input' ? (
               <div>
-                <h3 className="text-2xl font-bold text-navy-blue mb-2 font-poppins text-left">
+                <h3 className="text-xl font-bold text-navy-blue mb-2 font-poppins text-left tracking-tight">
                   Forget password
                 </h3>
-                <p className="text-gray-500 text-xs mb-6 font-poppins text-left leading-relaxed">
+                <p className="text-gray-600 text-[13px] mb-6 font-poppins text-left leading-relaxed font-medium">
                   {
                     'This feature is restricted to Admin accounts only. If you are a Coordinator, please contact the CES Admin to request a password reset.'
                   }
                 </p>
 
                 {forgotErr && (
-                  <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-xs border border-red-200 animate-fade-in">
-                    {forgotErr}
+                  <div className="mb-4 p-3 bg-red-50/90 text-red-700 rounded-xl text-xs border border-red-200/80 animate-fade-in flex items-start space-x-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-500" />
+                    <span>{forgotErr}</span>
                   </div>
                 )}
 
                 <form onSubmit={handleForgotSubmit} className="space-y-4">
                   <div>
                     <div className="relative">
-                      <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
-                        <Mail className="w-4 h-4" />
+                      <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 pointer-events-none">
+                        <Mail className="w-[18px] h-[18px]" />
                       </span>
                       <input
                         type="email"
                         value={forgotEmail}
                         onChange={(e) => setForgotEmail(e.target.value)}
                         placeholder="E-Mail"
-                        className="w-full pl-10 pr-4 py-2 text-sm bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/20 focus:border-navy-blue transition duration-200"
-                        style={{ height: '44px' }}
+                        className="w-full pl-11 pr-4 py-2.5 text-sm glass-input rounded-xl focus:outline-none placeholder:text-gray-400 text-navy-blue font-semibold"
                       />
                     </div>
                   </div>
@@ -329,11 +329,10 @@ export default function Login({ onLoginSuccess }) {
                   <button
                     type="submit"
                     disabled={forgotLoading}
-                    className="w-full bg-navy-blue hover:bg-navy-blue/90 text-white font-semibold py-2 px-4 rounded-full transition duration-200 flex items-center justify-center space-x-2 text-sm mt-6 border-b-2 border-sig-green disabled:bg-gray-400 disabled:border-transparent cursor-pointer"
-                    style={{ height: '44px' }}
+                    className="w-full bg-navy-blue hover:bg-navy-blue-600 text-white font-extrabold py-2.5 px-5 rounded-xl transition-all duration-200 flex items-center justify-center space-x-2 text-sm mt-2 shadow-glass-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border border-white/20"
                   >
                     {forgotLoading ? (
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                     ) : (
                       <span>Submit</span>
                     )}
@@ -342,32 +341,32 @@ export default function Login({ onLoginSuccess }) {
               </div>
             ) : (
               <div className="text-center pt-2">
-                <div className="w-16 h-16 bg-sig-green/10 rounded-full flex items-center justify-center mb-6 mx-auto">
-                  <CheckCircle2 className="w-8 h-8 text-sig-green" />
+                <div className="w-14 h-14 bg-sig-green/20 backdrop-blur-md rounded-full flex items-center justify-center mb-5 mx-auto border border-sig-green/40">
+                  <CheckCircle2 className="w-7 h-7 text-sig-green-600" />
                 </div>
 
-                <h3 className="text-xl font-bold text-navy-blue mb-1 font-poppins">
+                <h3 className="text-lg font-bold text-navy-blue mb-1 font-poppins tracking-tight">
                   Password Reset Email Sent
                 </h3>
 
-                <div className="text-navy-blue font-semibold text-sm mb-4 break-all">
+                <div className="text-navy-blue font-bold text-sm mb-4 break-all">
                   {forgotEmail}
                 </div>
 
-                <p className="text-gray-500 text-xs mb-6 font-poppins leading-relaxed max-w-sm mx-auto">
+                <p className="text-gray-600 text-[13px] mb-6 font-poppins leading-relaxed max-w-sm mx-auto font-medium">
                   {
                     "Your Account Security is Our Priority! We've Sent You a Secure Link to Safely Change Your Password and Keep Your Account Protected."
                   }
                 </p>
 
                 {forgotMsg && (
-                  <div className="mb-4 p-3 bg-green-50 text-green-700 rounded-xl text-xs border border-green-200 animate-fade-in text-center">
+                  <div className="mb-4 p-3 bg-emerald-50/90 text-emerald-800 rounded-xl text-xs border border-emerald-200/80 animate-fade-in text-center font-medium">
                     {forgotMsg}
                   </div>
                 )}
 
                 {forgotErr && (
-                  <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-xs border border-red-200 animate-fade-in text-center">
+                  <div className="mb-4 p-3 bg-red-50/90 text-red-700 rounded-xl text-xs border border-red-200/80 animate-fade-in text-center font-medium">
                     {forgotErr}
                   </div>
                 )}
@@ -375,8 +374,7 @@ export default function Login({ onLoginSuccess }) {
                 <button
                   type="button"
                   onClick={closeForgotModal}
-                  className="w-full bg-navy-blue hover:bg-navy-blue/90 text-white font-semibold py-2 px-4 rounded-full transition duration-200 flex items-center justify-center text-sm border-b-2 border-sig-green cursor-pointer mb-6"
-                  style={{ height: '44px' }}
+                  className="w-full bg-navy-blue hover:bg-navy-blue-600 text-white font-bold py-2.5 px-5 rounded-xl transition-all duration-150 flex items-center justify-center text-sm shadow-glass-md hover:shadow-lg cursor-pointer mb-5 border border-white/20"
                 >
                   Done
                 </button>
@@ -386,7 +384,7 @@ export default function Login({ onLoginSuccess }) {
                     type="button"
                     disabled={forgotLoading}
                     onClick={handleResendEmail}
-                    className="text-xs text-navy-blue hover:text-sig-green font-semibold transition duration-200 cursor-pointer disabled:text-gray-400"
+                    className="text-xs text-navy-blue hover:text-sig-green-600 font-bold transition-colors duration-150 cursor-pointer disabled:text-gray-400 disabled:cursor-not-allowed"
                   >
                     {forgotLoading ? 'Resending...' : 'Resend Email'}
                   </button>

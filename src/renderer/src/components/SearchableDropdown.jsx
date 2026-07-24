@@ -82,11 +82,11 @@ export default function SearchableDropdown({
           }
         }}
         placeholder={placeholder}
-        className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue placeholder-gray-400 disabled:opacity-60"
+        className="w-full px-3.5 py-2.5 text-sm glass-input rounded-xl focus:outline-none font-semibold text-navy-blue placeholder-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150"
         style={{ height: '40px' }}
       />
       {isOpen && (
-        <div className="absolute left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white border border-gray-200 rounded-xl shadow-lg z-50 divide-y divide-gray-50">
+        <div className="absolute left-0 right-0 mt-1.5 max-h-48 overflow-y-auto bg-white/90 backdrop-blur-xl border border-white/80 rounded-xl shadow-glass-lg z-50">
           {filteredOptions.map(opt => (
             <div
               key={opt.id}
@@ -94,7 +94,7 @@ export default function SearchableDropdown({
                 onChange(opt.id);
                 setIsOpen(false);
               }}
-              className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
+              className="group flex items-center justify-between px-3 py-2.5 text-sm text-navy-blue hover:bg-sig-green/10 cursor-pointer border-b border-gray-100/80 last:border-none font-semibold text-left transition-colors duration-100"
             >
               <span className="truncate">
                 {opt.abbreviation ? `${opt.name} (${opt.abbreviation})` : opt.name}
@@ -110,7 +110,7 @@ export default function SearchableDropdown({
                     e.stopPropagation();
                     onDelete(opt.original || opt);
                   }}
-                  className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                  className="text-gray-400 hover:text-error-500 transition-colors duration-150 cursor-pointer p-1 rounded-md hover:bg-error-50"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -118,7 +118,7 @@ export default function SearchableDropdown({
             </div>
           ))}
           {filteredOptions.length === 0 && (
-            <div className="p-2.5 text-xs text-gray-400 text-left font-semibold">
+            <div className="px-3 py-2.5 text-sm text-gray-400 text-left font-medium">
               No matching options found.
             </div>
           )}

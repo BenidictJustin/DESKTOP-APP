@@ -29,8 +29,8 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen w-screen bg-gray-100 flex flex-col items-center justify-center font-poppins">
-        <div className="h-12 w-12 border-4 border-navy-blue border-t-sig-green rounded-full animate-spin mb-4"></div>
+      <div className="min-h-screen w-screen flex flex-col items-center justify-center font-poppins">
+        <div className="h-10 w-10 border-[3px] border-navy-blue/20 border-t-sig-green rounded-full animate-spin mb-4"></div>
         <p className="text-xs text-navy-blue font-semibold tracking-wide">Securing DommUnity Workspace Session...</p>
       </div>
     );
@@ -51,15 +51,15 @@ function App() {
 
   // Fallback in case of incorrect roles
   return (
-    <div className="min-h-screen w-screen bg-gray-100 flex flex-col items-center justify-center p-6 text-center font-poppins">
-      <div className="bg-white rounded-3xl p-8 max-w-md shadow-lg border border-red-100 text-gray-800">
-        <h2 className="text-lg font-bold text-red-600 mb-2">Access Restrict Alert</h2>
-        <p className="text-xs text-gray-500 mb-6">
+    <div className="min-h-screen w-screen flex flex-col items-center justify-center p-6 text-center font-poppins">
+      <div className="glass-modal rounded-2xl p-8 max-w-md shadow-glass-xl border border-white/80 text-gray-800 animate-fade-in-scale">
+        <h2 className="text-lg font-bold text-error-600 mb-2 tracking-tight">Access Restrict Alert</h2>
+        <p className="text-sm text-gray-600 font-medium mb-6">
           Your account role "{user.role}" does not have access permissions to view this terminal panel.
         </p>
         <button
           onClick={handleLogout}
-          className="bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-6 border-b-2 border-sig-green hover:opacity-90 transition cursor-pointer"
+          className="bg-navy-blue hover:bg-navy-blue-600 text-white rounded-xl text-sm font-semibold py-2.5 px-6 shadow-glass-sm hover:shadow-md transition-all duration-150 cursor-pointer border border-white/20"
         >
           Return to Login
         </button>

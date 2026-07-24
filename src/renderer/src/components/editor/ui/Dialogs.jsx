@@ -1,6 +1,7 @@
 import { X, AlertTriangle, Upload } from 'lucide-react';
 import mammoth from 'mammoth';
 import { parseDocxLayout } from '../utils/editorHelpers';
+import GlassDatePicker from '../../GlassDatePicker';
 
 /**
  * FindReplaceDialog — Modal for find & replace functionality.
@@ -223,8 +224,12 @@ export function DocPropertiesDialog({
               </div>
               <div>
                 <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Date</label>
-                <input type="date" value={workspaceReportDate} disabled={workspaceIsReadOnly} onChange={e => setWorkspaceReportDate(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500/20" />
+                <GlassDatePicker
+                  value={workspaceReportDate}
+                  disabled={workspaceIsReadOnly}
+                  onChange={(val) => setWorkspaceReportDate(val)}
+                  showTime={false}
+                />
               </div>
               <div className="col-span-2">
                 <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Location</label>
