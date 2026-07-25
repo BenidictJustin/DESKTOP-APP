@@ -94,6 +94,7 @@ import jsPDF from 'jspdf'
 import SearchableDropdown from '../../components/SearchableDropdown'
 import DocumentViewer from '../../components/DocumentViewer'
 import GlassDatePicker from '../../components/GlassDatePicker'
+import AnimatedSidebar from '../../components/AnimatedSidebar'
 import { sanitizeOklchInDocument } from '../../components/editor/utils/editorHelpers'
 
 export default function AdminDashboard({ user, onLogout }) {
@@ -1893,72 +1894,32 @@ export default function AdminDashboard({ user, onLogout }) {
       {/* Main Layout Area */}
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar Navigation */}
-        <aside className="w-60 glass-sidebar flex flex-col justify-between shrink-0 relative rounded-2xl my-4 ml-4 shadow-glass-navy overflow-hidden">
-          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-sig-green via-sig-green to-sig-green/40"></div>
-
-          <div className="pt-4">
-            {/* Navigation Links */}
-            <nav className="p-4 space-y-1">
-              {[
-                { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-                { id: 'inventory', label: 'Inventory', icon: Package },
-                {
-                  id: 'events',
-                  label: 'Events',
-                  icon: Calendar,
-                  badge: eventsList.filter((e) => e.status === 'planned').length
-                },
-                { id: 'organization', label: 'Organization', icon: FolderOpen },
-                { id: 'donations', label: 'Donor', icon: Gift },
-                {
-                  id: 'reports',
-                  label: 'Reports Review',
-                  icon: FileText,
-                  badge: reportsList.filter((r) => r.status === 'submitted').length
-                },
-                { id: 'accounts', label: 'User Accounts', icon: Users },
-                { id: 'about', label: 'About', icon: Info }
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  disabled={isAnyModalOpen}
-                  onClick={() => {
-                    setActiveTab(tab.id)
-                  }}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-[13px] font-semibold tracking-normal transition-all duration-150 ${activeTab === tab.id
-                    ? 'bg-sig-green/20 text-sig-green backdrop-blur-md border-l-[3px] border-sig-green shadow-xs'
-                    : 'text-gray-300 hover:bg-white/10 hover:text-white border-l-[3px] border-transparent'
-                    } ${isAnyModalOpen ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <tab.icon className="w-4 h-4 shrink-0" />
-                    <span>{tab.label}</span>
-                  </div>
-                  {tab.badge > 0 && (
-                    <span className="bg-error-500 text-white rounded-full px-2 py-0.5 text-[9px] font-semibold min-w-[20px] text-center">
-                      {tab.badge}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </nav>
-          </div>
-
-          {/* Footer info & Logout */}
-          <div className="p-4 border-t border-white/[0.08]">
-            <button
-              disabled={isAnyModalOpen}
-              onClick={onLogout}
-              className={`w-full py-2.5 px-4 rounded-xl text-xs font-extrabold transition-all duration-150 text-center flex items-center justify-center border ${
-                isAnyModalOpen
-                  ? 'opacity-40 cursor-not-allowed bg-gray-500 text-gray-300 border-transparent'
-                  : 'bg-sig-green hover:bg-sig-green-600 active:bg-sig-green-700 text-navy-blue cursor-pointer shadow-glass-sm hover:shadow-md border border-white/40'
-              }`}
-            >
-              Logout
-            </button>
-          </div>
-        </aside>
+        <AnimatedSidebar
+          tabs={[
+            { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+            { id: 'inventory', label: 'Inventory', icon: Package },
+            {
+              id: 'events',
+              label: 'Events',
+              icon: Calendar,
+              badge: eventsList.filter((e) => e.status === 'planned').length
+            },
+            { id: 'organization', label: 'Organization', icon: FolderOpen },
+            { id: 'donations', label: 'Donor', icon: Gift },
+            {
+              id: 'reports',
+              label: 'Reports Review',
+              icon: FileText,
+              badge: reportsList.filter((r) => r.status === 'submitted').length
+            },
+            { id: 'accounts', label: 'User Accounts', icon: Users },
+            { id: 'about', label: 'About', icon: Info }
+          ]}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          disabled={isAnyModalOpen}
+          onLogout={onLogout}
+        />
 
         {/* Main Panel Content Area */}
         <main ref={mainRef} className="flex-1 my-4 mx-4 p-8 overflow-y-auto glass-panel rounded-2xl shadow-glass-md">

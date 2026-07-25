@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import TextEditor from '../../components/editor/TextEditor'
 import DocumentViewer from '../../components/DocumentViewer'
+import AnimatedSidebar from '../../components/AnimatedSidebar'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import { sanitizeOklchInDocument, loadInitialContentAndResetHistory } from '../../components/editor/utils/editorHelpers'
@@ -412,68 +413,23 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       {/* Main Layout Area */}
       <div className="flex-1 flex overflow-hidden">
         {/* Sidebar Navigation */}
-        <aside className="w-60 glass-sidebar flex flex-col justify-between shrink-0 relative rounded-2xl my-4 ml-4 shadow-glass-navy overflow-hidden">
-          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-linear-to-r from-sig-green via-sig-green to-sig-green/40" />
-
-          <div className="pt-4">
-            {/* Nav Links */}
-            <nav className="p-4 space-y-1">
-              {[
-                { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-                { id: 'editor', label: 'Document Editor', icon: FileText },
-                {
-                  id: 'reports',
-                  label: 'Compiled Reports',
-                  icon: FolderOpen,
-                  badge: stats.returned > 0 ? stats.returned : 0
-                },
-                { id: 'about', label: 'About', icon: Info }
-              ].map((tab) => {
-                const disabled = Boolean(selectedViewerReport);
-                return (
-                  <button
-                    key={tab.id}
-                    disabled={disabled}
-                    onClick={() => {
-                      if (!disabled) {
-                        setActiveTab(tab.id)
-                      }
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-[13px] font-semibold tracking-normal transition-all duration-150
-                      ${disabled
-                        ? 'opacity-40 cursor-not-allowed text-gray-500'
-                        : activeTab === tab.id ? 'bg-sig-green/20 text-sig-green backdrop-blur-md border-l-[3px] border-sig-green shadow-xs cursor-pointer' : 'text-gray-300 hover:bg-white/10 hover:text-white border-l-[3px] border-transparent cursor-pointer'}`}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <tab.icon className="w-4 h-4 shrink-0" />
-                      <span>{tab.label}</span>
-                    </div>
-                    {tab.badge > 0 && (
-                      <span className="bg-error-500 text-white rounded-full px-2 py-0.5 text-[9px] font-semibold min-w-5 text-center">
-                        {tab.badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-
-          {/* Footer containing green Logout button */}
-          <div className="p-4 border-t border-white/8">
-            <button
-              disabled={Boolean(selectedViewerReport)}
-              onClick={onLogout}
-              className={`w-full py-2.5 px-4 rounded-xl text-xs font-extrabold transition-all duration-150 text-center flex items-center justify-center border ${
-                selectedViewerReport
-                  ? 'opacity-40 cursor-not-allowed bg-gray-500 text-gray-350 border-transparent'
-                  : 'bg-sig-green hover:bg-sig-green-600 active:bg-sig-green-700 text-navy-blue cursor-pointer shadow-glass-sm hover:shadow-md border border-white/40'
-              }`}
-            >
-              Logout
-            </button>
-          </div>
-        </aside>
+        <AnimatedSidebar
+          tabs={[
+            { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+            { id: 'editor', label: 'Document Editor', icon: FileText },
+            {
+              id: 'reports',
+              label: 'Compiled Reports',
+              icon: FolderOpen,
+              badge: stats.returned > 0 ? stats.returned : 0
+            },
+            { id: 'about', label: 'About', icon: Info }
+          ]}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          disabled={Boolean(selectedViewerReport)}
+          onLogout={onLogout}
+        />
 
         {/* Main Panel Content Area */}
         <main className="flex-1 my-4 mx-4 glass-panel rounded-2xl shadow-glass-md overflow-hidden flex flex-col">

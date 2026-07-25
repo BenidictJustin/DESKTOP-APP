@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { login, requestPasswordReset } from '../services/db'
 import { KeyRound, Mail, Eye, EyeOff, CheckCircle2, AlertCircle } from 'lucide-react'
 import logo from '../assets/logo.png'
+import logo3 from '../assets/logo3.png'
 
 export default function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState('')
@@ -18,6 +19,7 @@ export default function Login({ onLoginSuccess }) {
   const [forgotStep, setForgotStep] = useState('input') // 'input' vs 'success'
   const [emailError, setEmailError] = useState('')
   const [passwordError, setPasswordError] = useState('')
+  const [isSuccessTransition, setIsSuccessTransition] = useState(false)
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -53,7 +55,10 @@ export default function Login({ onLoginSuccess }) {
     setLoading(true)
     try {
       const user = await login(email, password)
-      onLoginSuccess(user)
+      setIsSuccessTransition(true)
+      setTimeout(() => {
+        onLoginSuccess(user)
+      }, 750)
     } catch (err) {
       const msg = err?.message || ''
       if (msg.includes('auth/invalid-credential') || msg.includes('invalid-credential') || msg.includes('auth/user-not-found') || msg.includes('auth/wrong-password')) {
@@ -61,7 +66,6 @@ export default function Login({ onLoginSuccess }) {
       } else {
         setError(err?.message || 'Invalid email or password. Please try again.')
       }
-    } finally {
       setLoading(false)
     }
   }
@@ -116,10 +120,55 @@ export default function Login({ onLoginSuccess }) {
     }
   }
 
+  if (isSuccessTransition) {
+    return (
+      <div className="fixed inset-0 z-[99999] bg-[#020516] flex flex-col items-center justify-center font-poppins selection:bg-sig-green/20 overflow-hidden transition-opacity duration-500 ease-in-out animate-fade-in">
+        {/* Background Banner Graphic (logo3.png) */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
+          <img
+            src={logo3}
+            alt="Background Banner"
+            className="w-full h-full object-contain object-center opacity-70 filter brightness-95 contrast-105 pointer-events-none"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#020519]/50 via-[#030E69]/40 to-[#02061f]/65 backdrop-blur-[1px]" />
+        </div>
+
+        {/* Main Splash Transition Content */}
+        <div className="flex flex-col items-center justify-center text-center z-10 px-6 animate-splash-scale relative">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-[#020516]/80 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-sig-green/20 rounded-full blur-3xl pointer-events-none" />
+
+          <img
+            src={logo}
+            alt="DommUnity Main Logo"
+            className="h-28 w-28 md:h-36 md:w-36 object-contain drop-shadow-[0_12px_30px_rgba(0,0,0,0.8)] mb-3 animate-subtle-float relative z-10"
+          />
+
+          <h1 className="text-3xl md:text-4xl font-extrabold text-sig-green tracking-tight drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)] relative z-10">
+            DommUnity
+          </h1>
+          <p className="text-xs font-bold text-gray-300 tracking-widest uppercase mt-2 relative z-10 animate-pulse">
+            Authenticating Session...
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen w-screen flex flex-col items-center justify-center p-4 md:p-8 font-poppins selection:bg-sig-green/20 selection:text-navy-blue">
+    <div className="min-h-screen w-screen flex flex-col items-center justify-center p-4 md:p-8 font-poppins selection:bg-sig-green/20 selection:text-navy-blue relative overflow-hidden bg-[#020516]">
+      {/* Shared Background Banner Graphic (logo3.png) - Complete Uncropped Artwork */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden select-none z-0">
+        <img
+          src={logo3}
+          alt="Background Banner"
+          className="w-full h-full object-contain object-center opacity-70 filter brightness-95 contrast-105 pointer-events-none"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#020519]/50 via-[#030E69]/40 to-[#02061f]/65 backdrop-blur-[1px]" />
+      </div>
+
       {/* Container Card with Glassmorphic Frosted Styling */}
-      <div className="w-full max-w-md md:max-w-4xl bg-white/75 backdrop-blur-xl rounded-2xl shadow-glass-xl border border-white/60 overflow-hidden flex flex-col md:flex-row animate-fade-in-scale">
+      <div className="w-full max-w-md md:max-w-4xl bg-white/75 backdrop-blur-xl rounded-2xl shadow-glass-xl border border-white/60 overflow-hidden flex flex-col md:flex-row animate-fade-in-scale relative z-10">
         {/* Banner Headers (Left Side - Frosted Light Glass) */}
         <div className="w-full md:w-[45%] bg-white/40 backdrop-blur-md p-8 md:p-12 relative flex flex-col justify-between overflow-hidden min-h-80 md:min-h-125">
           {/* Decorative Circular Glass Orbs */}

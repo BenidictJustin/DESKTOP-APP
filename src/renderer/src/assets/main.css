@@ -369,3 +369,34 @@ select:focus {
   background-color: rgba(128, 204, 42, 0.1) !important;
   color: #030e69 !important;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   SPLASH SCREEN ANIMATIONS
+   ══════════════════════════════════════════════════════════════════════════════ */
+@keyframes splashScale {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes subtleFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+.animate-splash-scale {
+  animation: splashScale 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-subtle-float {
+  animation: subtleFloat 3.5s ease-in-out infinite;
+}
