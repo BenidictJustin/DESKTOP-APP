@@ -55,7 +55,12 @@ export default function Login({ onLoginSuccess }) {
       const user = await login(email, password)
       onLoginSuccess(user)
     } catch (err) {
-      setError(err.message || 'Authentication failed. Please verify credentials.')
+      const msg = err?.message || ''
+      if (msg.includes('auth/invalid-credential') || msg.includes('invalid-credential') || msg.includes('auth/user-not-found') || msg.includes('auth/wrong-password')) {
+        setError('Invalid email or password. Please try again.')
+      } else {
+        setError(err?.message || 'Invalid email or password. Please try again.')
+      }
     } finally {
       setLoading(false)
     }
@@ -116,13 +121,13 @@ export default function Login({ onLoginSuccess }) {
       {/* Container Card with Glassmorphic Frosted Styling */}
       <div className="w-full max-w-md md:max-w-4xl bg-white/75 backdrop-blur-xl rounded-2xl shadow-glass-xl border border-white/60 overflow-hidden flex flex-col md:flex-row animate-fade-in-scale">
         {/* Banner Headers (Left Side - Frosted Light Glass) */}
-        <div className="w-full md:w-[45%] bg-white/40 backdrop-blur-md p-8 md:p-12 relative flex flex-col justify-between overflow-hidden min-h-[320px] md:min-h-[500px]">
+        <div className="w-full md:w-[45%] bg-white/40 backdrop-blur-md p-8 md:p-12 relative flex flex-col justify-between overflow-hidden min-h-80 md:min-h-125">
           {/* Decorative Circular Glass Orbs */}
           <div className="absolute -top-10 -right-10 w-40 h-40 border-[6px] border-sig-green/20 rounded-full pointer-events-none backdrop-blur-xs"></div>
           <div className="absolute -top-20 -right-20 w-48 h-48 border-[6px] border-sig-green/10 rounded-full pointer-events-none"></div>
 
           {/* Bottom Left Circles & Rings */}
-          <div className="absolute -bottom-28 -left-28 w-80 h-80 border-[12px] border-sig-green/15 rounded-full pointer-events-none"></div>
+          <div className="absolute -bottom-28 -left-28 w-80 h-80 border-12 border-sig-green/15 rounded-full pointer-events-none"></div>
           <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-navy-blue/5 rounded-full pointer-events-none"></div>
 
           {/* Logo Header */}
@@ -156,11 +161,11 @@ export default function Login({ onLoginSuccess }) {
           </div>
 
           {/* Decorative Gradient Glass Edge */}
-          <div className="absolute bottom-0 left-0 right-0 h-1 md:h-full md:w-1 md:bottom-0 md:top-0 md:right-0 md:left-auto bg-gradient-to-r md:bg-gradient-to-b from-sig-green via-sig-green to-sig-green/40"></div>
+          <div className="absolute bottom-0 left-0 right-0 h-1 md:h-full md:w-1 md:bottom-0 md:top-0 md:right-0 md:left-auto bg-linear-to-r md:bg-linear-to-b from-sig-green via-sig-green to-sig-green/40"></div>
         </div>
 
         {/* Form Body (Right Side - Frosted Dark Navy Glass) */}
-        <div className="w-full md:w-[55%] p-8 md:p-12 flex flex-col justify-center bg-navy-blue/90 backdrop-blur-lg relative overflow-hidden min-h-[400px]">
+        <div className="w-full md:w-[55%] p-8 md:p-12 flex flex-col justify-center bg-navy-blue/90 backdrop-blur-lg relative overflow-hidden min-h-100">
           {/* Glass Pillar Accents */}
           <div className="absolute top-0 right-16 w-8 h-24 bg-white/10 backdrop-blur-xs rounded-b-full pointer-events-none border-b border-white/20"></div>
           <div className="absolute top-0 right-6 w-8 h-36 bg-white/5 rounded-b-full pointer-events-none"></div>
@@ -182,7 +187,7 @@ export default function Login({ onLoginSuccess }) {
                 </label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 pointer-events-none">
-                    <Mail className="w-[18px] h-[18px]" />
+                    <Mail className="w-4.5 h-4.5" />
                   </span>
                   <input
                     type="email"
@@ -193,7 +198,7 @@ export default function Login({ onLoginSuccess }) {
                         setEmailError('')
                       }
                     }}
-                    placeholder="admin@gmail.com"
+                    placeholder="Enter email"
                     className={`w-full pl-11 pr-4 py-2.5 text-sm bg-white/90 backdrop-blur-md border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 placeholder:text-gray-400 text-navy-blue font-semibold shadow-inner ${emailError
                         ? 'border-red-400 focus:ring-red-400/30 focus:border-red-400'
                         : 'border-white/80 focus:ring-sig-green/40 focus:border-sig-green'
@@ -214,7 +219,7 @@ export default function Login({ onLoginSuccess }) {
                   <button
                     type="button"
                     onClick={() => {
-                      setForgotEmail(email)
+                      setForgotEmail('')
                       setForgotErr('')
                       setForgotMsg('')
                       setForgotStep('input')
@@ -228,7 +233,7 @@ export default function Login({ onLoginSuccess }) {
                 </div>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 pointer-events-none">
-                    <KeyRound className="w-[18px] h-[18px]" />
+                    <KeyRound className="w-4.5 h-4.5" />
                   </span>
                   <input
                     type={showPassword ? 'text' : 'password'}
@@ -250,7 +255,7 @@ export default function Login({ onLoginSuccess }) {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400 hover:text-navy-blue focus:outline-none transition-colors duration-150 cursor-pointer"
                   >
-                    {showPassword ? <EyeOff className="w-[18px] h-[18px]" /> : <Eye className="w-[18px] h-[18px]" />}
+                    {showPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
                   </button>
                 </div>
                 {passwordError && (
@@ -314,13 +319,13 @@ export default function Login({ onLoginSuccess }) {
                   <div>
                     <div className="relative">
                       <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 pointer-events-none">
-                        <Mail className="w-[18px] h-[18px]" />
+                        <Mail className="w-4.5 h-4.5" />
                       </span>
                       <input
                         type="email"
                         value={forgotEmail}
                         onChange={(e) => setForgotEmail(e.target.value)}
-                        placeholder="E-Mail"
+                        placeholder="Enter email"
                         className="w-full pl-11 pr-4 py-2.5 text-sm glass-input rounded-xl focus:outline-none placeholder:text-gray-400 text-navy-blue font-semibold"
                       />
                     </div>

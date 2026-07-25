@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Columns, ChevronDown } from 'lucide-react';
 import { RBtn, RGroup, DropdownWrapper } from './DropdownWrapper';
 import { MARGINS, PAPER } from '../constants';
+import CustomSelect from '../../CustomSelect';
 
 export default function RibbonLayout({
   editor,
@@ -113,21 +114,19 @@ export default function RibbonLayout({
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center gap-1 text-[10px] text-gray-600">
             <span className="whitespace-nowrap">Before:</span>
-            <select
-              className="border border-gray-300 rounded px-1 text-[10px] cursor-pointer h-5 bg-white"
-              onChange={e => editor?.chain().focus().updateAttributes('paragraph', { marginTop: e.target.value }).run()}
-            >
-              {['0pt', '6pt', '12pt', '18pt', '24pt'].map(v => <option key={v}>{v}</option>)}
-            </select>
+            <CustomSelect
+              options={['0pt', '6pt', '12pt', '18pt', '24pt']}
+              onChange={val => editor?.chain().focus().updateAttributes('paragraph', { marginTop: val }).run()}
+              style={{ height: '24px', width: '60px' }}
+            />
           </div>
           <div className="flex items-center gap-1 text-[10px] text-gray-600">
             <span className="whitespace-nowrap">After:</span>
-            <select
-              className="border border-gray-300 rounded px-1 text-[10px] cursor-pointer h-5 bg-white"
-              onChange={e => editor?.chain().focus().updateAttributes('paragraph', { marginBottom: e.target.value }).run()}
-            >
-              {['0pt', '6pt', '8pt', '12pt', '18pt'].map(v => <option key={v}>{v}</option>)}
-            </select>
+            <CustomSelect
+              options={['0pt', '6pt', '8pt', '12pt', '18pt']}
+              onChange={val => editor?.chain().focus().updateAttributes('paragraph', { marginBottom: val }).run()}
+              style={{ height: '24px', width: '60px' }}
+            />
           </div>
         </div>
       </RGroup>

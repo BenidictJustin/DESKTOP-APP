@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Calendar, ChevronLeft, ChevronRight, Clock, X } from 'lucide-react'
+import CustomSelect from './CustomSelect'
 
 /**
  * Standardized Glassmorphic Date / Date-Time Picker
@@ -261,7 +262,7 @@ export default function GlassDatePicker({
               left: `${coords.left}px`,
               zIndex: 99999
             }}
-            className="w-[310px] glass-modal rounded-2xl p-4 shadow-2xl border border-white/90 space-y-3 animate-fade-in-scale select-none"
+            className="w-77.5 glass-modal rounded-2xl p-4 shadow-2xl border border-white/90 space-y-3 animate-fade-in-scale select-none"
           >
             {/* Header: Month & Year Selector */}
             <div className="flex items-center justify-between border-b border-gray-200/60 pb-2">
@@ -343,40 +344,38 @@ export default function GlassDatePicker({
                 </div>
                 <div className="flex items-center justify-center space-x-2">
                   {/* Hours Selector */}
-                  <select
+                  <CustomSelect
                     value={hours}
                     onChange={(e) => {
                       const h = Number(e.target.value)
                       setHours(h)
                       if (selectedDay) emitChange(selectedDay, selectedMonth, selectedYear, h, minutes, ampm)
                     }}
-                    className="glass-input rounded-lg px-2 py-1 text-xs font-bold text-navy-blue focus:outline-none cursor-pointer"
-                  >
-                    {Array.from({ length: 12 }).map((_, i) => (
-                      <option key={i + 1} value={i + 1}>
-                        {String(i + 1).padStart(2, '0')}
-                      </option>
-                    ))}
-                  </select>
+                    options={Array.from({ length: 12 }).map((_, i) => ({
+                      value: i + 1,
+                      label: String(i + 1).padStart(2, '0')
+                    }))}
+                    className="w-16"
+                    style={{ height: '32px' }}
+                  />
 
                   <span className="font-bold text-navy-blue">:</span>
 
                   {/* Minutes Selector */}
-                  <select
+                  <CustomSelect
                     value={minutes}
                     onChange={(e) => {
                       const m = Number(e.target.value)
                       setMinutes(m)
                       if (selectedDay) emitChange(selectedDay, selectedMonth, selectedYear, hours, m, ampm)
                     }}
-                    className="glass-input rounded-lg px-2 py-1 text-xs font-bold text-navy-blue focus:outline-none cursor-pointer"
-                  >
-                    {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
-                      <option key={m} value={m}>
-                        {String(m).padStart(2, '0')}
-                      </option>
-                    ))}
-                  </select>
+                    options={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => ({
+                      value: m,
+                      label: String(m).padStart(2, '0')
+                    }))}
+                    className="w-16"
+                    style={{ height: '32px' }}
+                  />
 
                   {/* AM/PM Toggle */}
                   <button

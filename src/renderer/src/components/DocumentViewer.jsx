@@ -520,8 +520,8 @@ export default function DocumentViewer({
   }
 
   return (
-    <div className="fixed inset-0 bg-navy-blue/40 backdrop-blur-md flex items-center justify-center p-3 md:p-6 z-[9999] animate-fade-in font-poppins text-slate-800">
-      <div className="w-full max-w-[1400px] h-[92vh] max-h-[960px] bg-[#f8fafc] rounded-2xl flex flex-col overflow-hidden shadow-2xl border border-white/60">
+    <div className="fixed inset-0 bg-navy-blue/40 backdrop-blur-md flex items-center justify-center p-3 md:p-6 z-9999 animate-fade-in font-poppins text-slate-800">
+      <div className="w-full max-w-350 h-[92vh] max-h-240 bg-[#f8fafc] rounded-2xl flex flex-col overflow-hidden shadow-2xl border border-white/60">
         
         {/* ==================================================== */}
         {/* TOP BAR / VIEWBAR TOOLBAR */}

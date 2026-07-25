@@ -276,3 +276,96 @@ html, body {
     }
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   GLOBAL UI/UX CONSISTENCY EFFECTS
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* Clean Hover & Transition for All Card Containers system-wide */
+.bg-white.rounded-3xl.shadow-sm,
+.bg-white.rounded-3xl.border,
+.bg-white.rounded-3xl.p-6,
+.bg-white.rounded-3xl.p-8,
+.glass-panel {
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.bg-white.rounded-3xl.shadow-sm:hover,
+.bg-white.rounded-3xl.border:hover,
+.bg-white.rounded-3xl.p-6:hover,
+.bg-white.rounded-3xl.p-8:hover {
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 10px 30px 0 rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+}
+
+/* Transition for all Buttons and Interactive Controls */
+button, 
+input[type="button"], 
+input[type="submit"],
+.button {
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  cursor: pointer;
+}
+button:hover:not(:disabled),
+input[type="button"]:hover:not(:disabled),
+input[type="submit"]:hover:not(:disabled) {
+  transform: translateY(-0.5px);
+  box-shadow: 0 4px 12px rgba(31, 38, 135, 0.08) !important;
+}
+button:active:not(:disabled),
+input[type="button"]:active:not(:disabled),
+input[type="submit"]:active:not(:disabled) {
+  transform: translateY(0.5px);
+}
+
+/* Transition for all Table Rows */
+tr {
+  transition: background-color 150ms ease;
+}
+
+/* Modern Native Select Inputs styling matching design tokens */
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23030e69' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
+  background-position: right 0.75rem center;
+  background-size: 1.1rem;
+  background-repeat: no-repeat;
+  padding-right: 2.25rem !important;
+  transition: all 150ms ease;
+  border-radius: 0.75rem !important;
+  border: 1px solid rgba(229, 231, 235, 0.8) !important;
+  font-weight: 600 !important;
+  color: #030e69 !important;
+  cursor: pointer;
+}
+select:focus {
+  border-color: #80cc2a !important;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(128, 204, 42, 0.15) !important;
+}
+
+/* Suggestion dropdown lists throughout system */
+.absolute.z-60.w-full.mt-1.bg-white.border.border-gray-200.rounded-2xl.shadow-xl,
+.absolute.z-50.w-full.mt-1.bg-white.border.border-gray-200.rounded-2xl.shadow-xl {
+  background-color: #ffffff !important;
+  border: 1px solid rgba(229, 231, 235, 0.9) !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.08) !important;
+  padding: 0.25rem 0 !important;
+  max-height: 14rem !important;
+  overflow-y: auto !important;
+  z-index: 99999 !important;
+}
+
+/* Suggestion list item hover colors and font spacing */
+.absolute.z-60.w-full.mt-1.bg-white.border.border-gray-200.rounded-2xl.shadow-xl div,
+.absolute.z-50.w-full.mt-1.bg-white.border.border-gray-200.rounded-2xl.shadow-xl div {
+  transition: all 100ms ease;
+  padding-left: 0.85rem !important;
+  padding-right: 0.85rem !important;
+}
+.absolute.z-60.w-full.mt-1.bg-white.border.border-gray-200.rounded-2xl.shadow-xl div:hover,
+.absolute.z-50.w-full.mt-1.bg-white.border.border-gray-200.rounded-2xl.shadow-xl div:hover {
+  background-color: rgba(128, 204, 42, 0.1) !important;
+  color: #030e69 !important;
+}

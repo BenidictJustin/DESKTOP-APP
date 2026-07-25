@@ -216,6 +216,7 @@ export default function AdminDashboard({ user, onLogout }) {
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false)
   const [isAddOrgModalOpen, setIsAddOrgModalOpen] = useState(false)
   const [isAddDeptModalOpen, setIsAddDeptModalOpen] = useState(false)
+  const [isDonationModalOpen, setIsDonationModalOpen] = useState(false)
   const [selectedReport, setSelectedReport] = useState(null)
   const [feedbackNote, setFeedbackNote] = useState('')
   const [editingOrg, setEditingOrg] = useState(null) // null means registering, object means updating
@@ -254,27 +255,28 @@ export default function AdminDashboard({ user, onLogout }) {
     }
   }, [confirmDialog])
 
+  const isAnyModalOpen =
+    Boolean(isAddUserModalOpen) ||
+    Boolean(isAddModalOpen) ||
+    Boolean(isReleaseModalOpen) ||
+    Boolean(isReviewModalOpen) ||
+    Boolean(isEventModalOpen) ||
+    Boolean(isAddOrgModalOpen) ||
+    Boolean(isAddDeptModalOpen) ||
+    Boolean(isDonationModalOpen) ||
+    Boolean(editingOrg) ||
+    Boolean(editingEvent) ||
+    Boolean(itemEditing) ||
+    Boolean(editingUser) ||
+    Boolean(confirmDialog) ||
+    Boolean(actionError) ||
+    Boolean(validationError) ||
+    Boolean(actionSuccess) ||
+    Boolean(selectedReport) ||
+    Boolean(completedActivitiesModal?.isOpen)
+
   // Body scroll lock effect whenever any modal/popup is open
   useEffect(() => {
-    const isAnyModalOpen =
-      Boolean(isAddUserModalOpen) ||
-      Boolean(isAddModalOpen) ||
-      Boolean(isReleaseModalOpen) ||
-      Boolean(isReviewModalOpen) ||
-      Boolean(isEventModalOpen) ||
-      Boolean(isAddOrgModalOpen) ||
-      Boolean(isAddDeptModalOpen) ||
-      Boolean(editingOrg) ||
-      Boolean(editingEvent) ||
-      Boolean(itemEditing) ||
-      Boolean(editingUser) ||
-      Boolean(confirmDialog) ||
-      Boolean(actionError) ||
-      Boolean(validationError) ||
-      Boolean(actionSuccess) ||
-      Boolean(selectedReport) ||
-      Boolean(completedActivitiesModal?.isOpen)
-
     const mainEl = mainRef.current
 
     if (isAnyModalOpen) {
@@ -1351,6 +1353,7 @@ export default function AdminDashboard({ user, onLogout }) {
         )
       }
       triggerSuccess('Donation batch registered and items added to inventory stock.')
+      setIsDonationModalOpen(false)
 
       // Reset
       setDonorName('')
@@ -1856,16 +1859,18 @@ export default function AdminDashboard({ user, onLogout }) {
         <div className="flex items-center space-x-6">
           <button
             type="button"
+            disabled={isAnyModalOpen}
             onClick={() => setActiveTab('about')}
-            className="text-navy-blue hover:opacity-85 transition cursor-pointer p-1"
+            className={`text-navy-blue transition p-1 ${isAnyModalOpen ? 'opacity-40 cursor-not-allowed' : 'hover:opacity-85 cursor-pointer'}`}
             title="About DommUnity"
           >
             <Info className="w-5 h-5" />
           </button>
           <button
             type="button"
+            disabled={isAnyModalOpen}
             onClick={() => setActiveTab('dashboard')}
-            className="text-navy-blue hover:opacity-85 transition cursor-pointer p-1"
+            className={`text-navy-blue transition p-1 ${isAnyModalOpen ? 'opacity-40 cursor-not-allowed' : 'hover:opacity-85 cursor-pointer'}`}
             title="Dashboard"
           >
             <Home className="w-5 h-5" />
@@ -1916,13 +1921,14 @@ export default function AdminDashboard({ user, onLogout }) {
               ].map((tab) => (
                 <button
                   key={tab.id}
+                  disabled={isAnyModalOpen}
                   onClick={() => {
                     setActiveTab(tab.id)
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-[13px] font-semibold tracking-normal transition-all duration-150 cursor-pointer ${activeTab === tab.id
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-[13px] font-semibold tracking-normal transition-all duration-150 ${activeTab === tab.id
                     ? 'bg-sig-green/20 text-sig-green backdrop-blur-md border-l-[3px] border-sig-green shadow-xs'
                     : 'text-gray-300 hover:bg-white/10 hover:text-white border-l-[3px] border-transparent'
-                    }`}
+                    } ${isAnyModalOpen ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
                 >
                   <div className="flex items-center space-x-3">
                     <tab.icon className="w-4 h-4 shrink-0" />
@@ -1941,8 +1947,13 @@ export default function AdminDashboard({ user, onLogout }) {
           {/* Footer info & Logout */}
           <div className="p-4 border-t border-white/[0.08]">
             <button
+              disabled={isAnyModalOpen}
               onClick={onLogout}
-              className="w-full bg-sig-green hover:bg-sig-green-600 active:bg-sig-green-700 text-navy-blue py-2.5 px-4 rounded-xl text-xs font-extrabold transition-all duration-150 cursor-pointer text-center flex items-center justify-center shadow-glass-sm hover:shadow-md border border-white/40"
+              className={`w-full py-2.5 px-4 rounded-xl text-xs font-extrabold transition-all duration-150 text-center flex items-center justify-center border ${
+                isAnyModalOpen
+                  ? 'opacity-40 cursor-not-allowed bg-gray-500 text-gray-300 border-transparent'
+                  : 'bg-sig-green hover:bg-sig-green-600 active:bg-sig-green-700 text-navy-blue cursor-pointer shadow-glass-sm hover:shadow-md border border-white/40'
+              }`}
             >
               Logout
             </button>
@@ -3850,730 +3861,31 @@ export default function AdminDashboard({ user, onLogout }) {
               {/* ==================================================== */}
               {activeTab === 'donations' && user.role === 'admin' && (
                 <div className="space-y-6 animate-fade-in">
-                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-                    <h1 className="text-2xl font-bold text-navy-blue">Donors & Donations Logs</h1>
-                  </div>
-
-                  <div className="w-full">
-                    {/* Right Column: Donation batch compiler */}
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-                      <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3 mb-4">
-                        Log Donation Batch
-                      </h3>
-
-                      <form onSubmit={handleCreateDonation} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Donor Name
-                            </label>
-                            <input
-                              type="text"
-                              value={donorName}
-                              onChange={(e) => {
-                                setDonorName(e.target.value)
-                                clearFieldValError('donorName')
-                              }}
-                              placeholder="Donor Name"
-                              className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('donorName') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                              style={{ height: '40px' }}
-                            />
-                          </div>
-                          <div className="relative">
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Donor Type
-                            </label>
-                            <input
-                              type="text"
-                              value={donorType}
-                              onChange={(e) => setDonorType(e.target.value)}
-                              onFocus={() => setIsDonorTypeSuggestionsOpen(true)}
-                              onBlur={() =>
-                                setTimeout(() => setIsDonorTypeSuggestionsOpen(false), 200)
-                              }
-                              placeholder="Donor Type"
-                              className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
-                              style={{ height: '40px' }}
-                            />
-                            {isDonorTypeSuggestionsOpen && (
-                              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                <div className="py-1">
-                                  {(() => {
-                                    const suggestions = [
-                                      ...new Set([
-                                        'external_sponsor',
-                                        'internal_department',
-                                        'individual',
-                                        ...donorsList.map((d) => d.type)
-                                      ])
-                                    ]
-                                      .filter(Boolean)
-                                      .filter((type) => !deletedDonorTypes.includes(type))
-                                    const filtered = suggestions.filter(
-                                      (type) =>
-                                        !donorType ||
-                                        type.toLowerCase().includes(donorType.toLowerCase())
-                                    )
-                                    if (filtered.length === 0) {
-                                      return (
-                                        <div
-                                          onMouseDown={(e) => e.preventDefault()}
-                                          onClick={() => setIsDonorTypeSuggestionsOpen(false)}
-                                          className="p-2.5 text-xs text-gray-450 hover:bg-gray-50 cursor-pointer text-left font-semibold"
-                                        >
-                                          Use custom: "{donorType}"
-                                        </div>
-                                      )
-                                    }
-                                    return filtered.map((type) => (
-                                      <div
-                                        key={type}
-                                        onMouseDown={(e) => e.preventDefault()}
-                                        onClick={() => {
-                                          setDonorType(type)
-                                          setIsDonorTypeSuggestionsOpen(false)
-                                        }}
-                                        className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold flex justify-between items-center"
-                                      >
-                                        <span>{type}</span>
-                                        <button
-                                          type="button"
-                                          onMouseDown={(e) => {
-                                            e.preventDefault()
-                                            e.stopPropagation()
-                                          }}
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            const updated = [...deletedDonorTypes, type]
-                                            setDeletedDonorTypes(updated)
-                                            localStorage.setItem(
-                                              'dommunity_deleted_donor_types',
-                                              JSON.stringify(updated)
-                                            )
-                                          }}
-                                          className="text-gray-400 hover:text-red-500 font-bold transition p-0.5 rounded hover:bg-gray-100 flex items-center justify-center cursor-pointer"
-                                          style={{
-                                            width: '18px',
-                                            height: '18px',
-                                            fontSize: '10px'
-                                          }}
-                                          title="Delete suggestion"
-                                        >
-                                          ✕
-                                        </button>
-                                      </div>
-                                    ))
-                                  })()}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Donation Date
-                            </label>
-                            <GlassDatePicker
-                              value={donDate}
-                              onChange={(val) => setDonDate(val)}
-                              showTime={false}
-                              placeholder="dd/mm/yyyy"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Purpose / Outreach 
-                            </label>
-                            <input
-                              type="text"
-                              value={donPurpose}
-                              onChange={(e) => {
-                                setDonPurpose(e.target.value)
-                                clearFieldValError('donPurpose')
-                              }}
-                              placeholder="Purpose"
-                              className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('donPurpose') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                              style={{ height: '40px' }}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              General Description
-                            </label>
-                            <input
-                              type="text"
-                              value={donDesc}
-                              onChange={(e) => setDonDesc(e.target.value)}
-                              placeholder="Hygiene soap packages donated"
-                              className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none"
-                              style={{ height: '40px' }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Batch items list inputs */}
-                        <div className="border-t border-gray-100 pt-4">
-                          <div className="flex justify-between items-center mb-3">
-                            <h4 className="text-xs font-bold text-navy-blue">Items Contributed</h4>
-                            <button
-                              type="button"
-                              onClick={handleAddDonItemLine}
-                              className="flex items-center gap-1.5 bg-navy-blue text-white rounded-full text-xs font-semibold px-4 py-2 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                              <span>Add Item Line</span>
-                            </button>
-                          </div>
-
-                          <div className="space-y-4">
-                            {donItems.map((item, idx) => {
-                              const parsedQty = parseInt(item.quantity, 10)
-                              const unitLower = (item.unit || '').toLowerCase().trim()
-                              const isAlreadyGrouped = [
-                                'pack',
-                                'packs',
-                                'box',
-                                'boxes',
-                                'bundle',
-                                'bundles'
-                              ].includes(unitLower)
-                              const isSchoolSupplies =
-                                (item.category || '').toLowerCase().trim() === 'school supplies'
-
-                              return (
-                                <div
-                                  key={idx}
-                                  className="border border-gray-150 rounded-2xl p-4 bg-gray-50/30 space-y-4 relative shadow-sm"
-                                >
-                                  {/* Card Header */}
-                                  <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-                                    <span className="text-xs font-bold text-navy-blue">
-                                      Item #{idx + 1}
-                                    </span>
-                                    {donItems.length > 1 && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleRemoveDonItemLine(idx)}
-                                        className="text-red-500 hover:text-red-700 text-xs font-bold flex items-center space-x-1 cursor-pointer"
-                                      >
-                                        <X className="w-3.5 h-3.5" />
-                                        <span>Remove</span>
-                                      </button>
-                                    )}
-                                  </div>
-
-                                  {/* Form Grid Layout */}
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {/* Item Name */}
-                                    <div>
-                                      <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                        Item Name
-                                      </label>
-                                      <div className="relative">
-                                        <input
-                                          type="text"
-                                          value={item.name}
-                                          onChange={(e) => {
-                                            handleDonItemChange(idx, 'name', e.target.value)
-                                            clearFieldValError(`donItem-${idx}-name`)
-                                            setActiveDonItemSuggestionsIdx(idx)
-                                          }}
-                                          onFocus={() => setActiveDonItemSuggestionsIdx(idx)}
-                                          onBlur={() =>
-                                            setTimeout(
-                                              () => setActiveDonItemSuggestionsIdx(null),
-                                              200
-                                            )
-                                          }
-                                          placeholder="e.g. Corned Beef, Notebooks"
-                                          className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes(`donItem-${idx}-name`) ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                          style={{ height: '40px' }}
-                                        />
-                                        {activeDonItemSuggestionsIdx === idx && item.name && (
-                                          <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                            {(() => {
-                                              const matching = inventoryList.filter((invItem) =>
-                                                invItem.name
-                                                  .toLowerCase()
-                                                  .includes(item.name.toLowerCase())
-                                              )
-                                              const uniqueNames = [
-                                                ...new Set(matching.map((invItem) => invItem.name))
-                                              ]
-                                              if (uniqueNames.length === 0) return null
-                                              return (
-                                                <div className="py-1">
-                                                  {uniqueNames.map((name) => {
-                                                    const originalItem = matching.find(
-                                                      (invItem) => invItem.name === name
-                                                    )
-                                                    return (
-                                                      <div
-                                                        key={name}
-                                                        onMouseDown={(e) => e.preventDefault()}
-                                                        onClick={() => {
-                                                          const list = [...donItems]
-                                                          list[idx].name = name
-                                                          if (originalItem) {
-                                                            list[idx].category =
-                                                              originalItem.category || ''
-                                                            list[idx].unit = originalItem.unit || ''
-                                                            list[idx].piecesPerUnit =
-                                                              originalItem.piecesPerUnit
-                                                                ? originalItem.piecesPerUnit.toString()
-                                                                : ''
-                                                            list[idx].groupUnit =
-                                                              originalItem.groupUnit || 'none'
-                                                          }
-                                                          setDonItems(list)
-                                                          clearFieldValError(`donItem-${idx}-name`)
-                                                          clearFieldValError(
-                                                            `donItem-${idx}-quantity`
-                                                          )
-                                                          clearFieldValError(
-                                                            `donItem-${idx}-expiryDate`
-                                                          )
-                                                          clearFieldValError(
-                                                            `donItem-${idx}-piecesPerUnit`
-                                                          )
-                                                          setActiveDonItemSuggestionsIdx(null)
-                                                        }}
-                                                        className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left animate-fade-in"
-                                                      >
-                                                        {name}{' '}
-                                                        {originalItem?.category && (
-                                                          <span className="text-[10px] text-gray-400 font-normal">
-                                                            ({originalItem.category})
-                                                          </span>
-                                                        )}
-                                                      </div>
-                                                    )
-                                                  })}
-                                                </div>
-                                              )
-                                            })()}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-
-                                    {/* Category Searchable Dropdown */}
-                                    <div>
-                                      <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                        Category
-                                      </label>
-                                      <div className="relative">
-                                        <input
-                                          type="text"
-                                          value={item.category}
-                                          onFocus={() => {
-                                            prevDonCategoryRef.current = {
-                                              idx,
-                                              value: item.category
-                                            }
-                                            handleDonItemChange(idx, 'category', '')
-                                            setActiveDonItemCategoryIdx(idx)
-                                          }}
-                                          onBlur={() =>
-                                            setTimeout(() => {
-                                              setActiveDonItemCategoryIdx(null)
-                                              if (prevDonCategoryRef.current.idx === idx) {
-                                                const currentItem = donItems[idx]
-                                                if (currentItem) {
-                                                  handleDonItemChange(
-                                                    idx,
-                                                    'category',
-                                                    currentItem.category
-                                                      ? currentItem.category
-                                                      : prevDonCategoryRef.current.value
-                                                  )
-                                                }
-                                              }
-                                            }, 200)
-                                          }
-                                          onChange={(e) =>
-                                            handleDonItemChange(idx, 'category', e.target.value)
-                                          }
-                                          placeholder="Select or type category"
-                                          className="w-full pl-2.5 pr-16 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
-                                          style={{ height: '40px' }}
-                                        />
-                                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
-                                          {item.category && (
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                handleDonItemChange(idx, 'category', '')
-                                                prevDonCategoryRef.current = { idx, value: '' }
-                                              }}
-                                              className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5"
-                                              tabIndex={-1}
-                                            >
-                                              <X className="w-3.5 h-3.5" />
-                                            </button>
-                                          )}
-                                          <div className="pointer-events-none text-gray-400">
-                                            <ChevronRight className="w-4 h-4 transform rotate-90" />
-                                          </div>
-                                        </div>
-                                        {activeDonItemCategoryIdx === idx && (
-                                          <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                            {activeCategories
-                                              .filter(
-                                                (cat) =>
-                                                  !item.category ||
-                                                  cat
-                                                    .toLowerCase()
-                                                    .includes(item.category.toLowerCase())
-                                              )
-                                              .map((cat) => (
-                                                <div
-                                                  key={cat}
-                                                  onMouseDown={(e) => e.preventDefault()}
-                                                  onClick={() => {
-                                                    handleDonItemChange(idx, 'category', cat)
-                                                    prevDonCategoryRef.current = { idx, value: cat }
-                                                    setActiveDonItemCategoryIdx(null)
-                                                  }}
-                                                  className="flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
-                                                >
-                                                  <span className="truncate">{cat}</span>
-                                                </div>
-                                              ))}
-                                            {activeCategories.filter(
-                                              (cat) =>
-                                                !item.category ||
-                                                cat
-                                                  .toLowerCase()
-                                                  .includes(item.category.toLowerCase())
-                                            ).length === 0 && (
-                                                <div
-                                                  onMouseDown={(e) => e.preventDefault()}
-                                                  onClick={() => setActiveDonItemCategoryIdx(null)}
-                                                  className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
-                                                >
-                                                  Use custom: "{item.category}"
-                                                </div>
-                                              )}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-
-                                    {/* Unit Searchable Dropdown */}
-                                    <div>
-                                      <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                        Unit
-                                      </label>
-                                      <div className="relative">
-                                        <input
-                                          type="text"
-                                          value={item.unit}
-                                          onFocus={() => {
-                                            prevDonUnitRef.current = { idx, value: item.unit }
-                                            handleDonItemChange(idx, 'unit', '')
-                                            setActiveDonItemUnitIdx(idx)
-                                          }}
-                                          onBlur={() =>
-                                            setTimeout(() => {
-                                              setActiveDonItemUnitIdx(null)
-                                              if (prevDonUnitRef.current.idx === idx) {
-                                                const currentItem = donItems[idx]
-                                                if (currentItem) {
-                                                  handleDonItemChange(
-                                                    idx,
-                                                    'unit',
-                                                    currentItem.unit
-                                                      ? currentItem.unit
-                                                      : prevDonUnitRef.current.value
-                                                  )
-                                                }
-                                              }
-                                            }, 200)
-                                          }
-                                          onChange={(e) =>
-                                            handleDonItemChange(idx, 'unit', e.target.value)
-                                          }
-                                          placeholder="Select or type unit"
-                                          className="w-full pl-2.5 pr-16 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
-                                          style={{ height: '40px' }}
-                                        />
-                                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
-                                          {item.unit && (
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                handleDonItemChange(idx, 'unit', '')
-                                                prevDonUnitRef.current = { idx, value: '' }
-                                              }}
-                                              className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5"
-                                              tabIndex={-1}
-                                            >
-                                              <X className="w-3.5 h-3.5" />
-                                            </button>
-                                          )}
-                                          <div className="pointer-events-none text-gray-400">
-                                            <ChevronRight className="w-4 h-4 transform rotate-90" />
-                                          </div>
-                                        </div>
-                                        {activeDonItemUnitIdx === idx && (
-                                          <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                            {activeUnits
-                                              .filter(
-                                                (u) =>
-                                                  !item.unit ||
-                                                  u.toLowerCase().includes(item.unit.toLowerCase())
-                                              )
-                                              .map((u) => (
-                                                <div
-                                                  key={u}
-                                                  onMouseDown={(e) => e.preventDefault()}
-                                                  onClick={() => {
-                                                    handleDonItemChange(idx, 'unit', u)
-                                                    prevDonUnitRef.current = { idx, value: u }
-                                                    setActiveDonItemUnitIdx(null)
-                                                  }}
-                                                  className="flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
-                                                >
-                                                  <span className="truncate">{u}</span>
-                                                </div>
-                                              ))}
-                                            {activeUnits.filter(
-                                              (u) =>
-                                                !item.unit ||
-                                                u.toLowerCase().includes(item.unit.toLowerCase())
-                                            ).length === 0 && (
-                                                <div
-                                                  onMouseDown={(e) => e.preventDefault()}
-                                                  onClick={() => setActiveDonItemUnitIdx(null)}
-                                                  className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
-                                                >
-                                                  Use custom: "{item.unit}"
-                                                </div>
-                                              )}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-
-                                    {/* Quantity */}
-                                    <div>
-                                      <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                        Quantity
-                                      </label>
-                                      <div className="relative">
-                                        <input
-                                          type="text"
-                                          value={item.quantity}
-                                          onFocus={() => {
-                                            prevDonQtyRef.current = { idx, value: item.quantity }
-                                            handleDonItemChange(idx, 'quantity', '')
-                                            setActiveDonItemQtyIdx(idx)
-                                          }}
-                                          onBlur={() =>
-                                            setTimeout(() => {
-                                              setActiveDonItemQtyIdx(null)
-                                              if (prevDonQtyRef.current.idx === idx) {
-                                                const currentItem = donItems[idx]
-                                                if (currentItem) {
-                                                  handleDonItemChange(
-                                                    idx,
-                                                    'quantity',
-                                                    currentItem.quantity
-                                                      ? currentItem.quantity
-                                                      : prevDonQtyRef.current.value
-                                                  )
-                                                }
-                                              }
-                                            }, 200)
-                                          }
-                                          onChange={(e) => {
-                                            handleDonItemChange(idx, 'quantity', e.target.value)
-                                            clearFieldValError(`donItem-${idx}-quantity`)
-                                          }}
-                                          placeholder="Select or enter quantity"
-                                          className={`w-full pl-2.5 pr-8 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes(`donItem-${idx}-quantity`) ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                          style={{ height: '40px' }}
-                                        />
-                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                          <ChevronRight className="w-4 h-4 transform rotate-90" />
-                                        </div>
-                                        {activeDonItemQtyIdx === idx && (
-                                          <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                            {[5, 10, 20, 50, 100, 250, 500]
-                                              .filter(
-                                                (q) =>
-                                                  !item.quantity ||
-                                                  q.toString().includes(item.quantity)
-                                              )
-                                              .map((q) => (
-                                                <div
-                                                  key={q}
-                                                  onMouseDown={(e) => e.preventDefault()}
-                                                  onClick={() => {
-                                                    handleDonItemChange(
-                                                      idx,
-                                                      'quantity',
-                                                      q.toString()
-                                                    )
-                                                    prevDonQtyRef.current = {
-                                                      idx,
-                                                      value: q.toString()
-                                                    }
-                                                    clearFieldValError(`donItem-${idx}-quantity`)
-                                                    setActiveDonItemQtyIdx(null)
-                                                  }}
-                                                  className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
-                                                >
-                                                  {q}
-                                                </div>
-                                              ))}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-
-                                    {/* Pieces per Unit (if Unit is already pack/box/bundle) */}
-                                    {isAlreadyGrouped && (
-                                      <div className="animate-fade-in">
-                                        <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                          Pieces per Unit <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                          type="text"
-                                          value={item.piecesPerUnit}
-                                          onChange={(e) => {
-                                            if (/^\d*$/.test(e.target.value)) {
-                                              handleDonItemChange(
-                                                idx,
-                                                'piecesPerUnit',
-                                                e.target.value
-                                              )
-                                              clearFieldValError(`donItem-${idx}-piecesPerUnit`)
-                                            }
-                                          }}
-                                          placeholder="e.g. 12"
-                                          className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes(`donItem-${idx}-piecesPerUnit`) ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                          style={{ height: '40px' }}
-                                        />
-                                      </div>
-                                    )}
-
-                                    {/* Group Stock Option (only if Quantity >= 12 and Unit is not pack/box/bundle) */}
-                                    {!isNaN(parsedQty) && parsedQty >= 12 && !isAlreadyGrouped && (
-                                      <div>
-                                        <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                          Group stock into (Optional)
-                                        </label>
-                                        <select
-                                          value={item.groupUnit}
-                                          onChange={(e) => {
-                                            const list = [...donItems]
-                                            list[idx].groupUnit = e.target.value
-                                            if (e.target.value === 'none') {
-                                              list[idx].piecesPerUnit = ''
-                                            } else if (!list[idx].piecesPerUnit) {
-                                              list[idx].piecesPerUnit = '12'
-                                            }
-                                            setDonItems(list)
-                                          }}
-                                          className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue cursor-pointer"
-                                          style={{ height: '40px' }}
-                                        >
-                                          <option value="none">
-                                            Do not group (Individual pieces)
-                                          </option>
-                                          <option value="pack">Packs</option>
-                                          <option value="box">Boxes</option>
-                                          <option value="bundle">Bundles</option>
-                                        </select>
-                                      </div>
-                                    )}
-
-                                    {/* Pieces per pack/box/bundle input and remaining pieces display */}
-                                    {!isAlreadyGrouped &&
-                                      item.groupUnit &&
-                                      item.groupUnit !== 'none' && (
-                                        <>
-                                          <div>
-                                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                              Pieces per Pack/Box/Bundle
-                                            </label>
-                                            <input
-                                              type="text"
-                                              value={item.piecesPerUnit}
-                                              onChange={(e) => {
-                                                if (/^\d*$/.test(e.target.value)) {
-                                                  handleDonItemChange(
-                                                    idx,
-                                                    'piecesPerUnit',
-                                                    e.target.value
-                                                  )
-                                                }
-                                              }}
-                                              placeholder="e.g. 12"
-                                              className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
-                                              style={{ height: '40px' }}
-                                            />
-                                          </div>
-                                          <div>
-                                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                              Remaining Pieces
-                                            </label>
-                                            <input
-                                              type="text"
-                                              readOnly
-                                              value={getRemainingPiecesText(
-                                                item.quantity,
-                                                item.piecesPerUnit || '12',
-                                                item.groupUnit
-                                              )}
-                                              className="w-full p-2.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none font-bold text-navy-blue"
-                                              style={{ height: '40px' }}
-                                            />
-                                          </div>
-                                        </>
-                                      )}
-
-                                    {/* Expiration Date */}
-                                    <div>
-                                      <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                        Expiration Date{' '}
-                                        {!isSchoolSupplies && (
-                                          <span className="text-red-500">*</span>
-                                        )}
-                                      </label>
-                                      <GlassDatePicker
-                                        value={item.expiryDate ? item.expiryDate.split('T')[0] : ''}
-                                        disabled={isSchoolSupplies}
-                                        onChange={(val) => {
-                                          handleDonItemChange(idx, 'expiryDate', val)
-                                          clearFieldValError(`donItem-${idx}-expiryDate`)
-                                        }}
-                                        showTime={false}
-                                        placeholder="dd/mm/yyyy"
-                                      />
-                                    </div>
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-
-                        <button
-                          type="submit"
-                          disabled={loading}
-                          className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center justify-center cursor-pointer"
-                          style={{ height: '42px' }}
-                        >
-                          {loading ? 'Registering Batch...' : 'Register Donation Batch'}
-                        </button>
-                      </form>
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1">
+                    <div>
+                      <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">Donors & Donations Logs</h1>
                     </div>
+                    <button
+                      type="button"
+                      disabled={isAnyModalOpen}
+                      onClick={() => {
+                        setDonorName('')
+                        setDonorType('')
+                        setDonPurpose('')
+                        setDonDesc('')
+                        setDonDate(new Date().toISOString().split('T')[0])
+                        setDonItems([{ name: '', category: 'food packs', unit: 'pieces', quantity: '', expiryDate: '' }])
+                        setIsDonationModalOpen(true)
+                      }}
+                      className={`flex items-center space-x-1.5 bg-navy-blue text-white rounded-lg text-xs font-semibold py-2 px-4 border border-navy-blue shadow-xs transition-all duration-150 ${
+                        isAnyModalOpen ? 'opacity-40 cursor-not-allowed' : 'hover:bg-navy-blue-600 active:bg-navy-blue-700 cursor-pointer'
+                      }`}
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Register Donation Batch</span>
+                    </button>
                   </div>
+
 
                   {/* Donations History log */}
                   <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
@@ -6458,7 +5770,746 @@ export default function AdminDashboard({ user, onLogout }) {
         </div>
       </div>
 
-      {/* Centered Glassmorphic Add / Edit User Modal */}
+      
+        {/* REGISTER DONATION BATCH MODAL */}
+        {isDonationModalOpen && (
+          <div className="fixed inset-0 glass-modal-overlay flex items-center justify-center p-4 z-50 animate-fade-in">
+            <div className="glass-modal rounded-2xl p-6 max-w-4xl w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto animate-fade-in-scale">
+              <div className="flex items-center justify-between border-b border-gray-200/60 pb-3 text-left">
+                <h3 className="font-bold text-navy-blue text-base">
+                  Register Donation Batch
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsDonationModalOpen(false)}
+                  className="text-gray-400 hover:text-navy-blue transition-colors cursor-pointer p-1 rounded-lg hover:bg-gray-100"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              
+<h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3 mb-4">
+                        Log Donation Batch
+                      </h3>
+
+                      <form onSubmit={handleCreateDonation} className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <label className="block text-gray-700 text-xs font-semibold mb-1">
+                              Donor Name
+                            </label>
+                            <input
+                              type="text"
+                              value={donorName}
+                              onChange={(e) => {
+                                setDonorName(e.target.value)
+                                clearFieldValError('donorName')
+                              }}
+                              placeholder="Donor Name"
+                              className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('donorName') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                              style={{ height: '40px' }}
+                            />
+                          </div>
+                          <div className="relative">
+                            <label className="block text-gray-700 text-xs font-semibold mb-1">
+                              Donor Type
+                            </label>
+                            <input
+                              type="text"
+                              value={donorType}
+                              onChange={(e) => setDonorType(e.target.value)}
+                              onFocus={() => setIsDonorTypeSuggestionsOpen(true)}
+                              onBlur={() =>
+                                setTimeout(() => setIsDonorTypeSuggestionsOpen(false), 200)
+                              }
+                              placeholder="Donor Type"
+                              className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                              style={{ height: '40px' }}
+                            />
+                            {isDonorTypeSuggestionsOpen && (
+                              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                                <div className="py-1">
+                                  {(() => {
+                                    const suggestions = [
+                                      ...new Set([
+                                        'external_sponsor',
+                                        'internal_department',
+                                        'individual',
+                                        ...donorsList.map((d) => d.type)
+                                      ])
+                                    ]
+                                      .filter(Boolean)
+                                      .filter((type) => !deletedDonorTypes.includes(type))
+                                    const filtered = suggestions.filter(
+                                      (type) =>
+                                        !donorType ||
+                                        type.toLowerCase().includes(donorType.toLowerCase())
+                                    )
+                                    if (filtered.length === 0) {
+                                      return (
+                                        <div
+                                          onMouseDown={(e) => e.preventDefault()}
+                                          onClick={() => setIsDonorTypeSuggestionsOpen(false)}
+                                          className="p-2.5 text-xs text-gray-450 hover:bg-gray-50 cursor-pointer text-left font-semibold"
+                                        >
+                                          Use custom: "{donorType}"
+                                        </div>
+                                      )
+                                    }
+                                    return filtered.map((type) => (
+                                      <div
+                                        key={type}
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        onClick={() => {
+                                          setDonorType(type)
+                                          setIsDonorTypeSuggestionsOpen(false)
+                                        }}
+                                        className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold flex justify-between items-center"
+                                      >
+                                        <span>{type}</span>
+                                        <button
+                                          type="button"
+                                          onMouseDown={(e) => {
+                                            e.preventDefault()
+                                            e.stopPropagation()
+                                          }}
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            const updated = [...deletedDonorTypes, type]
+                                            setDeletedDonorTypes(updated)
+                                            localStorage.setItem(
+                                              'dommunity_deleted_donor_types',
+                                              JSON.stringify(updated)
+                                            )
+                                          }}
+                                          className="text-gray-400 hover:text-red-500 font-bold transition p-0.5 rounded hover:bg-gray-100 flex items-center justify-center cursor-pointer"
+                                          style={{
+                                            width: '18px',
+                                            height: '18px',
+                                            fontSize: '10px'
+                                          }}
+                                          title="Delete suggestion"
+                                        >
+                                          ✕
+                                        </button>
+                                      </div>
+                                    ))
+                                  })()}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <label className="block text-gray-700 text-xs font-semibold mb-1">
+                              Donation Date
+                            </label>
+                            <GlassDatePicker
+                              value={donDate}
+                              onChange={(val) => setDonDate(val)}
+                              showTime={false}
+                              placeholder="dd/mm/yyyy"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-gray-700 text-xs font-semibold mb-1">
+                              Purpose / Outreach 
+                            </label>
+                            <input
+                              type="text"
+                              value={donPurpose}
+                              onChange={(e) => {
+                                setDonPurpose(e.target.value)
+                                clearFieldValError('donPurpose')
+                              }}
+                              placeholder="Purpose"
+                              className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('donPurpose') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                              style={{ height: '40px' }}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-gray-700 text-xs font-semibold mb-1">
+                              General Description
+                            </label>
+                            <input
+                              type="text"
+                              value={donDesc}
+                              onChange={(e) => setDonDesc(e.target.value)}
+                              placeholder="Hygiene soap packages donated"
+                              className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none"
+                              style={{ height: '40px' }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Batch items list inputs */}
+                        <div className="border-t border-gray-100 pt-4">
+                          <div className="flex justify-between items-center mb-3">
+                            <h4 className="text-xs font-bold text-navy-blue">Items Contributed</h4>
+                            <button
+                              type="button"
+                              onClick={handleAddDonItemLine}
+                              className="flex items-center gap-1.5 bg-navy-blue text-white rounded-full text-xs font-semibold px-4 py-2 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Add Item Line</span>
+                            </button>
+                          </div>
+
+                          <div className="space-y-4">
+                            {donItems.map((item, idx) => {
+                              const parsedQty = parseInt(item.quantity, 10)
+                              const unitLower = (item.unit || '').toLowerCase().trim()
+                              const isAlreadyGrouped = [
+                                'pack',
+                                'packs',
+                                'box',
+                                'boxes',
+                                'bundle',
+                                'bundles'
+                              ].includes(unitLower)
+                              const isSchoolSupplies =
+                                (item.category || '').toLowerCase().trim() === 'school supplies'
+
+                              return (
+                                <div
+                                  key={idx}
+                                  className="border border-gray-150 rounded-2xl p-4 bg-gray-50/30 space-y-4 relative shadow-sm"
+                                >
+                                  {/* Card Header */}
+                                  <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                                    <span className="text-xs font-bold text-navy-blue">
+                                      Item #{idx + 1}
+                                    </span>
+                                    {donItems.length > 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveDonItemLine(idx)}
+                                        className="text-red-500 hover:text-red-700 text-xs font-bold flex items-center space-x-1 cursor-pointer"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                        <span>Remove</span>
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  {/* Form Grid Layout */}
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {/* Item Name */}
+                                    <div>
+                                      <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                        Item Name
+                                      </label>
+                                      <div className="relative">
+                                        <input
+                                          type="text"
+                                          value={item.name}
+                                          onChange={(e) => {
+                                            handleDonItemChange(idx, 'name', e.target.value)
+                                            clearFieldValError(`donItem-${idx}-name`)
+                                            setActiveDonItemSuggestionsIdx(idx)
+                                          }}
+                                          onFocus={() => setActiveDonItemSuggestionsIdx(idx)}
+                                          onBlur={() =>
+                                            setTimeout(
+                                              () => setActiveDonItemSuggestionsIdx(null),
+                                              200
+                                            )
+                                          }
+                                          placeholder="e.g. Corned Beef, Notebooks"
+                                          className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes(`donItem-${idx}-name`) ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                          style={{ height: '40px' }}
+                                        />
+                                        {activeDonItemSuggestionsIdx === idx && item.name && (
+                                          <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                                            {(() => {
+                                              const matching = inventoryList.filter((invItem) =>
+                                                invItem.name
+                                                  .toLowerCase()
+                                                  .includes(item.name.toLowerCase())
+                                              )
+                                              const uniqueNames = [
+                                                ...new Set(matching.map((invItem) => invItem.name))
+                                              ]
+                                              if (uniqueNames.length === 0) return null
+                                              return (
+                                                <div className="py-1">
+                                                  {uniqueNames.map((name) => {
+                                                    const originalItem = matching.find(
+                                                      (invItem) => invItem.name === name
+                                                    )
+                                                    return (
+                                                      <div
+                                                        key={name}
+                                                        onMouseDown={(e) => e.preventDefault()}
+                                                        onClick={() => {
+                                                          const list = [...donItems]
+                                                          list[idx].name = name
+                                                          if (originalItem) {
+                                                            list[idx].category =
+                                                              originalItem.category || ''
+                                                            list[idx].unit = originalItem.unit || ''
+                                                            list[idx].piecesPerUnit =
+                                                              originalItem.piecesPerUnit
+                                                                ? originalItem.piecesPerUnit.toString()
+                                                                : ''
+                                                            list[idx].groupUnit =
+                                                              originalItem.groupUnit || 'none'
+                                                          }
+                                                          setDonItems(list)
+                                                          clearFieldValError(`donItem-${idx}-name`)
+                                                          clearFieldValError(
+                                                            `donItem-${idx}-quantity`
+                                                          )
+                                                          clearFieldValError(
+                                                            `donItem-${idx}-expiryDate`
+                                                          )
+                                                          clearFieldValError(
+                                                            `donItem-${idx}-piecesPerUnit`
+                                                          )
+                                                          setActiveDonItemSuggestionsIdx(null)
+                                                        }}
+                                                        className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left animate-fade-in"
+                                                      >
+                                                        {name}{' '}
+                                                        {originalItem?.category && (
+                                                          <span className="text-[10px] text-gray-400 font-normal">
+                                                            ({originalItem.category})
+                                                          </span>
+                                                        )}
+                                                      </div>
+                                                    )
+                                                  })}
+                                                </div>
+                                              )
+                                            })()}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Category Searchable Dropdown */}
+                                    <div>
+                                      <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                        Category
+                                      </label>
+                                      <div className="relative">
+                                        <input
+                                          type="text"
+                                          value={item.category}
+                                          onFocus={() => {
+                                            prevDonCategoryRef.current = {
+                                              idx,
+                                              value: item.category
+                                            }
+                                            handleDonItemChange(idx, 'category', '')
+                                            setActiveDonItemCategoryIdx(idx)
+                                          }}
+                                          onBlur={() =>
+                                            setTimeout(() => {
+                                              setActiveDonItemCategoryIdx(null)
+                                              if (prevDonCategoryRef.current.idx === idx) {
+                                                const currentItem = donItems[idx]
+                                                if (currentItem) {
+                                                  handleDonItemChange(
+                                                    idx,
+                                                    'category',
+                                                    currentItem.category
+                                                      ? currentItem.category
+                                                      : prevDonCategoryRef.current.value
+                                                  )
+                                                }
+                                              }
+                                            }, 200)
+                                          }
+                                          onChange={(e) =>
+                                            handleDonItemChange(idx, 'category', e.target.value)
+                                          }
+                                          placeholder="Select or type category"
+                                          className="w-full pl-2.5 pr-16 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                                          style={{ height: '40px' }}
+                                        />
+                                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
+                                          {item.category && (
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                handleDonItemChange(idx, 'category', '')
+                                                prevDonCategoryRef.current = { idx, value: '' }
+                                              }}
+                                              className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5"
+                                              tabIndex={-1}
+                                            >
+                                              <X className="w-3.5 h-3.5" />
+                                            </button>
+                                          )}
+                                          <div className="pointer-events-none text-gray-400">
+                                            <ChevronRight className="w-4 h-4 transform rotate-90" />
+                                          </div>
+                                        </div>
+                                        {activeDonItemCategoryIdx === idx && (
+                                          <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                                            {activeCategories
+                                              .filter(
+                                                (cat) =>
+                                                  !item.category ||
+                                                  cat
+                                                    .toLowerCase()
+                                                    .includes(item.category.toLowerCase())
+                                              )
+                                              .map((cat) => (
+                                                <div
+                                                  key={cat}
+                                                  onMouseDown={(e) => e.preventDefault()}
+                                                  onClick={() => {
+                                                    handleDonItemChange(idx, 'category', cat)
+                                                    prevDonCategoryRef.current = { idx, value: cat }
+                                                    setActiveDonItemCategoryIdx(null)
+                                                  }}
+                                                  className="flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
+                                                >
+                                                  <span className="truncate">{cat}</span>
+                                                </div>
+                                              ))}
+                                            {activeCategories.filter(
+                                              (cat) =>
+                                                !item.category ||
+                                                cat
+                                                  .toLowerCase()
+                                                  .includes(item.category.toLowerCase())
+                                            ).length === 0 && (
+                                                <div
+                                                  onMouseDown={(e) => e.preventDefault()}
+                                                  onClick={() => setActiveDonItemCategoryIdx(null)}
+                                                  className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
+                                                >
+                                                  Use custom: "{item.category}"
+                                                </div>
+                                              )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Unit Searchable Dropdown */}
+                                    <div>
+                                      <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                        Unit
+                                      </label>
+                                      <div className="relative">
+                                        <input
+                                          type="text"
+                                          value={item.unit}
+                                          onFocus={() => {
+                                            prevDonUnitRef.current = { idx, value: item.unit }
+                                            handleDonItemChange(idx, 'unit', '')
+                                            setActiveDonItemUnitIdx(idx)
+                                          }}
+                                          onBlur={() =>
+                                            setTimeout(() => {
+                                              setActiveDonItemUnitIdx(null)
+                                              if (prevDonUnitRef.current.idx === idx) {
+                                                const currentItem = donItems[idx]
+                                                if (currentItem) {
+                                                  handleDonItemChange(
+                                                    idx,
+                                                    'unit',
+                                                    currentItem.unit
+                                                      ? currentItem.unit
+                                                      : prevDonUnitRef.current.value
+                                                  )
+                                                }
+                                              }
+                                            }, 200)
+                                          }
+                                          onChange={(e) =>
+                                            handleDonItemChange(idx, 'unit', e.target.value)
+                                          }
+                                          placeholder="Select or type unit"
+                                          className="w-full pl-2.5 pr-16 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                                          style={{ height: '40px' }}
+                                        />
+                                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
+                                          {item.unit && (
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                handleDonItemChange(idx, 'unit', '')
+                                                prevDonUnitRef.current = { idx, value: '' }
+                                              }}
+                                              className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5"
+                                              tabIndex={-1}
+                                            >
+                                              <X className="w-3.5 h-3.5" />
+                                            </button>
+                                          )}
+                                          <div className="pointer-events-none text-gray-400">
+                                            <ChevronRight className="w-4 h-4 transform rotate-90" />
+                                          </div>
+                                        </div>
+                                        {activeDonItemUnitIdx === idx && (
+                                          <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                                            {activeUnits
+                                              .filter(
+                                                (u) =>
+                                                  !item.unit ||
+                                                  u.toLowerCase().includes(item.unit.toLowerCase())
+                                              )
+                                              .map((u) => (
+                                                <div
+                                                  key={u}
+                                                  onMouseDown={(e) => e.preventDefault()}
+                                                  onClick={() => {
+                                                    handleDonItemChange(idx, 'unit', u)
+                                                    prevDonUnitRef.current = { idx, value: u }
+                                                    setActiveDonItemUnitIdx(null)
+                                                  }}
+                                                  className="flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
+                                                >
+                                                  <span className="truncate">{u}</span>
+                                                </div>
+                                              ))}
+                                            {activeUnits.filter(
+                                              (u) =>
+                                                !item.unit ||
+                                                u.toLowerCase().includes(item.unit.toLowerCase())
+                                            ).length === 0 && (
+                                                <div
+                                                  onMouseDown={(e) => e.preventDefault()}
+                                                  onClick={() => setActiveDonItemUnitIdx(null)}
+                                                  className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
+                                                >
+                                                  Use custom: "{item.unit}"
+                                                </div>
+                                              )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Quantity */}
+                                    <div>
+                                      <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                        Quantity
+                                      </label>
+                                      <div className="relative">
+                                        <input
+                                          type="text"
+                                          value={item.quantity}
+                                          onFocus={() => {
+                                            prevDonQtyRef.current = { idx, value: item.quantity }
+                                            handleDonItemChange(idx, 'quantity', '')
+                                            setActiveDonItemQtyIdx(idx)
+                                          }}
+                                          onBlur={() =>
+                                            setTimeout(() => {
+                                              setActiveDonItemQtyIdx(null)
+                                              if (prevDonQtyRef.current.idx === idx) {
+                                                const currentItem = donItems[idx]
+                                                if (currentItem) {
+                                                  handleDonItemChange(
+                                                    idx,
+                                                    'quantity',
+                                                    currentItem.quantity
+                                                      ? currentItem.quantity
+                                                      : prevDonQtyRef.current.value
+                                                  )
+                                                }
+                                              }
+                                            }, 200)
+                                          }
+                                          onChange={(e) => {
+                                            handleDonItemChange(idx, 'quantity', e.target.value)
+                                            clearFieldValError(`donItem-${idx}-quantity`)
+                                          }}
+                                          placeholder="Select or enter quantity"
+                                          className={`w-full pl-2.5 pr-8 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes(`donItem-${idx}-quantity`) ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                          style={{ height: '40px' }}
+                                        />
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                          <ChevronRight className="w-4 h-4 transform rotate-90" />
+                                        </div>
+                                        {activeDonItemQtyIdx === idx && (
+                                          <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                                            {[5, 10, 20, 50, 100, 250, 500]
+                                              .filter(
+                                                (q) =>
+                                                  !item.quantity ||
+                                                  q.toString().includes(item.quantity)
+                                              )
+                                              .map((q) => (
+                                                <div
+                                                  key={q}
+                                                  onMouseDown={(e) => e.preventDefault()}
+                                                  onClick={() => {
+                                                    handleDonItemChange(
+                                                      idx,
+                                                      'quantity',
+                                                      q.toString()
+                                                    )
+                                                    prevDonQtyRef.current = {
+                                                      idx,
+                                                      value: q.toString()
+                                                    }
+                                                    clearFieldValError(`donItem-${idx}-quantity`)
+                                                    setActiveDonItemQtyIdx(null)
+                                                  }}
+                                                  className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
+                                                >
+                                                  {q}
+                                                </div>
+                                              ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Pieces per Unit (if Unit is already pack/box/bundle) */}
+                                    {isAlreadyGrouped && (
+                                      <div className="animate-fade-in">
+                                        <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                          Pieces per Unit <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={item.piecesPerUnit}
+                                          onChange={(e) => {
+                                            if (/^\d*$/.test(e.target.value)) {
+                                              handleDonItemChange(
+                                                idx,
+                                                'piecesPerUnit',
+                                                e.target.value
+                                              )
+                                              clearFieldValError(`donItem-${idx}-piecesPerUnit`)
+                                            }
+                                          }}
+                                          placeholder="e.g. 12"
+                                          className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes(`donItem-${idx}-piecesPerUnit`) ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                          style={{ height: '40px' }}
+                                        />
+                                      </div>
+                                    )}
+
+                                    {/* Group Stock Option (only if Quantity >= 12 and Unit is not pack/box/bundle) */}
+                                    {!isNaN(parsedQty) && parsedQty >= 12 && !isAlreadyGrouped && (
+                                      <div>
+                                        <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                          Group stock into (Optional)
+                                        </label>
+                                        <select
+                                          value={item.groupUnit}
+                                          onChange={(e) => {
+                                            const list = [...donItems]
+                                            list[idx].groupUnit = e.target.value
+                                            if (e.target.value === 'none') {
+                                              list[idx].piecesPerUnit = ''
+                                            } else if (!list[idx].piecesPerUnit) {
+                                              list[idx].piecesPerUnit = '12'
+                                            }
+                                            setDonItems(list)
+                                          }}
+                                          className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue cursor-pointer"
+                                          style={{ height: '40px' }}
+                                        >
+                                          <option value="none">
+                                            Do not group (Individual pieces)
+                                          </option>
+                                          <option value="pack">Packs</option>
+                                          <option value="box">Boxes</option>
+                                          <option value="bundle">Bundles</option>
+                                        </select>
+                                      </div>
+                                    )}
+
+                                    {/* Pieces per pack/box/bundle input and remaining pieces display */}
+                                    {!isAlreadyGrouped &&
+                                      item.groupUnit &&
+                                      item.groupUnit !== 'none' && (
+                                        <>
+                                          <div>
+                                            <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                              Pieces per Pack/Box/Bundle
+                                            </label>
+                                            <input
+                                              type="text"
+                                              value={item.piecesPerUnit}
+                                              onChange={(e) => {
+                                                if (/^\d*$/.test(e.target.value)) {
+                                                  handleDonItemChange(
+                                                    idx,
+                                                    'piecesPerUnit',
+                                                    e.target.value
+                                                  )
+                                                }
+                                              }}
+                                              placeholder="e.g. 12"
+                                              className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                                              style={{ height: '40px' }}
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                              Remaining Pieces
+                                            </label>
+                                            <input
+                                              type="text"
+                                              readOnly
+                                              value={getRemainingPiecesText(
+                                                item.quantity,
+                                                item.piecesPerUnit || '12',
+                                                item.groupUnit
+                                              )}
+                                              className="w-full p-2.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none font-bold text-navy-blue"
+                                              style={{ height: '40px' }}
+                                            />
+                                          </div>
+                                        </>
+                                      )}
+
+                                    {/* Expiration Date */}
+                                    <div>
+                                      <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                        Expiration Date{' '}
+                                        {!isSchoolSupplies && (
+                                          <span className="text-red-500">*</span>
+                                        )}
+                                      </label>
+                                      <GlassDatePicker
+                                        value={item.expiryDate ? item.expiryDate.split('T')[0] : ''}
+                                        disabled={isSchoolSupplies}
+                                        onChange={(val) => {
+                                          handleDonItemChange(idx, 'expiryDate', val)
+                                          clearFieldValError(`donItem-${idx}-expiryDate`)
+                                        }}
+                                        showTime={false}
+                                        placeholder="dd/mm/yyyy"
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+
+                        <button
+                          type="submit"
+                          disabled={loading}
+                          className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center justify-center cursor-pointer"
+                          style={{ height: '42px' }}
+                        >
+                          {loading ? 'Registering Batch...' : 'Register Donation Batch'}
+                        </button>
+                      </form>
+
+            </div>
+          </div>
+        )}
+
+{/* Centered Glassmorphic Add / Edit User Modal */}
       {isAddUserModalOpen && (
         <div className="fixed inset-0 glass-modal-overlay flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto animate-fade-in-scale">

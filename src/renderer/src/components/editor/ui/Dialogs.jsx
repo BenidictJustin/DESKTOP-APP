@@ -91,7 +91,7 @@ export function OpenReportDialog({ show, onClose, reports, eventsList, onOpen, S
   if (!show) return null;
   return (
     <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-2xl p-5 shadow-2xl border border-gray-200 w-[480px] max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl p-5 shadow-2xl border border-gray-200 w-120 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4 shrink-0">
           <h3 className="font-bold text-navy-blue text-sm">Open Report</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 cursor-pointer"><X className="w-4 h-4" /></button>
@@ -143,7 +143,7 @@ export function DocPropertiesDialog({
   if (!show) return null;
   return (
     <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-2xl p-6 shadow-2xl border border-gray-200 w-[520px] max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl p-6 shadow-2xl border border-gray-200 w-130 max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5 shrink-0">
           <h3 className="font-bold text-navy-blue text-sm">Document Properties</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 cursor-pointer"><X className="w-4 h-4" /></button>
@@ -159,40 +159,52 @@ export function DocPropertiesDialog({
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Academic Year</label>
-            <select value={workspaceReportAY} disabled={workspaceIsReadOnly} onChange={e => setWorkspaceReportAY(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500/20">
-              {['2024-2025', '2025-2026', '2026-2027', '2027-2028'].map(y => <option key={y}>{y}</option>)}
-            </select>
+            <CustomSelect 
+              value={workspaceReportAY} 
+              disabled={workspaceIsReadOnly} 
+              onChange={val => setWorkspaceReportAY(val)}
+              options={['2024-2025', '2025-2026', '2026-2027', '2027-2028']} 
+            />
           </div>
           <div>
             <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Semester</label>
-            <select value={workspaceReportSem} disabled={workspaceIsReadOnly} onChange={e => setWorkspaceReportSem(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500/20">
-              {['1st Semester', '2nd Semester', 'Summer'].map(s => <option key={s}>{s}</option>)}
-            </select>
+            <CustomSelect 
+              value={workspaceReportSem} 
+              disabled={workspaceIsReadOnly} 
+              onChange={val => setWorkspaceReportSem(val)}
+              options={['1st Semester', '2nd Semester', 'Summer']} 
+            />
           </div>
           <div>
             <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Category</label>
-            <select value={workspaceReportType} disabled={workspaceIsReadOnly} onChange={e => setWorkspaceReportType(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500/20">
-              <option value="outreach">Community Outreach</option>
-              <option value="community_service">Community Service</option>
-              <option value="blood_donation">Blood Donation</option>
-              <option value="department_program">Department Extension</option>
-            </select>
+            <CustomSelect 
+              value={workspaceReportType} 
+              disabled={workspaceIsReadOnly} 
+              onChange={val => setWorkspaceReportType(val)}
+              options={[
+                { value: 'outreach', label: 'Community Outreach' },
+                { value: 'community_service', label: 'Community Service' },
+                { value: 'blood_donation', label: 'Blood Donation' },
+                { value: 'department_program', label: 'Department Extension' }
+              ]} 
+            />
           </div>
           <div>
             <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Collaborator Org</label>
-            <select value={workspaceReportOrgId} disabled={workspaceIsReadOnly} onChange={e => setWorkspaceReportOrgId(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500/20">
-              <option value="">-- Main CES Office --</option>
-              {orgsList.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
+            <CustomSelect 
+              value={workspaceReportOrgId} 
+              disabled={workspaceIsReadOnly} 
+              onChange={val => setWorkspaceReportOrgId(val)}
+              options={[
+                { value: '', label: '-- Main CES Office --' },
+                ...orgsList.map(o => ({ value: o.id, label: o.name }))
+              ]} 
+            />
           </div>
           <div className="col-span-2">
             <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Beneficiaries</label>
             <input type="text" value={workspaceReportBenef} disabled={workspaceIsReadOnly} onChange={e => setWorkspaceReportBenef(e.target.value)}
-              placeholder="e.g. 120 students" className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500/20" />
+              placeholder="Enter total beneficiaries" className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500/20" />
           </div>
           <div className="col-span-2">
             <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 cursor-pointer">
@@ -204,16 +216,19 @@ export function DocPropertiesDialog({
           {linkToEvent ? (
             <div className="col-span-2">
               <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Select Event</label>
-              <select value={workspaceReportEventId} disabled={workspaceIsReadOnly}
-                onChange={e => {
-                  setWorkspaceReportEventId(e.target.value);
-                  const ev = eventsList.find(x => x.id === e.target.value);
+              <CustomSelect 
+                value={workspaceReportEventId} 
+                disabled={workspaceIsReadOnly}
+                onChange={val => {
+                  setWorkspaceReportEventId(val);
+                  const ev = eventsList.find(x => x.id === val);
                   if (ev) setWorkspaceReportOrgId(ev.assignedOrganizationId || '');
                 }}
-                className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500/20">
-                <option value="">-- Select --</option>
-                {eventsList.map(e => <option key={e.id} value={e.id}>{e.name} ({new Date(e.scheduleDate).toLocaleDateString()})</option>)}
-              </select>
+                options={[
+                  { value: '', label: '-- Select --' },
+                  ...eventsList.map(e => ({ value: e.id, label: `${e.name} (${new Date(e.scheduleDate).toLocaleDateString()})` }))
+                ]}
+              />
             </div>
           ) : (
             <>
@@ -486,7 +501,7 @@ export function TemplatesDialog({
 
   return (
     <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/45 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-3xl p-6 shadow-2xl border border-gray-200 w-[720px] max-h-[85vh] flex flex-col animate-in fade-in-0 zoom-in-95" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-3xl p-6 shadow-2xl border border-gray-200 w-180 max-h-[85vh] flex flex-col animate-in fade-in-0 zoom-in-95" onClick={e => e.stopPropagation()}>
         
         {/* Header */}
         <div className="flex items-center justify-between mb-5 shrink-0 border-b border-gray-100 pb-3">
@@ -512,7 +527,7 @@ export function TemplatesDialog({
                   <div
                     key={p.id}
                     onClick={() => onSelectTemplate(p)}
-                    className={`border rounded-2xl p-4 bg-gray-50 hover:bg-blue-50/50 hover:border-blue-300 transition cursor-pointer flex flex-col justify-between min-h-[140px] relative group border-gray-200 shadow-xs`}
+                    className={`border rounded-2xl p-4 bg-gray-50 hover:bg-blue-50/50 hover:border-blue-300 transition cursor-pointer flex flex-col justify-between min-h-35 relative group border-gray-200 shadow-xs`}
                   >
                     {isDefault && (
                       <span className="absolute top-2 right-2 bg-blue-600 text-white text-[7px] font-bold uppercase px-1.5 py-0.5 rounded-full">
@@ -571,7 +586,7 @@ export function TemplatesDialog({
                     <div
                       key={t.id}
                       onClick={() => onSelectTemplate(t)}
-                      className={`border rounded-2xl p-4 bg-white hover:bg-blue-50/30 hover:border-blue-300 transition cursor-pointer flex flex-col justify-between min-h-[140px] relative group border-gray-200 shadow-xs`}
+                      className={`border rounded-2xl p-4 bg-white hover:bg-blue-50/30 hover:border-blue-300 transition cursor-pointer flex flex-col justify-between min-h-35 relative group border-gray-200 shadow-xs`}
                     >
                       {isDefault && (
                         <span className="absolute top-2 right-2 bg-blue-600 text-white text-[7px] font-bold uppercase px-1.5 py-0.5 rounded-full">
