@@ -6,15 +6,15 @@ export default function SplashScreen({ onComplete }) {
   const [isFadingOut, setIsFadingOut] = useState(false)
 
   useEffect(() => {
-    // 2.0 seconds display time before initiating smooth fade-out
+    // 1.5 seconds display time before initiating smooth fade-out
     const fadeTimer = setTimeout(() => {
       setIsFadingOut(true)
-    }, 2000)
+    }, 1500)
 
-    // Complete splash & unmount at 2.5 seconds total
+    // Complete splash & unmount at 2.0 seconds total
     const completeTimer = setTimeout(() => {
       if (onComplete) onComplete()
-    }, 2500)
+    }, 2000)
 
     return () => {
       clearTimeout(fadeTimer)
@@ -30,13 +30,20 @@ export default function SplashScreen({ onComplete }) {
     >
       {/* Background Banner Graphic (logo3.png) - Complete Uncropped Artwork */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
+        {/* Blurred background layer to fill margins on any aspect ratio */}
+        <img
+          src={logo3}
+          alt="Background Blur"
+          className="absolute inset-0 w-full h-full object-cover opacity-50 filter blur-xl scale-110 pointer-events-none"
+        />
+        {/* Clean foreground layer - fully visible, no cropping */}
         <img
           src={logo3}
           alt="Background Banner"
-          className="w-full h-full object-contain object-center opacity-70 filter brightness-95 contrast-105 pointer-events-none"
+          className="absolute inset-0 w-full h-full object-contain object-center opacity-85 filter brightness-105 contrast-105 pointer-events-none"
         />
         {/* Subtle Dark Vignette & Gradient Overlay for Contrast */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#020519]/50 via-[#030E69]/40 to-[#02061f]/65 backdrop-blur-[1px]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#020519]/40 via-[#030E69]/30 to-[#02061f]/55 backdrop-blur-[1px]" />
       </div>
 
       {/* Main Splash Container */}

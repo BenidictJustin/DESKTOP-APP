@@ -89,13 +89,11 @@ import {
 } from 'lucide-react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import html2canvas from 'html2canvas'
-import jsPDF from 'jspdf'
 import SearchableDropdown from '../../components/SearchableDropdown'
 import DocumentViewer from '../../components/DocumentViewer'
 import GlassDatePicker from '../../components/GlassDatePicker'
 import AnimatedSidebar from '../../components/AnimatedSidebar'
-import { sanitizeOklchInDocument } from '../../components/editor/utils/editorHelpers'
+import { sanitizeOklchInDocument, exportElementToPDF } from '../../components/editor/utils/editorHelpers'
 
 export default function AdminDashboard({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -181,7 +179,7 @@ export default function AdminDashboard({ user, onLogout }) {
   // Inventory Item Form
   const [itemEditing, setItemEditing] = useState(null) // null means adding
   const [itemName, setItemName] = useState('')
-  const [itemCategory, setItemCategory] = useState('food packs')
+  const [itemCategory, setItemCategory] = useState('')
   const [itemUnit, setItemUnit] = useState('')
   const [itemQty, setItemQty] = useState('')
   const [itemExpiry, setItemExpiry] = useState('')
@@ -207,6 +205,7 @@ export default function AdminDashboard({ user, onLogout }) {
   const [showEditUnitDropdown, setShowEditUnitDropdown] = useState(false)
   const [showReportPreview, setShowReportPreview] = useState(false)
   const [txHistory, setTxHistory] = useState([])
+  const [reportDate, setReportDate] = useState('')
   const [pendingReleaseItems, setPendingReleaseItems] = useState([])
   const [showAllRecommended, setShowAllRecommended] = useState(false)
 
@@ -525,13 +524,13 @@ export default function AdminDashboard({ user, onLogout }) {
   // Donation form
   const [donPurpose, setDonPurpose] = useState('')
   const [donDesc, setDonDesc] = useState('')
-  const [donDate, setDonDate] = useState(new Date().toISOString().split('T')[0])
+  const [donDate, setDonDate] = useState('')
   const [donItems, setDonItems] = useState([
     {
       category: '',
       name: '',
       quantity: '',
-      unit: 'pieces',
+      unit: '',
       expiryDate: '',
       groupUnit: 'none',
       piecesPerUnit: ''
@@ -1113,6 +1112,7 @@ export default function AdminDashboard({ user, onLogout }) {
     try {
       const history = await getInventoryTransactions()
       setTxHistory(history)
+      setReportDate(new Date().toLocaleString())
       setShowReportPreview(true)
     } catch (e) {
       console.error(e)
@@ -1122,43 +1122,24 @@ export default function AdminDashboard({ user, onLogout }) {
     }
   }
 
-  const handleConfirmDownloadPDF = () => {
+  const handleConfirmDownloadPDF = async () => {
     const input = document.getElementById('inventory-history-pdf-target')
     if (!input) {
       alert('Inventory transaction history print target not found.')
       return
     }
 
-    html2canvas(input, { scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', logging: false })
-      .then((canvas) => {
-        const pdf = new jsPDF('p', 'mm', 'a4')
-        const pdfWidth = 210
-        const pdfPageHeight = 297
-        const margin = 10
-        const imgWidth = pdfWidth - margin * 2
-        const imgHeight = (canvas.height * imgWidth) / canvas.width
-        const printablePageHeight = pdfPageHeight - margin * 2
-
-        let leftHeight = imgHeight
-        let position = margin
-
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight)
-        leftHeight -= printablePageHeight
-
-        while (leftHeight > 0) {
-          position = leftHeight - imgHeight + margin
-          pdf.addPage()
-          pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight)
-          leftHeight -= printablePageHeight
-        }
-
-        pdf.save(`CES_Inventory_History_${new Date().toISOString().split('T')[0]}.pdf`)
-        setShowReportPreview(false)
-      })
-      .catch((err) => {
-        console.error('Inventory PDF Export Error:', err)
-        alert('Failed to generate Inventory PDF: ' + (err.message || err))
-      })
+    try {
+      await exportElementToPDF(
+        input,
+        `CES_Inventory_History_${new Date().toISOString().split('T')[0]}`,
+        { isDocument: false }
+      )
+      setShowReportPreview(false)
+    } catch (err) {
+      console.error('Inventory PDF Export Error:', err)
+      alert('Failed to generate Inventory PDF: ' + (err.message || err))
+    }
   }
 
   const handleDeleteDonor = async (donorId) => {
@@ -1204,7 +1185,7 @@ export default function AdminDashboard({ user, onLogout }) {
         category: '',
         name: '',
         quantity: '',
-        unit: 'pieces',
+        unit: '',
         expiryDate: '',
         groupUnit: 'none',
         piecesPerUnit: ''
@@ -1358,7 +1339,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
       // Reset
       setDonorName('')
-      setDonorType('external_sponsor')
+      setDonorType('')
       setDonPurpose('')
       setDonDesc('')
       setDonItems([
@@ -1366,7 +1347,7 @@ export default function AdminDashboard({ user, onLogout }) {
           category: '',
           name: '',
           quantity: '',
-          unit: 'pieces',
+          unit: '',
           expiryDate: '',
           groupUnit: 'none',
           piecesPerUnit: ''
@@ -1717,54 +1698,20 @@ export default function AdminDashboard({ user, onLogout }) {
   }
 
   // Format and export Inventory Report as PDF
-  const exportInventoryPDF = () => {
+  const exportInventoryPDF = async () => {
     const input = document.getElementById('inventory-table-container')
     if (!input) return
 
-    html2canvas(input, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#ffffff',
-      logging: false,
-      onclone: (clonedDoc) => {
-        sanitizeOklchInDocument(clonedDoc)
-      }
-    }).then((canvas) => {
-      const pdf = new jsPDF('p', 'mm', 'a4')
-      const pdfWidth = 210
-      const pdfPageHeight = 297
-      const margin = 15
-      const imgWidth = pdfWidth - margin * 2
-      const imgHeight = (canvas.height * imgWidth) / canvas.width
-
-      // Add Header
-      pdf.setFontSize(14)
-      pdf.setTextColor(3, 14, 105) // Navy Blue
-      pdf.text('DOMINICAN COLLEGE OF TARLAC, INC.', 15, 15)
-      pdf.setFontSize(10)
-      pdf.setTextColor(107, 114, 128) // Muted
-      pdf.text('Community Extension & Services (CES) Office', 15, 20)
-      pdf.text(`Inventory Status Summary - Generated: ${new Date().toLocaleDateString()}`, 15, 25)
-      pdf.setLineWidth(0.5)
-      pdf.setDrawColor(128, 204, 42) // Sig Green
-      pdf.line(15, 28, 195, 28)
-
-      let leftHeight = imgHeight
-      let position = 33
-
-      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight)
-      leftHeight -= (pdfPageHeight - 38)
-
-      while (leftHeight > 0) {
-        position = leftHeight - imgHeight + 15
-        pdf.addPage()
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight)
-        leftHeight -= (pdfPageHeight - 30)
-      }
-
-      pdf.save(`CES_Inventory_Summary_${new Date().toISOString().split('T')[0]}.pdf`)
-    })
+    try {
+      await exportElementToPDF(
+        input,
+        `CES_Inventory_Summary_${new Date().toISOString().split('T')[0]}`,
+        { isDocument: false }
+      )
+    } catch (err) {
+      console.error('PDF export failed:', err)
+      alert('PDF export failed: ' + (err.message || 'Error exporting inventory'))
+    }
   }
 
   // Compile Approved Report to PDF (standard format)
@@ -1795,39 +1742,11 @@ export default function AdminDashboard({ user, onLogout }) {
       )
 
       try {
-        const canvas = await html2canvas(input, {
-          useCORS: true,
-          allowTaint: true,
-          scale: 2,
-          backgroundColor: '#ffffff',
-          logging: false,
-          onclone: (clonedDoc) => {
-            sanitizeOklchInDocument(clonedDoc)
-          }
-        })
-
-        const pdf = new jsPDF('p', 'mm', 'a4')
-        const pdfWidth = 210
-        const pdfPageHeight = 297
-        const margin = 10
-        const imgWidth = pdfWidth - margin * 2
-        const imgHeight = (canvas.height * imgWidth) / canvas.width
-        const printablePageHeight = pdfPageHeight - margin * 2
-
-        let leftHeight = imgHeight
-        let position = margin
-
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight)
-        leftHeight -= printablePageHeight
-
-        while (leftHeight > 0) {
-          position = leftHeight - imgHeight + margin
-          pdf.addPage()
-          pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight)
-          leftHeight -= printablePageHeight
-        }
-
-        pdf.save(`CES_Narrative_Report_${report.academicYear || 'AY'}_${(report.id || 'doc').substring(0, 6)}.pdf`)
+        await exportElementToPDF(
+          input,
+          `CES_Narrative_Report_${report.academicYear || 'AY'}_${(report.id || 'doc').substring(0, 6)}`,
+          { isDocument: true }
+        )
       } catch (err) {
         console.error('PDF export failed:', err)
         alert('PDF export failed: ' + (err.message || 'Error compiling report'))
@@ -1919,130 +1838,38 @@ export default function AdminDashboard({ user, onLogout }) {
           setActiveTab={setActiveTab}
           disabled={isAnyModalOpen}
           onLogout={onLogout}
+          user={user}
         />
 
         {/* Main Panel Content Area */}
-        <main ref={mainRef} className="flex-1 my-4 mx-4 p-8 overflow-y-auto glass-panel rounded-2xl shadow-glass-md">
-          <div className="flex flex-col xl:flex-row gap-6 max-w-[1600px] mx-auto items-start w-full">
+        <main ref={mainRef} className="flex-1 my-4 mx-4 p-5 overflow-y-auto glass-panel rounded-2xl shadow-glass-md">
+          <div className="flex flex-col xl:flex-row gap-5 max-w-[1600px] mx-auto items-start w-full">
             {/* Left / Center Content Column */}
-            <div className="flex-1 w-full space-y-6">
+            <div className="flex-1 w-full space-y-5">
               {/* Banner Alert Prompts */}
-              {/* Centered Pop-up Warning Alert Dialog */}
-              {/* Centered Pop-up Warning Alert Dialog */}
-              {(actionError || validationError) && (
-                <div className="fixed inset-0 z-100 flex items-center justify-center bg-navy-blue/40 backdrop-blur-sm p-4 animate-fade-in">
-                  <div className="bg-white rounded-3xl p-6 shadow-2xl border border-gray-100 max-w-sm w-full text-center space-y-4">
-                    <div>
-                      <h4 className="font-bold text-navy-blue text-sm uppercase tracking-wide">
-                        {validationError ? validationError.title : 'Action Warning'}
-                      </h4>
-                      <p className="text-xs text-gray-500 font-semibold mt-2 leading-relaxed">
-                        {validationError ? validationError.message : actionError}
-                      </p>
-                    </div>
-                    <button
-                      ref={errorOkButtonRef}
-                      autoFocus
-                      type="button"
-                      onClick={() => {
-                        setActionError('')
-                        setValidationError(null)
-                      }}
-                      className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer"
-                    >
-                      OK
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {confirmDialog && (
-                <div className="fixed inset-0 z-100 flex items-center justify-center bg-navy-blue/40 backdrop-blur-sm p-4 animate-fade-in">
-                  <div className="bg-white rounded-3xl p-6 shadow-2xl border border-gray-100 max-w-sm w-full text-center space-y-4">
-                    <div className={confirmDialog.showIcon ? 'flex flex-col items-center' : ''}>
-                      {confirmDialog.showIcon && (
-                        <div className="p-3 bg-red-50 text-red-500 rounded-full mb-2">
-                          <AlertTriangle className="w-6 h-6 animate-bounce" />
-                        </div>
-                      )}
-                      <h4 className="font-bold text-navy-blue text-sm uppercase tracking-wide">
-                        {confirmDialog.title}
-                      </h4>
-                      <p className="text-xs text-gray-500 font-semibold mt-2 leading-relaxed">
-                        {confirmDialog.message}
-                      </p>
-                    </div>
-                    <div className="flex gap-3 mt-4">
-                      <button
-                        type="button"
-                        onClick={() => setConfirmDialog(null)}
-                        className="flex-1 bg-gray-100 hover:bg-red-500 hover:text-white text-gray-700 rounded-full text-xs font-semibold py-2.5 transition cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        ref={confirmButtonRef}
-                        autoFocus
-                        type="button"
-                        onClick={() => {
-                          confirmDialog.onConfirm()
-                          setConfirmDialog(null)
-                        }}
-                        className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer"
-                      >
-                        Confirm
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {actionSuccess && (
-                <div className="fixed inset-0 z-100 flex items-center justify-center bg-navy-blue/40 backdrop-blur-sm p-4 animate-fade-in">
-                  <div className="bg-white rounded-3xl p-6 shadow-2xl border border-gray-100 max-w-sm w-full text-center space-y-4">
-                    <div>
-                      <h4 className="font-bold text-navy-blue text-sm uppercase tracking-wide">
-                        Success
-                      </h4>
-                      <p className="text-xs text-gray-500 font-semibold mt-2 leading-relaxed">
-                        {actionSuccess}
-                      </p>
-                    </div>
-                    <button
-                      autoFocus
-                      type="button"
-                      onClick={() => {
-                        setActionSuccess('')
-                      }}
-                      className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer"
-                    >
-                      OK
-                    </button>
-                  </div>
-                </div>
-              )}
 
               {/* ==================================================== */}
               {/* DASHBOARD TAB PANEL */}
               {/* ==================================================== */}
               {activeTab === 'dashboard' && user.role === 'admin' && (
-                <div className="space-y-6 animate-fade-in">
-                  {/* Header section */}
-                  <div className="glass-card rounded-2xl p-6">
-                    <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">Dashboard</h1>
+                <div className="space-y-4 animate-fade-in">
+                  {/* Header row */}
+                  <div>
+                    <h1 className="text-lg font-extrabold text-navy-blue tracking-tight">Dashboard</h1>
+                    <p className="text-[11px] text-gray-400 font-medium mt-0.5">Overview of CES activities</p>
                   </div>
 
                   {/* Quick Stats Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center space-x-4">
-                      <div className="p-3.5 bg-blue-50 text-blue-600 rounded-2xl">
-                        <Users className="w-6 h-6" />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3">
+                      <div className="p-2.5 bg-blue-50 text-blue-500 rounded-xl shrink-0">
+                        <Users className="w-4.5 h-4.5" />
                       </div>
-                      <div>
-                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-                          Active Coordinators
+                      <div className="min-w-0">
+                        <span className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider block leading-none mb-1">
+                          Coordinators
                         </span>
-                        <span className="text-2xl font-black text-navy-blue">
+                        <span className="text-xl font-black text-navy-blue leading-none">
                           {
                             usersList.filter(
                               (u) => u.role === 'office_coordinator' && u.status === 'active'
@@ -2052,44 +1879,43 @@ export default function AdminDashboard({ user, onLogout }) {
                       </div>
                     </div>
 
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center space-x-4">
-                      <div className="p-3.5 bg-yellow-50 text-yellow-600 rounded-2xl">
-                        <Package className="w-6 h-6" />
+                    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3">
+                      <div className="p-2.5 bg-amber-50 text-amber-500 rounded-xl shrink-0">
+                        <Package className="w-4.5 h-4.5" />
                       </div>
-                      <div>
-                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-                          Total Stock Items
+                      <div className="min-w-0">
+                        <span className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider block leading-none mb-1">
+                          Stock Items
                         </span>
-                        <span className="text-2xl font-black text-navy-blue">
+                        <span className="text-xl font-black text-navy-blue leading-none">
                           {inventoryList.reduce((sum, item) => sum + item.quantity, 0)}
                         </span>
                       </div>
                     </div>
 
-                    {/* Moved Department summary cards */}
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center space-x-4">
-                      <div className="p-3.5 bg-navy-blue/5 text-navy-blue rounded-2xl">
-                        <Users className="w-6 h-6" />
+                    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3">
+                      <div className="p-2.5 bg-navy-blue/5 text-navy-blue rounded-xl shrink-0">
+                        <FolderOpen className="w-4.5 h-4.5" />
                       </div>
-                      <div>
-                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-                          Total Departments
+                      <div className="min-w-0">
+                        <span className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider block leading-none mb-1">
+                          Departments
                         </span>
-                        <span className="text-2xl font-black text-navy-blue">
+                        <span className="text-xl font-black text-navy-blue leading-none">
                           {orgsList.filter((o) => o.type === 'department' || !o.type).length}
                         </span>
                       </div>
                     </div>
 
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center space-x-4">
-                      <div className="p-3.5 bg-sig-green/10 text-sig-green rounded-2xl">
-                        <Calendar className="w-6 h-6" />
+                    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3">
+                      <div className="p-2.5 bg-sig-green/10 text-sig-green rounded-xl shrink-0">
+                        <Calendar className="w-4.5 h-4.5" />
                       </div>
-                      <div>
-                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-                          Scheduled Events
+                      <div className="min-w-0">
+                        <span className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider block leading-none mb-1">
+                          Scheduled
                         </span>
-                        <span className="text-2xl font-black text-navy-blue">
+                        <span className="text-xl font-black text-navy-blue leading-none">
                           {
                             eventsList.filter((e) => {
                               const o = orgsList.find((org) => org.id === e.assignedOrganizationId)
@@ -2103,16 +1929,16 @@ export default function AdminDashboard({ user, onLogout }) {
 
                     <div 
                       onClick={() => handleOpenCompletedModal(null)}
-                      className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center space-x-4 cursor-pointer hover:shadow-md hover:border-sig-green/30 transition duration-200"
+                      className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3 cursor-pointer hover:shadow-md hover:border-sig-green/30 transition-all duration-200"
                     >
-                      <div className="p-3.5 bg-green-50 text-green-600 rounded-2xl">
-                        <Check className="w-6 h-6" />
+                      <div className="p-2.5 bg-emerald-50 text-emerald-500 rounded-xl shrink-0">
+                        <Check className="w-4.5 h-4.5" />
                       </div>
-                      <div>
-                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-                          Completed Activities
+                      <div className="min-w-0">
+                        <span className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider block leading-none mb-1">
+                          Completed
                         </span>
-                        <span className="text-2xl font-black text-navy-blue">
+                        <span className="text-xl font-black text-navy-blue leading-none">
                           {
                             eventsList.filter((e) => {
                               const o = orgsList.find((org) => org.id === e.assignedOrganizationId)
@@ -2125,31 +1951,32 @@ export default function AdminDashboard({ user, onLogout }) {
                     </div>
                   </div>
 
-                  {/* Pending Submitted Reports Section */}
-                  <div className="glass-card rounded-2xl p-6 space-y-4 w-full">
-                    <div className="flex items-center justify-between border-b border-gray-200/60 pb-3">
-                      <div className="flex items-center space-x-2">
-                        <FileText className="w-4 h-4 text-navy-blue" />
-                        <h3 className="font-bold text-navy-blue text-sm">Pending Submitted Reports</h3>
+                  {/* Pending Submitted Reports */}
+                  <div className="glass-card rounded-2xl p-4 space-y-3 w-full">
+                    <div className="flex items-center justify-between border-b border-gray-200/50 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-3.5 h-3.5 text-navy-blue" />
+                        <h3 className="font-bold text-navy-blue text-[12.5px]">Pending Submitted Reports</h3>
                         {reportsList.filter((r) => r.status === 'submitted').length > 0 && (
-                          <span className="bg-amber-500 text-white rounded-full px-2 py-0.5 text-[10px] font-bold">
+                          <span className="bg-amber-500 text-white rounded-full px-1.5 py-px text-[9px] font-bold leading-none">
                             {reportsList.filter((r) => r.status === 'submitted').length}
                           </span>
                         )}
                       </div>
                       <button
                         onClick={() => setActiveTab('reports')}
-                        className="text-[11px] text-sig-green-600 font-bold hover:underline cursor-pointer flex items-center"
+                        className="text-[10px] text-sig-green-600 font-bold hover:underline cursor-pointer flex items-center gap-0.5"
                       >
                         <span>Review All Reports</span>
-                        <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
+                        <ChevronRight className="w-3 h-3" />
                       </button>
                     </div>
 
                     {reportsList.filter((r) => r.status === 'submitted').length > 0 ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {reportsList
                           .filter((r) => r.status === 'submitted')
+                          .slice(0, 4)
                           .map((rep) => {
                             const ev = eventsList.find((e) => e.id === rep.eventId)
                             const org = orgsList.find((o) => o.id === rep.organizationId)
@@ -2157,39 +1984,34 @@ export default function AdminDashboard({ user, onLogout }) {
                             return (
                               <div
                                 key={rep.id}
-                                className="p-4 bg-white/70 backdrop-blur-sm rounded-xl border border-white/80 shadow-xs flex flex-col justify-between space-y-3 hover:shadow-sm transition-all"
+                                className="p-3 bg-white/70 backdrop-blur-sm rounded-xl border border-white/80 shadow-xs flex items-center justify-between gap-3 hover:shadow-sm transition-all"
                               >
-                                <div>
-                                  <div className="flex items-center justify-between text-[11px] font-semibold text-gray-500 mb-1">
-                                    <span className="text-navy-blue font-bold">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 mb-0.5">
+                                    <span className="text-[9px] font-extrabold text-navy-blue uppercase bg-navy-blue/8 px-1.5 py-0.5 rounded">
                                       {org ? org.abbreviation : 'CES'}
                                     </span>
-                                    <span>
+                                    <span className="text-[9px] text-gray-400">
                                       {new Date(rep.updatedAt || Date.now()).toLocaleDateString()}
                                     </span>
                                   </div>
-                                  <h4 className="font-bold text-navy-blue text-sm line-clamp-1">
+                                  <h4 className="font-bold text-navy-blue text-[11.5px] truncate">
                                     {ev ? ev.name : rep.activityTitle || 'Submitted Report'}
                                   </h4>
-                                  <p className="text-[11px] text-gray-500 mt-1">
-                                    Submitted by{' '}
-                                    <span className="font-semibold text-gray-700">
-                                      {author ? author.name : 'Coordinator'}
-                                    </span>
+                                  <p className="text-[10px] text-gray-400 mt-px">
+                                    Submitted by {author ? author.name : 'Coordinator'}
                                   </p>
                                 </div>
-                                <div className="flex justify-end pt-2 border-t border-gray-100">
-                                  <button
-                                    onClick={() => {
-                                      setSelectedReport(rep)
-                                      setFeedbackNote('')
-                                    }}
-                                    className="bg-navy-blue hover:bg-navy-blue-600 text-white font-semibold py-1.5 px-3 rounded-lg text-xs flex items-center space-x-1.5 shadow-xs transition-all cursor-pointer"
-                                  >
-                                    <Eye className="w-3.5 h-3.5" />
-                                    <span>Inspect Report</span>
-                                  </button>
-                                </div>
+                                <button
+                                  onClick={() => {
+                                    setSelectedReport(rep)
+                                    setFeedbackNote('')
+                                  }}
+                                  className="bg-navy-blue hover:bg-navy-blue-600 text-white font-semibold py-1.5 px-2.5 rounded-lg text-[10px] flex items-center gap-1 shadow-xs transition-all cursor-pointer shrink-0"
+                                >
+                                  <Eye className="w-3 h-3" />
+                                  <span>Inspect Report</span>
+                                </button>
                               </div>
                             )
                           })}
@@ -2201,62 +2023,59 @@ export default function AdminDashboard({ user, onLogout }) {
                     )}
                   </div>
 
-                  {/* Live Alerts & Action Center section */}
-                  <div className="w-full">
-                    {/* Upcoming Outreaches Widget */}
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4 w-full">
-                      <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                        <div className="flex items-center space-x-2">
-                          <Calendar className="w-4 h-4 text-navy-blue" />
-                          <h3 className="font-bold text-navy-blue text-sm">Upcoming Outreaches</h3>
-                        </div>
-                        <button
-                          onClick={() => setActiveTab('events')}
-                          className="text-[10px] text-sig-green font-bold hover:underline cursor-pointer flex items-center"
-                        >
-                          <span>View all</span>
-                          <ChevronRight className="w-3 h-3 ml-0.5" />
-                        </button>
+                  {/* Upcoming Outreaches Widget */}
+                  <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-3 w-full">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-3.5 h-3.5 text-navy-blue" />
+                        <h3 className="font-bold text-navy-blue text-[12.5px]">Upcoming Outreaches</h3>
                       </div>
+                      <button
+                        onClick={() => setActiveTab('events')}
+                        className="text-[10px] text-sig-green font-bold hover:underline cursor-pointer flex items-center gap-0.5"
+                      >
+                        <span>View All</span>
+                        <ChevronRight className="w-3 h-3" />
+                      </button>
+                    </div>
 
-                      <div className="space-y-3">
-                        {eventsList
-                          .filter((e) => e.status === 'planned')
-                          .slice(0, 3)
-                          .map((evt) => {
-                            const org = orgsList.find((o) => o.id === evt.assignedOrganizationId)
-                            return (
-                              <div
-                                key={evt.id}
-                                className="p-3 bg-gray-50/50 hover:bg-gray-50 border border-gray-100 rounded-2xl text-[11px] space-y-1"
-                              >
-                                <div className="flex justify-between items-start">
-                                  <span className="font-bold text-navy-blue truncate pr-2 max-w-[130px]">
-                                    {evt.name}
-                                  </span>
-                                  <span className="bg-navy-blue text-sig-green text-[8px] font-extrabold px-1.5 py-0.5 rounded leading-none shrink-0">
-                                    {org ? org.abbreviation : 'CES'}
-                                  </span>
-                                </div>
-                                <div className="flex items-center justify-between text-[10px] text-gray-400 mt-1">
-                                  <span className="flex items-center">
-                                    <Clock className="w-3 h-3 mr-1 text-gray-300" />
-                                    {new Date(evt.scheduleDate).toLocaleDateString(undefined, {
-                                      month: 'short',
-                                      day: 'numeric'
-                                    })}
-                                  </span>
-                                  <span className="truncate max-w-[90px]">{evt.location}</span>
-                                </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      {eventsList
+                        .filter((e) => e.status === 'planned')
+                        .slice(0, 4)
+                        .map((evt) => {
+                          const org = orgsList.find((o) => o.id === evt.assignedOrganizationId)
+                          return (
+                            <div
+                              key={evt.id}
+                              className="p-2.5 bg-gray-50/80 hover:bg-gray-50 border border-gray-100/80 rounded-xl text-[11px] flex items-center justify-between gap-2 transition-colors"
+                            >
+                              <div className="min-w-0">
+                                <span className="font-bold text-navy-blue truncate block">
+                                  {evt.name}
+                                </span>
+                                <span className="flex items-center gap-1 text-[9.5px] text-gray-400 mt-0.5">
+                                  <Clock className="w-2.5 h-2.5 text-gray-300 shrink-0" />
+                                  {new Date(evt.scheduleDate).toLocaleDateString(undefined, {
+                                    month: 'short',
+                                    day: 'numeric'
+                                  })}
+                                  {evt.location && (
+                                    <span className="truncate max-w-[80px]"> · {evt.location}</span>
+                                  )}
+                                </span>
                               </div>
-                            )
-                          })}
-                        {eventsList.filter((e) => e.status === 'planned').length === 0 && (
-                          <div className="text-center py-4 text-gray-400 text-[10px]">
-                            No upcoming events scheduled.
-                          </div>
-                        )}
-                      </div>
+                              <span className="bg-navy-blue text-sig-green text-[7.5px] font-extrabold px-1.5 py-0.5 rounded leading-none shrink-0">
+                                {org ? org.abbreviation : 'CES'}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      {eventsList.filter((e) => e.status === 'planned').length === 0 && (
+                        <div className="text-center py-5 text-gray-400 text-[10.5px] col-span-full">
+                          No upcoming events scheduled.
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -2690,57 +2509,49 @@ export default function AdminDashboard({ user, onLogout }) {
                                   <ChevronRight className="w-4 h-4 transform rotate-90" />
                                 </div>
                               </div>
-                              {showAddCategoryDropdown && (
-                                <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                  {activeCategories
-                                    .filter(
-                                      (cat) =>
-                                        !itemCategory ||
-                                        cat.toLowerCase().includes(itemCategory.toLowerCase())
-                                    )
-                                    .map((cat) => (
-                                      <div
-                                        key={cat}
-                                        onMouseDown={(e) => e.preventDefault()}
-                                        onClick={() => {
-                                          setItemCategory(cat)
-                                          prevAddCategoryRef.current = cat
-                                          setShowAddCategoryDropdown(false)
-                                        }}
-                                        className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
-                                      >
-                                        <span className="truncate">{cat}</span>
-                                        <button
-                                          type="button"
-                                          onMouseDown={(e) => {
-                                            e.preventDefault()
-                                            e.stopPropagation()
+                              {showAddCategoryDropdown &&
+                                activeCategories.filter(
+                                  (cat) =>
+                                    !itemCategory ||
+                                    cat.toLowerCase().includes(itemCategory.toLowerCase())
+                                ).length > 0 && (
+                                  <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                                    {activeCategories
+                                      .filter(
+                                        (cat) =>
+                                          !itemCategory ||
+                                          cat.toLowerCase().includes(itemCategory.toLowerCase())
+                                      )
+                                      .map((cat) => (
+                                        <div
+                                          key={cat}
+                                          onMouseDown={(e) => e.preventDefault()}
+                                          onClick={() => {
+                                            setItemCategory(cat)
+                                            prevAddCategoryRef.current = cat
+                                            setShowAddCategoryDropdown(false)
                                           }}
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            handleDeleteCategory(cat)
-                                          }}
-                                          className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                          className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
                                         >
-                                          <X className="w-3 h-3" />
-                                        </button>
-                                      </div>
-                                    ))}
-                                  {activeCategories.filter(
-                                    (cat) =>
-                                      !itemCategory ||
-                                      cat.toLowerCase().includes(itemCategory.toLowerCase())
-                                  ).length === 0 && (
-                                      <div
-                                        onMouseDown={(e) => e.preventDefault()}
-                                        onClick={() => setShowAddCategoryDropdown(false)}
-                                        className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
-                                      >
-                                        Use custom: "{itemCategory}"
-                                      </div>
-                                    )}
-                                </div>
-                              )}
+                                          <span className="truncate">{cat}</span>
+                                          <button
+                                            type="button"
+                                            onMouseDown={(e) => {
+                                              e.preventDefault()
+                                              e.stopPropagation()
+                                            }}
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleDeleteCategory(cat)
+                                            }}
+                                            className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                          >
+                                            <X className="w-3 h-3" />
+                                          </button>
+                                        </div>
+                                      ))}
+                                  </div>
+                                )}
                             </div>
                           </div>
 
@@ -2789,56 +2600,49 @@ export default function AdminDashboard({ user, onLogout }) {
                                   <ChevronRight className="w-4 h-4 transform rotate-90" />
                                 </div>
                               </div>
-                              {showAddUnitDropdown && (
-                                <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                  {activeUnits
-                                    .filter(
-                                      (u) =>
-                                        !itemUnit ||
-                                        u.toLowerCase().includes(itemUnit.toLowerCase())
-                                    )
-                                    .map((u) => (
-                                      <div
-                                        key={u}
-                                        onMouseDown={(e) => e.preventDefault()}
-                                        onClick={() => {
-                                          setItemUnit(u)
-                                          prevAddUnitRef.current = u
-                                          setShowAddUnitDropdown(false)
-                                        }}
-                                        className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
-                                      >
-                                        <span className="truncate">{u}</span>
-                                        <button
-                                          type="button"
-                                          onMouseDown={(e) => {
-                                            e.preventDefault()
-                                            e.stopPropagation()
+                              {showAddUnitDropdown &&
+                                activeUnits.filter(
+                                  (u) =>
+                                    !itemUnit ||
+                                    u.toLowerCase().includes(itemUnit.toLowerCase())
+                                ).length > 0 && (
+                                  <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                                    {activeUnits
+                                      .filter(
+                                        (u) =>
+                                          !itemUnit ||
+                                          u.toLowerCase().includes(itemUnit.toLowerCase())
+                                      )
+                                      .map((u) => (
+                                        <div
+                                          key={u}
+                                          onMouseDown={(e) => e.preventDefault()}
+                                          onClick={() => {
+                                            setItemUnit(u)
+                                            prevAddUnitRef.current = u
+                                            setShowAddUnitDropdown(false)
                                           }}
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            handleDeleteUnit(u)
-                                          }}
-                                          className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                          className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
                                         >
-                                          <X className="w-3 h-3" />
-                                        </button>
-                                      </div>
-                                    ))}
-                                  {activeUnits.filter(
-                                    (u) =>
-                                      !itemUnit || u.toLowerCase().includes(itemUnit.toLowerCase())
-                                  ).length === 0 && (
-                                      <div
-                                        onMouseDown={(e) => e.preventDefault()}
-                                        onClick={() => setShowAddUnitDropdown(false)}
-                                        className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
-                                      >
-                                        Use custom: "{itemUnit}"
-                                      </div>
-                                    )}
-                                </div>
-                              )}
+                                          <span className="truncate">{u}</span>
+                                          <button
+                                            type="button"
+                                            onMouseDown={(e) => {
+                                              e.preventDefault()
+                                              e.stopPropagation()
+                                            }}
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleDeleteUnit(u)
+                                            }}
+                                            className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                          >
+                                            <X className="w-3 h-3" />
+                                          </button>
+                                        </div>
+                                      ))}
+                                  </div>
+                                )}
                             </div>
                           </div>
 
@@ -3111,57 +2915,49 @@ export default function AdminDashboard({ user, onLogout }) {
                                   <ChevronRight className="w-4 h-4 transform rotate-90" />
                                 </div>
                               </div>
-                              {showEditCategoryDropdown && (
-                                <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                  {activeCategories
-                                    .filter(
-                                      (cat) =>
-                                        !itemCategory ||
-                                        cat.toLowerCase().includes(itemCategory.toLowerCase())
-                                    )
-                                    .map((cat) => (
-                                      <div
-                                        key={cat}
-                                        onMouseDown={(e) => e.preventDefault()}
-                                        onClick={() => {
-                                          setItemCategory(cat)
-                                          prevEditCategoryRef.current = cat
-                                          setShowEditCategoryDropdown(false)
-                                        }}
-                                        className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
-                                      >
-                                        <span className="truncate">{cat}</span>
-                                        <button
-                                          type="button"
-                                          onMouseDown={(e) => {
-                                            e.preventDefault()
-                                            e.stopPropagation()
+                              {showEditCategoryDropdown &&
+                                activeCategories.filter(
+                                  (cat) =>
+                                    !itemCategory ||
+                                    cat.toLowerCase().includes(itemCategory.toLowerCase())
+                                ).length > 0 && (
+                                  <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                                    {activeCategories
+                                      .filter(
+                                        (cat) =>
+                                          !itemCategory ||
+                                          cat.toLowerCase().includes(itemCategory.toLowerCase())
+                                      )
+                                      .map((cat) => (
+                                        <div
+                                          key={cat}
+                                          onMouseDown={(e) => e.preventDefault()}
+                                          onClick={() => {
+                                            setItemCategory(cat)
+                                            prevEditCategoryRef.current = cat
+                                            setShowEditCategoryDropdown(false)
                                           }}
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            handleDeleteCategory(cat)
-                                          }}
-                                          className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                          className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
                                         >
-                                          <X className="w-3 h-3" />
-                                        </button>
-                                      </div>
-                                    ))}
-                                  {activeCategories.filter(
-                                    (cat) =>
-                                      !itemCategory ||
-                                      cat.toLowerCase().includes(itemCategory.toLowerCase())
-                                  ).length === 0 && (
-                                      <div
-                                        onMouseDown={(e) => e.preventDefault()}
-                                        onClick={() => setShowEditCategoryDropdown(false)}
-                                        className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
-                                      >
-                                        Use custom: "{itemCategory}"
-                                      </div>
-                                    )}
-                                </div>
-                              )}
+                                          <span className="truncate">{cat}</span>
+                                          <button
+                                            type="button"
+                                            onMouseDown={(e) => {
+                                              e.preventDefault()
+                                              e.stopPropagation()
+                                            }}
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleDeleteCategory(cat)
+                                            }}
+                                            className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                          >
+                                            <X className="w-3 h-3" />
+                                          </button>
+                                        </div>
+                                      ))}
+                                  </div>
+                                )}
                             </div>
                           </div>
 
@@ -3210,56 +3006,49 @@ export default function AdminDashboard({ user, onLogout }) {
                                   <ChevronRight className="w-4 h-4 transform rotate-90" />
                                 </div>
                               </div>
-                              {showEditUnitDropdown && (
-                                <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                  {activeUnits
-                                    .filter(
-                                      (u) =>
-                                        !itemUnit ||
-                                        u.toLowerCase().includes(itemUnit.toLowerCase())
-                                    )
-                                    .map((u) => (
-                                      <div
-                                        key={u}
-                                        onMouseDown={(e) => e.preventDefault()}
-                                        onClick={() => {
-                                          setItemUnit(u)
-                                          prevEditUnitRef.current = u
-                                          setShowEditUnitDropdown(false)
-                                        }}
-                                        className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
-                                      >
-                                        <span className="truncate">{u}</span>
-                                        <button
-                                          type="button"
-                                          onMouseDown={(e) => {
-                                            e.preventDefault()
-                                            e.stopPropagation()
+                              {showEditUnitDropdown &&
+                                activeUnits.filter(
+                                  (u) =>
+                                    !itemUnit ||
+                                    u.toLowerCase().includes(itemUnit.toLowerCase())
+                                ).length > 0 && (
+                                  <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                                    {activeUnits
+                                      .filter(
+                                        (u) =>
+                                          !itemUnit ||
+                                          u.toLowerCase().includes(itemUnit.toLowerCase())
+                                      )
+                                      .map((u) => (
+                                        <div
+                                          key={u}
+                                          onMouseDown={(e) => e.preventDefault()}
+                                          onClick={() => {
+                                            setItemUnit(u)
+                                            prevEditUnitRef.current = u
+                                            setShowEditUnitDropdown(false)
                                           }}
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            handleDeleteUnit(u)
-                                          }}
-                                          className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                          className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
                                         >
-                                          <X className="w-3 h-3" />
-                                        </button>
-                                      </div>
-                                    ))}
-                                  {activeUnits.filter(
-                                    (u) =>
-                                      !itemUnit || u.toLowerCase().includes(itemUnit.toLowerCase())
-                                  ).length === 0 && (
-                                      <div
-                                        onMouseDown={(e) => e.preventDefault()}
-                                        onClick={() => setShowEditUnitDropdown(false)}
-                                        className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
-                                      >
-                                        Use custom: "{itemUnit}"
-                                      </div>
-                                    )}
-                                </div>
-                              )}
+                                          <span className="truncate">{u}</span>
+                                          <button
+                                            type="button"
+                                            onMouseDown={(e) => {
+                                              e.preventDefault()
+                                              e.stopPropagation()
+                                            }}
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleDeleteUnit(u)
+                                            }}
+                                            className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                          >
+                                            <X className="w-3 h-3" />
+                                          </button>
+                                        </div>
+                                      ))}
+                                  </div>
+                                )}
                             </div>
                           </div>
 
@@ -3834,8 +3623,8 @@ export default function AdminDashboard({ user, onLogout }) {
                         setDonorType('')
                         setDonPurpose('')
                         setDonDesc('')
-                        setDonDate(new Date().toISOString().split('T')[0])
-                        setDonItems([{ name: '', category: 'food packs', unit: 'pieces', quantity: '', expiryDate: '' }])
+                        setDonDate('')
+                        setDonItems([{ name: '', category: '', unit: '', quantity: '', expiryDate: '' }])
                         setIsDonationModalOpen(true)
                       }}
                       className={`flex items-center space-x-1.5 bg-navy-blue text-white rounded-lg text-xs font-semibold py-2 px-4 border border-navy-blue shadow-xs transition-all duration-150 ${
@@ -4087,12 +3876,13 @@ export default function AdminDashboard({ user, onLogout }) {
                   {/* SCHEDULE / EDIT EVENT MODAL */}
                   {isEventModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
-                      <div className="glass-modal rounded-2xl p-6 max-w-lg w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto">
-                        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                      <div className="glass-modal rounded-2xl max-w-lg w-full shadow-2xl border border-white/80 flex flex-col max-h-[80vh] overflow-hidden animate-fade-in-scale">
+                        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 shrink-0">
                           <h3 className="font-bold text-navy-blue text-base">
                             {editingEvent ? 'Edit Event' : 'Schedule Event'}
                           </h3>
                           <button
+                            type="button"
                             onClick={() => {
                               setIsEventModalOpen(false)
                               setEditingEvent(null)
@@ -4112,167 +3902,169 @@ export default function AdminDashboard({ user, onLogout }) {
                           </button>
                         </div>
 
-                        <form onSubmit={handleCreateEvent} className="space-y-4">
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Event Name
-                            </label>
-                            <input
-                              type="text"
-                              value={evtName}
-                              onChange={(e) => {
-                                setEvtName(e.target.value)
-                                clearFieldValError('evtName')
-                              }}
-                              placeholder="Event name"
-                              className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('evtName') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                              style={{ height: '40px' }}
-                            />
-                          </div>
+                        <form onSubmit={handleCreateEvent} className="flex flex-col flex-1 min-h-0">
+                          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                            <div>
+                              <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                Event Name
+                              </label>
+                              <input
+                                type="text"
+                                value={evtName}
+                                onChange={(e) => {
+                                  setEvtName(e.target.value)
+                                  clearFieldValError('evtName')
+                                }}
+                                placeholder="Event name"
+                                className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('evtName') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                style={{ height: '40px' }}
+                              />
+                            </div>
 
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Description
-                            </label>
-                            <textarea
-                              value={evtDesc}
-                              onChange={(e) => setEvtDesc(e.target.value)}
-                              placeholder="Brief narrative of the event purpose..."
-                              className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none resize-none font-semibold text-navy-blue"
-                              rows="3"
-                            ></textarea>
-                          </div>
+                            <div>
+                              <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                Description
+                              </label>
+                              <textarea
+                                value={evtDesc}
+                                onChange={(e) => setEvtDesc(e.target.value)}
+                                placeholder="Brief narrative of the event purpose..."
+                                className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none resize-none font-semibold text-navy-blue"
+                                rows="3"
+                              ></textarea>
+                            </div>
 
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Scheduled Date & Time
-                            </label>
-                            <GlassDatePicker
-                              value={evtDate}
-                              onChange={(val) => {
-                                setEvtDate(val)
-                                clearFieldValError('evtDate')
-                              }}
-                              showTime={true}
-                              placeholder="dd/mm/yyyy, --:-- --"
-                            />
-                          </div>
+                            <div>
+                              <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                Scheduled Date & Time
+                              </label>
+                              <GlassDatePicker
+                                value={evtDate}
+                                onChange={(val) => {
+                                  setEvtDate(val)
+                                  clearFieldValError('evtDate')
+                                }}
+                                showTime={true}
+                                placeholder="dd/mm/yyyy, --:-- --"
+                              />
+                            </div>
 
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Target Location
-                            </label>
-                            <input
-                              type="text"
-                              value={evtLoc}
-                              onChange={(e) => setEvtLoc(e.target.value)}
-                              placeholder="Location"
-                              className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none font-semibold text-navy-blue"
-                              style={{ height: '40px' }}
-                            />
-                          </div>
+                            <div>
+                              <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                Target Location
+                              </label>
+                              <input
+                                type="text"
+                                value={evtLoc}
+                                onChange={(e) => setEvtLoc(e.target.value)}
+                                placeholder="Location"
+                                className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none font-semibold text-navy-blue"
+                                style={{ height: '40px' }}
+                              />
+                            </div>
 
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Event Type
-                            </label>
-                            <select
-                              value={evtType}
-                              onChange={(e) => {
-                                setEvtType(e.target.value)
-                                clearFieldValError('evtType')
-                              }}
-                              className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
-                              style={{ height: '40px' }}
-                            >
-                              <option value="department">Department</option>
-                              <option value="organization">Organization</option>
-                            </select>
-                          </div>
+                            <div>
+                              <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                Event Type
+                              </label>
+                              <select
+                                value={evtType}
+                                onChange={(e) => {
+                                  setEvtType(e.target.value)
+                                  clearFieldValError('evtType')
+                                }}
+                                className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                                style={{ height: '40px' }}
+                              >
+                                <option value="department">Department</option>
+                                <option value="organization">Organization</option>
+                              </select>
+                            </div>
 
-                          {evtType === 'organization' ? (
-                            <>
+                            {evtType === 'organization' ? (
+                              <>
+                                <div>
+                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                    Organization Name
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={evtOrgName}
+                                    onChange={(e) => {
+                                      setEvtOrgName(e.target.value)
+                                      clearFieldValError('evtOrgName')
+                                    }}
+                                    placeholder="Organization Name"
+                                    className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('evtOrgName') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                    style={{ height: '40px' }}
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                    Assigned Department
+                                  </label>
+                                  <SearchableDropdown
+                                    value={evtParentDeptId}
+                                    onChange={(val) => {
+                                      setEvtParentDeptId(val)
+                                      clearFieldValError('evtParentDeptId')
+                                    }}
+                                    options={orgsList.filter(
+                                      (o) => o.type === 'department' || !o.type
+                                    )}
+                                    onDelete={(o) => handleDeleteOrg(o.id)}
+                                    placeholder="Select department..."
+                                    className={
+                                      validationError?.fields.includes('evtParentDeptId')
+                                        ? 'border-red-500 ring-2 ring-red-500/10'
+                                        : ''
+                                    }
+                                  />
+                                </div>
+                              </>
+                            ) : (
                               <div>
                                 <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                  Organization Name
-                                </label>
-                                <input
-                                  type="text"
-                                  value={evtOrgName}
-                                  onChange={(e) => {
-                                    setEvtOrgName(e.target.value)
-                                    clearFieldValError('evtOrgName')
-                                  }}
-                                  placeholder="Organization Name"
-                                  className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('evtOrgName') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                  style={{ height: '40px' }}
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                  Assigned Department
+                                  Assigned Department{' '}
                                 </label>
                                 <SearchableDropdown
-                                  value={evtParentDeptId}
+                                  value={evtOrgId}
                                   onChange={(val) => {
-                                    setEvtParentDeptId(val)
-                                    clearFieldValError('evtParentDeptId')
+                                    setEvtOrgId(val)
+                                    clearFieldValError('evtOrgId')
                                   }}
-                                  options={orgsList.filter(
-                                    (o) => o.type === 'department' || !o.type
-                                  )}
+                                  options={orgsList}
                                   onDelete={(o) => handleDeleteOrg(o.id)}
-                                  placeholder="Select department..."
+                                  placeholder="Type to filter co-organizers..."
                                   className={
-                                    validationError?.fields.includes('evtParentDeptId')
+                                    validationError?.fields.includes('evtOrgId')
                                       ? 'border-red-500 ring-2 ring-red-500/10'
                                       : ''
                                   }
                                 />
                               </div>
-                            </>
-                          ) : (
-                            <div>
-                              <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                Assigned Department{' '}
-                              </label>
-                              <SearchableDropdown
-                                value={evtOrgId}
-                                onChange={(val) => {
-                                  setEvtOrgId(val)
-                                  clearFieldValError('evtOrgId')
-                                }}
-                                options={orgsList}
-                                onDelete={(o) => handleDeleteOrg(o.id)}
-                                placeholder="Type to filter co-organizers..."
-                                className={
-                                  validationError?.fields.includes('evtOrgId')
-                                    ? 'border-red-500 ring-2 ring-red-500/10'
-                                    : ''
-                                }
-                              />
-                            </div>
-                          )}
+                            )}
 
-                          {editingEvent && (
-                            <div>
-                              <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                Status
-                              </label>
-                              <select
-                                value={evtStatus}
-                                onChange={(e) => setEvtStatus(e.target.value)}
-                                className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
-                                style={{ height: '40px' }}
-                              >
-                                <option value="planned">Planned</option>
-                                <option value="completed">Completed</option>
-                                <option value="cancelled">Cancelled</option>
-                              </select>
-                            </div>
-                          )}
+                            {editingEvent && (
+                              <div>
+                                <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                  Status
+                                </label>
+                                <select
+                                  value={evtStatus}
+                                  onChange={(e) => setEvtStatus(e.target.value)}
+                                  className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                                  style={{ height: '40px' }}
+                                >
+                                  <option value="planned">Planned</option>
+                                  <option value="completed">Completed</option>
+                                  <option value="cancelled">Cancelled</option>
+                                </select>
+                              </div>
+                            )}
+                          </div>
 
-                          <div className="flex items-center space-x-2 pt-2 border-t border-gray-100">
+                          <div className="flex items-center space-x-2 px-6 py-4 border-t border-gray-100 shrink-0 bg-white/40">
                             <button
                               type="button"
                               onClick={() => {
@@ -5468,54 +5260,54 @@ export default function AdminDashboard({ user, onLogout }) {
                 </button>
               </div>
 
-              <div className="overflow-y-auto flex-1 min-h-[250px] max-h-[50vh] border border-gray-100 rounded-2xl p-2 bg-gray-50/30">
+              <div className="overflow-y-auto flex-1 min-h-[250px] max-h-[50vh] border border-gray-100 rounded-2xl p-4 bg-white">
+                {/* Visual Preview Header (matches the PDF layout style) */}
+                <div className="text-left mb-4 pb-2 border-b border-gray-100">
+                  <h4 className="text-base font-bold text-gray-900 tracking-tight">
+                    DOMINICAN COLLEGE OF TARLAC, INC.
+                  </h4>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Community Extension & Services (CES) Office
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Inventory Transaction Log: {reportDate || new Date().toLocaleString()}
+                  </p>
+                  <div className="mt-3 border-t-2 border-[#8cc63f] w-full"></div>
+                </div>
+
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="border-b border-gray-100 bg-gray-50 text-[10px] uppercase font-bold text-gray-500">
-                      <th className="py-2.5 px-3">Date</th>
-                      <th className="py-2.5 px-3">Action</th>
-                      <th className="py-2.5 px-3">Item</th>
-                      <th className="py-2.5 px-3 text-right">Qty</th>
-                      <th className="py-2.5 px-3">Unit</th>
-                      <th className="py-2.5 px-3">Details</th>
+                    <tr className="border-b border-gray-200 text-xs font-bold text-[#0f2c59]">
+                      <th className="py-2.5 px-2">Transaction Date</th>
+                      <th className="py-2.5 px-2">Item Name</th>
+                      <th className="py-2.5 px-2">Action Type</th>
+                      <th className="py-2.5 px-2 text-right">Quantity</th>
+                      <th className="py-2.5 px-2">Unit</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-50 text-xs">
+                  <tbody className="divide-y divide-gray-200 text-xs">
                     {txHistory.map((tx, idx) => (
-                      <tr key={tx.id || idx} className="hover:bg-gray-50/50 transition">
-                        <td className="py-2.5 px-3 font-semibold text-gray-600">
-                          {new Date(tx.date).toLocaleDateString()}{' '}
-                          {new Date(tx.date).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
+                      <tr key={tx.id || idx}>
+                        <td className="py-2.5 px-2 text-gray-600">
+                          {new Date(tx.date).toLocaleString()}
                         </td>
-                        <td className="py-2.5 px-3 capitalize">
-                          <span
-                            className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${tx.action === 'added'
-                              ? 'bg-green-50 text-green-700 border border-green-200'
-                              : tx.action === 'released'
-                                ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                                : 'bg-red-50 text-red-700 border border-red-200'
-                              }`}
-                          >
-                            {tx.action}
-                          </span>
+                        <td className="py-2.5 px-2 text-gray-800 font-semibold">{tx.itemName}</td>
+                        <td className="py-2.5 px-2 font-medium">
+                          {tx.action === 'added' ? (
+                            <span className="text-[#2e7d32]">Added</span>
+                          ) : tx.action === 'released' ? (
+                            <span className="text-[#dc2626]">Released</span>
+                          ) : (
+                            <span className="text-[#dc2626] capitalize">{tx.action}</span>
+                          )}
                         </td>
-                        <td className="py-2.5 px-3 font-bold text-navy-blue">{tx.itemName}</td>
-                        <td className="py-2.5 px-3 text-right font-bold">{tx.quantity}</td>
-                        <td className="py-2.5 px-3 text-gray-500 capitalize">{tx.unit}</td>
-                        <td
-                          className="py-2.5 px-3 text-gray-400 font-medium truncate max-w-[150px]"
-                          title={tx.details}
-                        >
-                          {tx.details || '-'}
-                        </td>
+                        <td className="py-2.5 px-2 text-right text-gray-800 font-semibold">{tx.quantity}</td>
+                        <td className="py-2.5 px-2 text-gray-600 capitalize">{tx.unit}</td>
                       </tr>
                     ))}
                     {txHistory.length === 0 && (
                       <tr>
-                        <td colSpan="6" className="text-center py-8 text-gray-400">
+                        <td colSpan="5" className="text-center py-8 text-gray-400">
                           No transaction history recorded yet.
                         </td>
                       </tr>
@@ -5659,68 +5451,56 @@ export default function AdminDashboard({ user, onLogout }) {
         <div className="absolute top-[-9999px] left-[-9999px]">
           <div
             id="inventory-history-pdf-target"
-            className="w-[800px] bg-white p-12 text-gray-900 font-poppins relative"
-            style={{ boxSizing: 'border-box' }}
+            className="w-[800px] bg-white p-10 text-gray-900 font-sans relative"
+            style={{ boxSizing: 'border-box', backgroundColor: '#ffffff' }}
           >
             {/* Header Block */}
-            <div className="text-center border-b-2 border-sig-green pb-4 mb-6">
-              <h2 className="text-xl font-bold text-navy-blue tracking-wide">
+            <div className="text-left mb-4">
+              <h1 className="text-xl font-bold text-gray-900 tracking-tight leading-tight">
                 DOMINICAN COLLEGE OF TARLAC, INC.
-              </h2>
-              <h3 className="text-sm font-semibold text-gray-700">
+              </h1>
+              <p className="text-sm text-gray-500 font-normal mt-1 leading-normal">
                 Community Extension & Services (CES) Office
-              </h3>
-              <p className="text-[10px] text-gray-400">
-                Tarlac, Philippines · Official Document Archive
               </p>
+              <p className="text-sm text-gray-500 font-normal mt-0.5 leading-normal">
+                Inventory Transaction Log: {reportDate || new Date().toLocaleString()}
+              </p>
+              <div className="mt-4 border-t-2 border-[#8cc63f] w-full"></div>
             </div>
 
-            <h3 className="text-lg font-bold text-navy-blue text-center mb-6 uppercase tracking-wider">
-              Chronological Inventory Transaction History Log
-            </h3>
-
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="w-full text-left border-collapse text-xs mt-6">
               <thead>
-                <tr className="border-b-2 border-navy-blue bg-gray-50 text-[10px] uppercase font-bold text-gray-500">
-                  <th className="py-2.5 px-3">Date</th>
-                  <th className="py-2.5 px-3">Action</th>
-                  <th className="py-2.5 px-3">Item Name</th>
-                  <th className="py-2.5 px-3 text-right">Quantity</th>
-                  <th className="py-2.5 px-3">Unit</th>
-                  <th className="py-2.5 px-3">Details</th>
+                <tr className="border-b border-gray-200 text-xs font-bold text-[#0f2c59]">
+                  <th className="py-3 px-2">Transaction Date</th>
+                  <th className="py-3 px-2">Item Name</th>
+                  <th className="py-3 px-2">Action Type</th>
+                  <th className="py-3 px-2 text-right">Quantity</th>
+                  <th className="py-3 px-2">Unit</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {txHistory.map((tx, idx) => (
-                  <tr key={tx.id || idx} className="hover:bg-gray-50">
-                    <td className="py-2.5 px-3 font-semibold text-gray-600">
-                      {new Date(tx.date).toLocaleDateString()}{' '}
-                      {new Date(tx.date).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
+                  <tr key={tx.id || idx} className="text-xs">
+                    <td className="py-3 px-2 text-gray-700">
+                      {new Date(tx.date).toLocaleString()}
                     </td>
-                    <td className="py-2.5 px-3 capitalize">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${tx.action === 'added'
-                          ? 'bg-green-100 text-green-800 border border-green-200'
-                          : tx.action === 'released'
-                            ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                            : 'bg-red-100 text-red-800 border border-red-200'
-                          }`}
-                      >
-                        {tx.action}
-                      </span>
+                    <td className="py-3 px-2 text-gray-800 font-semibold">{tx.itemName}</td>
+                    <td className="py-3 px-2 font-medium">
+                      {tx.action === 'added' ? (
+                        <span className="text-[#2e7d32]">Added</span>
+                      ) : tx.action === 'released' ? (
+                        <span className="text-[#dc2626]">Released</span>
+                      ) : (
+                        <span className="text-[#dc2626] capitalize">{tx.action}</span>
+                      )}
                     </td>
-                    <td className="py-2.5 px-3 font-bold text-navy-blue">{tx.itemName}</td>
-                    <td className="py-2.5 px-3 text-right font-bold">{tx.quantity}</td>
-                    <td className="py-2.5 px-3 capitalize">{tx.unit}</td>
-                    <td className="py-2.5 px-3 text-gray-500 font-medium">{tx.details || '-'}</td>
+                    <td className="py-3 px-2 text-right text-gray-800 font-semibold">{tx.quantity}</td>
+                    <td className="py-3 px-2 text-gray-700 capitalize">{tx.unit}</td>
                   </tr>
                 ))}
                 {txHistory.length === 0 && (
                   <tr>
-                    <td colSpan="6" className="text-center py-6 text-gray-400">
+                    <td colSpan="5" className="text-center py-8 text-gray-400">
                       No transaction records found.
                     </td>
                   </tr>
@@ -5808,15 +5588,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                         type.toLowerCase().includes(donorType.toLowerCase())
                                     )
                                     if (filtered.length === 0) {
-                                      return (
-                                        <div
-                                          onMouseDown={(e) => e.preventDefault()}
-                                          onClick={() => setIsDonorTypeSuggestionsOpen(false)}
-                                          className="p-2.5 text-xs text-gray-450 hover:bg-gray-50 cursor-pointer text-left font-semibold"
-                                        >
-                                          Use custom: "{donorType}"
-                                        </div>
-                                      )
+                                      return null
                                     }
                                     return filtered.map((type) => (
                                       <div
@@ -6111,46 +5883,38 @@ export default function AdminDashboard({ user, onLogout }) {
                                             <ChevronRight className="w-4 h-4 transform rotate-90" />
                                           </div>
                                         </div>
-                                        {activeDonItemCategoryIdx === idx && (
-                                          <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                            {activeCategories
-                                              .filter(
-                                                (cat) =>
-                                                  !item.category ||
-                                                  cat
-                                                    .toLowerCase()
-                                                    .includes(item.category.toLowerCase())
-                                              )
-                                              .map((cat) => (
-                                                <div
-                                                  key={cat}
-                                                  onMouseDown={(e) => e.preventDefault()}
-                                                  onClick={() => {
-                                                    handleDonItemChange(idx, 'category', cat)
-                                                    prevDonCategoryRef.current = { idx, value: cat }
-                                                    setActiveDonItemCategoryIdx(null)
-                                                  }}
-                                                  className="flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
-                                                >
-                                                  <span className="truncate">{cat}</span>
-                                                </div>
-                                              ))}
-                                            {activeCategories.filter(
-                                              (cat) =>
-                                                !item.category ||
-                                                cat
-                                                  .toLowerCase()
-                                                  .includes(item.category.toLowerCase())
-                                            ).length === 0 && (
-                                                <div
-                                                  onMouseDown={(e) => e.preventDefault()}
-                                                  onClick={() => setActiveDonItemCategoryIdx(null)}
-                                                  className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
-                                                >
-                                                  Use custom: "{item.category}"
-                                                </div>
-                                              )}
-                                          </div>
+                                        {activeDonItemCategoryIdx === idx &&
+                                          activeCategories.filter(
+                                            (cat) =>
+                                              !item.category ||
+                                              cat
+                                                .toLowerCase()
+                                                .includes(item.category.toLowerCase())
+                                          ).length > 0 && (
+                                            <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                                              {activeCategories
+                                                .filter(
+                                                  (cat) =>
+                                                    !item.category ||
+                                                    cat
+                                                      .toLowerCase()
+                                                      .includes(item.category.toLowerCase())
+                                                )
+                                                .map((cat) => (
+                                                  <div
+                                                    key={cat}
+                                                    onMouseDown={(e) => e.preventDefault()}
+                                                    onClick={() => {
+                                                      handleDonItemChange(idx, 'category', cat)
+                                                      prevDonCategoryRef.current = { idx, value: cat }
+                                                      setActiveDonItemCategoryIdx(null)
+                                                    }}
+                                                    className="flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
+                                                  >
+                                                    <span className="truncate">{cat}</span>
+                                                  </div>
+                                                ))}
+                                            </div>
                                         )}
                                       </div>
                                     </div>
@@ -6211,42 +5975,34 @@ export default function AdminDashboard({ user, onLogout }) {
                                             <ChevronRight className="w-4 h-4 transform rotate-90" />
                                           </div>
                                         </div>
-                                        {activeDonItemUnitIdx === idx && (
-                                          <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                            {activeUnits
-                                              .filter(
-                                                (u) =>
-                                                  !item.unit ||
-                                                  u.toLowerCase().includes(item.unit.toLowerCase())
-                                              )
-                                              .map((u) => (
-                                                <div
-                                                  key={u}
-                                                  onMouseDown={(e) => e.preventDefault()}
-                                                  onClick={() => {
-                                                    handleDonItemChange(idx, 'unit', u)
-                                                    prevDonUnitRef.current = { idx, value: u }
-                                                    setActiveDonItemUnitIdx(null)
-                                                  }}
-                                                  className="flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
-                                                >
-                                                  <span className="truncate">{u}</span>
-                                                </div>
-                                              ))}
-                                            {activeUnits.filter(
-                                              (u) =>
-                                                !item.unit ||
-                                                u.toLowerCase().includes(item.unit.toLowerCase())
-                                            ).length === 0 && (
-                                                <div
-                                                  onMouseDown={(e) => e.preventDefault()}
-                                                  onClick={() => setActiveDonItemUnitIdx(null)}
-                                                  className="p-2.5 text-xs text-gray-400 hover:bg-gray-50 cursor-pointer text-left font-semibold"
-                                                >
-                                                  Use custom: "{item.unit}"
-                                                </div>
-                                              )}
-                                          </div>
+                                        {activeDonItemUnitIdx === idx &&
+                                          activeUnits.filter(
+                                            (u) =>
+                                              !item.unit ||
+                                              u.toLowerCase().includes(item.unit.toLowerCase())
+                                          ).length > 0 && (
+                                            <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                                              {activeUnits
+                                                .filter(
+                                                  (u) =>
+                                                    !item.unit ||
+                                                    u.toLowerCase().includes(item.unit.toLowerCase())
+                                                )
+                                                .map((u) => (
+                                                  <div
+                                                    key={u}
+                                                    onMouseDown={(e) => e.preventDefault()}
+                                                    onClick={() => {
+                                                      handleDonItemChange(idx, 'unit', u)
+                                                      prevDonUnitRef.current = { idx, value: u }
+                                                      setActiveDonItemUnitIdx(null)
+                                                    }}
+                                                    className="flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
+                                                  >
+                                                    <span className="truncate">{u}</span>
+                                                  </div>
+                                                ))}
+                                            </div>
                                         )}
                                       </div>
                                     </div>
@@ -6649,6 +6405,100 @@ export default function AdminDashboard({ user, onLogout }) {
           compileReportPDF={compileReportPDF}
           loading={loading}
         />
+      )}
+
+      {/* Global Centered Pop-up Warning/Confirm/Success Dialogs */}
+      {(actionError || validationError) && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-navy-blue/40 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 shadow-2xl border border-gray-100 max-w-sm w-full text-center space-y-4">
+            <div>
+              <h4 className="font-bold text-navy-blue text-sm uppercase tracking-wide">
+                {validationError ? validationError.title : 'Action Warning'}
+              </h4>
+              <p className="text-xs text-gray-500 font-semibold mt-2 leading-relaxed">
+                {validationError ? validationError.message : actionError}
+              </p>
+            </div>
+            <button
+              ref={errorOkButtonRef}
+              autoFocus
+              type="button"
+              onClick={() => {
+                setActionError('')
+                setValidationError(null)
+              }}
+              className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
+      {confirmDialog && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-navy-blue/40 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 shadow-2xl border border-gray-100 max-w-sm w-full text-center space-y-4">
+            <div className={confirmDialog.showIcon ? 'flex flex-col items-center' : ''}>
+              {confirmDialog.showIcon && (
+                <div className="p-3 bg-red-50 text-red-500 rounded-full mb-2">
+                  <AlertTriangle className="w-6 h-6 animate-bounce" />
+                </div>
+              )}
+              <h4 className="font-bold text-navy-blue text-sm uppercase tracking-wide">
+                {confirmDialog.title}
+              </h4>
+              <p className="text-xs text-gray-500 font-semibold mt-2 leading-relaxed">
+                {confirmDialog.message}
+              </p>
+            </div>
+            <div className="flex gap-3 mt-4">
+              <button
+                type="button"
+                onClick={() => setConfirmDialog(null)}
+                className="flex-1 bg-gray-100 hover:bg-red-500 hover:text-white text-gray-700 rounded-full text-xs font-semibold py-2.5 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                ref={confirmButtonRef}
+                autoFocus
+                type="button"
+                onClick={() => {
+                  confirmDialog.onConfirm()
+                  setConfirmDialog(null)
+                }}
+                className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {actionSuccess && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-navy-blue/40 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 shadow-2xl border border-gray-100 max-w-sm w-full text-center space-y-4">
+            <div>
+              <h4 className="font-bold text-navy-blue text-sm uppercase tracking-wide">
+                Success
+              </h4>
+              <p className="text-xs text-gray-500 font-semibold mt-2 leading-relaxed">
+                {actionSuccess}
+              </p>
+            </div>
+            <button
+              autoFocus
+              type="button"
+              onClick={() => {
+                setActionSuccess('')
+              }}
+              className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer"
+            >
+              OK
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )

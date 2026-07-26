@@ -20,9 +20,7 @@ import {
 import TextEditor from '../../components/editor/TextEditor'
 import DocumentViewer from '../../components/DocumentViewer'
 import AnimatedSidebar from '../../components/AnimatedSidebar'
-import html2canvas from 'html2canvas'
-import jsPDF from 'jspdf'
-import { sanitizeOklchInDocument, loadInitialContentAndResetHistory } from '../../components/editor/utils/editorHelpers'
+import { sanitizeOklchInDocument, loadInitialContentAndResetHistory, exportElementToPDF } from '../../components/editor/utils/editorHelpers'
 
 // ─── Status Badge helper ───────────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
@@ -298,39 +296,11 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       )
 
       try {
-        const canvas = await html2canvas(input, {
-          useCORS: true,
-          allowTaint: true,
-          scale: 2,
-          backgroundColor: '#ffffff',
-          logging: false,
-          onclone: (clonedDoc) => {
-            sanitizeOklchInDocument(clonedDoc)
-          }
-        })
-
-        const pdf = new jsPDF('p', 'mm', 'a4')
-        const pdfWidth = 210
-        const pdfPageHeight = 297
-        const margin = 10
-        const imgWidth = pdfWidth - margin * 2
-        const imgHeight = (canvas.height * imgWidth) / canvas.width
-        const printablePageHeight = pdfPageHeight - margin * 2
-
-        let leftHeight = imgHeight
-        let position = margin
-
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight)
-        leftHeight -= printablePageHeight
-
-        while (leftHeight > 0) {
-          position = leftHeight - imgHeight + margin
-          pdf.addPage()
-          pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, position, imgWidth, imgHeight)
-          leftHeight -= printablePageHeight
-        }
-
-        pdf.save(`CES_Narrative_Report_${report.academicYear || 'AY'}_${(report.id || 'doc').substring(0, 6)}.pdf`)
+        await exportElementToPDF(
+          input,
+          `CES_Narrative_Report_${report.academicYear || 'AY'}_${(report.id || 'doc').substring(0, 6)}`,
+          { isDocument: true }
+        )
       } catch (err) {
         console.error('PDF export failed:', err)
         alert('PDF export failed: ' + (err.message || 'Error compiling report'))
@@ -429,6 +399,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           setActiveTab={setActiveTab}
           disabled={Boolean(selectedViewerReport)}
           onLogout={onLogout}
+          user={user}
         />
 
         {/* Main Panel Content Area */}

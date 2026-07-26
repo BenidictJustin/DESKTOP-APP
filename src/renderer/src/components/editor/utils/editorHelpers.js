@@ -277,47 +277,172 @@ export function sanitizeOklchInDocument(doc) {
 }
 
 /** Export the editor content as a PDF using html2canvas + jsPDF. */
+/**
+ * Scrapes document stylesheets, packages the DOM element,
+ * and calls Electron's native printToPDF engine via IPC.
+ */
+export async function exportElementToPDF(element, title, options = {}) {
+  if (!element) return;
+
+  // 1. Scrape all active document stylesheets
+  let appStyles = '';
+  for (const sheet of document.styleSheets) {
+    try {
+      const rules = sheet.cssRules || sheet.rules;
+      if (rules) {
+        for (const rule of rules) {
+          appStyles += rule.cssText + '\n';
+        }
+      }
+    } catch (e) {
+      // Ignored cross-origin stylesheet rules
+    }
+  }
+
+  // 2. Clone DOM element for preprocessing
+  const cloned = element.cloneNode(true);
+
+  // Replace <select> tags with their current text values for styling correctness in PDF
+  const originalSelects = element.querySelectorAll('select');
+  const clonedSelects = cloned.querySelectorAll('select');
+  originalSelects.forEach((origSelect, idx) => {
+    const clonedSelect = clonedSelects[idx];
+    if (clonedSelect) {
+      const parent = clonedSelect.parentNode;
+      const textSpan = document.createElement('span');
+      textSpan.className = 'print-select-replacement font-semibold text-xs text-navy-blue';
+      textSpan.textContent = origSelect.options[origSelect.selectedIndex]?.text || '';
+      parent.replaceChild(textSpan, clonedSelect);
+    }
+  });
+
+  // 3. Construct self-contained print payload
+  const isDocument = options.isDocument !== false;
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <title>${title || 'Document'}</title>
+        <style>
+          ${appStyles}
+          
+          /* Native PDF Export Style Overrides */
+          @media print {
+            @page {
+              size: ${options.pageSize || 'A4'} ${options.landscape ? 'landscape' : 'portrait'};
+              margin: 0;
+            }
+            html, body {
+              margin: 0 !important;
+              padding: 0 !important;
+              background: white !important;
+              background-image: none !important;
+              background-color: white !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            
+            /* Ensure the export container handles full-bleed scaling */
+            #report-pdf-target,
+            #inventory-table-container,
+            #inventory-history-pdf-target,
+            .print-canvas,
+            .print-target {
+              width: 100% !important;
+              max-width: 100% !important;
+              min-width: 100% !important;
+              position: static !important;
+              left: 0 !important;
+              top: 0 !important;
+              transform: none !important;
+              box-shadow: none !important;
+              border: none !important;
+              margin: 0 !important;
+              background: transparent !important;
+            }
+
+            /* Pagination overrides for document canvas pages */
+            ${isDocument ? `
+              .bg-white.shadow-xl.border, .doc-page-container > div {
+                page-break-after: always !important;
+                page-break-inside: avoid !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                border: none !important;
+                box-shadow: none !important;
+                background: white !important;
+              }
+            ` : `
+              /* Normal content target (e.g. lists/tables) needs print margins */
+              .print-target {
+                padding: 15mm !important;
+                box-sizing: border-box !important;
+              }
+            `}
+            
+            /* Table formatting */
+            table {
+              width: 100% !important;
+              border-collapse: collapse !important;
+              page-break-inside: auto !important;
+            }
+            tr {
+              page-break-inside: avoid !important;
+            }
+            thead {
+              display: table-header-group !important;
+            }
+            img {
+              max-width: 100% !important;
+              height: auto !important;
+              page-break-inside: avoid !important;
+            }
+            
+            /* Remove screen-only interactives */
+            .no-print, button, input[type="button"], select {
+              display: none !important;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="print-target">
+          ${cloned.outerHTML}
+        </div>
+      </body>
+    </html>
+  `;
+
+  // 4. Fire print-to-pdf event on Electron IPC channel
+  try {
+    if (!window.electron?.ipcRenderer) {
+      throw new Error('Electron ipcRenderer is not available in this context.');
+    }
+    const result = await window.electron.ipcRenderer.invoke('print-to-pdf', {
+      html: htmlContent,
+      title: title || 'Document',
+      options: {
+        landscape: options.landscape || false,
+        pageSize: options.pageSize || 'A4',
+        margins: options.margins || { marginType: 'none' }
+      }
+    });
+    return result;
+  } catch (error) {
+    console.error('print-to-pdf IPC failed:', error);
+    alert('PDF generation failed: ' + (error.message || error));
+    throw error;
+  }
+}
+
+/** Export the editor content as a native vector PDF using Electron printToPDF. */
 export async function handleExportPDF(canvasRef, title) {
   if (!canvasRef?.current) return;
   try {
-    const { default: html2canvas } = await import('html2canvas');
-    const { default: jsPDF } = await import('jspdf');
-
-    const element = canvasRef.current;
-    
-    const canvas = await html2canvas(element, {
-      useCORS: true,
-      allowTaint: true,
-      scale: 2,
-      logging: false,
-      backgroundColor: '#ffffff',
-      onclone: (clonedDoc) => {
-        sanitizeOklchInDocument(clonedDoc);
-      }
-    });
-
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const pdfWidth = 210;
-    const pdfPageHeight = 297;
-    const imgWidth = pdfWidth;
-    const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-    let leftHeight = imgHeight;
-    let position = 0;
-
-    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
-    leftHeight -= pdfPageHeight;
-
-    while (leftHeight > 0) {
-      position = leftHeight - imgHeight;
-      pdf.addPage();
-      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
-      leftHeight -= pdfPageHeight;
-    }
-
-    pdf.save(`${title || 'Document'}.pdf`);
+    await exportElementToPDF(canvasRef.current, title, { isDocument: true });
   } catch (err) {
-    console.error('PDF export failed:', err);
-    alert('PDF export failed: ' + (err.message || 'Error generating PDF'));
+    console.error('Native PDF export failed:', err);
   }
 }
 

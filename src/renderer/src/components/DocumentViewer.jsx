@@ -23,7 +23,7 @@ import {
 } from 'lucide-react'
 import logo from '../assets/logo.png'
 import logo2Img from '../assets/logo2.png'
-import { sanitizeOklchInDocument } from './editor/utils/editorHelpers'
+import { sanitizeOklchInDocument, exportElementToPDF } from './editor/utils/editorHelpers'
 
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -374,38 +374,11 @@ export default function DocumentViewer({
       return
     }
     try {
-      const { default: html2canvas } = await import('html2canvas')
-      const { default: jsPDF } = await import('jspdf')
-
-      const canvas = await html2canvas(viewportRef.current, {
-        useCORS: true,
-        allowTaint: true,
-        scale: 2,
-        backgroundColor: '#ffffff',
-        logging: false,
-        onclone: (clonedDoc) => {
-          sanitizeOklchInDocument(clonedDoc)
-        }
-      })
-      const pdf = new jsPDF('p', 'mm', 'a4')
-      const pdfWidth = 210
-      const pdfPageHeight = 297
-      const imgWidth = pdfWidth
-      const imgHeight = (canvas.height * pdfWidth) / canvas.width
-      let leftHeight = imgHeight
-      let position = 0
-
-      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight)
-      leftHeight -= pdfPageHeight
-
-      while (leftHeight > 0) {
-        position = leftHeight - imgHeight
-        pdf.addPage()
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight)
-        leftHeight -= pdfPageHeight
-      }
-
-      pdf.save(`CES_Report_${report.academicYear || 'AY'}_${(report.id || 'doc').substring(0, 6)}.pdf`)
+      await exportElementToPDF(
+        viewportRef.current,
+        `CES_Report_${report.academicYear || 'AY'}_${(report.id || 'doc').substring(0, 6)}`,
+        { isDocument: true }
+      )
     } catch (err) {
       console.error('DocumentViewer PDF export failed:', err)
       alert('Failed to download PDF: ' + (err.message || err))

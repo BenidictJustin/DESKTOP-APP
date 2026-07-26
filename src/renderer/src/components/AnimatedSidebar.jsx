@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { ChevronLeft, ChevronRight, LogOut } from 'lucide-react'
 
 export default function AnimatedSidebar({
@@ -6,7 +6,8 @@ export default function AnimatedSidebar({
   activeTab,
   setActiveTab,
   disabled = false,
-  onLogout
+  onLogout,
+  user // Kept for compatibility but not rendered
 }) {
   const [isCollapsed, setIsCollapsed] = useState(() => {
     try {
@@ -34,10 +35,6 @@ export default function AnimatedSidebar({
         isCollapsed ? 'w-20' : 'w-64'
       }`}
     >
-      {/* Decorative Top/Bottom Accent Gradient Line */}
-      <div className="absolute top-0 left-4 right-4 h-[2px] bg-gradient-to-r from-transparent via-sig-green/50 to-transparent" />
-      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-sig-green via-sig-green to-sig-green/40 rounded-b-2xl" />
-
       {/* Top Header Row with Collapse Toggle */}
       <div className="pt-3.5 px-3 flex items-center justify-between border-b border-white/5 pb-3">
         {!isCollapsed && (
@@ -74,7 +71,7 @@ export default function AnimatedSidebar({
             />
           )}
 
-          {tabs.map((tab, idx) => {
+          {tabs.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
 
@@ -96,8 +93,8 @@ export default function AnimatedSidebar({
                     disabled
                       ? 'opacity-40 cursor-not-allowed text-gray-500'
                       : isActive
-                        ? 'text-sig-green font-bold'
-                        : 'text-gray-300 hover:text-white hover:bg-white/5 cursor-pointer'
+                        ? 'text-sig-green font-bold cursor-pointer'
+                        : 'text-gray-200 hover:text-white hover:bg-white/8 cursor-pointer'
                   }`}
                 >
                   <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3.5'}`}>
@@ -105,11 +102,11 @@ export default function AnimatedSidebar({
                       className={`w-4.5 h-4.5 shrink-0 transition-transform duration-200 ${
                         isActive
                           ? 'text-sig-green scale-110'
-                          : 'text-gray-400 group-hover:text-white group-hover:scale-110'
+                          : 'text-gray-200 group-hover:text-white group-hover:scale-110'
                       }`}
                     />
                     {!isCollapsed && (
-                      <span className="truncate whitespace-nowrap transition-colors duration-200">
+                      <span className="truncate whitespace-nowrap transition-colors duration-200 text-gray-200 group-hover:text-white">
                         {tab.label}
                       </span>
                     )}

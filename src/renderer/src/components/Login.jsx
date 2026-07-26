@@ -128,9 +128,9 @@ export default function Login({ onLoginSuccess }) {
           <img
             src={logo3}
             alt="Background Banner"
-            className="w-full h-full object-contain object-center opacity-70 filter brightness-95 contrast-105 pointer-events-none"
+            className="w-full h-full object-contain object-center opacity-85 filter brightness-105 contrast-105 pointer-events-none"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#020519]/50 via-[#030E69]/40 to-[#02061f]/65 backdrop-blur-[1px]" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#020519]/40 via-[#030E69]/30 to-[#02061f]/55 backdrop-blur-[1px]" />
         </div>
 
         {/* Main Splash Transition Content */}
@@ -159,12 +159,19 @@ export default function Login({ onLoginSuccess }) {
     <div className="min-h-screen w-screen flex flex-col items-center justify-center p-4 md:p-8 font-poppins selection:bg-sig-green/20 selection:text-navy-blue relative overflow-hidden bg-[#020516]">
       {/* Shared Background Banner Graphic (logo3.png) - Complete Uncropped Artwork */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden select-none z-0">
+        {/* Blurred background layer to fill margins on any aspect ratio */}
+        <img
+          src={logo3}
+          alt="Background Blur"
+          className="absolute inset-0 w-full h-full object-cover opacity-50 filter blur-xl scale-110 pointer-events-none"
+        />
+        {/* Clean foreground layer - fully visible, no cropping */}
         <img
           src={logo3}
           alt="Background Banner"
-          className="w-full h-full object-contain object-center opacity-70 filter brightness-95 contrast-105 pointer-events-none"
+          className="absolute inset-0 w-full h-full object-contain object-center opacity-85 filter brightness-105 contrast-105 pointer-events-none"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#020519]/50 via-[#030E69]/40 to-[#02061f]/65 backdrop-blur-[1px]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#020519]/40 via-[#030E69]/30 to-[#02061f]/55 backdrop-blur-[1px]" />
       </div>
 
       {/* Container Card with Glassmorphic Frosted Styling */}

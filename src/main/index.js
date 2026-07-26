@@ -1,7 +1,8 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import fs from 'fs'
 
 function createWindow() {
   // Create the browser window.
@@ -53,6 +54,55 @@ app.whenReady().then(() => {
 
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
+
+  // Native print to PDF IPC handler
+  ipcMain.handle('print-to-pdf', async (event, { html, title, options }) => {
+    const printWindow = new BrowserWindow({
+      show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true
+      }
+    })
+
+    const tempPath = join(app.getPath('temp'), `print-${Date.now()}.html`)
+    
+    try {
+      fs.writeFileSync(tempPath, html, 'utf8')
+      await printWindow.loadURL(`file://${tempPath}`)
+      
+      // Wait for fonts and layouts to finish rendering
+      await new Promise((resolve) => setTimeout(resolve, 800))
+
+      const pdfBuffer = await printWindow.webContents.printToPDF({
+        printBackground: true,
+        pageSize: options?.pageSize || 'A4',
+        landscape: options?.landscape || false,
+        margins: options?.margins || { marginType: 'none' }
+      })
+
+      const { filePath } = await dialog.showSaveDialog({
+        title: 'Save PDF',
+        defaultPath: join(app.getPath('downloads'), `${title || 'document'}.pdf`),
+        filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
+      })
+
+      if (filePath) {
+        fs.writeFileSync(filePath, pdfBuffer)
+        return { success: true, filePath }
+      } else {
+        return { success: false, cancelled: true }
+      }
+    } catch (error) {
+      console.error('Failed to print to PDF:', error)
+      throw error
+    } finally {
+      if (fs.existsSync(tempPath)) {
+        fs.unlinkSync(tempPath)
+      }
+      printWindow.destroy()
+    }
+  })
 
   createWindow()
 

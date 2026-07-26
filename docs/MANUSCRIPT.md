@@ -891,96 +891,96 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Admin as Admin (Mrs. Faithful Anne F. Arugay)
-    participant UI as React Frontend (AdminDashboard)
-    participant FS as Cloud Firestore (donors, donations, inventory collections)
+    actor Admin as Admin / Office Coordinator
+    participant UI as React Frontend (AdminDashboard / db.js)
+    participant FS as Cloud Firestore (donors, donations, inventory)
 
-    Admin->>UI: Enter Donation Details & Items List
-    UI->>UI: Validate donation metadata & items quantity
+    Admin->>UI: Select/Create Donor & Enter Donation Details (Date, Purpose, Items)
+    UI->>UI: Validate donation metadata, item quantities, and units
     
-    Admin->>UI: Click "Save Donation"
-    UI->>FS: Write to donors/ (if new donor profile created)
-    FS-->>UI: Return Donor Document ID
-    
-    UI->>FS: Write to donations/ (donorId, date, purpose, items array)
-    FS-->>UI: Return Donation Document ID
-    
-    loop For each item in donation batch
-        UI->>UI: Check if consumable (has expiration date)
-        alt Is Consumable
-            UI->>FS: Write to inventory/ as separate batch document (name, qty, expiryDate, donationId, status="available")
-        else Is Non-Consumable
-            UI->>FS: Write to inventory/ as standard FIFO document (name, qty, expiryDate=null, donationId, status="available")
-        end
-        FS-->>UI: Return Inventory Document ID
+    alt New Donor Selected
+        UI->>FS: addDonor(donorData) -> Write to donors collection
+        FS-->>UI: Return Donor Document ID
     end
 
-    UI->>UI: Re-run FIFO and approaching expiration sorting logic
-    UI-->>Admin: Show success toast & update inventory/dashboard tables
+    Admin->>UI: Click "Save Donation"
+    UI->>FS: addDonation(donationData) -> Write to donations collection (donorId, date, purpose, items array)
+    FS-->>UI: Return Donation Document ID
+
+    loop For each item in donation batch (items array)
+        UI->>FS: Query inventory collection where name == item.name
+        FS-->>UI: Return matching inventory documents
+
+        alt Exact Batch Match Exists (Same Name & Same Expiration Date)
+            UI->>UI: Calculate new quantity (existing.quantity + item.quantity)
+            UI->>UI: computeInventoryStatus(newQty, expiryDate)
+            UI->>FS: updateDoc(inventory/{itemId}, quantity, status, lastUpdatedBy, updatedAt)
+            FS-->>UI: Acknowledge Batch Quantity Update
+        else New Item OR Different Expiration Date
+            UI->>UI: computeInventoryStatus(item.quantity, expiryDate)
+            UI->>FS: addDoc(inventory) -> Create new batch document (name, qty, expiryDate, receivedDate, donationId, status)
+            FS-->>UI: Return New Inventory Document ID
+        end
+    end
+
+    UI->>FS: getInventory() -> Fetch all inventory documents
+    FS-->>UI: Return raw inventory items array
+    UI->>UI: Execute sortInventory() algorithm (Consumables: Nearest Expiration First | Non-Consumables: FIFO Oldest Received First)
+    UI->>UI: Flag items for release recommendation & 30-day expiring-soon alerts
+    UI-->>Admin: Display success toast & update inventory tables with FIFO sequence
 ```
 
 #### 4.3.3 Scenario C: Narrative Report Life-Cycle (Create -> Submit -> Return/Approve -> PDF Export)
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Coord as Office Coordinator (Mr. Jonnel B. Manio)
-    actor Admin as Admin (Mrs. Faithful Anne F. Arugay)
-    participant UI_C as Coordinator Dashboard
-    participant UI_A as Admin Dashboard
-    participant ST as Firebase Storage
-    participant FS as Cloud Firestore (narrative_reports collection)
-    participant Local as Local OS File System
+    actor Coord as Coordinator
+    participant UI as DommUnity System
+    participant FS as Firebase Database
+    actor Admin as Admin
 
-    %% 1. Report Draft & Photo Upload
-    Coord->>UI_C: Create new report, select event, write narrative in Tiptap
-    loop Drag-and-drop photos (max 10)
-        Coord->>UI_C: Drop photo file (PNG/JPG)
-        UI_C->>ST: Upload file to /narratives/AY_XXXX-XXXX/event_uuid/photo.jpg
-        ST-->>UI_C: Return Download URL
-        UI_C->>UI_C: Append photo URL to local draft state
+    %% 1. Document Creation & Editing
+    Coord->>UI: Open "Start New Document" & select built-in template
+    UI-->>Coord: Render report template & editor
+    Coord->>UI: Create / edit narrative report & attach photos
+
+    %% 2. Optional Save as Draft
+    opt Optional: Save Draft
+        Coord->>UI: Click "Save as Draft"
+        UI->>FS: Save report draft (status="draft")
+        FS-->>UI: Confirm draft saved
     end
 
-    %% 2. Save & Submit
-    alt Save Draft
-        Coord->>UI_C: Click "Save Draft"
-        UI_C->>FS: Write to narrative_reports/ (status="draft", authorId, content, photo URLs)
-        FS-->>UI_C: Confirm draft saved
-    else Submit for Approval
-        Coord->>UI_C: Click "Submit for Approval"
-        UI_C->>FS: Write to narrative_reports/ (status="submitted", authorId, content, photo URLs)
-        FS-->>UI_C: Confirm submission (Report state set to Read-Only)
-    end
+    %% 3. Report Submission
+    Coord->>UI: Click "Submit Report"
+    UI->>FS: Save report (status="submitted")
+    FS-->>UI: Confirm report submitted
+    UI-->>Admin: Notify Admin of pending report submission
 
-    %% 3. Admin Review Queue
-    Admin->>UI_A: Open Reports Review tab
-    UI_A->>FS: Query reports where status == "submitted"
-    FS-->>UI_A: Return list of submitted reports
-    Admin->>UI_A: Click inspect report
-    UI_A->>UI_A: Display Tiptap narrative & photo carousel
+    %% 4. Admin Review & Decision
+    Admin->>UI: Open "Reports Review" & click "Inspect"
+    UI->>FS: Fetch submitted report details
+    FS-->>UI: Return report content & attachments
+    UI-->>Admin: Display narrative report for review
 
-    %% 4. Review Decisions
-    alt Decision: Return Report
-        Admin->>UI_A: Input feedback notes & click "Return"
-        UI_A->>FS: Update narrative_reports/{id} (status="returned", adminFeedback="notes")
-        FS-->>UI_A: Confirm return status
-        UI_A-->>Admin: Show success message
-        %% Coord gets updated status on dashboard refresh
-        Coord->>UI_C: Refresh Compiled Reports list
-        UI_C->>FS: Query reports
-        FS-->>UI_C: Return list (one marked "returned" with feedback)
-        UI_C->>Coord: Display report as editable with feedback notes
+    alt Decision: Return Report (Revisions Required)
+        Admin->>UI: Click "Return Report" with revision comments
+        UI->>FS: Update report status="returned" with feedback
+        FS-->>UI: Confirm status update
+        UI-->>Coord: Notify Coordinator of returned report
+        Coord->>UI: Open returned report & view revision comments
+        Coord->>UI: Edit document & click "Resubmit Report"
+        UI->>FS: Update report status="submitted"
+        FS-->>UI: Confirm resubmission
     else Decision: Approve Report
-        Admin->>UI_A: Click "Approve Report"
-        UI_A->>FS: Update narrative_reports/{id} (status="approved")
-        FS-->>UI_A: Confirm approval status
-        UI_A-->>Admin: Show success message (Report is locked from edits)
-        
-        %% 5. Export PDF
-        Admin->>UI_A: Click "Export PDF"
-        UI_A->>UI_A: Compile HTML content, fetch photos from Storage URLs
-        UI_A->>Local: Generate and save PDF file locally (CES standard layout)
-        Local-->>UI_A: Return save path confirmation
-        UI_A-->>Admin: Open saved PDF file locally
+        Admin->>UI: Click "Approve Report"
+        UI->>FS: Update report status="approved" (locked)
+        FS-->>UI: Confirm report approved
+        UI-->>Admin: Display approved report options
+        opt View / Export / Print
+            Admin->>UI: View, Download PDF, or Print document
+            UI-->>Admin: Export / Print approved document
+        end
     end
 ```
 
