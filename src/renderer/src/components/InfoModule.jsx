@@ -1,4 +1,6 @@
 import React from 'react';
+import { motion } from 'motion/react';
+import { AnimatedList, AnimatedListItem } from './motion/AnimatedList';
 import { Award, Compass, Shield, Users, Code } from 'lucide-react';
 
 export default function InfoModule() {
@@ -18,15 +20,15 @@ export default function InfoModule() {
   ];
 
   return (
-    <div className="w-full space-y-8 animate-fade-in font-poppins pb-8">
+    <AnimatedList className="w-full space-y-8 font-poppins pb-8">
       {/* Page Header */}
-      <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between">
+      <AnimatedListItem className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-navy-blue">Information Center</h1>
           <p className="text-gray-500 text-xs mt-1">Official CES Office guidelines, organizational hierarchy, and developer credits.</p>
         </div>
         <div className="h-1 bg-sig-green w-16 md:w-32 rounded-full mt-3 md:mt-0"></div>
-      </div>
+      </AnimatedListItem>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Core Mission & Vision */}
@@ -152,6 +154,6 @@ export default function InfoModule() {
           </div>
         </div>
       </div>
-    </div>
+    </AnimatedList>
   );
 }

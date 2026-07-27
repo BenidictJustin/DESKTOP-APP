@@ -1,5 +1,8 @@
 /* eslint-disable */
 import React, { useState, useEffect, useCallback } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
+import AnimatedPage from '../../components/motion/AnimatedPage'
+import { staggerContainer, staggerItem } from '../../components/motion/motionConfig'
 import { getReports, addReport, updateReport, getOrganizations, getEvents } from '../../services/db'
 import logo from '../../assets/logo.png'
 import {
@@ -404,12 +407,18 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
         {/* Main Panel Content Area */}
         <main className="flex-1 my-4 mx-4 glass-panel rounded-2xl shadow-glass-md overflow-hidden flex flex-col">
+          <AnimatedPage pageKey={activeTab} className="h-full flex flex-col">
           {/* ── DASHBOARD ── */}
           {activeTab === 'dashboard' && (
             <div className="flex-1 overflow-y-auto p-8">
               <div className="max-w-5xl mx-auto space-y-6">
                 {/* Stats row */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <motion.div
+                  className="grid grid-cols-2 md:grid-cols-5 gap-4"
+                  variants={staggerContainer}
+                  initial="initial"
+                  animate="animate"
+                >
                   {[
                     {
                       label: 'Total Reports',
@@ -442,17 +451,18 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                       bg: 'bg-red-50'
                     }
                   ].map((s) => (
-                    <div
+                    <motion.div
                       key={s.label}
+                      variants={staggerItem}
                       className={`${s.bg} rounded-xl p-4 border border-gray-200/60 shadow-sm transition-all duration-150 hover:shadow-md`}
                     >
                       <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">
                         {s.label}
                       </p>
                       <p className={`text-2xl font-bold mt-1 ${s.color}`}>{s.value}</p>
-                    </div>
+                    </motion.div>
                   ))}
-                </div>
+                </motion.div>
 
                 {/* Quick actions */}
                 <div className="flex gap-3">
@@ -679,8 +689,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
             <div className="flex-1 overflow-y-auto p-8 bg-[#F1EFEC] text-left">
               <div className="max-w-5xl mx-auto space-y-6">
                 {/* Header section */}
-                <h1 className="text-xl font-extrabold text-navy-blue tracking-tight pb-1 flex items-center gap-2">
-                  <Info className="w-6 h-6 text-sig-green" /> About DommUnity
+                <h1 className="text-xl font-extrabold text-navy-blue tracking-tight pb-1">
+                  About DommUnity
                 </h1>
 
                 {/* System & Office Info Cards */}
@@ -770,6 +780,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
               </div>
             </div>
           )}
+          </AnimatedPage>
         </main>
       </div>
 

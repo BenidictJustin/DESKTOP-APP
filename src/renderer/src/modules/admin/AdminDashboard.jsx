@@ -1,5 +1,9 @@
 /* eslint-disable */
 import React, { useState, useEffect, useRef } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
+import AnimatedModal from '../../components/motion/AnimatedModal'
+import AnimatedPage from '../../components/motion/AnimatedPage'
+import { staggerContainer, staggerItem, pageVariants, pageTransition, modalOverlayVariants, modalContentVariants, modalOverlayTransition, modalContentTransition, dropdownVariants, dropdownTransition, fadeInUp, duration, easing } from '../../components/motion/motionConfig'
 import {
   getUsers,
   registerUser,
@@ -1843,6 +1847,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
         {/* Main Panel Content Area */}
         <main ref={mainRef} className="flex-1 my-4 mx-4 p-5 overflow-y-auto glass-panel rounded-2xl shadow-glass-md">
+          <AnimatedPage pageKey={activeTab}>
           <div className="flex flex-col xl:flex-row gap-5 max-w-[1600px] mx-auto items-start w-full">
             {/* Left / Center Content Column */}
             <div className="flex-1 w-full space-y-5">
@@ -1852,7 +1857,7 @@ export default function AdminDashboard({ user, onLogout }) {
               {/* DASHBOARD TAB PANEL */}
               {/* ==================================================== */}
               {activeTab === 'dashboard' && user.role === 'admin' && (
-                <div className="space-y-4 animate-fade-in">
+                <div className="space-y-4">
                   {/* Header row */}
                   <div>
                     <h1 className="text-lg font-extrabold text-navy-blue tracking-tight">Dashboard</h1>
@@ -1860,8 +1865,13 @@ export default function AdminDashboard({ user, onLogout }) {
                   </div>
 
                   {/* Quick Stats Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3">
+                  <motion.div
+                    className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"
+                    variants={staggerContainer}
+                    initial="initial"
+                    animate="animate"
+                  >
+                    <motion.div variants={staggerItem} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3">
                       <div className="p-2.5 bg-blue-50 text-blue-500 rounded-xl shrink-0">
                         <Users className="w-4.5 h-4.5" />
                       </div>
@@ -1877,9 +1887,9 @@ export default function AdminDashboard({ user, onLogout }) {
                           }
                         </span>
                       </div>
-                    </div>
+                    </motion.div>
 
-                    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3">
+                    <motion.div variants={staggerItem} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3">
                       <div className="p-2.5 bg-amber-50 text-amber-500 rounded-xl shrink-0">
                         <Package className="w-4.5 h-4.5" />
                       </div>
@@ -1891,9 +1901,9 @@ export default function AdminDashboard({ user, onLogout }) {
                           {inventoryList.reduce((sum, item) => sum + item.quantity, 0)}
                         </span>
                       </div>
-                    </div>
+                    </motion.div>
 
-                    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3">
+                    <motion.div variants={staggerItem} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3">
                       <div className="p-2.5 bg-navy-blue/5 text-navy-blue rounded-xl shrink-0">
                         <FolderOpen className="w-4.5 h-4.5" />
                       </div>
@@ -1905,9 +1915,9 @@ export default function AdminDashboard({ user, onLogout }) {
                           {orgsList.filter((o) => o.type === 'department' || !o.type).length}
                         </span>
                       </div>
-                    </div>
+                    </motion.div>
 
-                    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3">
+                    <motion.div variants={staggerItem} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3">
                       <div className="p-2.5 bg-sig-green/10 text-sig-green rounded-xl shrink-0">
                         <Calendar className="w-4.5 h-4.5" />
                       </div>
@@ -1925,9 +1935,10 @@ export default function AdminDashboard({ user, onLogout }) {
                           }
                         </span>
                       </div>
-                    </div>
+                    </motion.div>
 
-                    <div 
+                    <motion.div 
+                      variants={staggerItem}
                       onClick={() => handleOpenCompletedModal(null)}
                       className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3 cursor-pointer hover:shadow-md hover:border-sig-green/30 transition-all duration-200"
                     >
@@ -1948,8 +1959,8 @@ export default function AdminDashboard({ user, onLogout }) {
                           }
                         </span>
                       </div>
-                    </div>
-                  </div>
+                    </motion.div>
+                  </motion.div>
 
                   {/* Pending Submitted Reports */}
                   <div className="glass-card rounded-2xl p-4 space-y-3 w-full">
@@ -2087,9 +2098,9 @@ export default function AdminDashboard({ user, onLogout }) {
               {activeTab === 'inventory' && user.role === 'admin' && (
                 <div className="space-y-6 animate-fade-in">
                   {/* Header section */}
-                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1">
                     <div>
-                      <h1 className="text-2xl font-bold text-navy-blue">Inventory Management</h1>
+                      <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">Inventory Management</h1>
                     </div>
                     <div className="flex flex-col gap-2.5 mt-4 md:mt-0 items-start md:items-end">
                       {/* Row 1 */}
@@ -3701,9 +3712,9 @@ export default function AdminDashboard({ user, onLogout }) {
               {activeTab === 'events' && user.role === 'admin' && (
                 <div className="space-y-6 animate-fade-in">
                   {/* Header section with top action bar button */}
-                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1">
                     <div>
-                      <h1 className="text-2xl font-bold text-navy-blue">Event Scheduler</h1>
+                      <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">Event Scheduler</h1>
                     </div>
                     <div className="flex space-x-2 mt-4 md:mt-0">
                       <button
@@ -4107,9 +4118,9 @@ export default function AdminDashboard({ user, onLogout }) {
               {activeTab === 'organization' && user.role === 'admin' && (
                 <div className="space-y-6 animate-fade-in">
                   {/* Organization Header Dashboard */}
-                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between justify-start gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between justify-start gap-4 pb-1">
                     <div>
-                      <h1 className="text-2xl font-bold text-navy-blue flex items-center gap-2">
+                      <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
                         Organization & Departments
                       </h1>
                     </div>
@@ -4128,634 +4139,664 @@ export default function AdminDashboard({ user, onLogout }) {
                     )}
                   </div>
 
-                  {/* Department Tab View (Card Grid Layout) */}
-                  {selectedOrgSubTab === 'department' && (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                        <h3 className="font-bold text-navy-blue text-sm">
-                          Registered Departments Directory
-                        </h3>
-                      </div>
+                  {/* Department Tab View (Card Grid Layout) & Profile Panel with Motion Transitions */}
+                  <AnimatePresence mode="wait">
+                    {selectedOrgSubTab === 'department' && (
+                      <motion.div
+                        key="department-directory"
+                        variants={pageVariants}
+                        initial="initial"
+                        animate="animate"
+                        exit="exit"
+                        transition={pageTransition}
+                        className="space-y-4"
+                      >
+                        <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                          <h3 className="font-bold text-navy-blue text-sm">
+                            Registered Departments Directory
+                          </h3>
+                        </div>
 
-                      {(() => {
-                        const filtered = orgsList.filter((o) => o.type === 'department' || !o.type)
+                        {(() => {
+                          const filtered = orgsList.filter((o) => o.type === 'department' || !o.type)
 
-                        if (filtered.length === 0) {
+                          if (filtered.length === 0) {
+                            return (
+                              <p className="text-center py-10 text-gray-400 text-xs font-semibold">
+                                No departments registered yet.
+                              </p>
+                            )
+                          }
+
                           return (
-                            <p className="text-center py-10 text-gray-400 text-xs font-semibold">
-                              No departments registered yet.
-                            </p>
-                          )
-                        }
-
-                        return (
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-center max-w-5xl mx-auto py-4">
-                            {filtered.map((org) => {
-                              return (
-                                <div
-                                  key={org.id}
-                                  onClick={() => setSelectedOrgSubTab(org.id)}
-                                  className="bg-white rounded-3xl p-8 border border-gray-200/60 shadow-xs hover:shadow-md hover:border-sig-green/45 transition duration-200 cursor-pointer flex flex-col items-center justify-center text-center group space-y-5 relative h-72"
-                                >
-                                  {/* Centered Logo */}
-                                  <div className="w-32 h-32 flex items-center justify-center overflow-hidden transition-transform duration-200 group-hover:scale-105">
-                                    {org.logo ? (
-                                      <img
-                                        src={org.logo}
-                                        alt={`${org.name} logo`}
-                                        className="w-full h-full object-contain"
-                                      />
-                                    ) : (
-                                      <div className="w-24 h-24 rounded-full bg-navy-blue/5 border border-navy-blue/10 flex items-center justify-center">
-                                        <span className="text-2xl font-bold text-navy-blue/70">
-                                          {org.abbreviation}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  {/* Name below logo */}
-                                  <div className="space-y-1">
-                                    <h4 className="text-xs font-bold text-navy-blue group-hover:text-sig-green transition-colors duration-200 line-clamp-2 leading-tight px-2">
-                                      {org.name}
-                                    </h4>
-                                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">
-                                      {org.abbreviation}
-                                    </span>
-                                  </div>
-
-                                  {/* Absolute controls to edit/delete */}
-                                  <div
-                                    className="absolute top-4 right-4 flex items-center space-x-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200"
-                                    onClick={(e) => e.stopPropagation()}
+                            <motion.div
+                              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-center max-w-5xl mx-auto py-4"
+                              variants={staggerContainer}
+                              initial="initial"
+                              animate="animate"
+                            >
+                              {filtered.map((org) => {
+                                return (
+                                  <motion.div
+                                    key={org.id}
+                                    variants={staggerItem}
+                                    whileHover={{ y: -2, scale: 1.01 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onClick={() => setSelectedOrgSubTab(org.id)}
+                                    className="bg-white rounded-3xl p-8 border border-gray-200/60 shadow-xs hover:shadow-md hover:border-sig-green/45 transition duration-200 cursor-pointer flex flex-col items-center justify-center text-center group space-y-5 relative h-72"
                                   >
-                                    <button
-                                      onClick={() => handleEditOrgClick(org)}
-                                      className="p-1.5 text-navy-blue hover:bg-navy-blue/5 rounded-lg cursor-pointer transition"
-                                      title="Edit"
+                                    {/* Centered Logo */}
+                                    <div className="w-32 h-32 flex items-center justify-center overflow-hidden transition-transform duration-200 group-hover:scale-105">
+                                      {org.logo ? (
+                                        <img
+                                          src={org.logo}
+                                          alt={`${org.name} logo`}
+                                          className="w-full h-full object-contain"
+                                        />
+                                      ) : (
+                                        <div className="w-24 h-24 rounded-full bg-navy-blue/5 border border-navy-blue/10 flex items-center justify-center">
+                                          <span className="text-2xl font-bold text-navy-blue/70">
+                                            {org.abbreviation}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* Name below logo */}
+                                    <div className="space-y-1">
+                                      <h4 className="text-xs font-bold text-navy-blue group-hover:text-sig-green transition-colors duration-200 line-clamp-2 leading-tight px-2">
+                                        {org.name}
+                                      </h4>
+                                      <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">
+                                        {org.abbreviation}
+                                      </span>
+                                    </div>
+
+                                    {/* Absolute controls to edit/delete */}
+                                    <div
+                                      className="absolute top-4 right-4 flex items-center space-x-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200"
+                                      onClick={(e) => e.stopPropagation()}
                                     >
-                                      <Edit2 className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteOrg(org.id)}
-                                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer transition"
-                                      title="Delete"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        )
-                      })()}
-                    </div>
-                  )}
+                                      <button
+                                        onClick={() => handleEditOrgClick(org)}
+                                        className="p-1.5 text-navy-blue hover:bg-navy-blue/5 rounded-lg cursor-pointer transition"
+                                        title="Edit"
+                                      >
+                                        <Edit2 className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteOrg(org.id)}
+                                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer transition"
+                                        title="Delete"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </motion.div>
+                                )
+                              })}
+                            </motion.div>
+                          )
+                        })()}
+                      </motion.div>
+                    )}
 
                   {/* Specific Organization / Department Tab Panel Content */}
                   {selectedOrgSubTab !== 'organization' &&
-                    selectedOrgSubTab !== 'department' &&
-                    (() => {
-                      const selectedOrgObj = orgsList.find((o) => o.id === selectedOrgSubTab)
-                      if (!selectedOrgObj)
-                        return <p className="text-center py-10 text-gray-400">Profile not found.</p>
+                    selectedOrgSubTab !== 'department' && (
+                      <motion.div
+                        key={selectedOrgSubTab}
+                        variants={pageVariants}
+                        initial="initial"
+                        animate="animate"
+                        exit="exit"
+                        transition={pageTransition}
+                      >
+                        {(() => {
+                          const selectedOrgObj = orgsList.find((o) => o.id === selectedOrgSubTab)
+                          if (!selectedOrgObj)
+                            return <p className="text-center py-10 text-gray-400">Profile not found.</p>
 
-                      const isDept = selectedOrgObj.type === 'department'
-                      const coord = usersList.find(
-                        (u) =>
-                          u.uid === selectedOrgObj.coordinatorId ||
-                          u.organizationId === selectedOrgObj.id
-                      )
+                          const isDept = selectedOrgObj.type === 'department'
+                          const coord = usersList.find(
+                            (u) =>
+                              u.uid === selectedOrgObj.coordinatorId ||
+                              u.organizationId === selectedOrgObj.id
+                          )
 
-                      // Filters for events
-                      const ongoingActivities = eventsList.filter((e) => {
-                        const isAssigned = e.assignedOrganizationId === selectedOrgObj.id
-                        const isUnderDept =
-                          isDept &&
-                          e.eventType === 'organization' &&
-                          e.parentDepartmentId === selectedOrgObj.id
-                        return (isAssigned || isUnderDept) && e.status === 'ongoing'
-                      })
-                      const upcomingActivities = eventsList.filter((e) => {
-                        const isAssigned = e.assignedOrganizationId === selectedOrgObj.id
-                        const isUnderDept =
-                          isDept &&
-                          e.eventType === 'organization' &&
-                          e.parentDepartmentId === selectedOrgObj.id
-                        return (
-                          (isAssigned || isUnderDept) &&
-                          (e.status === 'scheduled' || e.status === 'planned')
-                        )
-                      })
-                      const completedActivities = eventsList.filter((e) => {
-                        const isAssigned = e.assignedOrganizationId === selectedOrgObj.id
-                        const isUnderDept =
-                          isDept &&
-                          e.eventType === 'organization' &&
-                          e.parentDepartmentId === selectedOrgObj.id
-                        return (isAssigned || isUnderDept) && e.status === 'completed'
-                      })
+                          // Filters for events
+                          const ongoingActivities = eventsList.filter((e) => {
+                            const isAssigned = e.assignedOrganizationId === selectedOrgObj.id
+                            const isUnderDept =
+                              isDept &&
+                              e.eventType === 'organization' &&
+                              e.parentDepartmentId === selectedOrgObj.id
+                            return (isAssigned || isUnderDept) && e.status === 'ongoing'
+                          })
+                          const upcomingActivities = eventsList.filter((e) => {
+                            const isAssigned = e.assignedOrganizationId === selectedOrgObj.id
+                            const isUnderDept =
+                              isDept &&
+                              e.eventType === 'organization' &&
+                              e.parentDepartmentId === selectedOrgObj.id
+                            return (
+                              (isAssigned || isUnderDept) &&
+                              (e.status === 'scheduled' || e.status === 'planned')
+                            )
+                          })
+                          const completedActivities = eventsList.filter((e) => {
+                            const isAssigned = e.assignedOrganizationId === selectedOrgObj.id
+                            const isUnderDept =
+                              isDept &&
+                              e.eventType === 'organization' &&
+                              e.parentDepartmentId === selectedOrgObj.id
+                            return (isAssigned || isUnderDept) && e.status === 'completed'
+                          })
 
-                      return (
-                        <div className="space-y-6">
-                          {/* Profile Details Card (Full Width) */}
-                          <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col space-y-4 w-full relative overflow-hidden">
-                            {isDept && selectedOrgObj.logo && (
-                              <div className="absolute right-[-10px] bottom-[-26px] w-[500px] h-[270px] opacity-50 pointer-events-none select-none z-0 overflow-hidden">
-                                <img
-                                  src={selectedOrgObj.logo}
-                                  alt=""
-                                  className="w-full h-[500px] object-contain object-top"
-                                />
-                              </div>
-                            )}
-
-                            <div className="pb-3 flex items-center justify-between flex-wrap gap-2 relative z-10">
-                              <h3 className="font-bold text-navy-blue text-sm flex items-center gap-2">
-                                {isDept ? (
-                                  <Users className="w-4 h-4 text-sig-green" />
-                                ) : (
-                                  <Sparkles className="w-4 h-4 text-sig-green" />
-                                )}
-                                {isDept
-                                  ? 'Department Profile Details'
-                                  : 'Organization Profile Details'}
-                              </h3>
-                              <div className="flex space-x-2">
-                                <button
-                                  onClick={() =>
-                                    setSelectedOrgSubTab(isDept ? 'department' : 'organization')
-                                  }
-                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-navy-blue text-white hover:opacity-90 text-xs font-semibold rounded-xl transition cursor-pointer"
-                                >
-                                  Return to {isDept ? 'Department' : 'Organization'} Directory
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    handleEditOrgClick(selectedOrgObj)
-                                  }}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-navy-blue/5 hover:bg-navy-blue/10 text-navy-blue text-xs font-semibold rounded-xl transition cursor-pointer"
-                                >
-                                  <Edit2 className="w-3.5 h-3.5" /> Edit Profile
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteOrg(selectedOrgObj.id)}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 text-xs font-semibold rounded-xl transition cursor-pointer"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" /> Delete{' '}
-                                  {isDept ? 'Department' : 'Organization'}
-                                </button>
-                              </div>
-                            </div>
-                            <div className="border-b border-gray-100 w-[60%] relative z-10" />
-
-                            <div className="flex flex-col md:flex-row gap-6 items-start md:items-center relative z-10">
-                              {isDept && (
-                                <div className="w-24 h-24 rounded-3xl border border-gray-100 bg-gray-50 flex items-center justify-center overflow-hidden shadow-inner shrink-0">
-                                  {selectedOrgObj.logo ? (
+                          return (
+                            <div className="space-y-6">
+                              {/* Profile Details Card (Full Width) */}
+                              <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col space-y-4 w-full relative overflow-hidden">
+                                {isDept && selectedOrgObj.logo && (
+                                  <div className="absolute right-[-10px] bottom-[-26px] w-[500px] h-[270px] opacity-50 pointer-events-none select-none z-0 overflow-hidden">
                                     <img
                                       src={selectedOrgObj.logo}
-                                      alt={`${selectedOrgObj.name} logo`}
-                                      className="w-full h-full object-cover"
+                                      alt=""
+                                      className="w-full h-[500px] object-contain object-top"
                                     />
-                                  ) : (
-                                    <span className="text-2xl font-bold text-navy-blue/70">
-                                      {selectedOrgObj.abbreviation}
-                                    </span>
+                                  </div>
+                                )}
+
+                                <div className="pb-3 flex items-center justify-between flex-wrap gap-2 relative z-10">
+                                  <h3 className="font-bold text-navy-blue text-sm flex items-center gap-2">
+                                    {isDept ? (
+                                      <Users className="w-4 h-4 text-sig-green" />
+                                    ) : (
+                                      <Sparkles className="w-4 h-4 text-sig-green" />
+                                    )}
+                                    {isDept
+                                      ? 'Department Profile Details'
+                                      : 'Organization Profile Details'}
+                                  </h3>
+                                  <div className="flex space-x-2">
+                                    <button
+                                      onClick={() =>
+                                        setSelectedOrgSubTab(isDept ? 'department' : 'organization')
+                                      }
+                                      className="flex items-center gap-1.5 px-3 py-1.5 bg-navy-blue text-white hover:opacity-90 text-xs font-semibold rounded-xl transition cursor-pointer"
+                                    >
+                                      Return to {isDept ? 'Department' : 'Organization'} Directory
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        handleEditOrgClick(selectedOrgObj)
+                                      }}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 bg-navy-blue/5 hover:bg-navy-blue/10 text-navy-blue text-xs font-semibold rounded-xl transition cursor-pointer"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" /> Edit Profile
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteOrg(selectedOrgObj.id)}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 text-xs font-semibold rounded-xl transition cursor-pointer"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" /> Delete{' '}
+                                      {isDept ? 'Department' : 'Organization'}
+                                    </button>
+                                  </div>
+                                </div>
+                                <div className="border-b border-gray-100 w-[60%] relative z-10" />
+
+                                <div className="flex flex-col md:flex-row gap-6 items-start md:items-center relative z-10">
+                                  {isDept && (
+                                    <div className="w-24 h-24 rounded-3xl border border-gray-100 bg-gray-50 flex items-center justify-center overflow-hidden shadow-inner shrink-0">
+                                      {selectedOrgObj.logo ? (
+                                        <img
+                                          src={selectedOrgObj.logo}
+                                          alt={`${selectedOrgObj.name} logo`}
+                                          className="w-full h-full object-cover"
+                                        />
+                                      ) : (
+                                        <span className="text-2xl font-bold text-navy-blue/70">
+                                          {selectedOrgObj.abbreviation}
+                                        </span>
+                                      )}
+                                    </div>
                                   )}
+                                  <div className="flex flex-wrap gap-x-16 gap-y-4 flex-1">
+                                    <div>
+                                      <p className="text-[10px] uppercase font-bold text-gray-400">
+                                        {isDept ? 'Department Name' : 'Organization Name'}
+                                      </p>
+                                      <p className="text-sm font-semibold text-navy-blue mt-0.5">
+                                        {selectedOrgObj.name}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-[10px] uppercase font-bold text-gray-400">
+                                        Abbreviation
+                                      </p>
+                                      <p className="text-sm font-semibold text-navy-blue mt-0.5">
+                                        {selectedOrgObj.abbreviation}
+                                      </p>
+                                    </div>
+                                  </div>
                                 </div>
-                              )}
-                              <div className="flex flex-wrap gap-x-16 gap-y-4 flex-1">
-                                <div>
-                                  <p className="text-[10px] uppercase font-bold text-gray-400">
-                                    {isDept ? 'Department Name' : 'Organization Name'}
-                                  </p>
-                                  <p className="text-sm font-semibold text-navy-blue mt-0.5">
-                                    {selectedOrgObj.name}
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-[10px] uppercase font-bold text-gray-400">
-                                    Abbreviation
-                                  </p>
-                                  <p className="text-sm font-semibold text-navy-blue mt-0.5">
-                                    {selectedOrgObj.abbreviation}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
 
-                            <div className="w-[45%] border-t border-gray-300 relative z-10" />
-                            <div className="pt-2 relative z-10">
-                              <p className="text-[10px] uppercase font-bold text-gray-400">
-                                Description
-                              </p>
-                              <p className="text-xs text-gray-600 mt-1 leading-relaxed font-medium max-w-sm wrap-break-word whitespace-pre-wrap">
-                                {selectedOrgObj.description || 'No description provided.'}
-                              </p>
-                            </div>
-
-                            {isDept && (
-                              <>
                                 <div className="w-[45%] border-t border-gray-300 relative z-10" />
                                 <div className="pt-2 relative z-10">
                                   <p className="text-[10px] uppercase font-bold text-gray-400">
-                                    Organizations under this Department
+                                    Description
                                   </p>
-                                  {(() => {
-                                    const orgsUnderDept = [
-                                      ...new Set(
-                                        eventsList
-                                          .filter(
-                                            (evt) =>
-                                              evt.eventType === 'organization' &&
-                                              evt.parentDepartmentId === selectedOrgObj.id
+                                  <p className="text-xs text-gray-600 mt-1 leading-relaxed font-medium max-w-sm wrap-break-word whitespace-pre-wrap">
+                                    {selectedOrgObj.description || 'No description provided.'}
+                                  </p>
+                                </div>
+
+                                {isDept && (
+                                  <>
+                                    <div className="w-[45%] border-t border-gray-300 relative z-10" />
+                                    <div className="pt-2 relative z-10">
+                                      <p className="text-[10px] uppercase font-bold text-gray-400">
+                                        Organizations under this Department
+                                      </p>
+                                      {(() => {
+                                        const orgsUnderDept = [
+                                          ...new Set(
+                                            eventsList
+                                              .filter(
+                                                (evt) =>
+                                                  evt.eventType === 'organization' &&
+                                                  evt.parentDepartmentId === selectedOrgObj.id
+                                              )
+                                              .map((evt) => evt.organizationName)
+                                              .filter(Boolean)
                                           )
-                                          .map((evt) => evt.organizationName)
-                                          .filter(Boolean)
-                                      )
-                                    ]
-                                    if (orgsUnderDept.length === 0) {
-                                      return (
-                                        <p className="text-xs text-gray-400 mt-1">
-                                          No organizations recorded under this department.
-                                        </p>
-                                      )
-                                    }
-                                    return (
-                                      <div className="flex flex-wrap gap-2 mt-1.5">
-                                        {orgsUnderDept.map((orgName, idx) => (
-                                          <span
-                                            key={idx}
-                                            className="bg-sig-green/10 text-navy-blue text-xs font-semibold px-2.5 py-1 rounded-full"
-                                          >
-                                            {orgName}
-                                          </span>
-                                        ))}
-                                      </div>
-                                    )
-                                  })()}
-                                </div>
-                              </>
-                            )}
-                          </div>
-
-                          {/* Activities & Statistics (Same Row Grid) */}
-                          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            {/* Ongoing Activities */}
-                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
-                              <h4 className="font-bold text-navy-blue text-xs border-b border-gray-100 pb-2 flex items-center justify-between">
-                                <span>Ongoing Activities</span>
-                                <span className="bg-amber-100 text-amber-800 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase">
-                                  {ongoingActivities.length} Active
-                                </span>
-                              </h4>
-                              {ongoingActivities.length === 0 ? (
-                                <p className="text-center py-6 text-gray-400 text-xs font-medium">
-                                  No ongoing activities.
-                                </p>
-                              ) : (
-                                <div className="space-y-3">
-                                  {ongoingActivities.map((act) => {
-                                    const orgLabel =
-                                      act.eventType === 'organization'
-                                        ? act.organizationName
-                                        : orgsList.find((o) => o.id === act.assignedOrganizationId)
-                                          ?.abbreviation || 'CES'
-                                    return (
-                                      <div
-                                        key={act.id}
-                                        className="p-3 bg-gray-50/50 border border-gray-100 rounded-2xl flex justify-between items-center gap-2"
-                                      >
-                                        <div className="min-w-0 flex-1 pr-1 text-left">
-                                          <p className="text-xs font-bold text-navy-blue truncate">
-                                            {act.title || act.name}
-                                          </p>
-                                          <p className="text-[10px] text-gray-400 font-medium truncate">
-                                            {act.date ||
-                                              (act.scheduleDate
-                                                ? new Date(act.scheduleDate).toLocaleDateString()
-                                                : '')}{' '}
-                                            • {act.location}
-                                          </p>
-                                        </div>
-                                        <span className="bg-navy-blue/5 text-navy-blue text-[8px] font-bold px-2 py-1 rounded shrink-0">
-                                          {orgLabel}
-                                        </span>
-                                      </div>
-                                    )
-                                  })}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Upcoming Activities */}
-                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
-                              <h4 className="font-bold text-navy-blue text-xs border-b border-gray-100 pb-2 flex items-center justify-between">
-                                <span>Upcoming Activities</span>
-                                <span className="bg-blue-100 text-blue-800 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase">
-                                  {upcomingActivities.length} Scheduled
-                                </span>
-                              </h4>
-                              {upcomingActivities.length === 0 ? (
-                                <p className="text-center py-6 text-gray-400 text-xs font-medium">
-                                  No upcoming activities.
-                                </p>
-                              ) : (
-                                <div className="space-y-3">
-                                  {upcomingActivities.map((act) => {
-                                    const orgLabel =
-                                      act.eventType === 'organization'
-                                        ? act.organizationName
-                                        : orgsList.find((o) => o.id === act.assignedOrganizationId)
-                                          ?.abbreviation || 'CES'
-                                    return (
-                                      <div
-                                        key={act.id}
-                                        className="p-3 bg-gray-50/50 border border-gray-100 rounded-2xl flex justify-between items-center gap-2"
-                                      >
-                                        <div className="min-w-0 flex-1 pr-1 text-left">
-                                          <p className="text-xs font-bold text-navy-blue truncate">
-                                            {act.title || act.name}
-                                          </p>
-                                          <p className="text-[10px] text-gray-400 font-medium truncate">
-                                            {act.date ||
-                                              (act.scheduleDate
-                                                ? new Date(act.scheduleDate).toLocaleDateString()
-                                                : '')}{' '}
-                                            • {act.location}
-                                          </p>
-                                        </div>
-                                        <span className="bg-navy-blue/5 text-navy-blue text-[8px] font-bold px-2 py-1 rounded shrink-0">
-                                          {orgLabel}
-                                        </span>
-                                      </div>
-                                    )
-                                  })}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Outreach Statistics */}
-                            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
-                              <h4 className="font-bold text-navy-blue text-xs border-b border-gray-100 pb-2 text-left">
-                                Outreach Statistics
-                              </h4>
-                              <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-navy-blue/5 p-3 rounded-2xl flex flex-col justify-between h-20 text-left">
-                                  <span className="text-[9px] font-bold text-navy-blue uppercase">
-                                    Total Scheduled
-                                  </span>
-                                  <span className="text-xl font-bold text-navy-blue">
-                                    {upcomingActivities.length + ongoingActivities.length}
-                                  </span>
-                                </div>
-                                <div 
-                                  onClick={() => handleOpenCompletedModal(selectedOrgObj)}
-                                  className="bg-sig-green/10 p-3 rounded-2xl flex flex-col justify-between h-20 text-left cursor-pointer hover:bg-sig-green/20 hover:shadow-xs transition duration-200"
-                                >
-                                  <span className="text-[9px] font-bold text-navy-blue uppercase">
-                                    Completed Activities
-                                  </span>
-                                  <span className="text-xl font-bold text-navy-blue">
-                                    {completedActivities.length}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })()}
-
-                  {/* ADD / EDIT ORGANIZATION MODAL */}
-                  {isAddOrgModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
-                      <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto">
-                        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                          <h3 className="font-bold text-navy-blue text-base">
-                            {editingOrg
-                              ? 'Update Organization Profile'
-                              : 'Register New Organization'}
-                          </h3>
-                          <button
-                            onClick={handleCancelOrgEdit}
-                            className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 cursor-pointer"
-                          >
-                            <X className="w-5 h-5" />
-                          </button>
-                        </div>
-                        <form onSubmit={handleCreateOrg} className="space-y-4">
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Organization Name
-                            </label>
-                            <input
-                              type="text"
-                              value={orgName}
-                              onChange={(e) => {
-                                setOrgName(e.target.value)
-                                clearFieldValError('orgName')
-                              }}
-                              placeholder="Supreme Student Council"
-                              className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('orgName') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                              style={{ height: '40px' }}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Abbreviation
-                            </label>
-                            <input
-                              type="text"
-                              value={orgAbbr}
-                              onChange={(e) => {
-                                setOrgAbbr(e.target.value)
-                                clearFieldValError('orgAbbr')
-                              }}
-                              placeholder="SSC"
-                              className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('orgAbbr') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                              style={{ height: '40px' }}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Description
-                            </label>
-                            <textarea
-                              value={orgDesc}
-                              onChange={(e) => setOrgDesc(e.target.value)}
-                              placeholder="Student leadership and outreach programs"
-                              className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-medium text-navy-blue h-20 resize-none"
-                            />
-                          </div>
-
-                          <div className="flex items-center space-x-2 pt-2 border-t border-gray-100">
-                            <button
-                              type="button"
-                              onClick={handleCancelOrgEdit}
-                              className="flex-1 bg-gray-100 hover:bg-red-500 hover:text-white text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition cursor-pointer text-center"
-                              style={{ height: '40px' }}
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              type="submit"
-                              disabled={loading}
-                              className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer flex items-center justify-center gap-1.5"
-                              style={{ height: '40px' }}
-                            >
-                              {editingOrg ? (
-                                <Check className="w-3.5 h-3.5" />
-                              ) : (
-                                <Plus className="w-3.5 h-3.5" />
-                              )}
-                              {editingOrg ? 'Save Changes' : 'Save Organization'}
-                            </button>
-                          </div>
-                        </form>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ADD / EDIT DEPARTMENT MODAL */}
-                  {isAddDeptModalOpen && (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
-                      <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto">
-                        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                          <h3 className="font-bold text-navy-blue text-base">
-                            {editingOrg ? 'Update Department Profile' : 'Register New Department'}
-                          </h3>
-                          <button
-                            onClick={handleCancelOrgEdit}
-                            className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 cursor-pointer"
-                          >
-                            <X className="w-5 h-5" />
-                          </button>
-                        </div>
-                        <form onSubmit={handleCreateOrg} className="space-y-4">
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Department Name
-                            </label>
-                            <input
-                              type="text"
-                              value={orgName}
-                              onChange={(e) => {
-                                setOrgName(e.target.value)
-                                clearFieldValError('orgName')
-                              }}
-                              placeholder="College of Business Administration"
-                              className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('orgName') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                              style={{ height: '40px' }}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Abbreviation
-                            </label>
-                            <input
-                              type="text"
-                              value={orgAbbr}
-                              onChange={(e) => {
-                                setOrgAbbr(e.target.value)
-                                clearFieldValError('orgAbbr')
-                              }}
-                              placeholder="CBA"
-                              className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('orgAbbr') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                              style={{ height: '40px' }}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Description
-                            </label>
-                            <textarea
-                              value={orgDesc}
-                              onChange={(e) => setOrgDesc(e.target.value)}
-                              placeholder="IT Literacy Extension services"
-                              className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-medium text-navy-blue h-20 resize-none"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Department Logo
-                            </label>
-                            <div className="flex items-center space-x-4">
-                              <div className="w-16 h-16 rounded-2xl border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
-                                {deptLogo ? (
-                                  <img
-                                    src={deptLogo}
-                                    alt="Logo preview"
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  <Users className="w-8 h-8 text-gray-400" />
+                                        ]
+                                        if (orgsUnderDept.length === 0) {
+                                          return (
+                                            <p className="text-xs text-gray-400 mt-1">
+                                              No organizations recorded under this department.
+                                            </p>
+                                          )
+                                        }
+                                        return (
+                                          <div className="flex flex-wrap gap-2 mt-1.5">
+                                            {orgsUnderDept.map((orgName, idx) => (
+                                              <span
+                                                key={idx}
+                                                className="bg-sig-green/10 text-navy-blue text-xs font-semibold px-2.5 py-1 rounded-full"
+                                              >
+                                                {orgName}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )
+                                      })()}
+                                    </div>
+                                  </>
                                 )}
                               </div>
-                              <label
-                                htmlFor="dept-logo-upload"
-                                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-navy-blue text-xs font-bold rounded-xl transition cursor-pointer"
-                              >
-                                Upload Logo
-                              </label>
-                              <input
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => {
-                                  const file = e.target.files[0]
-                                  if (file) {
-                                    const reader = new FileReader()
-                                    reader.onloadend = () => {
-                                      setDeptLogo(reader.result)
-                                    }
-                                    reader.readAsDataURL(file)
-                                  }
-                                }}
-                                className="hidden"
-                                id="dept-logo-upload"
-                              />
-                              {deptLogo && (
-                                <button
-                                  type="button"
-                                  onClick={() => setDeptLogo('')}
-                                  className="text-red-500 text-xs font-bold cursor-pointer"
-                                >
-                                  Remove
-                                </button>
-                              )}
-                            </div>
-                          </div>
 
-                          <div className="flex items-center space-x-2 pt-2 border-t border-gray-100">
+                              {/* Activities & Statistics (Same Row Grid) */}
+                              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                {/* Ongoing Activities */}
+                                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
+                                  <h4 className="font-bold text-navy-blue text-xs border-b border-gray-100 pb-2 flex items-center justify-between">
+                                    <span>Ongoing Activities</span>
+                                    <span className="bg-amber-100 text-amber-800 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase">
+                                      {ongoingActivities.length} Active
+                                    </span>
+                                  </h4>
+                                  {ongoingActivities.length === 0 ? (
+                                    <p className="text-center py-6 text-gray-400 text-xs font-medium">
+                                      No ongoing activities.
+                                    </p>
+                                  ) : (
+                                    <div className="space-y-3">
+                                      {ongoingActivities.map((act) => {
+                                        const orgLabel =
+                                          act.eventType === 'organization'
+                                            ? act.organizationName
+                                            : orgsList.find((o) => o.id === act.assignedOrganizationId)
+                                              ?.abbreviation || 'CES'
+                                        return (
+                                          <div
+                                            key={act.id}
+                                            className="p-3 bg-gray-50/50 border border-gray-100 rounded-2xl flex justify-between items-center gap-2"
+                                          >
+                                            <div className="min-w-0 flex-1 pr-1 text-left">
+                                              <p className="text-xs font-bold text-navy-blue truncate">
+                                                {act.title || act.name}
+                                              </p>
+                                              <p className="text-[10px] text-gray-400 font-medium truncate">
+                                                {act.date ||
+                                                  (act.scheduleDate
+                                                    ? new Date(act.scheduleDate).toLocaleDateString()
+                                                    : '')}{' '}
+                                                • {act.location}
+                                              </p>
+                                            </div>
+                                            <span className="bg-navy-blue/5 text-navy-blue text-[8px] font-bold px-2 py-1 rounded shrink-0">
+                                              {orgLabel}
+                                            </span>
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Upcoming Activities */}
+                                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
+                                  <h4 className="font-bold text-navy-blue text-xs border-b border-gray-100 pb-2 flex items-center justify-between">
+                                    <span>Upcoming Activities</span>
+                                    <span className="bg-blue-100 text-blue-800 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase">
+                                      {upcomingActivities.length} Scheduled
+                                    </span>
+                                  </h4>
+                                  {upcomingActivities.length === 0 ? (
+                                    <p className="text-center py-6 text-gray-400 text-xs font-medium">
+                                      No upcoming activities.
+                                    </p>
+                                  ) : (
+                                    <div className="space-y-3">
+                                      {upcomingActivities.map((act) => {
+                                        const orgLabel =
+                                          act.eventType === 'organization'
+                                            ? act.organizationName
+                                            : orgsList.find((o) => o.id === act.assignedOrganizationId)
+                                              ?.abbreviation || 'CES'
+                                        return (
+                                          <div
+                                            key={act.id}
+                                            className="p-3 bg-gray-50/50 border border-gray-100 rounded-2xl flex justify-between items-center gap-2"
+                                          >
+                                            <div className="min-w-0 flex-1 pr-1 text-left">
+                                              <p className="text-xs font-bold text-navy-blue truncate">
+                                                {act.title || act.name}
+                                              </p>
+                                              <p className="text-[10px] text-gray-400 font-medium truncate">
+                                                {act.date ||
+                                                  (act.scheduleDate
+                                                    ? new Date(act.scheduleDate).toLocaleDateString()
+                                                    : '')}{' '}
+                                                • {act.location}
+                                              </p>
+                                            </div>
+                                            <span className="bg-navy-blue/5 text-navy-blue text-[8px] font-bold px-2 py-1 rounded shrink-0">
+                                              {orgLabel}
+                                            </span>
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Outreach Statistics */}
+                                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
+                                  <h4 className="font-bold text-navy-blue text-xs border-b border-gray-100 pb-2 text-left">
+                                    Outreach Statistics
+                                  </h4>
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-navy-blue/5 p-3 rounded-2xl flex flex-col justify-between h-20 text-left">
+                                      <span className="text-[9px] font-bold text-navy-blue uppercase">
+                                        Total Scheduled
+                                      </span>
+                                      <span className="text-xl font-bold text-navy-blue">
+                                        {upcomingActivities.length + ongoingActivities.length}
+                                      </span>
+                                    </div>
+                                    <div 
+                                      onClick={() => handleOpenCompletedModal(selectedOrgObj)}
+                                      className="bg-sig-green/10 p-3 rounded-2xl flex flex-col justify-between h-20 text-left cursor-pointer hover:bg-sig-green/20 hover:shadow-xs transition duration-200"
+                                    >
+                                      <span className="text-[9px] font-bold text-navy-blue uppercase">
+                                        Completed Activities
+                                      </span>
+                                      <span className="text-xl font-bold text-navy-blue">
+                                        {completedActivities.length}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })()}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* ADD / EDIT ORGANIZATION MODAL */}
+                  <AnimatedModal
+                    isOpen={isAddOrgModalOpen}
+                    onClose={handleCancelOrgEdit}
+                    overlayClassName="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay"
+                    contentClassName="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto"
+                  >
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                      <h3 className="font-bold text-navy-blue text-base">
+                        {editingOrg
+                          ? 'Update Organization Profile'
+                          : 'Register New Organization'}
+                      </h3>
+                      <button
+                        onClick={handleCancelOrgEdit}
+                        className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 cursor-pointer"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <form onSubmit={handleCreateOrg} className="space-y-4">
+                      <div>
+                        <label className="block text-gray-700 text-xs font-semibold mb-1">
+                          Organization Name
+                        </label>
+                        <input
+                          type="text"
+                          value={orgName}
+                          onChange={(e) => {
+                            setOrgName(e.target.value)
+                            clearFieldValError('orgName')
+                          }}
+                          placeholder="Supreme Student Council"
+                          className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('orgName') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                          style={{ height: '40px' }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-700 text-xs font-semibold mb-1">
+                          Abbreviation
+                        </label>
+                        <input
+                          type="text"
+                          value={orgAbbr}
+                          onChange={(e) => {
+                            setOrgAbbr(e.target.value)
+                            clearFieldValError('orgAbbr')
+                          }}
+                          placeholder="SSC"
+                          className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('orgAbbr') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                          style={{ height: '40px' }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-700 text-xs font-semibold mb-1">
+                          Description
+                        </label>
+                        <textarea
+                          value={orgDesc}
+                          onChange={(e) => setOrgDesc(e.target.value)}
+                          placeholder="Student leadership and outreach programs"
+                          className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-medium text-navy-blue h-20 resize-none"
+                        />
+                      </div>
+
+                      <div className="flex items-center space-x-2 pt-2 border-t border-gray-100">
+                        <button
+                          type="button"
+                          onClick={handleCancelOrgEdit}
+                          className="flex-1 bg-gray-100 hover:bg-red-500 hover:text-white text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition cursor-pointer text-center"
+                          style={{ height: '40px' }}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={loading}
+                          className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer flex items-center justify-center gap-1.5"
+                          style={{ height: '40px' }}
+                        >
+                          {editingOrg ? (
+                            <Check className="w-3.5 h-3.5" />
+                          ) : (
+                            <Plus className="w-3.5 h-3.5" />
+                          )}
+                          {editingOrg ? 'Save Changes' : 'Save Organization'}
+                        </button>
+                      </div>
+                    </form>
+                  </AnimatedModal>
+
+                  {/* ADD / EDIT DEPARTMENT MODAL */}
+                  <AnimatedModal
+                    isOpen={isAddDeptModalOpen}
+                    onClose={handleCancelOrgEdit}
+                    overlayClassName="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay"
+                    contentClassName="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto"
+                  >
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                      <h3 className="font-bold text-navy-blue text-base">
+                        {editingOrg ? 'Update Department Profile' : 'Register New Department'}
+                      </h3>
+                      <button
+                        onClick={handleCancelOrgEdit}
+                        className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 cursor-pointer"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <form onSubmit={handleCreateOrg} className="space-y-4">
+                      <div>
+                        <label className="block text-gray-700 text-xs font-semibold mb-1">
+                          Department Name
+                        </label>
+                        <input
+                          type="text"
+                          value={orgName}
+                          onChange={(e) => {
+                            setOrgName(e.target.value)
+                            clearFieldValError('orgName')
+                          }}
+                          placeholder="College of Business Administration"
+                          className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('orgName') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                          style={{ height: '40px' }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-700 text-xs font-semibold mb-1">
+                          Abbreviation
+                        </label>
+                        <input
+                          type="text"
+                          value={orgAbbr}
+                          onChange={(e) => {
+                            setOrgAbbr(e.target.value)
+                            clearFieldValError('orgAbbr')
+                          }}
+                          placeholder="CBA"
+                          className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('orgAbbr') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                          style={{ height: '40px' }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-700 text-xs font-semibold mb-1">
+                          Description
+                        </label>
+                        <textarea
+                          value={orgDesc}
+                          onChange={(e) => setOrgDesc(e.target.value)}
+                          placeholder="IT Literacy Extension services"
+                          className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-medium text-navy-blue h-20 resize-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-gray-700 text-xs font-semibold mb-1">
+                          Department Logo
+                        </label>
+                        <div className="flex items-center space-x-4">
+                          <div className="w-16 h-16 rounded-2xl border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
+                            {deptLogo ? (
+                              <img
+                                src={deptLogo}
+                                alt="Logo preview"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <Users className="w-8 h-8 text-gray-400" />
+                            )}
+                          </div>
+                          <label
+                            htmlFor="dept-logo-upload"
+                            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-navy-blue text-xs font-bold rounded-xl transition cursor-pointer"
+                          >
+                            Upload Logo
+                          </label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files[0]
+                              if (file) {
+                                const reader = new FileReader()
+                                reader.onloadend = () => {
+                                  setDeptLogo(reader.result)
+                                }
+                                reader.readAsDataURL(file)
+                              }
+                            }}
+                            className="hidden"
+                            id="dept-logo-upload"
+                          />
+                          {deptLogo && (
                             <button
                               type="button"
-                              onClick={handleCancelOrgEdit}
-                              className="flex-1 bg-gray-100 hover:bg-red-500 hover:text-white text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition cursor-pointer text-center"
-                              style={{ height: '40px' }}
+                              onClick={() => setDeptLogo('')}
+                              className="text-red-500 text-xs font-bold cursor-pointer"
                             >
-                              Cancel
+                              Remove
                             </button>
-                            <button
-                              type="submit"
-                              disabled={loading}
-                              className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer flex items-center justify-center gap-1.5"
-                              style={{ height: '40px' }}
-                            >
-                              {editingOrg ? (
-                                <Check className="w-3.5 h-3.5" />
-                              ) : (
-                                <Plus className="w-3.5 h-3.5" />
-                              )}
-                              {editingOrg ? 'Save Changes' : 'Save Department'}
-                            </button>
-                          </div>
-                        </form>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
+
+                      <div className="flex items-center space-x-2 pt-2 border-t border-gray-100">
+                        <button
+                          type="button"
+                          onClick={handleCancelOrgEdit}
+                          className="flex-1 bg-gray-100 hover:bg-red-500 hover:text-white text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition cursor-pointer text-center"
+                          style={{ height: '40px' }}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={loading}
+                          className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer flex items-center justify-center gap-1.5"
+                          style={{ height: '40px' }}
+                        >
+                          {editingOrg ? (
+                            <Check className="w-3.5 h-3.5" />
+                          ) : (
+                            <Plus className="w-3.5 h-3.5" />
+                          )}
+                          {editingOrg ? 'Save Changes' : 'Save Department'}
+                        </button>
+                      </div>
+                    </form>
+                  </AnimatedModal>
                 </div>
               )}
 
@@ -4764,8 +4805,8 @@ export default function AdminDashboard({ user, onLogout }) {
               {/* ==================================================== */}
               {activeTab === 'reports' && user.role === 'admin' && (
                 <div className="space-y-6 animate-fade-in">
-                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-                    <h1 className="text-2xl font-bold text-navy-blue">Narrative Reports Queue</h1>
+                  <div className="pb-1">
+                    <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">Narrative Reports Queue</h1>
                   </div>
 
                   {/* List panel */}
@@ -4872,7 +4913,7 @@ export default function AdminDashboard({ user, onLogout }) {
               {activeTab === 'accounts' && user.role === 'admin' && (
                 <div className="space-y-6 animate-fade-in w-full">
                   {/* Header section */}
-                  <div className="glass-card rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1">
                     <div>
                       <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">User Account Management</h1>
                       <p className="text-xs text-gray-500 font-medium mt-0.5">Manage system access, roles, and coordinator accounts.</p>
@@ -5040,12 +5081,10 @@ export default function AdminDashboard({ user, onLogout }) {
               {activeTab === 'about' && (
                 <div className="space-y-6 animate-fade-in w-full text-left">
                   {/* Header section */}
-                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between">
-                    <div>
-                      <h1 className="text-2xl font-bold text-navy-blue flex items-center gap-2">
-                        About DommUnity
-                      </h1>
-                    </div>
+                  <div className="pb-1">
+                    <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
+                      About DommUnity
+                    </h1>
                   </div>
 
                   {/* System & Office Info Cards */}
@@ -5136,6 +5175,7 @@ export default function AdminDashboard({ user, onLogout }) {
               )}
             </div>
           </div>
+          </AnimatedPage>
         </main>
 
         {/* ==================================================== */}
@@ -6408,46 +6448,48 @@ export default function AdminDashboard({ user, onLogout }) {
       )}
 
       {/* Global Centered Pop-up Warning/Confirm/Success Dialogs */}
-      {(actionError || validationError) && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-navy-blue/40 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl p-6 shadow-2xl border border-gray-100 max-w-sm w-full text-center space-y-4">
-            <div>
-              <h4 className="font-bold text-navy-blue text-sm uppercase tracking-wide">
-                {validationError ? validationError.title : 'Action Warning'}
-              </h4>
-              <p className="text-xs text-gray-500 font-semibold mt-2 leading-relaxed">
-                {validationError ? validationError.message : actionError}
-              </p>
-            </div>
-            <button
-              ref={errorOkButtonRef}
-              autoFocus
-              type="button"
-              onClick={() => {
-                setActionError('')
-                setValidationError(null)
-              }}
-              className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer"
-            >
-              OK
-            </button>
-          </div>
+      <AnimatedModal
+        isOpen={!!(actionError || validationError)}
+        overlayClassName="fixed inset-0 z-[99999] flex items-center justify-center bg-navy-blue/40 backdrop-blur-sm p-4"
+        contentClassName="bg-white rounded-3xl p-6 shadow-2xl border border-gray-100 max-w-sm w-full text-center space-y-4"
+      >
+        <div>
+          <h4 className="font-bold text-navy-blue text-sm uppercase tracking-wide">
+            {validationError ? validationError.title : 'Action Warning'}
+          </h4>
+          <p className="text-xs text-gray-500 font-semibold mt-2 leading-relaxed">
+            {validationError ? validationError.message : actionError}
+          </p>
         </div>
-      )}
+        <button
+          ref={errorOkButtonRef}
+          autoFocus
+          type="button"
+          onClick={() => {
+            setActionError('')
+            setValidationError(null)
+          }}
+          className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer"
+        >
+          OK
+        </button>
+      </AnimatedModal>
 
-      {confirmDialog && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-navy-blue/40 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl p-6 shadow-2xl border border-gray-100 max-w-sm w-full text-center space-y-4">
-            <div className={confirmDialog.showIcon ? 'flex flex-col items-center' : ''}>
-              {confirmDialog.showIcon && (
-                <div className="p-3 bg-red-50 text-red-500 rounded-full mb-2">
-                  <AlertTriangle className="w-6 h-6 animate-bounce" />
-                </div>
-              )}
-              <h4 className="font-bold text-navy-blue text-sm uppercase tracking-wide">
+      <AnimatedModal
+        isOpen={!!confirmDialog}
+        overlayClassName="fixed inset-0 z-[99999] flex items-center justify-center bg-navy-blue/40 backdrop-blur-xs p-4"
+        contentClassName="bg-white rounded-3xl p-6 shadow-2xl border border-gray-100 max-w-sm w-full text-center space-y-4 font-poppins"
+      >
+        {confirmDialog && (
+          <>
+            <div className="flex flex-col items-center">
+              <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center mb-2 shadow-xs">
+                <AlertTriangle className="w-6 h-6 stroke-[2.2]" />
+              </div>
+              <h4 className="font-extrabold text-navy-blue text-sm uppercase tracking-wide">
                 {confirmDialog.title}
               </h4>
-              <p className="text-xs text-gray-500 font-semibold mt-2 leading-relaxed">
+              <p className="text-xs text-gray-500 font-semibold mt-1 leading-relaxed">
                 {confirmDialog.message}
               </p>
             </div>
@@ -6455,7 +6497,7 @@ export default function AdminDashboard({ user, onLogout }) {
               <button
                 type="button"
                 onClick={() => setConfirmDialog(null)}
-                className="flex-1 bg-gray-100 hover:bg-red-500 hover:text-white text-gray-700 rounded-full text-xs font-semibold py-2.5 transition cursor-pointer"
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-full text-xs py-2.5 transition cursor-pointer"
               >
                 Cancel
               </button>
@@ -6467,39 +6509,39 @@ export default function AdminDashboard({ user, onLogout }) {
                   confirmDialog.onConfirm()
                   setConfirmDialog(null)
                 }}
-                className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer"
+                className="flex-1 bg-navy-blue hover:bg-navy-blue-600 text-white font-bold rounded-full text-xs py-2.5 shadow-md transition cursor-pointer"
               >
                 Confirm
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </AnimatedModal>
 
-      {actionSuccess && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-navy-blue/40 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl p-6 shadow-2xl border border-gray-100 max-w-sm w-full text-center space-y-4">
-            <div>
-              <h4 className="font-bold text-navy-blue text-sm uppercase tracking-wide">
-                Success
-              </h4>
-              <p className="text-xs text-gray-500 font-semibold mt-2 leading-relaxed">
-                {actionSuccess}
-              </p>
-            </div>
-            <button
-              autoFocus
-              type="button"
-              onClick={() => {
-                setActionSuccess('')
-              }}
-              className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer"
-            >
-              OK
-            </button>
-          </div>
+      <AnimatedModal
+        isOpen={!!actionSuccess}
+        overlayClassName="fixed inset-0 z-[99999] flex items-center justify-center bg-navy-blue/40 backdrop-blur-sm p-4"
+        contentClassName="bg-white rounded-3xl p-6 shadow-2xl border border-gray-100 max-w-sm w-full text-center space-y-4"
+      >
+        <div>
+          <h4 className="font-bold text-navy-blue text-sm uppercase tracking-wide">
+            Success
+          </h4>
+          <p className="text-xs text-gray-500 font-semibold mt-2 leading-relaxed">
+            {actionSuccess}
+          </p>
         </div>
-      )}
+        <button
+          autoFocus
+          type="button"
+          onClick={() => {
+            setActionSuccess('')
+          }}
+          className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer"
+        >
+          OK
+        </button>
+      </AnimatedModal>
     </div>
   )
 }

@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { motion, AnimatePresence } from 'motion/react'
+import { dropdownVariants, dropdownTransition } from './motion/motionConfig'
 import { Calendar, ChevronLeft, ChevronRight, Clock, X } from 'lucide-react'
 import CustomSelect from './CustomSelect'
 
@@ -252,18 +254,24 @@ export default function GlassDatePicker({
       </div>
 
       {/* Popover Portal */}
-      {isOpen &&
-        createPortal(
-          <div
-            ref={popoverRef}
-            style={{
-              position: 'fixed',
-              top: `${coords.top}px`,
-              left: `${coords.left}px`,
-              zIndex: 99999
-            }}
-            className="w-77.5 glass-modal rounded-2xl p-4 shadow-2xl border border-white/90 space-y-3 animate-fade-in-scale select-none"
-          >
+      <AnimatePresence>
+        {isOpen &&
+          createPortal(
+            <motion.div
+              ref={popoverRef}
+              style={{
+                position: 'fixed',
+                top: `${coords.top}px`,
+                left: `${coords.left}px`,
+                zIndex: 99999
+              }}
+              className="w-77.5 glass-modal rounded-2xl p-4 shadow-2xl border border-white/90 space-y-3 select-none"
+              variants={dropdownVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              transition={dropdownTransition}
+            >
             {/* Header: Month & Year Selector */}
             <div className="flex items-center justify-between border-b border-gray-200/60 pb-2">
               <button
@@ -416,9 +424,10 @@ export default function GlassDatePicker({
                 Done
               </button>
             </div>
-          </div>,
-          document.body
-        )}
+            </motion.div>,
+            document.body
+          )}
+      </AnimatePresence>
     </div>
   )
 }

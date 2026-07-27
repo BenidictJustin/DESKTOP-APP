@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
 import { ChevronDown, Check } from 'lucide-react'
+import { dropdownVariants, dropdownTransition } from './motion/motionConfig'
 
 export default function CustomSelect({
   value,
@@ -89,39 +91,46 @@ export default function CustomSelect({
       </button>
 
       {/* Floating Options Menu */}
-      {isOpen && (
-        <div
-          className={`absolute z-60 w-full bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto animate-fade-in py-1 ${
-            openUpward ? 'bottom-full mb-1' : 'top-full mt-1'
-          }`}
-          style={{ zIndex: 9999 }}
-        >
-          {normalizedOptions.length === 0 ? (
-            <div className="p-3 text-xs text-gray-400 font-medium text-center">
-              No options available
-            </div>
-          ) : (
-            normalizedOptions.map((opt) => {
-              const isSelected = String(opt.value) === String(value)
-              return (
-                <div
-                  key={opt.value}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => handleSelect(opt.value)}
-                  className={`flex items-center justify-between p-2.5 text-xs cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left transition-colors duration-100 ${
-                    isSelected
-                      ? 'bg-navy-blue text-white hover:bg-navy-blue/95 font-bold'
-                      : 'text-navy-blue hover:bg-sig-green/10'
-                  }`}
-                >
-                  <span className="truncate">{opt.label}</span>
-                  {isSelected && <Check className="w-3.5 h-3.5 shrink-0 ml-2 text-sig-green" />}
-                </div>
-              )
-            })
-          )}
-        </div>
-      )}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            className={`absolute z-60 w-full bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto py-1 ${
+              openUpward ? 'bottom-full mb-1' : 'top-full mt-1'
+            }`}
+            style={{ zIndex: 9999 }}
+            variants={dropdownVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={dropdownTransition}
+          >
+            {normalizedOptions.length === 0 ? (
+              <div className="p-3 text-xs text-gray-400 font-medium text-center">
+                No options available
+              </div>
+            ) : (
+              normalizedOptions.map((opt) => {
+                const isSelected = String(opt.value) === String(value)
+                return (
+                  <div
+                    key={opt.value}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => handleSelect(opt.value)}
+                    className={`flex items-center justify-between p-2.5 text-xs cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left transition-colors duration-100 ${
+                      isSelected
+                        ? 'bg-navy-blue text-white hover:bg-navy-blue/95 font-bold'
+                        : 'text-navy-blue hover:bg-sig-green/10'
+                    }`}
+                  >
+                    <span className="truncate">{opt.label}</span>
+                    {isSelected && <Check className="w-3.5 h-3.5 shrink-0 ml-2 text-sig-green" />}
+                  </div>
+                )
+              })
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { X, ChevronDown } from 'lucide-react';
+import { dropdownVariants, dropdownTransition } from './motion/motionConfig';
 
 export default function SearchableDropdown({
   value,
@@ -104,60 +106,67 @@ export default function SearchableDropdown({
           <ChevronDown className="w-4 h-4" />
         </span>
       </div>
-      {isOpen && (
-        <div 
-          className={`absolute left-0 right-0 max-h-56 overflow-y-auto bg-white border border-gray-200/80 rounded-xl shadow-xl z-99999 divide-y divide-gray-50/50 py-1 transition-all duration-150 animate-fade-in ${
-            openUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
-          }`}
-        >
-          {filteredOptions.map(opt => {
-            const isSelected = opt.id === String(value);
-            return (
-              <div
-                key={opt.id}
-                onClick={() => {
-                  onChange(opt.id);
-                  setIsOpen(false);
-                }}
-                className={`group flex items-center justify-between px-3.5 py-2.5 text-xs font-semibold text-left cursor-pointer transition-all duration-100 ${
-                  isSelected 
-                    ? 'bg-navy-blue text-white' 
-                    : 'text-navy-blue hover:bg-sig-green/10 hover:text-navy-blue'
-                }`}
-              >
-                <span className="truncate">
-                  {opt.abbreviation ? `${opt.name} (${opt.abbreviation})` : opt.name}
-                </span>
-                {onDelete && (
-                  <button
-                    type="button"
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete(opt.original || opt);
-                    }}
-                    className={`p-1 rounded-md transition-colors duration-150 cursor-pointer ${
-                      isSelected 
-                        ? 'text-white/60 hover:text-white hover:bg-white/10' 
-                        : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
-                    }`}
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div 
+            className={`absolute left-0 right-0 max-h-56 overflow-y-auto bg-white border border-gray-200/80 rounded-xl shadow-xl z-99999 divide-y divide-gray-50/50 py-1 ${
+              openUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+            }`}
+            variants={dropdownVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={dropdownTransition}
+          >
+            {filteredOptions.map(opt => {
+              const isSelected = opt.id === String(value);
+              return (
+                <div
+                  key={opt.id}
+                  onClick={() => {
+                    onChange(opt.id);
+                    setIsOpen(false);
+                  }}
+                  className={`group flex items-center justify-between px-3.5 py-2.5 text-xs font-semibold text-left cursor-pointer transition-all duration-100 ${
+                    isSelected 
+                      ? 'bg-navy-blue text-white' 
+                      : 'text-navy-blue hover:bg-sig-green/10 hover:text-navy-blue'
+                  }`}
+                >
+                  <span className="truncate">
+                    {opt.abbreviation ? `${opt.name} (${opt.abbreviation})` : opt.name}
+                  </span>
+                  {onDelete && (
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(opt.original || opt);
+                      }}
+                      className={`p-1 rounded-md transition-colors duration-150 cursor-pointer ${
+                        isSelected 
+                          ? 'text-white/60 hover:text-white hover:bg-white/10' 
+                          : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
+                      }`}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+            {filteredOptions.length === 0 && (
+              <div className="px-3.5 py-2.5 text-xs text-gray-400 text-left font-medium">
+                No matching options found.
               </div>
-            );
-          })}
-          {filteredOptions.length === 0 && (
-            <div className="px-3.5 py-2.5 text-xs text-gray-400 text-left font-medium">
-              No matching options found.
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

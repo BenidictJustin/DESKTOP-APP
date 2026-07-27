@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { motion } from 'motion/react'
+import { modalOverlayVariants, modalContentVariants, modalOverlayTransition, modalContentTransition } from './motion/motionConfig'
 import {
   ChevronLeft,
   ChevronRight,
@@ -493,8 +495,22 @@ export default function DocumentViewer({
   }
 
   return (
-    <div className="fixed inset-0 bg-navy-blue/40 backdrop-blur-md flex items-center justify-center p-3 md:p-6 z-9999 animate-fade-in font-poppins text-slate-800">
-      <div className="w-full max-w-350 h-[92vh] max-h-240 bg-[#f8fafc] rounded-2xl flex flex-col overflow-hidden shadow-2xl border border-white/60">
+    <motion.div
+      className="fixed inset-0 bg-navy-blue/40 backdrop-blur-md flex items-center justify-center p-3 md:p-6 z-9999 font-poppins text-slate-800"
+      variants={modalOverlayVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      transition={modalOverlayTransition}
+    >
+      <motion.div
+        className="w-full max-w-350 h-[92vh] max-h-240 bg-[#f8fafc] rounded-2xl flex flex-col overflow-hidden shadow-2xl border border-white/60"
+        variants={modalContentVariants}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        transition={modalContentTransition}
+      >
         
         {/* ==================================================== */}
         {/* TOP BAR / VIEWBAR TOOLBAR */}
@@ -1096,7 +1112,7 @@ export default function DocumentViewer({
           </aside>
 
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
