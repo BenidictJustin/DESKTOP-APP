@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import AnimatedPage from '../../components/motion/AnimatedPage'
 import { staggerContainer, staggerItem } from '../../components/motion/motionConfig'
-import { getReports, subscribeReports, addReport, updateReport, getOrganizations, subscribeOrganizations, getEvents, subscribeEvents } from '../../services/db'
+import { getReports, subscribeReports, addReport, updateReport, getOrganizations, subscribeOrganizations, getEvents, subscribeEvents, getUsers, subscribeUsers } from '../../services/db'
 import logo from '../../assets/logo.png'
 import {
   LayoutDashboard,
@@ -71,18 +71,21 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   const [reportsList, setReportsList] = useState([])
   const [orgsList, setOrgsList] = useState([])
   const [eventsList, setEventsList] = useState([])
+  const [usersList, setUsersList] = useState([])
 
   // ── Load data ──
   const loadData = useCallback(async () => {
     try {
-      const [reports, orgs, events] = await Promise.all([
+      const [reports, orgs, events, users] = await Promise.all([
         getReports(),
         getOrganizations(),
-        getEvents()
+        getEvents(),
+        getUsers()
       ])
       setReportsList(reports)
       setOrgsList(orgs)
       setEventsList(events)
+      setUsersList(users)
     } catch (err) {
       console.error(err)
     }
@@ -93,10 +96,12 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     const unsubReports = subscribeReports((reports) => setReportsList(reports))
     const unsubOrgs = subscribeOrganizations((orgs) => setOrgsList(orgs))
     const unsubEvents = subscribeEvents((events) => setEventsList(events))
+    const unsubUsers = subscribeUsers((users) => setUsersList(users))
     return () => {
       if (typeof unsubReports === 'function') unsubReports()
       if (typeof unsubOrgs === 'function') unsubOrgs()
       if (typeof unsubEvents === 'function') unsubEvents()
+      if (typeof unsubUsers === 'function') unsubUsers()
     }
   }, [loadData])
 
@@ -501,6 +506,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                     <div className="space-y-2.5">
                       {myReports.slice(0, 5).map((rep) => {
                         const ev = eventsList.find((e) => e.id === rep.eventId)
+                        const author = usersList.find((u) => u.uid === rep.authorId)
                         return (
                           <div
                             key={rep.id}
@@ -515,6 +521,9 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                               </div>
                               <p className="text-xs font-semibold text-navy-blue">
                                 {ev?.name || rep.activityTitle || 'Untitled'}
+                              </p>
+                              <p className="text-[10px] text-gray-400">
+                                Submitted by <span className="font-semibold text-gray-600">{author ? author.name : 'Coordinator'}</span>
                               </p>
                             </div>
                             {rep.status === 'submitted' || rep.status === 'approved' ? (
@@ -630,6 +639,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                   <div className="space-y-3">
                     {myReports.map((rep) => {
                       const ev = eventsList.find((e) => e.id === rep.eventId)
+                      const author = usersList.find((u) => u.uid === rep.authorId)
                       return (
                         <div
                           key={rep.id}
@@ -646,7 +656,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                               {ev?.name || rep.activityTitle || 'Untitled Report'}
                             </h4>
                             <p className="text-[10px] text-gray-400">
-                              Updated {new Date(rep.updatedAt).toLocaleDateString()}
+                              Submitted by <span className="font-semibold text-gray-700">{author ? author.name : 'Coordinator'}</span> · Updated {new Date(rep.updatedAt).toLocaleDateString()}
                             </p>
                             {rep.status === 'returned' && rep.adminFeedback && (
                               <p className="text-[10px] text-red-600 font-semibold flex items-center gap-1 mt-0.5">
@@ -797,7 +807,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           onClose={() => setSelectedViewerReport(null)}
           eventsList={eventsList}
           orgsList={orgsList}
-          usersList={[user]}
+          usersList={usersList}
           compileReportPDF={compileReportPDF}
         />
       )}
