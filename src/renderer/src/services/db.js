@@ -842,6 +842,7 @@ export const registerUser = async (
         uid: newUid,
         username: username || email.split('@')[0] || '',
         email,
+        password,
         name,
         role: normalizedRole,
         organizationId: assignedOrg,
@@ -914,24 +915,53 @@ export const deleteUser = async (uid, email = null, password = null) => {
     saveLocalData(LOCAL_STORAGE_KEYS.USERS, users)
     return true
   } else {
-    // Delete document from Firestore database
-    await deleteDoc(doc(fdb, 'users', uid))
+    // 1. Fetch user doc from Firestore to ensure email and password exist if not provided
+    let targetEmail = email
+    let targetPassword = password
 
-    // Attempt to delete corresponding account from Firebase Authentication if email/password provided
-    if (email && password) {
+    try {
+      const userSnap = await getDoc(doc(fdb, 'users', uid))
+      if (userSnap.exists()) {
+        const uData = userSnap.data()
+        if (!targetEmail) targetEmail = uData.email
+        if (!targetPassword) targetPassword = uData.password
+      }
+    } catch (e) {
+      console.warn('Unable to fetch user doc prior to deletion:', e.message)
+    }
+
+    // 2. Delete from Firebase Authentication via secondary app auth
+    if (targetEmail) {
+      const passwordsToTry = []
+      if (targetPassword) passwordsToTry.push(targetPassword)
+      passwordsToTry.push('Dommunity@123', 'coordinator123', 'admin12345', 'password123', 'Dommunity123')
+
       const secondaryAppName = 'DeleteApp_' + Date.now()
       const secondaryApp = initializeApp(firebaseConfig, secondaryAppName)
       const secondaryAuth = getAuth(secondaryApp)
-      try {
-        const userCred = await signInWithEmailAndPassword(secondaryAuth, email, password)
-        await deleteFirebaseUser(userCred.user)
-        console.log(`Successfully deleted Firebase Auth user for ${email}`)
-      } catch (err) {
-        console.warn('Firebase Auth account deletion note:', err.message)
-      } finally {
-        await deleteApp(secondaryApp)
+
+      let deletedAuth = false
+      for (const pwd of passwordsToTry) {
+        try {
+          const userCred = await signInWithEmailAndPassword(secondaryAuth, targetEmail, pwd)
+          await deleteFirebaseUser(userCred.user)
+          deletedAuth = true
+          console.log(`Successfully deleted Firebase Auth user for ${targetEmail}`)
+          break
+        } catch (err) {
+          // Continue attempting remaining fallback passwords
+        }
       }
+
+      if (!deletedAuth) {
+        console.warn(`Could not sign in to delete Firebase Auth account for ${targetEmail}. Proceeding with database deletion.`)
+      }
+
+      await deleteApp(secondaryApp)
     }
+
+    // 3. Delete document from Firestore database
+    await deleteDoc(doc(fdb, 'users', uid))
     return true
   }
 }

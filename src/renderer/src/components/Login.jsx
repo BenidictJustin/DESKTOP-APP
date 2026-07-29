@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { login, requestPasswordReset } from '../services/db'
 import { KeyRound, Mail, Eye, EyeOff, CheckCircle2, AlertCircle } from 'lucide-react'
