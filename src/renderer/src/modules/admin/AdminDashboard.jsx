@@ -295,22 +295,10 @@ export default function AdminDashboard({ user, onLogout }) {
       document.documentElement.style.overflow = 'hidden'
       if (mainEl) mainEl.style.overflow = 'hidden'
 
-      const preventBackgroundScroll = (e) => {
-        const scrollableModal = e.target.closest('.glass-modal, .glass-modal-overlay, [role="dialog"], .doc-viewer-modal, .doc-viewer')
-        if (!scrollableModal) {
-          e.preventDefault()
-        }
-      }
-
-      window.addEventListener('wheel', preventBackgroundScroll, { passive: false })
-      window.addEventListener('touchmove', preventBackgroundScroll, { passive: false })
-
       return () => {
         document.body.style.overflow = ''
         document.documentElement.style.overflow = ''
         if (mainEl) mainEl.style.overflow = ''
-        window.removeEventListener('wheel', preventBackgroundScroll)
-        window.removeEventListener('touchmove', preventBackgroundScroll)
       }
     } else {
       document.body.style.overflow = ''
@@ -318,23 +306,7 @@ export default function AdminDashboard({ user, onLogout }) {
       if (mainEl) mainEl.style.overflow = ''
     }
   }, [
-    isAddUserModalOpen,
-    isAddModalOpen,
-    isReleaseModalOpen,
-    isReviewModalOpen,
-    isEventModalOpen,
-    isAddOrgModalOpen,
-    isAddDeptModalOpen,
-    editingOrg,
-    editingEvent,
-    itemEditing,
-    editingUser,
-    confirmDialog,
-    actionError,
-    validationError,
-    actionSuccess,
-    selectedReport,
-    completedActivitiesModal
+    isAnyModalOpen
   ])
 
   useEffect(() => {
