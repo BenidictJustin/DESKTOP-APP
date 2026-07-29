@@ -9,7 +9,8 @@ import {
   deleteDoc,
   query,
   where,
-  Timestamp
+  Timestamp,
+  onSnapshot
 } from 'firebase/firestore'
 import { initializeApp, deleteApp } from 'firebase/app'
 import {
@@ -799,22 +800,26 @@ export const registerUser = async (
   username,
   password,
   name,
-  role,
+  role = 'office_coordinator',
   organizationId = null
 ) => {
+  const normalizedRole = role === 'admin' ? 'admin' : 'office_coordinator'
+  const assignedOrg = normalizedRole === 'admin' ? (organizationId || null) : (organizationId || null)
+
   if (isDemoMode) {
     const users = getLocalData(LOCAL_STORAGE_KEYS.USERS)
 
     const newUid = 'user-' + Math.random().toString(36).substr(2, 9)
     const newUser = {
       uid: newUid,
-      username,
+      username: username || email.split('@')[0] || '',
       email,
       password,
       name,
-      role,
-      organizationId,
+      role: normalizedRole,
+      organizationId: assignedOrg,
       status: 'active',
+      photoURL: null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     }
@@ -835,12 +840,13 @@ export const registerUser = async (
       const userDocRef = doc(fdb, 'users', newUid)
       const userData = {
         uid: newUid,
-        username,
+        username: username || email.split('@')[0] || '',
         email,
         name,
-        role,
-        organizationId,
+        role: normalizedRole,
+        organizationId: assignedOrg,
         status: 'active',
+        photoURL: null,
         createdAt: new Date(),
         updatedAt: new Date()
       }
@@ -1610,10 +1616,51 @@ export const getReports = async () => {
       return {
         ...data,
         id: d.id,
-        createdAt: data.createdAt.toDate().toISOString(),
-        updatedAt: data.updatedAt.toDate().toISOString()
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+        updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt
       }
     })
+  }
+}
+
+export const subscribeReports = (callback) => {
+  if (isDemoMode) {
+    const fetchAndCallback = () => {
+      const reports = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
+      callback(reports)
+    }
+    fetchAndCallback()
+    const handleStorage = (e) => {
+      if (!e || e.key === LOCAL_STORAGE_KEYS.REPORTS) {
+        fetchAndCallback()
+      }
+    }
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener('dommunity_reports_updated', handleStorage)
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('dommunity_reports_updated', handleStorage)
+    }
+  } else {
+    const q = collection(fdb, 'narrative_reports')
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const reports = snapshot.docs.map((d) => {
+          const data = d.data()
+          return {
+            ...data,
+            id: d.id,
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+            updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt
+          }
+        })
+        callback(reports)
+      },
+      (err) => {
+        console.error('Real-time reports snapshot listener error:', err)
+      }
+    )
   }
 }
 
@@ -1639,6 +1686,9 @@ export const addReport = async (report, userId) => {
     }
     reports.push(newReport)
     saveLocalData(LOCAL_STORAGE_KEYS.REPORTS, reports)
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('dommunity_reports_updated'))
+    }
 
     // Update event status to completed if report is submitted/approved
     if ((report.status === 'submitted' || report.status === 'approved') && report.eventId) {
@@ -1699,6 +1749,9 @@ export const updateReport = async (reportId, updates, userId) => {
       }
 
       saveLocalData(LOCAL_STORAGE_KEYS.REPORTS, reports)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('dommunity_reports_updated'))
+      }
 
       // Event status updates
       if (

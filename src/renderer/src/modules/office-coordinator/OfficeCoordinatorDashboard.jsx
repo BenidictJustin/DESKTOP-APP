@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import AnimatedPage from '../../components/motion/AnimatedPage'
 import { staggerContainer, staggerItem } from '../../components/motion/motionConfig'
-import { getReports, addReport, updateReport, getOrganizations, getEvents } from '../../services/db'
+import { getReports, subscribeReports, addReport, updateReport, getOrganizations, getEvents } from '../../services/db'
 import logo from '../../assets/logo.png'
 import {
   LayoutDashboard,
@@ -90,6 +90,12 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
   useEffect(() => {
     loadData()
+    const unsubscribeReports = subscribeReports((reports) => {
+      setReportsList(reports)
+    })
+    return () => {
+      if (typeof unsubscribeReports === 'function') unsubscribeReports()
+    }
   }, [loadData])
 
   // Body scroll lock effect whenever any modal/dialog is open

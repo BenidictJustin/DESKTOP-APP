@@ -496,7 +496,9 @@ export default function DocumentViewer({
 
   return (
     <motion.div
-      className="fixed inset-0 bg-navy-blue/40 backdrop-blur-md flex items-center justify-center p-3 md:p-6 z-9999 font-poppins text-slate-800"
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 bg-navy-blue/40 backdrop-blur-md flex items-center justify-center p-3 md:p-6 z-9999 font-poppins text-slate-800 doc-viewer-modal"
       variants={modalOverlayVariants}
       initial="initial"
       animate="animate"
@@ -504,7 +506,7 @@ export default function DocumentViewer({
       transition={modalOverlayTransition}
     >
       <motion.div
-        className="w-full max-w-350 h-[92vh] max-h-240 bg-[#f8fafc] rounded-2xl flex flex-col overflow-hidden shadow-2xl border border-white/60"
+        className="w-full max-w-350 h-[92vh] max-h-240 bg-[#f8fafc] rounded-2xl flex flex-col overflow-hidden shadow-2xl border border-white/60 doc-viewer"
         variants={modalContentVariants}
         initial="initial"
         animate="animate"

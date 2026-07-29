@@ -14,6 +14,15 @@ function App() {
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
+    if (!activeUser && typeof document !== 'undefined') {
+      document.body.style.overflow = '';
+      document.body.style.pointerEvents = '';
+      document.documentElement.style.overflow = '';
+      document.documentElement.style.pointerEvents = '';
+    }
+  }, [activeUser]);
+
+  useEffect(() => {
     // Listen to changes in auth context (either Firebase auth or LocalStorage simulation)
     const unsubscribe = listenToAuthChanges((currentUser) => {
       setUser(currentUser);
@@ -33,6 +42,12 @@ function App() {
       await logout();
       setUser(null);
       setActiveUser(null);
+      if (typeof document !== 'undefined') {
+        document.body.style.overflow = '';
+        document.body.style.pointerEvents = '';
+        document.documentElement.style.overflow = '';
+        document.documentElement.style.pointerEvents = '';
+      }
     } catch (err) {
       console.error("Logout failed:", err);
     }

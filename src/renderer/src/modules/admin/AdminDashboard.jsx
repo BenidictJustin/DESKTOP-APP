@@ -31,6 +31,7 @@ import {
   updateEvent,
   deleteEvent,
   getReports,
+  subscribeReports,
   updateReport,
   getInventoryTransactions,
   logInventoryTransaction,
@@ -289,7 +290,7 @@ export default function AdminDashboard({ user, onLogout }) {
       if (mainEl) mainEl.style.overflow = 'hidden'
 
       const preventBackgroundScroll = (e) => {
-        const scrollableModal = e.target.closest('.glass-modal, .glass-modal-overlay, [role="dialog"]')
+        const scrollableModal = e.target.closest('.glass-modal, .glass-modal-overlay, [role="dialog"], .doc-viewer-modal, .doc-viewer')
         if (!scrollableModal) {
           e.preventDefault()
         }
@@ -596,6 +597,12 @@ export default function AdminDashboard({ user, onLogout }) {
 
   useEffect(() => {
     loadData()
+    const unsubscribeReports = subscribeReports((reports) => {
+      setReportsList(reports)
+    })
+    return () => {
+      if (typeof unsubscribeReports === 'function') unsubscribeReports()
+    }
   }, [])
 
   const triggerError = (msg) => {

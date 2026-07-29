@@ -25,6 +25,15 @@ export default function Login({ onLoginSuccess }) {
   const [isSuccessTransition, setIsSuccessTransition] = useState(false)
   const [showLoginSuccessModal, setShowLoginSuccessModal] = useState(false)
 
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.body.style.overflow = ''
+      document.body.style.pointerEvents = ''
+      document.documentElement.style.overflow = ''
+      document.documentElement.style.pointerEvents = ''
+    }
+  }, [])
+
   const handleLogin = async (e) => {
     e.preventDefault()
     setError('')
