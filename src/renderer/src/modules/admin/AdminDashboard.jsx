@@ -658,6 +658,16 @@ export default function AdminDashboard({ user, onLogout }) {
       errors.coordRole = 'Role is required.'
     }
 
+    // 5. Password Validation (for new users)
+    if (!editingUser && coordPassword) {
+      if (coordPassword.length < 6) {
+        errors.coordPassword = 'Password must be at least 6 characters.'
+      }
+      if (coordConfirmPassword && coordPassword !== coordConfirmPassword) {
+        errors.coordConfirmPassword = 'Passwords do not match.'
+      }
+    }
+
     setCoordErrors(errors)
     if (Object.keys(errors).length > 0) {
       return
@@ -680,9 +690,9 @@ export default function AdminDashboard({ user, onLogout }) {
         await updateUser(editingUser.uid, payload)
         triggerSuccess(`Account successfully updated for ${fullName}.`)
       } else {
-        const initialPassword = 'Dommunity@123'
+        const initialPassword = coordPassword.trim() || 'Dommunity@123'
         await registerUser(coordEmail, username, initialPassword, fullName, coordRole, assignedOrg)
-        triggerSuccess(`Account successfully established for ${fullName}. Initial reset link can be sent via Reset Password.`)
+        triggerSuccess(`Account successfully established for ${fullName}.`)
       }
 
       // Reset form & close modal
@@ -719,7 +729,7 @@ export default function AdminDashboard({ user, onLogout }) {
       onConfirm: async () => {
         setLoading(true)
         try {
-          await deleteUser(targetUser.uid)
+          await deleteUser(targetUser.uid, targetUser.email, targetUser.password)
           triggerSuccess(`Account of ${targetUser.name} has been permanently deleted.`)
           loadData()
         } catch (err) {
@@ -1761,7 +1771,7 @@ export default function AdminDashboard({ user, onLogout }) {
   }
 
   return (
-    <div className="h-screen max-h-screen flex flex-col font-poppins selection:bg-sig-green/20 selection:text-navy-blue overflow-hidden">
+    <div className="h-screen max-h-screen flex flex-col font-poppins selection:bg-sig-green/20 selection:text-navy-blue overflow-hidden bg-[#F1EFEC]">
       {/* Top Glass Header Bar */}
       <header className="mx-4 mt-4 glass-header rounded-2xl flex items-center justify-between px-6 py-2.5 shrink-0 shadow-glass-sm">
         {/* Left: Logo and Title */}
@@ -3513,7 +3523,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   )}
 
                   {/* Modal Overlay for Review List */}
-                  {isReviewModalOpen && pendingReleaseItems.length > 0 && (
+                  {isReviewModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
                       <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto relative overflow-hidden">
                         <div className="absolute top-0 left-0 right-0 h-1 bg-sig-green"></div>
@@ -3533,84 +3543,102 @@ export default function AdminDashboard({ user, onLogout }) {
                           </button>
                         </div>
 
-                        <div className="space-y-3 max-h-60 overflow-y-auto pr-1 pt-4">
-                          {pendingReleaseItems.map((pItem) => (
-                            <div
-                              key={pItem.id}
-                              className="flex justify-between items-center border border-gray-50 p-2.5 rounded-xl bg-gray-50/50 hover:bg-white transition"
-                            >
-                              <div className="flex-1 min-w-0 pr-3">
-                                <div className="font-bold text-navy-blue text-xs truncate">
-                                  {pItem.name}
-                                </div>
-                                <div className="text-[10px] text-gray-400 capitalize">
-                                  {pItem.category}
-                                </div>
-                              </div>
-                              <div className="flex items-center space-x-3 shrink-0">
-                                <div className="text-right">
-                                  <div className="text-xs font-bold text-navy-blue capitalize">
-                                    {(() => {
-                                      const hasGroup =
-                                        pItem.groupUnit &&
-                                        pItem.groupUnit !== 'none' &&
-                                        pItem.piecesPerUnit
-                                      if (hasGroup) {
-                                        const groupName =
-                                          pItem.qtyGroup === 1
-                                            ? pItem.groupUnit
-                                            : pItem.groupUnit === 'box'
-                                              ? 'boxes'
-                                              : pItem.groupUnit === 'bundle'
-                                                ? 'bundles'
-                                                : 'packs'
-                                        const parts = []
-                                        if (pItem.qtyGroup > 0)
-                                          parts.push(`${pItem.qtyGroup} ${groupName}`)
-                                        if (pItem.qtyPieces > 0)
-                                          parts.push(`${pItem.qtyPieces} Pieces`)
-                                        return parts.join(' + ') || '0 Pieces'
-                                      }
-                                      return `${pItem.qtyPieces} ${formatUnit(pItem.qtyPieces, pItem.baseUnit)}`
-                                    })()}
+                        {pendingReleaseItems.length === 0 ? (
+                          <div className="py-8 text-center text-gray-400 text-xs font-medium">
+                            No items have been added to the Release Review List yet.
+                          </div>
+                        ) : (
+                          <div className="space-y-3 max-h-60 overflow-y-auto pr-1 pt-4">
+                            {pendingReleaseItems.map((pItem) => (
+                              <div
+                                key={pItem.id}
+                                className="flex justify-between items-center border border-gray-50 p-2.5 rounded-xl bg-gray-50/50 hover:bg-white transition"
+                              >
+                                <div className="flex-1 min-w-0 pr-3">
+                                  <div className="font-bold text-navy-blue text-xs truncate">
+                                    {pItem.name}
                                   </div>
-                                  <div className="text-[9px] text-gray-400 font-medium">
-                                    ({pItem.baseQty} Total Pieces)
+                                  <div className="text-[10px] text-gray-400 capitalize">
+                                    {pItem.category}
                                   </div>
                                 </div>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemovePendingItem(pItem.id)}
-                                  className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5"
-                                  title="Remove item"
-                                >
-                                  <X className="w-4 h-4" />
-                                </button>
+                                <div className="flex items-center space-x-3 shrink-0">
+                                  <div className="text-right">
+                                    <div className="text-xs font-bold text-navy-blue capitalize">
+                                      {(() => {
+                                        const hasGroup =
+                                          pItem.groupUnit &&
+                                          pItem.groupUnit !== 'none' &&
+                                          pItem.piecesPerUnit
+                                        if (hasGroup) {
+                                          const groupName =
+                                            pItem.qtyGroup === 1
+                                              ? pItem.groupUnit
+                                              : pItem.groupUnit === 'box'
+                                                ? 'boxes'
+                                                : pItem.groupUnit === 'bundle'
+                                                  ? 'bundles'
+                                                  : 'packs'
+                                          const parts = []
+                                          if (pItem.qtyGroup > 0)
+                                            parts.push(`${pItem.qtyGroup} ${groupName}`)
+                                          if (pItem.qtyPieces > 0)
+                                            parts.push(`${pItem.qtyPieces} Pieces`)
+                                          return parts.join(' + ') || '0 Pieces'
+                                        }
+                                        return `${pItem.qtyPieces} ${formatUnit(pItem.qtyPieces, pItem.baseUnit)}`
+                                      })()}
+                                    </div>
+                                    <div className="text-[9px] text-gray-400 font-medium">
+                                      ({pItem.baseQty} Total Pieces)
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemovePendingItem(pItem.id)}
+                                    className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5"
+                                    title="Remove item"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </div>
                               </div>
-                            </div>
-                          ))}
-                        </div>
+                            ))}
+                          </div>
+                        )}
 
-                        <div className="flex space-x-2 pt-3 border-t border-dashed border-gray-150 mt-4">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPendingReleaseItems([])
-                              setIsReviewModalOpen(false)
-                            }}
-                            className="flex-1 py-2 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition cursor-pointer text-center"
-                          >
-                            Clear List
-                          </button>
-                          <button
-                            type="button"
-                            disabled={loading}
-                            onClick={handleConfirmRelease}
-                            className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer text-center"
-                          >
-                            {loading ? 'Confirming...' : 'Confirm Release'}
-                          </button>
-                        </div>
+                        {pendingReleaseItems.length > 0 ? (
+                          <div className="flex space-x-2 pt-3 border-t border-dashed border-gray-150 mt-4">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPendingReleaseItems([])
+                                setIsReviewModalOpen(false)
+                              }}
+                              className="flex-1 py-2 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition cursor-pointer text-center"
+                            >
+                              Clear List
+                            </button>
+                            <button
+                              type="button"
+                              disabled={loading}
+                              onClick={handleConfirmRelease}
+                              className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer text-center"
+                            >
+                              {loading ? 'Confirming...' : 'Confirm Release'}
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex pt-3 border-t border-dashed border-gray-150 mt-4">
+                            <button
+                              type="button"
+                              onClick={() => setIsReviewModalOpen(false)}
+                              className="w-full py-2 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition cursor-pointer text-center"
+                            >
+                              Close
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
@@ -6328,7 +6356,7 @@ export default function AdminDashboard({ user, onLogout }) {
                         })
                       }
                     }}
-                    placeholder="e.g. Alan"
+                    placeholder="Enter First Name"
                     className={`w-full p-2.5 text-xs glass-input rounded-xl focus:outline-none font-semibold text-navy-blue ${coordErrors.coordFirstName ? 'border-red-500 ring-2 ring-red-500/10' : ''}`}
                   />
                   {coordErrors.coordFirstName && (
@@ -6354,7 +6382,7 @@ export default function AdminDashboard({ user, onLogout }) {
                         })
                       }
                     }}
-                    placeholder="e.g. Turing"
+                    placeholder="Enter Last Name"
                     className={`w-full p-2.5 text-xs glass-input rounded-xl focus:outline-none font-semibold text-navy-blue ${coordErrors.coordLastName ? 'border-red-500 ring-2 ring-red-500/10' : ''}`}
                   />
                   {coordErrors.coordLastName && (
@@ -6382,7 +6410,7 @@ export default function AdminDashboard({ user, onLogout }) {
                       })
                     }
                   }}
-                  placeholder="turing@dct.edu.ph"
+                  placeholder="Enter Email"
                   className={`w-full p-2.5 text-xs glass-input rounded-xl focus:outline-none font-semibold text-navy-blue ${coordErrors.coordEmail ? 'border-red-500 ring-2 ring-red-500/10' : ''}`}
                 />
                 {coordErrors.coordEmail && (
@@ -6392,22 +6420,61 @@ export default function AdminDashboard({ user, onLogout }) {
                 )}
               </div>
 
-              {coordRole === 'office_coordinator' && (
-                <div>
-                  <label className="block text-navy-blue text-xs font-semibold mb-1">
-                    Assign Department / Organization
-                  </label>
-                  <SearchableDropdown
-                    value={coordOrgId}
-                    onChange={(orgId) => setCoordOrgId(orgId)}
-                    options={orgsList.map((o) => ({
-                      id: o.id,
-                      name: o.name,
-                      abbreviation: o.abbreviation
-                    }))}
-                    placeholder="Select Department..."
-                  />
-                </div>
+              {!editingUser && (
+                <>
+                  <div>
+                    <label className="block text-navy-blue text-xs font-semibold mb-1">
+                      Password
+                    </label>
+                    <input
+                      type="password"
+                      value={coordPassword}
+                      onChange={(e) => {
+                        setCoordPassword(e.target.value)
+                        if (coordErrors.coordPassword) {
+                          setCoordErrors((prev) => {
+                            const copy = { ...prev }
+                            delete copy.coordPassword
+                            return copy
+                          })
+                        }
+                      }}
+                      placeholder="Enter Password"
+                      className={`w-full p-2.5 text-xs glass-input rounded-xl focus:outline-none font-semibold text-navy-blue ${coordErrors.coordPassword ? 'border-red-500 ring-2 ring-red-500/10' : ''}`}
+                    />
+                    {coordErrors.coordPassword && (
+                      <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                        {coordErrors.coordPassword}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-navy-blue text-xs font-semibold mb-1">
+                      Confirm Password
+                    </label>
+                    <input
+                      type="password"
+                      value={coordConfirmPassword}
+                      onChange={(e) => {
+                        setCoordConfirmPassword(e.target.value)
+                        if (coordErrors.coordConfirmPassword) {
+                          setCoordErrors((prev) => {
+                            const copy = { ...prev }
+                            delete copy.coordConfirmPassword
+                            return copy
+                          })
+                        }
+                      }}
+                      placeholder="Confirm Password"
+                      className={`w-full p-2.5 text-xs glass-input rounded-xl focus:outline-none font-semibold text-navy-blue ${coordErrors.coordConfirmPassword ? 'border-red-500 ring-2 ring-red-500/10' : ''}`}
+                    />
+                    {coordErrors.coordConfirmPassword && (
+                      <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                        {coordErrors.coordConfirmPassword}
+                      </p>
+                    )}
+                  </div>
+                </>
               )}
 
               <div className="flex space-x-3 pt-3">

@@ -15,6 +15,7 @@ import { initializeApp, deleteApp } from 'firebase/app'
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  deleteUser as deleteFirebaseUser,
   getAuth,
   signOut,
   onAuthStateChanged,
@@ -767,7 +768,13 @@ export const listenToAuthChanges = (callback) => {
           if (firebaseUser) {
             const userDoc = await getDoc(doc(fdb, 'users', firebaseUser.uid))
             if (userDoc.exists()) {
-              callback(userDoc.data())
+              const userData = userDoc.data()
+              if (userData.status === 'inactive') {
+                await signOut(fauth)
+                callback(null)
+              } else {
+                callback(userData)
+              }
             } else {
               callback(null)
             }
@@ -894,14 +901,31 @@ export const updateUser = async (uid, updatedData) => {
   }
 }
 
-export const deleteUser = async (uid) => {
+export const deleteUser = async (uid, email = null, password = null) => {
   if (isDemoMode) {
     let users = getLocalData(LOCAL_STORAGE_KEYS.USERS)
     users = users.filter((u) => u.uid !== uid)
     saveLocalData(LOCAL_STORAGE_KEYS.USERS, users)
     return true
   } else {
+    // Delete document from Firestore database
     await deleteDoc(doc(fdb, 'users', uid))
+
+    // Attempt to delete corresponding account from Firebase Authentication if email/password provided
+    if (email && password) {
+      const secondaryAppName = 'DeleteApp_' + Date.now()
+      const secondaryApp = initializeApp(firebaseConfig, secondaryAppName)
+      const secondaryAuth = getAuth(secondaryApp)
+      try {
+        const userCred = await signInWithEmailAndPassword(secondaryAuth, email, password)
+        await deleteFirebaseUser(userCred.user)
+        console.log(`Successfully deleted Firebase Auth user for ${email}`)
+      } catch (err) {
+        console.warn('Firebase Auth account deletion note:', err.message)
+      } finally {
+        await deleteApp(secondaryApp)
+      }
+    }
     return true
   }
 }
@@ -948,6 +972,14 @@ export const sendCoordinatorResetEmail = async (email) => {
     if (!user) throw new Error('Email address not found in system directory.')
     return true
   } else {
+    const usersRef = collection(fdb, 'users')
+    const q = query(usersRef, where('email', '==', email))
+    const qSnap = await getDocs(q)
+
+    if (qSnap.empty) {
+      throw new Error('Email address not found in system directory.')
+    }
+
     await sendPasswordResetEmail(fauth, email)
     return true
   }

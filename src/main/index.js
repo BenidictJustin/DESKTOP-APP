@@ -4,16 +4,25 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import fs from 'fs'
 
+import { autoUpdater } from 'electron-updater'
+
+// Configure autoUpdater log and settings
+autoUpdater.autoDownload = true
+autoUpdater.autoInstallOnAppQuit = true
+
+let mainWindow = null
+
 function createWindow() {
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 1280,
     minHeight: 768,
     show: false,
     autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
+    backgroundColor: '#F1EFEC',
+    icon,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
@@ -22,6 +31,12 @@ function createWindow() {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
+    // Auto check for updates when window opens in production
+    if (!is.dev) {
+      autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+        console.warn('Failed to check for updates on startup:', err)
+      })
+    }
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -38,12 +53,50 @@ function createWindow() {
   }
 }
 
+// AutoUpdater Events -> Renderer Forwarding
+autoUpdater.on('update-available', (info) => {
+  mainWindow?.webContents.send('update-available', info)
+})
+
+autoUpdater.on('update-not-available', (info) => {
+  mainWindow?.webContents.send('update-not-available', info)
+})
+
+autoUpdater.on('download-progress', (progress) => {
+  mainWindow?.webContents.send('download-progress', progress)
+})
+
+autoUpdater.on('update-downloaded', (info) => {
+  mainWindow?.webContents.send('update-downloaded', info)
+})
+
+autoUpdater.on('error', (err) => {
+  mainWindow?.webContents.send('update-error', err?.message || 'Update check failed')
+})
+
+// IPC AutoUpdate Handlers
+ipcMain.handle('check-for-updates', async () => {
+  if (is.dev) {
+    return { isDev: true, message: 'Auto-updates are disabled in Development mode.' }
+  }
+  try {
+    const result = await autoUpdater.checkForUpdates()
+    return { success: true, result }
+  } catch (error) {
+    return { success: false, error: error?.message || 'Failed to check for updates' }
+  }
+})
+
+ipcMain.handle('restart-and-install', () => {
+  autoUpdater.quitAndInstall()
+})
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
   // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
+  electronApp.setAppUserModelId('com.dommunity.app')
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.

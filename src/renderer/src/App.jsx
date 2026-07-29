@@ -44,19 +44,19 @@ function App() {
   };
 
   return (
-    <>
-      <AnimatePresence mode="wait">
+    <div className="min-h-screen w-screen bg-[#F1EFEC] font-poppins relative overflow-hidden">
+      <AnimatePresence>
         {showSplash && (
           <SplashScreen key="splash" onComplete={() => setShowSplash(false)} />
         )}
       </AnimatePresence>
 
       {!showSplash && (
-        <AnimatePresence mode="wait">
+        <AnimatePresence>
           {loading ? (
             <motion.div
               key="loading"
-              className="min-h-screen w-screen flex flex-col items-center justify-center font-poppins bg-[#030728]"
+              className="absolute inset-0 w-full h-full flex flex-col items-center justify-center font-poppins bg-[#020516] z-20"
               variants={authTransitionVariants}
               initial="initial"
               animate="animate"
@@ -66,6 +66,7 @@ function App() {
           ) : !activeUser ? (
             <motion.div
               key="login"
+              className="absolute inset-0 w-full h-full bg-[#020516] z-10"
               variants={authTransitionVariants}
               initial="initial"
               animate="animate"
@@ -77,6 +78,7 @@ function App() {
           ) : activeUser.role === 'admin' ? (
             <motion.div
               key="admin-dashboard"
+              className="absolute inset-0 w-full h-full bg-[#F1EFEC] z-10"
               variants={authTransitionVariants}
               initial="initial"
               animate="animate"
@@ -88,6 +90,7 @@ function App() {
           ) : activeUser.role === 'office_coordinator' ? (
             <motion.div
               key="coordinator-dashboard"
+              className="absolute inset-0 w-full h-full bg-[#F1EFEC] z-10"
               variants={authTransitionVariants}
               initial="initial"
               animate="animate"
@@ -99,7 +102,7 @@ function App() {
           ) : (
             <motion.div
               key="access-denied"
-              className="min-h-screen w-screen flex flex-col items-center justify-center p-6 text-center font-poppins bg-[#030728]"
+              className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-6 text-center font-poppins bg-[#020516] z-20"
               variants={authTransitionVariants}
               initial="initial"
               animate="animate"
@@ -122,7 +125,7 @@ function App() {
           )}
         </AnimatePresence>
       )}
-    </>
+    </div>
   );
 }
 
