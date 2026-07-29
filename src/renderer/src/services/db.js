@@ -888,6 +888,28 @@ export const getUsers = async () => {
   }
 }
 
+export const subscribeUsers = (callback) => {
+  if (isDemoMode) {
+    const fetchAndCallback = () => callback(getLocalData(LOCAL_STORAGE_KEYS.USERS) || [])
+    fetchAndCallback()
+    const handleStorage = (e) => {
+      if (!e || e.key === LOCAL_STORAGE_KEYS.USERS) fetchAndCallback()
+    }
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener('dommunity_users_updated', handleStorage)
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('dommunity_users_updated', handleStorage)
+    }
+  } else {
+    const q = collection(fdb, 'users')
+    return onSnapshot(q, (snapshot) => {
+      const users = snapshot.docs.map((d) => ({ ...d.data(), uid: d.id }))
+      callback(users)
+    }, (err) => console.error('Users snapshot error:', err))
+  }
+}
+
 export const updateUser = async (uid, updatedData) => {
   if (isDemoMode) {
     const users = getLocalData(LOCAL_STORAGE_KEYS.USERS)
@@ -1059,6 +1081,28 @@ export const getOrganizations = async () => {
   }
 }
 
+export const subscribeOrganizations = (callback) => {
+  if (isDemoMode) {
+    const fetchAndCallback = () => callback(getLocalData(LOCAL_STORAGE_KEYS.ORGANIZATIONS) || [])
+    fetchAndCallback()
+    const handleStorage = (e) => {
+      if (!e || e.key === LOCAL_STORAGE_KEYS.ORGANIZATIONS) fetchAndCallback()
+    }
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener('dommunity_orgs_updated', handleStorage)
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('dommunity_orgs_updated', handleStorage)
+    }
+  } else {
+    const q = collection(fdb, 'organizations')
+    return onSnapshot(q, (snapshot) => {
+      const orgs = snapshot.docs.map((d) => ({ ...d.data(), id: d.id }))
+      callback(orgs)
+    }, (err) => console.error('Organizations snapshot error:', err))
+  }
+}
+
 export const addOrganization = async (org) => {
   if (isDemoMode) {
     const orgs = getLocalData(LOCAL_STORAGE_KEYS.ORGANIZATIONS)
@@ -1097,6 +1141,39 @@ export const getInventory = async () => {
       receivedDate: d.data().receivedDate.toDate().toISOString()
     }))
     return sortInventory(items)
+  }
+}
+
+export const subscribeInventory = (callback) => {
+  if (isDemoMode) {
+    const fetchAndCallback = () => {
+      const items = getLocalData(LOCAL_STORAGE_KEYS.INVENTORY) || []
+      callback(sortInventory(items))
+    }
+    fetchAndCallback()
+    const handleStorage = (e) => {
+      if (!e || e.key === LOCAL_STORAGE_KEYS.INVENTORY) fetchAndCallback()
+    }
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener('dommunity_inventory_updated', handleStorage)
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('dommunity_inventory_updated', handleStorage)
+    }
+  } else {
+    const q = collection(fdb, 'inventory')
+    return onSnapshot(q, (snapshot) => {
+      const items = snapshot.docs.map((d) => {
+        const data = d.data()
+        return {
+          ...data,
+          id: d.id,
+          expiryDate: data.expiryDate?.toDate ? data.expiryDate.toDate().toISOString() : data.expiryDate || null,
+          receivedDate: data.receivedDate?.toDate ? data.receivedDate.toDate().toISOString() : data.receivedDate
+        }
+      })
+      callback(sortInventory(items))
+    }, (err) => console.error('Inventory snapshot error:', err))
   }
 }
 
@@ -1320,6 +1397,28 @@ export const getDonors = async () => {
   }
 }
 
+export const subscribeDonors = (callback) => {
+  if (isDemoMode) {
+    const fetchAndCallback = () => callback(getLocalData(LOCAL_STORAGE_KEYS.DONORS) || [])
+    fetchAndCallback()
+    const handleStorage = (e) => {
+      if (!e || e.key === LOCAL_STORAGE_KEYS.DONORS) fetchAndCallback()
+    }
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener('dommunity_donors_updated', handleStorage)
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('dommunity_donors_updated', handleStorage)
+    }
+  } else {
+    const q = collection(fdb, 'donors')
+    return onSnapshot(q, (snapshot) => {
+      const donors = snapshot.docs.map((d) => ({ ...d.data(), id: d.id }))
+      callback(donors)
+    }, (err) => console.error('Donors snapshot error:', err))
+  }
+}
+
 export const addDonor = async (donor) => {
   if (isDemoMode) {
     const donors = getLocalData(LOCAL_STORAGE_KEYS.DONORS)
@@ -1386,13 +1485,46 @@ export const getDonations = async () => {
       return {
         ...data,
         id: d.id,
-        dateOfDonation: data.dateOfDonation.toDate().toISOString(),
-        items: data.items.map((item) => ({
+        dateOfDonation: data.dateOfDonation?.toDate ? data.dateOfDonation.toDate().toISOString() : data.dateOfDonation,
+        items: (data.items || []).map((item) => ({
           ...item,
-          expiryDate: item.expiryDate ? item.expiryDate.toDate().toISOString() : null
+          expiryDate: item.expiryDate?.toDate ? item.expiryDate.toDate().toISOString() : item.expiryDate || null
         }))
       }
     })
+  }
+}
+
+export const subscribeDonations = (callback) => {
+  if (isDemoMode) {
+    const fetchAndCallback = () => callback(getLocalData(LOCAL_STORAGE_KEYS.DONATIONS) || [])
+    fetchAndCallback()
+    const handleStorage = (e) => {
+      if (!e || e.key === LOCAL_STORAGE_KEYS.DONATIONS) fetchAndCallback()
+    }
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener('dommunity_donations_updated', handleStorage)
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('dommunity_donations_updated', handleStorage)
+    }
+  } else {
+    const q = collection(fdb, 'donations')
+    return onSnapshot(q, (snapshot) => {
+      const donations = snapshot.docs.map((d) => {
+        const data = d.data()
+        return {
+          ...data,
+          id: d.id,
+          dateOfDonation: data.dateOfDonation?.toDate ? data.dateOfDonation.toDate().toISOString() : data.dateOfDonation,
+          items: (data.items || []).map((item) => ({
+            ...item,
+            expiryDate: item.expiryDate?.toDate ? item.expiryDate.toDate().toISOString() : item.expiryDate || null
+          }))
+        }
+      })
+      callback(donations)
+    }, (err) => console.error('Donations snapshot error:', err))
   }
 }
 
@@ -1572,8 +1704,37 @@ export const getEvents = async () => {
     return qSnap.docs.map((d) => ({
       ...d.data(),
       id: d.id,
-      scheduleDate: d.data().scheduleDate.toDate().toISOString()
+      scheduleDate: d.data().scheduleDate ? d.data().scheduleDate.toDate().toISOString() : d.data().scheduleDate
     }))
+  }
+}
+
+export const subscribeEvents = (callback) => {
+  if (isDemoMode) {
+    const fetchAndCallback = () => callback(getLocalData(LOCAL_STORAGE_KEYS.EVENTS) || [])
+    fetchAndCallback()
+    const handleStorage = (e) => {
+      if (!e || e.key === LOCAL_STORAGE_KEYS.EVENTS) fetchAndCallback()
+    }
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener('dommunity_events_updated', handleStorage)
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('dommunity_events_updated', handleStorage)
+    }
+  } else {
+    const q = collection(fdb, 'events')
+    return onSnapshot(q, (snapshot) => {
+      const events = snapshot.docs.map((d) => {
+        const data = d.data()
+        return {
+          ...data,
+          id: d.id,
+          scheduleDate: data.scheduleDate?.toDate ? data.scheduleDate.toDate().toISOString() : data.scheduleDate
+        }
+      })
+      callback(events)
+    }, (err) => console.error('Events snapshot error:', err))
   }
 }
 

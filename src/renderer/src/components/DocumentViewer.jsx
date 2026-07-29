@@ -25,7 +25,7 @@ import {
 } from 'lucide-react'
 import logo from '../assets/logo.png'
 import logo2Img from '../assets/logo2.png'
-import { sanitizeOklchInDocument, exportElementToPDF } from './editor/utils/editorHelpers'
+import { sanitizeOklchInDocument, exportElementToPDF, resolveHeaderHtml } from './editor/utils/editorHelpers'
 
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -151,7 +151,8 @@ export default function DocumentViewer({
   const defaultHeader = `<table style="width:100%;border-collapse:collapse;border:none;margin:0;padding:0;font-family:'Times New Roman',serif;table-layout:fixed;"><tbody><tr><td style="width:0.85in;vertical-align:middle;border:none;padding:0;text-align:left;"><img src="${logo2Img}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:1.1in;vertical-align:middle;border:none;padding:0 0.15in 0 0.1in;text-align:left;"><img src="${logo}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:4.55in;text-align:left;vertical-align:middle;border:none;border-left:2px solid #555;padding:0 0 0 0.15in;line-height:1.25;"><div style="font-family:'Book Antiqua','Palatino',serif;font-size:14pt;font-weight:bold;color:#000;margin:0 0 1px 0;">DOMINICAN COLLEGE OF TARLAC, INC.</div><div style="font-family:'Times New Roman',serif;font-size:12pt;color:#000;margin:0 0 2px 0;">COMMUNITY EXTENSION SERVICES</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">McArthur Highway, Poblacion (Sto. Rosario), Capas, 2315 Tarlac, Philippines</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">Institutional Contact No.: +63938-918-4093</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0;white-space:nowrap;">Website: dct.edu.ph | E-mail: <span style="color:#030e69;text-decoration:underline;">domct_2315@yahoo.com.ph / domct_2315@dct.edu.ph</span></div></td></tr></tbody></table><hr style="border:none;border-top:3px solid #000;margin:8px 0 0 0;width:110%;" />`
   const defaultFooter = `<hr style="border:none;border-top:3px solid #000;margin:0 0 8px 0;width:100%;" /><div style="text-align:center;font-family:'Times New Roman',serif;line-height:1.25;color:#000;"><div style="font-size:12pt;font-weight:bold;margin:0 0 2px 0;">FIDES. PATRIA. SAPIENTIA.</div><div style="font-size:10pt;font-style:italic;margin:0 0 2px 0;">A God-loving educational community with passion for truth and compassion for humanity.</div><div style="font-size:10pt;margin:0;">Department/Office Facebook Page: www.facebook.com/dctces</div></div>`
 
-  const headerText = report.headerText !== undefined ? report.headerText : defaultHeader
+  const rawHeader = report.headerText !== undefined ? report.headerText : defaultHeader
+  const headerText = resolveHeaderHtml(rawHeader, logo2Img, logo)
   const footerText = report.footerText !== undefined ? report.footerText : defaultFooter
   const showHeader = report.showHeader !== undefined ? report.showHeader : true
   const showFooter = report.showFooter !== undefined ? report.showFooter : true

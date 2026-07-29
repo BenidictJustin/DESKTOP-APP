@@ -896,7 +896,7 @@ import { Ruler } from './ui/Ruler';
 import StatusBar from './ui/StatusBar';
 import { DropdownWrapper } from './ui/DropdownWrapper';
 import { DocPropertiesDialog } from './ui/Dialogs';
-import { handleExportPDF, handleExportDOCX, handleExportTXT, docxToHtml, parseDocxLayout, loadInitialContentAndResetHistory } from './utils/editorHelpers';
+import { handleExportPDF, handleExportDOCX, handleExportTXT, docxToHtml, parseDocxLayout, loadInitialContentAndResetHistory, resolveHeaderHtml } from './utils/editorHelpers';
 import DocumentCanvas from './ui/DocumentCanvas';
 import PageFlow from './extensions/PageFlow';
 import PageBreak from './extensions/PageBreak';
@@ -1611,6 +1611,7 @@ export default function TextEditor({
           const defaultFooter = `<hr style="border:none;border-top:3px solid #000;margin:0 0 8px 0;width:100%;" /><div style="text-align:center;font-family:'Times New Roman',serif;line-height:1.25;color:#000;"><div style="font-size:12pt;font-weight:bold;margin:0 0 2px 0;">FIDES. PATRIA. SAPIENTIA.</div><div style="font-size:10pt;font-style:italic;margin:0 0 2px 0;">A God-loving educational community with passion for truth and compassion for humanity.</div><div style="font-size:10pt;margin:0;">Department/Office Facebook Page: www.facebook.com/dctces</div></div>`;
 
           const headerVal = rep.headerText !== undefined ? rep.headerText : defaultHeader;
+          const resolvedHeader = resolveHeaderHtml(headerVal, logo2Img, logoImg);
           const footerVal = rep.footerText !== undefined ? rep.footerText : defaultFooter;
           const showHeaderVal = rep.showHeader !== undefined ? rep.showHeader : true;
           const showFooterVal = rep.showFooter !== undefined ? rep.showFooter : true;
@@ -1619,8 +1620,8 @@ export default function TextEditor({
           const marginKeyVal = rep.marginKey || 'Narrative';
           const isTemplateActiveVal = rep.isTemplateActive !== undefined ? rep.isTemplateActive : true;
 
-          setHeaderText(headerVal);
-          loadInitialContentAndResetHistory(headerEditor, headerVal || '<p></p>');
+          setHeaderText(resolvedHeader);
+          loadInitialContentAndResetHistory(headerEditor, resolvedHeader || '<p></p>');
           setFooterText(footerVal);
           loadInitialContentAndResetHistory(footerEditor, footerVal || '<p></p>');
           setShowHeader(showHeaderVal);

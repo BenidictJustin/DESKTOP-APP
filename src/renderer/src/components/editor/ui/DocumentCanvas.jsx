@@ -3,6 +3,9 @@ import { EditorContent } from "@tiptap/react";
 import { Check } from "lucide-react";
 import { renderAsync } from "docx-preview";
 import { PAPER, MARGINS } from "../constants";
+import logo from "../../../assets/logo.png";
+import logo2Img from "../../../assets/logo2.png";
+import { resolveHeaderHtml } from "../utils/editorHelpers";
 
 /**
  * DocumentCanvas — Renders dynamic Microsoft Word-style page sheets.
@@ -274,7 +277,7 @@ export default function DocumentCanvas({
                             }}
                           >
                             <div 
-                              dangerouslySetInnerHTML={{ __html: headerText || '<div style="min-height: 20px;"></div>' }}
+                              dangerouslySetInnerHTML={{ __html: resolveHeaderHtml(headerText, logo2Img, logo) || '<div style="min-height: 20px;"></div>' }}
                             />
                           </div>
                         )}
@@ -291,7 +294,9 @@ export default function DocumentCanvas({
                               boxSizing: "border-box",
                             }}
                           >
-                            <div dangerouslySetInnerHTML={{ __html: footerText || '<div style="min-height: 20px;"></div>' }} />
+                            <div 
+                              dangerouslySetInnerHTML={{ __html: resolveHeaderHtml(footerText, logo2Img, logo) || '<div style="min-height: 20px;"></div>' }}
+                            />
                           </div>
                         )}
                       </>

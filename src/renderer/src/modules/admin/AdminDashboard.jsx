@@ -6,6 +6,7 @@ import AnimatedPage from '../../components/motion/AnimatedPage'
 import { staggerContainer, staggerItem, pageVariants, pageTransition, modalOverlayVariants, modalContentVariants, modalOverlayTransition, modalContentTransition, dropdownVariants, dropdownTransition, fadeInUp, duration, easing } from '../../components/motion/motionConfig'
 import {
   getUsers,
+  subscribeUsers,
   registerUser,
   updateUser,
   deleteUser,
@@ -13,20 +14,25 @@ import {
   getResetRequests,
   handleResetRequest,
   getOrganizations,
+  subscribeOrganizations,
   addOrganization,
   updateOrganization,
   deleteOrganization,
   getInventory,
+  subscribeInventory,
   addInventoryItem,
   updateInventoryItem,
   deleteInventoryItem,
   getDonors,
+  subscribeDonors,
   addDonor,
   updateDonor,
   deleteDonor,
   getDonations,
+  subscribeDonations,
   addDonation,
   getEvents,
+  subscribeEvents,
   addEvent,
   updateEvent,
   deleteEvent,
@@ -597,11 +603,22 @@ export default function AdminDashboard({ user, onLogout }) {
 
   useEffect(() => {
     loadData()
-    const unsubscribeReports = subscribeReports((reports) => {
-      setReportsList(reports)
-    })
+    const unsubUsers = subscribeUsers((u) => setUsersList(u))
+    const unsubOrgs = subscribeOrganizations((o) => setOrgsList(o))
+    const unsubInv = subscribeInventory((inv) => setInventoryList(inv))
+    const unsubDonors = subscribeDonors((d) => setDonorsList(d))
+    const unsubDonations = subscribeDonations((dn) => setDonationsList(dn))
+    const unsubEvents = subscribeEvents((ev) => setEventsList(ev))
+    const unsubReports = subscribeReports((rep) => setReportsList(rep))
+
     return () => {
-      if (typeof unsubscribeReports === 'function') unsubscribeReports()
+      if (typeof unsubUsers === 'function') unsubUsers()
+      if (typeof unsubOrgs === 'function') unsubOrgs()
+      if (typeof unsubInv === 'function') unsubInv()
+      if (typeof unsubDonors === 'function') unsubDonors()
+      if (typeof unsubDonations === 'function') unsubDonations()
+      if (typeof unsubEvents === 'function') unsubEvents()
+      if (typeof unsubReports === 'function') unsubReports()
     }
   }, [])
 

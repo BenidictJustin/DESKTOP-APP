@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import AnimatedPage from '../../components/motion/AnimatedPage'
 import { staggerContainer, staggerItem } from '../../components/motion/motionConfig'
-import { getReports, subscribeReports, addReport, updateReport, getOrganizations, getEvents } from '../../services/db'
+import { getReports, subscribeReports, addReport, updateReport, getOrganizations, subscribeOrganizations, getEvents, subscribeEvents } from '../../services/db'
 import logo from '../../assets/logo.png'
 import {
   LayoutDashboard,
@@ -90,11 +90,13 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
   useEffect(() => {
     loadData()
-    const unsubscribeReports = subscribeReports((reports) => {
-      setReportsList(reports)
-    })
+    const unsubReports = subscribeReports((reports) => setReportsList(reports))
+    const unsubOrgs = subscribeOrganizations((orgs) => setOrgsList(orgs))
+    const unsubEvents = subscribeEvents((events) => setEventsList(events))
     return () => {
-      if (typeof unsubscribeReports === 'function') unsubscribeReports()
+      if (typeof unsubReports === 'function') unsubReports()
+      if (typeof unsubOrgs === 'function') unsubOrgs()
+      if (typeof unsubEvents === 'function') unsubEvents()
     }
   }, [loadData])
 
@@ -321,7 +323,6 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
   // ── Derived ──
   const myReports = reportsList.filter((r) => {
-    if (r.authorId !== user.uid) return false
     const ev = eventsList.find((e) => e.id === r.eventId)
     const title = ev?.name || r.activityTitle
     return !!(title && title.trim())

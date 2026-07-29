@@ -883,3 +883,29 @@ export async function docxToHtml(arrayBuffer) {
   return parseXmlToHtml(xmlStr, zip, relsMap);
 }
 
+/** 
+ * Safely normalizes document header HTML to replace environment-specific or broken image paths with valid active logos.
+ */
+export function resolveHeaderHtml(rawHeader, logo2Asset, logoAsset) {
+  if (!rawHeader || typeof rawHeader !== 'string') return rawHeader || ''
+  
+  try {
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(rawHeader, 'text/html')
+    const imgs = doc.querySelectorAll('img')
+    
+    if (imgs.length >= 2) {
+      if (logo2Asset) imgs[0].setAttribute('src', logo2Asset)
+      if (logoAsset) imgs[1].setAttribute('src', logoAsset)
+      return doc.body.innerHTML
+    } else if (imgs.length === 1 && logo2Asset) {
+      imgs[0].setAttribute('src', logo2Asset)
+      return doc.body.innerHTML
+    }
+  } catch (err) {
+    console.error('Failed to resolve header HTML images:', err)
+  }
+  
+  return rawHeader
+}
+
