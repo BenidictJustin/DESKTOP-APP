@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { motion } from 'motion/react'
-import { modalOverlayVariants, modalContentVariants, modalOverlayTransition, modalContentTransition } from './motion/motionConfig'
+import {
+  modalOverlayVariants,
+  modalContentVariants,
+  modalOverlayTransition,
+  modalContentTransition
+} from './motion/motionConfig'
 import {
   ChevronLeft,
   ChevronRight,
@@ -25,7 +30,12 @@ import {
 } from 'lucide-react'
 import logo from '../assets/logo.png'
 import logo2Img from '../assets/logo2.png'
-import { sanitizeOklchInDocument, exportElementToPDF, resolveHeaderHtml } from './editor/utils/editorHelpers'
+import {
+  sanitizeOklchInDocument,
+  exportElementToPDF,
+  resolveHeaderHtml,
+  parseNarrativePages
+} from './editor/utils/editorHelpers'
 
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -53,20 +63,19 @@ import FloatingImage from './editor/extensions/FloatingImage'
 import FloatingTextBox from './editor/extensions/FloatingTextBox'
 
 const PAPER = {
-  Letter:    { w: 816,  h: 1056 },
-  Folio:     { w: 816,  h: 1248 },
-  Legal:     { w: 816,  h: 1344 },
-  A4:        { w: 794,  h: 1122 },
+  Letter: { w: 816, h: 1056 },
+  Folio: { w: 816, h: 1248 },
+  Legal: { w: 816, h: 1344 },
+  A4: { w: 794, h: 1122 }
 }
 
 const MARGINS = {
-  Normal:    96,
-  Narrow:    48,
-  Moderate:  72,
-  Wide:      128,
-  Narrative: { top: 96, bottom: 96, left: 144, right: 96 },
+  Normal: 96,
+  Narrow: 48,
+  Moderate: 72,
+  Wide: 128,
+  Narrative: { top: 96, bottom: 96, left: 144, right: 96 }
 }
-
 
 export default function DocumentViewer({
   report,
@@ -78,7 +87,9 @@ export default function DocumentViewer({
   setFeedbackNote,
   handleReviewReport,
   compileReportPDF,
-  loading = false
+  loading = false,
+  isExportOnly = false,
+  onExportFinished
 }) {
   // Viewer Settings State
   const [showThumbnails, setShowThumbnails] = useState(true)
@@ -86,11 +97,11 @@ export default function DocumentViewer({
   const [zoomScale, setZoomScale] = useState(1.0)
   const [viewMode, setViewMode] = useState('select') // 'select' or 'pan'
   const [narrativeTotalPages, setNarrativeTotalPages] = useState(1)
-  
+
   // Panning State
   const [isPanning, setIsPanning] = useState(false)
   const panStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 })
-  
+
   const viewportRef = useRef(null)
 
   // Keyboard shortcut listener for Escape key to close modal
@@ -108,44 +119,6 @@ export default function DocumentViewer({
   const event = eventsList.find((e) => e.id === report.eventId)
   const org = orgsList.find((o) => o.id === report.organizationId)
   const author = usersList.find((u) => u.uid === report.authorId)
-
-  // Parse HTML into paginated blocks without breaking tags (used for sidebar thumbnails)
-  const parseNarrativePages = (htmlString) => {
-    if (!htmlString) return []
-    const tempDiv = document.createElement('div')
-    tempDiv.innerHTML = htmlString
-    const children = Array.from(tempDiv.children)
-    
-    if (children.length === 0) {
-      return [htmlString]
-    }
-    
-    const pages = []
-    let currentPageHtml = ''
-    let currentPageTextLength = 0
-    let maxChars = 1000
-    
-    children.forEach((child) => {
-      const childText = child.textContent || child.innerText || ''
-      const childHtml = child.outerHTML
-      
-      if (currentPageTextLength + childText.length > maxChars && currentPageHtml) {
-        pages.push(currentPageHtml)
-        currentPageHtml = childHtml
-        currentPageTextLength = childText.length
-        maxChars = 1600
-      } else {
-        currentPageHtml += childHtml
-        currentPageTextLength += childText.length
-      }
-    })
-    
-    if (currentPageHtml) {
-      pages.push(currentPageHtml)
-    }
-    
-    return pages
-  }
 
   // Layout settings with fallbacks
   const defaultHeader = `<table style="width:100%;border-collapse:collapse;border:none;margin:0;padding:0;font-family:'Times New Roman',serif;table-layout:fixed;"><tbody><tr><td style="width:0.85in;vertical-align:middle;border:none;padding:0;text-align:left;"><img src="${logo2Img}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:1.1in;vertical-align:middle;border:none;padding:0 0.15in 0 0.1in;text-align:left;"><img src="${logo}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:4.55in;text-align:left;vertical-align:middle;border:none;border-left:2px solid #555;padding:0 0 0 0.15in;line-height:1.25;"><div style="font-family:'Book Antiqua','Palatino',serif;font-size:14pt;font-weight:bold;color:#000;margin:0 0 1px 0;">DOMINICAN COLLEGE OF TARLAC, INC.</div><div style="font-family:'Times New Roman',serif;font-size:12pt;color:#000;margin:0 0 2px 0;">COMMUNITY EXTENSION SERVICES</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">McArthur Highway, Poblacion (Sto. Rosario), Capas, 2315 Tarlac, Philippines</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">Institutional Contact No.: +63938-918-4093</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0;white-space:nowrap;">Website: dct.edu.ph | E-mail: <span style="color:#030e69;text-decoration:underline;">domct_2315@yahoo.com.ph / domct_2315@dct.edu.ph</span></div></td></tr></tbody></table><hr style="border:none;border-top:3px solid #000;margin:8px 0 0 0;width:110%;" />`
@@ -173,7 +146,7 @@ export default function DocumentViewer({
   const padBottom = margins.bottom
   const padLeft = margins.left
   const padRight = margins.right
-  const padTopActual = (showHeader && isTemplateActive) ? 170 : padTop
+  const padTopActual = showHeader && isTemplateActive ? 170 : padTop
   const gapH = 36
 
   const paper = PAPER[paperKey] || PAPER.Letter
@@ -205,7 +178,7 @@ export default function DocumentViewer({
       TaskItem.configure({ nested: true }),
       TaskList,
       PageFlow,
-      PageBreak,
+      PageBreak
     ],
     content: report.narrative || '<p></p>',
     editable: false
@@ -226,10 +199,21 @@ export default function DocumentViewer({
         showHeader,
         showFooter,
         isTemplateActive,
-        onPageChange: handlePageChange,
+        onPageChange: handlePageChange
       })
     }
-  }, [editor, paperKey, orientation, marginKey, headerText, footerText, showHeader, showFooter, isTemplateActive, handlePageChange])
+  }, [
+    editor,
+    paperKey,
+    orientation,
+    marginKey,
+    headerText,
+    footerText,
+    showHeader,
+    showFooter,
+    isTemplateActive,
+    handlePageChange
+  ])
 
   useEffect(() => {
     if (editor && report.narrative) {
@@ -240,7 +224,7 @@ export default function DocumentViewer({
   // Pre-generate pages for indexing and sidebar
   const pages = []
   const narrativePages = parseNarrativePages(report.narrative || '')
-  
+
   for (let i = 1; i <= narrativeTotalPages; i++) {
     pages.push({
       type: 'narrative',
@@ -256,7 +240,7 @@ export default function DocumentViewer({
     for (let i = 0; i < report.photos.length; i += chunkSize) {
       photoChunks.push(report.photos.slice(i, i + chunkSize))
     }
-    
+
     photoChunks.forEach((photos, index) => {
       const pageNum = narrativeTotalPages + index + 1
       const pageObj = {
@@ -322,24 +306,24 @@ export default function DocumentViewer({
   const handleViewportScroll = (e) => {
     const viewport = e.target
     const viewportRect = viewport.getBoundingClientRect()
-    
+
     let activePage = 1
     let minDiff = Infinity
-    
+
     pages.forEach((page) => {
       const pageEl = document.getElementById(`doc-viewer-page-${page.pageNum}`)
       if (!pageEl) return
-      
+
       const elRect = pageEl.getBoundingClientRect()
       // Difference between page element's top and viewport container's top
       const diff = Math.abs(elRect.top - viewportRect.top)
-      
+
       if (diff < minDiff) {
         minDiff = diff
         activePage = page.pageNum
       }
     })
-    
+
     setCurrentPageNum(activePage)
   }
 
@@ -368,10 +352,6 @@ export default function DocumentViewer({
   }
 
   const handleDownloadPDF = async () => {
-    if (typeof compileReportPDF === 'function') {
-      compileReportPDF(report)
-      return
-    }
     if (!viewportRef?.current) {
       alert('Report viewport not available.')
       return
@@ -379,7 +359,7 @@ export default function DocumentViewer({
     try {
       await exportElementToPDF(
         viewportRef.current,
-        `CES_Report_${report.academicYear || 'AY'}_${(report.id || 'doc').substring(0, 6)}`,
+        `CES_Narrative_Report_${report.academicYear || 'AY'}_${(report.id || 'doc').substring(0, 6)}`,
         { isDocument: true }
       )
     } catch (err) {
@@ -387,6 +367,22 @@ export default function DocumentViewer({
       alert('Failed to download PDF: ' + (err.message || err))
     }
   }
+
+  // Auto-download for export-only hidden viewer
+  useEffect(() => {
+    if (isExportOnly && editor && narrativeTotalPages > 0) {
+      const timer = setTimeout(async () => {
+        try {
+          await handleDownloadPDF()
+        } finally {
+          if (typeof onExportFinished === 'function') {
+            onExportFinished()
+          }
+        }
+      }, 1200)
+      return () => clearTimeout(timer)
+    }
+  }, [isExportOnly, editor, narrativeTotalPages])
 
   // Custom Printable Content using sandbox iframe
   const handlePrint = () => {
@@ -398,7 +394,7 @@ export default function DocumentViewer({
     iframe.style.height = '0'
     iframe.style.border = '0'
     document.body.appendChild(iframe)
-    
+
     const doc = iframe.contentWindow.document
     doc.write('<html><head><title>CES Outreach Report</title>')
     doc.write('<style>')
@@ -422,11 +418,11 @@ export default function DocumentViewer({
       .page-footer-print { position: absolute; bottom: 5mm; left: 5mm; right: 5mm; font-size: 9px; color: #94a3b8; text-align: center; border-top: 1px solid #f1f5f9; padding-top: 6px; }
     `)
     doc.write('</style></head><body>')
-    
+
     let pagesHtml = ''
     pages.forEach((page, idx) => {
       pagesHtml += `<div class="page-print">`
-      
+
       if (page.type === 'narrative') {
         if (idx === 0) {
           pagesHtml += `
@@ -437,7 +433,6 @@ export default function DocumentViewer({
             </div>
             <div class="metadata-print">
               <div class="metadata-item"><span class="metadata-label">Extension Outreach Program:</span> <span>${event ? event.name : report.activityTitle || 'Outreach'}</span></div>
-              <div class="metadata-item"><span class="metadata-label">Academic Schedule:</span> <span>${report.semester} | AY ${report.academicYear}</span></div>
               <div class="metadata-item"><span class="metadata-label">Department / Organization:</span> <span>${org ? org.name : report.organizationId ? 'Unknown' : 'CES Office'}</span></div>
               <div class="metadata-item"><span class="metadata-label">Activity Details:</span> <span>${report.activityDate ? new Date(report.activityDate).toLocaleDateString() : ''} ${report.location ? ' @ ' + report.location : ''}</span></div>
               <div class="metadata-item"><span class="metadata-label">Target Beneficiaries:</span> <span>${report.beneficiaries || 'N/A'}</span></div>
@@ -473,7 +468,7 @@ export default function DocumentViewer({
         })
         pagesHtml += `</div>`
       }
-      
+
       pagesHtml += `
         <div class="page-footer-print">
           Dominican College of Tarlac - Narrative Archival · Page ${page.pageNum} of ${pages.length}
@@ -481,11 +476,11 @@ export default function DocumentViewer({
       `
       pagesHtml += `</div>`
     })
-    
+
     doc.write(pagesHtml)
     doc.write('</body></html>')
     doc.close()
-    
+
     setTimeout(() => {
       iframe.contentWindow.focus()
       iframe.contentWindow.print()
@@ -493,6 +488,288 @@ export default function DocumentViewer({
         document.body.removeChild(iframe)
       }, 500)
     }, 500)
+  }
+
+  if (isExportOnly) {
+    return (
+      <main
+        ref={viewportRef}
+        className="print-canvas-only"
+        style={{
+          width: `${docW}px`,
+          height: `${totalHeight}px`,
+          overflow: 'visible',
+          position: 'relative'
+        }}
+      >
+        <style>{`
+          .reactjs-tiptap-editor {
+            display: flex !important;
+            flex-direction: column !important;
+            flex: 1 1 0% !important;
+            height: 100% !important;
+            width: 100% !important;
+            overflow: visible !important;
+          }
+          .ProseMirror {
+            min-height: 100% !important;
+            outline: none !important;
+            box-sizing: border-box !important;
+            white-space: pre-wrap !important;
+            word-wrap: break-word !important;
+            padding: 0 !important;
+            background-color: transparent !important;
+            background-image: none !important;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #1f2937;
+            font-family: 'Calibri', sans-serif;
+            overflow: visible !important;
+          }
+          .reactjs-tiptap-editor .ProseMirror.ProseMirror.ProseMirror {
+            min-height: ${docH - (padTopActual + padBottom)}px !important;
+          }
+          .doc-page .ProseMirror {
+            min-height: ${docH - (padTopActual + padBottom)}px;
+          }
+          .page-break-widget {
+            position: relative;
+            margin-left: -${padLeft}px;
+            margin-right: -${padRight}px;
+            background: transparent;
+            pointer-events: none;
+            user-select: none;
+          }
+          .page-break {
+            display: none !important;
+          }
+          .ProseMirror p,
+          .ProseMirror h1,
+          .ProseMirror h2,
+          .ProseMirror h3,
+          .ProseMirror h4,
+          .ProseMirror h5,
+          .ProseMirror ul,
+          .ProseMirror ol,
+          .ProseMirror table,
+          .ProseMirror blockquote,
+          .ProseMirror hr {
+            position: relative;
+            z-index: 10;
+          }
+          .ProseMirror p { margin-bottom: 8px; }
+          .ProseMirror h1 { font-size: 24px; font-weight: 700; margin-bottom: 12px; color: #111827; }
+          .ProseMirror h2 { font-size: 18px; font-weight: 700; margin-bottom: 10px; color: #1f2937; }
+          .ProseMirror h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; color: #374151; }
+          .ProseMirror h4 { font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #374151; }
+          .ProseMirror h5 { font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #4b5563; }
+          .ProseMirror ul { list-style: disc; padding-left: 22px; margin-bottom: 8px; }
+          .ProseMirror ol { list-style: decimal; padding-left: 22px; margin-bottom: 8px; }
+          .ProseMirror li p { margin-bottom: 2px; }
+          .ProseMirror ul[data-type="taskList"] { list-style: none; padding-left: 4px; }
+          .ProseMirror ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 6px; }
+          .ProseMirror ul[data-type="taskList"] li > label { margin-top: 2px; }
+          .ProseMirror blockquote {
+            border-left: 3px solid #d1d5db; padding-left: 14px;
+            margin: 0 0 8px; color: #6b7280; font-style: italic;
+          }
+          .ProseMirror img {
+            max-width: 100%; height: auto;
+          }
+          .ProseMirror table {
+            border-collapse: collapse; width: 100%; margin: 12px 0;
+            table-layout: auto;
+          }
+          .ProseMirror th,
+          .ProseMirror td {
+            border: 1px solid #c0c0c0; padding: 6px 10px;
+            font-size: 12px; text-align: left; position: relative;
+          }
+          .ProseMirror th { background: #f3f4f6; font-weight: 600; }
+          .ProseMirror tr:nth-child(even) td { background: #fafafa; }
+          .ProseMirror hr { border: none; border-top: 1px solid #d1d5db; margin: 14px 0; }
+          .ProseMirror mark { padding: 1px 2px; border-radius: 2px; }
+          .ProseMirror a { color: #2563eb; text-decoration: underline; }
+          .ProseMirror sub { font-size: 0.75em; }
+          .ProseMirror sup { font-size: 0.75em; }
+        `}</style>
+
+        <div
+          style={{
+            width: `${docW}px`,
+            height: `${totalHeight}px`,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'flex-start',
+            overflow: 'visible',
+            position: 'relative',
+            flexShrink: 0
+          }}
+        >
+          <div
+            style={{
+              width: `${docW}px`,
+              height: `${totalHeight}px`,
+              outline: 'none',
+              position: 'relative'
+            }}
+          >
+            <div
+              style={{ width: `${docW}px`, height: `${canvasHeight}px`, position: 'relative' }}
+              className="print-canvas"
+            >
+              <div className="absolute inset-0 pointer-events-none select-none flex flex-col items-center">
+                {Array.from({ length: narrativeTotalPages }).map((_, i) => {
+                  const pageNum = i + 1
+                  return (
+                    <div
+                      key={i}
+                      id={`doc-viewer-page-${pageNum}`}
+                      className="bg-white shadow-xl border border-gray-300/70 rounded-xs shrink-0 relative pointer-events-auto"
+                      style={{
+                        width: `${docW}px`,
+                        height: `${docH}px`,
+                        marginBottom: `${gapH}px`
+                      }}
+                    >
+                      {showHeader && (
+                        <div
+                          className="absolute left-0 right-0 z-50"
+                          style={{
+                            top: '48px',
+                            paddingLeft: '96px',
+                            paddingRight: '96px',
+                            boxSizing: 'border-box'
+                          }}
+                          dangerouslySetInnerHTML={{ __html: headerText }}
+                        />
+                      )}
+
+                      {showFooter && (
+                        <div
+                          className="absolute left-0 right-0 z-50"
+                          style={{
+                            bottom: '0px',
+                            paddingLeft: '96px',
+                            paddingRight: '96px',
+                            paddingBottom: '24px',
+                            boxSizing: 'border-box'
+                          }}
+                          dangerouslySetInnerHTML={{ __html: footerText }}
+                        />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div
+                className="relative doc-page select-text"
+                style={{
+                  width: `${docW}px`,
+                  minHeight: `${canvasHeight}px`,
+                  paddingTop: `${padTopActual}px`,
+                  paddingBottom: `${padBottom}px`,
+                  paddingLeft: `${padLeft}px`,
+                  paddingRight: `${padRight}px`,
+                  background: 'transparent',
+                  boxSizing: 'border-box',
+                  cursor: 'text'
+                }}
+              >
+                {editor && <EditorContent editor={editor} className="outline-none" />}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {photoPages.map((page, pIdx) => (
+          <div
+            key={page.pageNum}
+            id={`doc-viewer-page-${page.pageNum}`}
+            style={{
+              width: `${docW}px`,
+              height: `${docH}px`,
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'flex-start',
+              flexShrink: 0,
+              marginTop: `${gapH}px`
+            }}
+          >
+            <div
+              className="bg-white shadow-xl border border-gray-300/70 rounded-xs text-left relative flex flex-col justify-between"
+              style={{
+                width: `${docW}px`,
+                height: `${docH}px`,
+                boxSizing: 'border-box',
+                paddingTop: `${padTop}px`,
+                paddingBottom: `${padBottom}px`,
+                paddingLeft: `${padLeft}px`,
+                paddingRight: `${padRight}px`
+              }}
+            >
+              {showHeader && (
+                <div
+                  style={{
+                    paddingBottom: '12px',
+                    marginBottom: '20px',
+                    borderBottom: '1px solid #f1f5f9',
+                    fontSize: '9px',
+                    color: '#94a3b8',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    fontFamily: 'sans-serif'
+                  }}
+                >
+                  <span>CES Narrative Report - Photographic Evidence</span>
+                  <span>Page {page.pageNum}</span>
+                </div>
+              )}
+
+              <div className="space-y-4 flex-1">
+                <h4 className="text-xs font-bold text-navy-blue uppercase tracking-wider mb-2 flex items-center gap-1.5 select-none font-poppins">
+                  <Layers className="w-3.5 h-3.5 text-sig-green" />
+                  Photographic Evidence Documentation
+                </h4>
+
+                <div
+                  className={`grid ${page.photos.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} gap-4 w-full`}
+                >
+                  {page.photos.map((photo, pIdx2) => (
+                    <div
+                      key={pIdx2}
+                      className="border border-gray-100 p-2 rounded-2xl bg-gray-50 flex flex-col items-center justify-center shadow-2xs"
+                    >
+                      <div className="w-full aspect-video rounded-xl overflow-hidden bg-black flex items-center justify-center border border-gray-200">
+                        <img
+                          src={photo.url}
+                          className="w-full h-full object-contain"
+                          alt="outreach evidence"
+                        />
+                      </div>
+                      <span className="text-[9px] text-gray-550 font-bold mt-2 font-poppins">
+                        Photo Documentation Item {pIdx * 4 + pIdx2 + 1}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {showFooter && (
+                <footer className="w-full border-t border-gray-100 pt-3 text-[9px] text-gray-400 font-bold flex justify-between select-none font-poppins">
+                  <span>Dominican College of Tarlac - Narrative Archival</span>
+                  <span>
+                    Document Page {page.pageNum} of {pages.length}
+                  </span>{' '}
+                </footer>
+              )}
+            </div>
+          </div>
+        ))}
+      </main>
+    )
   }
 
   return (
@@ -514,7 +791,6 @@ export default function DocumentViewer({
         exit="exit"
         transition={modalContentTransition}
       >
-        
         {/* ==================================================== */}
         {/* TOP BAR / VIEWBAR TOOLBAR */}
         {/* ==================================================== */}
@@ -651,7 +927,6 @@ export default function DocumentViewer({
         {/* MAIN BODY AREA */}
         {/* ==================================================== */}
         <div className="flex-1 min-h-0 flex overflow-hidden">
-          
           {/* Thumbnails Sidebar */}
           <aside
             className={`bg-white border-r border-gray-100 p-4 overflow-y-auto space-y-4 shrink-0 transition-all duration-300 flex flex-col items-center select-none ${showThumbnails ? 'w-48' : 'w-0 p-0 border-r-0 overflow-hidden'}`}
@@ -685,7 +960,10 @@ export default function DocumentViewer({
                       </div>
                       <div className="grid grid-cols-2 gap-1 flex-1 items-center justify-center">
                         {page.photos.map((_, pIdx) => (
-                          <div key={pIdx} className="bg-gray-200 rounded aspect-video flex items-center justify-center">
+                          <div
+                            key={pIdx}
+                            className="bg-gray-200 rounded aspect-video flex items-center justify-center"
+                          >
                             <div className="w-1.5 h-1.5 bg-gray-400 rounded-full"></div>
                           </div>
                         ))}
@@ -803,30 +1081,36 @@ export default function DocumentViewer({
             `}</style>
 
             {/* 1. Narrative Content (Tiptap Canvas layout) */}
-            <div style={{
-              width: `${docW * zoomScale}px`,
-              height: `${totalHeight * zoomScale}px`,
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'flex-start',
-              overflow: 'visible',
-              position: 'relative',
-              flexShrink: 0
-            }}>
-              <div style={{
-                transform: `scale(${zoomScale})`,
-                transformOrigin: 'top center',
-                width: `${docW}px`,
-                height: `${totalHeight}px`,
-                outline: 'none',
+            <div
+              style={{
+                width: `${docW * zoomScale}px`,
+                height: `${totalHeight * zoomScale}px`,
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'flex-start',
+                overflow: 'visible',
                 position: 'relative',
-              }}>
-                <div style={{ width: `${docW}px`, height: `${canvasHeight}px`, position: 'relative' }} className="print-canvas">
-                  
+                flexShrink: 0
+              }}
+            >
+              <div
+                style={{
+                  transform: `scale(${zoomScale})`,
+                  transformOrigin: 'top center',
+                  width: `${docW}px`,
+                  height: `${totalHeight}px`,
+                  outline: 'none',
+                  position: 'relative'
+                }}
+              >
+                <div
+                  style={{ width: `${docW}px`, height: `${canvasHeight}px`, position: 'relative' }}
+                  className="print-canvas"
+                >
                   {/* Page background sheets */}
                   <div className="absolute inset-0 pointer-events-none select-none flex flex-col items-center">
                     {Array.from({ length: narrativeTotalPages }).map((_, i) => {
-                      const pageNum = i + 1;
+                      const pageNum = i + 1
                       return (
                         <div
                           key={i}
@@ -835,7 +1119,7 @@ export default function DocumentViewer({
                           style={{
                             width: `${docW}px`,
                             height: `${docH}px`,
-                            marginBottom: `${gapH}px`,
+                            marginBottom: `${gapH}px`
                           }}
                         >
                           {/* Page Header */}
@@ -846,7 +1130,7 @@ export default function DocumentViewer({
                                 top: '48px',
                                 paddingLeft: '96px',
                                 paddingRight: '96px',
-                                boxSizing: 'border-box',
+                                boxSizing: 'border-box'
                               }}
                               dangerouslySetInnerHTML={{ __html: headerText }}
                             />
@@ -861,13 +1145,13 @@ export default function DocumentViewer({
                                 paddingLeft: '96px',
                                 paddingRight: '96px',
                                 paddingBottom: '24px',
-                                boxSizing: 'border-box',
+                                boxSizing: 'border-box'
                               }}
                               dangerouslySetInnerHTML={{ __html: footerText }}
                             />
                           )}
                         </div>
-                      );
+                      )
                     })}
                   </div>
 
@@ -883,12 +1167,11 @@ export default function DocumentViewer({
                       paddingRight: `${padRight}px`,
                       background: 'transparent',
                       boxSizing: 'border-box',
-                      cursor: 'text',
+                      cursor: 'text'
                     }}
                   >
                     {editor && <EditorContent editor={editor} className="outline-none" />}
                   </div>
-
                 </div>
               </div>
             </div>
@@ -904,7 +1187,7 @@ export default function DocumentViewer({
                   display: 'flex',
                   justifyContent: 'center',
                   alignItems: 'flex-start',
-                  flexShrink: 0,
+                  flexShrink: 0
                 }}
               >
                 <div
@@ -918,7 +1201,7 @@ export default function DocumentViewer({
                     paddingTop: `${padTop}px`,
                     paddingBottom: `${padBottom}px`,
                     paddingLeft: `${padLeft}px`,
-                    paddingRight: `${padRight}px`,
+                    paddingRight: `${padRight}px`
                   }}
                 >
                   {/* Photo Header */}
@@ -947,10 +1230,15 @@ export default function DocumentViewer({
                       <Layers className="w-3.5 h-3.5 text-sig-green" />
                       Photographic Evidence Documentation
                     </h4>
-                    
-                    <div className={`grid ${page.photos.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} gap-4 w-full`}>
+
+                    <div
+                      className={`grid ${page.photos.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} gap-4 w-full`}
+                    >
                       {page.photos.map((photo, pIdx2) => (
-                        <div key={pIdx2} className="border border-gray-100 p-2 rounded-2xl bg-gray-50 flex flex-col items-center justify-center shadow-2xs">
+                        <div
+                          key={pIdx2}
+                          className="border border-gray-100 p-2 rounded-2xl bg-gray-50 flex flex-col items-center justify-center shadow-2xs"
+                        >
                           <div className="w-full aspect-video rounded-xl overflow-hidden bg-black flex items-center justify-center border border-gray-200">
                             <img
                               src={photo.url}
@@ -970,7 +1258,10 @@ export default function DocumentViewer({
                   {showFooter && (
                     <footer className="w-full border-t border-gray-100 pt-3 text-[9px] text-gray-400 font-bold flex justify-between select-none font-poppins">
                       <span>Dominican College of Tarlac - Narrative Archival</span>
-                      <span>Document Page {page.pageNum} of {pages.length}</span>                    </footer>
+                      <span>
+                        Document Page {page.pageNum} of {pages.length}
+                      </span>{' '}
+                    </footer>
                   )}
                 </div>
               </div>
@@ -984,9 +1275,7 @@ export default function DocumentViewer({
                 <span className="text-[10px] text-sig-green font-bold uppercase tracking-wider">
                   Review & Assessment
                 </span>
-                <h3 className="text-base font-bold text-navy-blue mt-0.5">
-                  Narrative Assessment
-                </h3>
+                <h3 className="text-base font-bold text-navy-blue mt-0.5">Narrative Assessment</h3>
               </div>
 
               {/* Quick Details Cards */}
@@ -994,7 +1283,9 @@ export default function DocumentViewer({
                 <div className="flex items-start space-x-3 p-3 rounded-2xl bg-gray-50 border border-gray-100/50">
                   <User className="w-4 h-4 text-navy-blue shrink-0 mt-0.5" />
                   <div className="text-left">
-                    <span className="text-[9px] text-gray-455 block font-bold uppercase">Submitted By</span>
+                    <span className="text-[9px] text-gray-455 block font-bold uppercase">
+                      Submitted By
+                    </span>
                     <span className="text-[11px] font-bold text-navy-blue block leading-tight mt-0.5">
                       {author ? author.name : 'Coordinator'}
                     </span>
@@ -1007,14 +1298,18 @@ export default function DocumentViewer({
                 <div className="flex items-start space-x-3 p-3 rounded-2xl bg-gray-50 border border-gray-100/50">
                   <Tag className="w-4 h-4 text-navy-blue shrink-0 mt-0.5" />
                   <div className="text-left">
-                    <span className="text-[9px] text-gray-450 block font-bold uppercase">Workflow Status</span>
-                    <span className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full mt-1 ${
-                      report.status === 'approved'
-                        ? 'bg-green-100 text-green-800'
-                        : report.status === 'submitted'
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-red-100 text-red-800'
-                    }`}>
+                    <span className="text-[9px] text-gray-450 block font-bold uppercase">
+                      Workflow Status
+                    </span>
+                    <span
+                      className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full mt-1 ${
+                        report.status === 'approved'
+                          ? 'bg-green-100 text-green-800'
+                          : report.status === 'submitted'
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-red-100 text-red-800'
+                      }`}
+                    >
                       {report.status}
                     </span>
                   </div>
@@ -1024,8 +1319,8 @@ export default function DocumentViewer({
 
             {/* Assessment Input & Actions Panel */}
             <div className="border-t border-gray-150 pt-5 mt-6 space-y-4">
-              {report.status === 'submitted' && (
-                handleReviewReport ? (
+              {report.status === 'submitted' &&
+                (handleReviewReport ? (
                   <>
                     <div className="text-left">
                       <label className="block text-gray-700 text-xs font-semibold mb-1">
@@ -1067,8 +1362,7 @@ export default function DocumentViewer({
                       </p>
                     </div>
                   </div>
-                )
-              )}
+                ))}
 
               {report.status === 'draft' && (
                 <div className="flex items-start space-x-2 text-gray-700 bg-gray-50 p-4 rounded-2xl border border-gray-250 text-xs text-left">
@@ -1076,7 +1370,8 @@ export default function DocumentViewer({
                   <div>
                     <span className="font-bold">Draft Document</span>
                     <p className="mt-1 text-gray-500 leading-normal font-medium">
-                      This is a draft version. You can close this viewer and click "Edit" to complete and submit it to the Admin.
+                      This is a draft version. You can close this viewer and click "Edit" to
+                      complete and submit it to the Admin.
                     </p>
                   </div>
                 </div>
@@ -1106,14 +1401,17 @@ export default function DocumentViewer({
                     </div>
                   </div>
                   <div className="text-xs border border-gray-150 p-3.5 rounded-2xl bg-gray-50 text-gray-600">
-                    <strong className="text-navy-blue font-bold block mb-1">Active Revision Request:</strong>
-                    <p className="font-semibold leading-relaxed text-gray-700">{report.adminFeedback}</p>
+                    <strong className="text-navy-blue font-bold block mb-1">
+                      Active Revision Request:
+                    </strong>
+                    <p className="font-semibold leading-relaxed text-gray-700">
+                      {report.adminFeedback}
+                    </p>
                   </div>
                 </div>
               )}
             </div>
           </aside>
-
         </div>
       </motion.div>
     </motion.div>

@@ -1,4 +1,4 @@
-import { Node } from '@tiptap/core';
+import { Node } from '@tiptap/core'
 
 export const PageBreak = Node.create({
   name: 'pageBreak',
@@ -14,23 +14,30 @@ export const PageBreak = Node.create({
   parseHTML() {
     return [
       {
-        tag: 'div.page-break',
+        tag: 'div.page-break'
       },
       {
-        tag: 'p.page-break',
+        tag: 'p.page-break'
       },
       {
-        tag: 'hr.page-break',
+        tag: 'hr.page-break'
       },
       {
-        tag: '[data-page-break]',
-      },
-    ];
+        tag: '[data-page-break]'
+      }
+    ]
   },
 
   renderHTML({ HTMLAttributes }) {
-    return ['div', { class: 'page-break', 'data-page-break': 'true', style: 'page-break-before: always; height: 1px; overflow: hidden; margin: 0; padding: 0;' }];
-  },
-});
+    return [
+      'div',
+      {
+        class: 'page-break',
+        'data-page-break': 'true',
+        style: 'page-break-before: always; height: 1px; overflow: hidden; margin: 0; padding: 0;'
+      }
+    ]
+  }
+})
 
-export default PageBreak;
+export default PageBreak

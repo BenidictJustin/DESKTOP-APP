@@ -260,7 +260,6 @@ This document tracks development progress. Mark tasks as `[ ]` (uncompleted), `[
 
 ## 4. Verification & Testing
 
-
 - [x] **Validate login state limits & validation forms**
   - **User Story**: As a Developer, I want to test authentication form validations and session limits so that invalid credentials show appropriate error messages and sessions persist correctly.
   - **Details**: Run checks on password input length, empty fields, bad email patterns, and correct session handling after Electron window closure.
@@ -306,4 +305,3 @@ This document tracks development progress. Mark tasks as `[ ]` (uncompleted), `[
     - **Use Case Diagram**: Map out roles (Admin, Office Coordinator) and their interactions with the system modules and Firebase services.
     - **Activity Diagram**: Model workflows including authentication/routing, FIFO-based inventory management, and report compilation/review cycles.
     - **Sequence Diagram**: Detail interactions between UI controllers, Firebase Auth, Firestore Database, and Storage for authentication, donation logs, and report approvals.
-

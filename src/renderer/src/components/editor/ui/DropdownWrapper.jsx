@@ -1,60 +1,78 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 
 /**
  * DropdownWrapper — renders an absolutely-positioned dropdown panel
  * using a React Portal so it escapes all overflow:hidden ancestors.
  * The panel anchors relative to the trigger button's bounding rect.
  */
-export function DropdownWrapper({ open, onClose, triggerRef, children, className = '', align = 'left', width = 'auto' }) {
-  const panelRef = useRef(null);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
+export function DropdownWrapper({
+  open,
+  onClose,
+  triggerRef,
+  children,
+  className = '',
+  align = 'left',
+  width = 'auto'
+}) {
+  const panelRef = useRef(null)
+  const [pos, setPos] = useState({ top: 0, left: 0 })
 
   useEffect(() => {
-    if (!open || !triggerRef?.current) return;
-    const rect = triggerRef.current.getBoundingClientRect();
-    let left = align === 'right' ? rect.right : rect.left;
-    let top = rect.bottom + 2;
+    if (!open || !triggerRef?.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    let left = align === 'right' ? rect.right : rect.left
+    let top = rect.bottom + 2
 
     // Keep within viewport
-    const panelW = typeof width === 'number' ? width : 200;
+    const panelW = typeof width === 'number' ? width : 200
     if (left + panelW > window.innerWidth) {
-      left = window.innerWidth - panelW - 8;
+      left = window.innerWidth - panelW - 8
     }
-    if (left < 4) left = 4;
+    if (left < 4) left = 4
 
-    setPos({ top, left });
-  }, [open, triggerRef, align, width]);
+    setPos({ top, left })
+  }, [open, triggerRef, align, width])
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) return
     const handleClick = (e) => {
-      if (panelRef.current && !panelRef.current.contains(e.target) &&
-          triggerRef?.current && !triggerRef.current.contains(e.target)) {
-        onClose();
+      if (
+        panelRef.current &&
+        !panelRef.current.contains(e.target) &&
+        triggerRef?.current &&
+        !triggerRef.current.contains(e.target)
+      ) {
+        onClose()
       }
-    };
-    const handleEsc = (e) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('mousedown', handleClick);
-    document.addEventListener('keydown', handleEsc);
+    }
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('mousedown', handleClick)
+    document.addEventListener('keydown', handleEsc)
     return () => {
-      document.removeEventListener('mousedown', handleClick);
-      document.removeEventListener('keydown', handleEsc);
-    };
-  }, [open, onClose, triggerRef]);
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('keydown', handleEsc)
+    }
+  }, [open, onClose, triggerRef])
 
-  if (!open) return null;
+  if (!open) return null
 
   return createPortal(
     <div
       ref={panelRef}
       className={`fixed bg-white rounded-lg shadow-2xl border border-gray-200 z-9999 animate-in fade-in-0 zoom-in-95 ${className}`}
-      style={{ top: pos.top, left: align === 'right' ? 'auto' : pos.left, right: align === 'right' ? (window.innerWidth - pos.left) : 'auto' }}
+      style={{
+        top: pos.top,
+        left: align === 'right' ? 'auto' : pos.left,
+        right: align === 'right' ? window.innerWidth - pos.left : 'auto'
+      }}
     >
       {children}
     </div>,
     document.body
-  );
+  )
 }
 
 /**
@@ -68,21 +86,22 @@ export function RBtn({ onClick, active, disabled, title, children, className = '
       disabled={disabled}
       title={title}
       className={`flex items-center justify-center p-1.5 rounded transition-all duration-150 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed text-xs
-        ${active
-          ? 'bg-blue-100 text-blue-700 border border-blue-300 shadow-sm'
-          : 'hover:bg-gray-100 text-gray-700 border border-transparent hover:border-gray-200'
+        ${
+          active
+            ? 'bg-blue-100 text-blue-700 border border-blue-300 shadow-sm'
+            : 'hover:bg-gray-100 text-gray-700 border border-transparent hover:border-gray-200'
         } ${className}`}
     >
       {children}
     </button>
-  );
+  )
 }
 
 /**
  * Ribbon separator — vertical divider between ribbon groups.
  */
 export function RSep() {
-  return <div className="w-px h-8 bg-gray-200 mx-1.5 shrink-0" />;
+  return <div className="w-px h-8 bg-gray-200 mx-1.5 shrink-0" />
 }
 
 /**
@@ -96,7 +115,7 @@ export function RGroup({ label, children }) {
         {label}
       </span>
     </div>
-  );
+  )
 }
 
 /**
@@ -107,7 +126,7 @@ export function ColorGrid({ colors, onSelect, label, onClear, clearLabel = 'Clea
     <div className="p-2.5">
       {label && <p className="text-[9px] text-gray-400 font-bold uppercase mb-2">{label}</p>}
       <div className="grid grid-cols-8 gap-1">
-        {colors.map(c => (
+        {colors.map((c) => (
           <button
             key={c}
             onClick={() => onSelect(c)}
@@ -126,7 +145,7 @@ export function ColorGrid({ colors, onSelect, label, onClear, clearLabel = 'Clea
         </button>
       )}
     </div>
-  );
+  )
 }
 
 /**
@@ -138,9 +157,9 @@ export function TableGridPicker({ onSelect, tableHover, setTableHover, editor })
       <p className="text-[9px] text-gray-400 font-bold uppercase mb-2">Select table size</p>
       <div className="grid" style={{ gridTemplateColumns: 'repeat(8,1fr)', gap: 2 }}>
         {Array.from({ length: 64 }, (_, i) => {
-          const r = Math.floor(i / 8) + 1;
-          const c = (i % 8) + 1;
-          const isHov = r <= tableHover.r && c <= tableHover.c;
+          const r = Math.floor(i / 8) + 1
+          const c = (i % 8) + 1
+          const isHov = r <= tableHover.r && c <= tableHover.c
           return (
             <div
               key={i}
@@ -149,7 +168,7 @@ export function TableGridPicker({ onSelect, tableHover, setTableHover, editor })
               className={`w-5 h-5 border rounded-sm cursor-pointer transition-all duration-100
                 ${isHov ? 'bg-blue-200 border-blue-400 shadow-sm' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'}`}
             />
-          );
+          )
         })}
       </div>
       <p className="text-[10px] text-gray-500 mt-2 text-center font-medium">
@@ -169,8 +188,8 @@ export function TableGridPicker({ onSelect, tableHover, setTableHover, editor })
               { l: 'Delete Table', fn: () => editor?.chain().focus().deleteTable().run() },
               { l: 'Merge Cells', fn: () => editor?.chain().focus().mergeCells().run() },
               { l: 'Split Cell', fn: () => editor?.chain().focus().splitCell().run() },
-              { l: 'Toggle Header Row', fn: () => editor?.chain().focus().toggleHeaderRow().run() },
-            ].map(item => (
+              { l: 'Toggle Header Row', fn: () => editor?.chain().focus().toggleHeaderRow().run() }
+            ].map((item) => (
               <button
                 key={item.l}
                 onClick={item.fn}
@@ -183,5 +202,5 @@ export function TableGridPicker({ onSelect, tableHover, setTableHover, editor })
         </>
       )}
     </div>
-  );
+  )
 }

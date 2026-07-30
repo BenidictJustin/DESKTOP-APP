@@ -1,65 +1,101 @@
-import { X, AlertTriangle, Upload } from 'lucide-react';
-import mammoth from 'mammoth';
-import { parseDocxLayout } from '../utils/editorHelpers';
-import GlassDatePicker from '../../GlassDatePicker';
+import { X, AlertTriangle, Upload } from 'lucide-react'
+import mammoth from 'mammoth'
+import { parseDocxLayout } from '../utils/editorHelpers'
+import GlassDatePicker from '../../GlassDatePicker'
 
 /**
  * FindReplaceDialog — Modal for find & replace functionality.
  */
-export function FindReplaceDialog({ show, onClose, findText, setFindText, replaceText, setReplaceText, onFind, onReplaceAll }) {
-  if (!show) return null;
+export function FindReplaceDialog({
+  show,
+  onClose,
+  findText,
+  setFindText,
+  replaceText,
+  setReplaceText,
+  onFind,
+  onReplaceAll
+}) {
+  if (!show) return null
   return (
-    <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-2xl p-5 shadow-2xl border border-gray-200 w-80" onClick={e => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-9999 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl p-5 shadow-2xl border border-gray-200 w-80"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-navy-blue text-sm">Find & Replace</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 cursor-pointer"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 cursor-pointer">
+            <X className="w-4 h-4" />
+          </button>
         </div>
         <div className="space-y-2.5">
           <div>
-            <label className="text-[10px] font-semibold text-gray-500 uppercase mb-0.5 block">Find</label>
+            <label className="text-[10px] font-semibold text-gray-500 uppercase mb-0.5 block">
+              Find
+            </label>
             <input
-              value={findText} onChange={e => setFindText(e.target.value)}
-              placeholder="Search text…" autoFocus
+              value={findText}
+              onChange={(e) => setFindText(e.target.value)}
+              placeholder="Search text…"
+              autoFocus
               className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             />
           </div>
           <div>
-            <label className="text-[10px] font-semibold text-gray-500 uppercase mb-0.5 block">Replace With</label>
+            <label className="text-[10px] font-semibold text-gray-500 uppercase mb-0.5 block">
+              Replace With
+            </label>
             <input
-              value={replaceText} onChange={e => setReplaceText(e.target.value)}
+              value={replaceText}
+              onChange={(e) => setReplaceText(e.target.value)}
               placeholder="Replacement…"
               className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             />
           </div>
           <div className="flex gap-2 pt-1">
-            <button onClick={onFind}
-              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold py-2 rounded-lg transition cursor-pointer">
+            <button
+              onClick={onFind}
+              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold py-2 rounded-lg transition cursor-pointer"
+            >
               Find Next
             </button>
-            <button onClick={onReplaceAll}
-              className="flex-1 bg-navy-blue text-white text-xs font-semibold py-2 rounded-lg hover:bg-navy-blue/90 transition cursor-pointer">
+            <button
+              onClick={onReplaceAll}
+              className="flex-1 bg-navy-blue text-white text-xs font-semibold py-2 rounded-lg hover:bg-navy-blue/90 transition cursor-pointer"
+            >
               Replace All
             </button>
           </div>
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 /**
  * WordCountDialog — Modal showing document statistics.
  */
 export function WordCountDialog({ show, onClose, wordCount, charCount, editor }) {
-  if (!show) return null;
-  const text = editor?.getText() || '';
+  if (!show) return null
+  const text = editor?.getText() || ''
   return (
-    <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-2xl p-6 shadow-2xl border border-gray-200 w-72" onClick={e => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-9999 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl p-6 shadow-2xl border border-gray-200 w-72"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-navy-blue text-sm">Word Count</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 cursor-pointer"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 cursor-pointer">
+            <X className="w-4 h-4" />
+          </button>
         </div>
         <div className="space-y-2">
           {[
@@ -67,178 +103,257 @@ export function WordCountDialog({ show, onClose, wordCount, charCount, editor })
             { label: 'Characters (no spaces)', value: text.replace(/\s/g, '').length },
             { label: 'Characters (with spaces)', value: charCount },
             { label: 'Paragraphs', value: (text.match(/\n/g) || []).length + 1 },
-            { label: 'Lines', value: Math.max(1, Math.ceil(charCount / 80)) },
-          ].map(s => (
-            <div key={s.label} className="flex justify-between items-center py-1.5 border-b border-gray-50 last:border-0">
+            { label: 'Lines', value: Math.max(1, Math.ceil(charCount / 80)) }
+          ].map((s) => (
+            <div
+              key={s.label}
+              className="flex justify-between items-center py-1.5 border-b border-gray-50 last:border-0"
+            >
               <span className="text-xs text-gray-600">{s.label}</span>
               <span className="text-sm font-bold text-navy-blue">{s.value}</span>
             </div>
           ))}
         </div>
-        <button onClick={onClose}
-          className="w-full mt-4 bg-navy-blue text-white text-xs font-semibold py-2 rounded-xl hover:bg-navy-blue/90 transition cursor-pointer">
+        <button
+          onClick={onClose}
+          className="w-full mt-4 bg-navy-blue text-white text-xs font-semibold py-2 rounded-xl hover:bg-navy-blue/90 transition cursor-pointer"
+        >
           Close
         </button>
       </div>
     </div>
-  );
+  )
 }
 
 /**
  * OpenReportDialog — Modal for selecting a report to open.
  */
 export function OpenReportDialog({ show, onClose, reports, eventsList, onOpen, StatusBadge }) {
-  if (!show) return null;
+  if (!show) return null
   return (
-    <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-2xl p-5 shadow-2xl border border-gray-200 w-120 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-9999 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl p-5 shadow-2xl border border-gray-200 w-120 max-h-[80vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between mb-4 shrink-0">
           <h3 className="font-bold text-navy-blue text-sm">Open Report</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 cursor-pointer"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 cursor-pointer">
+            <X className="w-4 h-4" />
+          </button>
         </div>
         <div className="overflow-y-auto space-y-2.5">
           {reports.length === 0 ? (
             <p className="text-xs text-gray-400 text-center py-8 italic">No reports found.</p>
-          ) : reports.map(rep => {
-            const ev = eventsList.find(e => e.id === rep.eventId);
-            return (
-              <button key={rep.id} onClick={() => onOpen(rep)}
-                className="w-full text-left p-3 rounded-xl border border-gray-100 hover:border-blue-300 hover:bg-blue-50/30 transition cursor-pointer group">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <StatusBadge status={rep.status} />
-                    <span className="text-[9px] text-gray-400">{rep.semester}</span>
+          ) : (
+            reports.map((rep) => {
+              const ev = eventsList.find((e) => e.id === rep.eventId)
+              return (
+                <button
+                  key={rep.id}
+                  onClick={() => onOpen(rep)}
+                  className="w-full text-left p-3 rounded-xl border border-gray-100 hover:border-blue-300 hover:bg-blue-50/30 transition cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status={rep.status} />
+                      <span className="text-[9px] text-gray-400">{rep.semester}</span>
+                    </div>
+                    <span className="text-[9px] text-gray-400">
+                      {new Date(rep.updatedAt).toLocaleDateString()}
+                    </span>
                   </div>
-                  <span className="text-[9px] text-gray-400">{new Date(rep.updatedAt).toLocaleDateString()}</span>
-                </div>
-                <p className="text-xs font-semibold text-navy-blue mt-1">{ev?.name || rep.activityTitle || 'Untitled'}</p>
-              </button>
-            );
-          })}
+                  <p className="text-xs font-semibold text-navy-blue mt-1">
+                    {ev?.name || rep.activityTitle || 'Untitled'}
+                  </p>
+                </button>
+              )
+            })
+          )}
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 /**
  * DocPropertiesDialog — Modal for editing document metadata.
  */
 export function DocPropertiesDialog({
-  show, onClose,
-  workspaceReportAY, setWorkspaceReportAY,
-  workspaceReportSem, setWorkspaceReportSem,
-  workspaceReportType, setWorkspaceReportType,
-  workspaceReportOrgId, setWorkspaceReportOrgId,
-  workspaceReportBenef, setWorkspaceReportBenef,
-  workspaceReportEventId, setWorkspaceReportEventId,
-  workspaceReportTitle, setWorkspaceReportTitle,
-  workspaceReportDate, setWorkspaceReportDate,
-  workspaceReportLocation, setWorkspaceReportLocation,
+  show,
+  onClose,
+  workspaceReportAY,
+  setWorkspaceReportAY,
+  workspaceReportSem,
+  setWorkspaceReportSem,
+  workspaceReportType,
+  setWorkspaceReportType,
+  workspaceReportOrgId,
+  setWorkspaceReportOrgId,
+  workspaceReportBenef,
+  setWorkspaceReportBenef,
+  workspaceReportEventId,
+  setWorkspaceReportEventId,
+  workspaceReportTitle,
+  setWorkspaceReportTitle,
+  workspaceReportDate,
+  setWorkspaceReportDate,
+  workspaceReportLocation,
+  setWorkspaceReportLocation,
   workspaceIsReadOnly,
   workspaceFeedback,
-  linkToEvent, setLinkToEvent,
-  orgsList, eventsList,
+  linkToEvent,
+  setLinkToEvent,
+  orgsList,
+  eventsList
 }) {
-  if (!show) return null;
+  if (!show) return null
   return (
-    <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-2xl p-6 shadow-2xl border border-gray-200 w-130 max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-9999 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl p-6 shadow-2xl border border-gray-200 w-130 max-h-[85vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between mb-5 shrink-0">
           <h3 className="font-bold text-navy-blue text-sm">Document Properties</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 cursor-pointer"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 cursor-pointer">
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
         {workspaceFeedback && (
           <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <p><strong>Admin Feedback:</strong> {workspaceFeedback}</p>
+            <p>
+              <strong>Admin Feedback:</strong> {workspaceFeedback}
+            </p>
           </div>
         )}
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Academic Year</label>
-            <CustomSelect 
-              value={workspaceReportAY} 
-              disabled={workspaceIsReadOnly} 
-              onChange={val => setWorkspaceReportAY(val)}
-              options={['2024-2025', '2025-2026', '2026-2027', '2027-2028']} 
+            <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">
+              Academic Year
+            </label>
+            <CustomSelect
+              value={workspaceReportAY}
+              disabled={workspaceIsReadOnly}
+              onChange={(val) => setWorkspaceReportAY(val)}
+              options={['2024-2025', '2025-2026', '2026-2027', '2027-2028']}
             />
           </div>
           <div>
-            <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Semester</label>
-            <CustomSelect 
-              value={workspaceReportSem} 
-              disabled={workspaceIsReadOnly} 
-              onChange={val => setWorkspaceReportSem(val)}
-              options={['1st Semester', '2nd Semester', 'Summer']} 
+            <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">
+              Semester
+            </label>
+            <CustomSelect
+              value={workspaceReportSem}
+              disabled={workspaceIsReadOnly}
+              onChange={(val) => setWorkspaceReportSem(val)}
+              options={['1st Semester', '2nd Semester', 'Summer']}
             />
           </div>
           <div>
-            <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Category</label>
-            <CustomSelect 
-              value={workspaceReportType} 
-              disabled={workspaceIsReadOnly} 
-              onChange={val => setWorkspaceReportType(val)}
+            <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">
+              Category
+            </label>
+            <CustomSelect
+              value={workspaceReportType}
+              disabled={workspaceIsReadOnly}
+              onChange={(val) => setWorkspaceReportType(val)}
               options={[
                 { value: 'outreach', label: 'Community Outreach' },
                 { value: 'community_service', label: 'Community Service' },
                 { value: 'blood_donation', label: 'Blood Donation' },
                 { value: 'department_program', label: 'Department Extension' }
-              ]} 
+              ]}
             />
           </div>
           <div>
-            <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Collaborator Org</label>
-            <CustomSelect 
-              value={workspaceReportOrgId} 
-              disabled={workspaceIsReadOnly} 
-              onChange={val => setWorkspaceReportOrgId(val)}
+            <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">
+              Collaborator Org
+            </label>
+            <CustomSelect
+              value={workspaceReportOrgId}
+              disabled={workspaceIsReadOnly}
+              onChange={(val) => setWorkspaceReportOrgId(val)}
               options={[
                 { value: '', label: '-- Main CES Office --' },
-                ...orgsList.map(o => ({ value: o.id, label: o.name }))
-              ]} 
+                ...orgsList.map((o) => ({ value: o.id, label: o.name }))
+              ]}
             />
           </div>
           <div className="col-span-2">
-            <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Beneficiaries</label>
-            <input type="text" value={workspaceReportBenef} disabled={workspaceIsReadOnly} onChange={e => setWorkspaceReportBenef(e.target.value)}
-              placeholder="Enter total beneficiaries" className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500/20" />
+            <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">
+              Beneficiaries
+            </label>
+            <input
+              type="text"
+              value={workspaceReportBenef}
+              disabled={workspaceIsReadOnly}
+              onChange={(e) => setWorkspaceReportBenef(e.target.value)}
+              placeholder="Enter total beneficiaries"
+              className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500/20"
+            />
           </div>
           <div className="col-span-2">
             <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 cursor-pointer">
-              <input type="checkbox" checked={linkToEvent} disabled={workspaceIsReadOnly} onChange={e => setLinkToEvent(e.target.checked)}
-                className="rounded border-gray-300 text-navy-blue" />
+              <input
+                type="checkbox"
+                checked={linkToEvent}
+                disabled={workspaceIsReadOnly}
+                onChange={(e) => setLinkToEvent(e.target.checked)}
+                className="rounded border-gray-300 text-navy-blue"
+              />
               Link to scheduled event
             </label>
           </div>
           {linkToEvent ? (
             <div className="col-span-2">
-              <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Select Event</label>
-              <CustomSelect 
-                value={workspaceReportEventId} 
+              <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">
+                Select Event
+              </label>
+              <CustomSelect
+                value={workspaceReportEventId}
                 disabled={workspaceIsReadOnly}
-                onChange={val => {
-                  setWorkspaceReportEventId(val);
-                  const ev = eventsList.find(x => x.id === val);
-                  if (ev) setWorkspaceReportOrgId(ev.assignedOrganizationId || '');
+                onChange={(val) => {
+                  setWorkspaceReportEventId(val)
+                  const ev = eventsList.find((x) => x.id === val)
+                  if (ev) setWorkspaceReportOrgId(ev.assignedOrganizationId || '')
                 }}
                 options={[
                   { value: '', label: '-- Select --' },
-                  ...eventsList.map(e => ({ value: e.id, label: `${e.name} (${new Date(e.scheduleDate).toLocaleDateString()})` }))
+                  ...eventsList.map((e) => ({
+                    value: e.id,
+                    label: `${e.name} (${new Date(e.scheduleDate).toLocaleDateString()})`
+                  }))
                 ]}
               />
             </div>
           ) : (
             <>
               <div>
-                <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Activity Title</label>
-                <input type="text" value={workspaceReportTitle} disabled={workspaceIsReadOnly} onChange={e => setWorkspaceReportTitle(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500/20" />
+                <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">
+                  Activity Title
+                </label>
+                <input
+                  type="text"
+                  value={workspaceReportTitle}
+                  disabled={workspaceIsReadOnly}
+                  onChange={(e) => setWorkspaceReportTitle(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500/20"
+                />
               </div>
               <div>
-                <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Date</label>
+                <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">
+                  Date
+                </label>
                 <GlassDatePicker
                   value={workspaceReportDate}
                   disabled={workspaceIsReadOnly}
@@ -247,27 +362,38 @@ export function DocPropertiesDialog({
                 />
               </div>
               <div className="col-span-2">
-                <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">Location</label>
-                <input type="text" value={workspaceReportLocation} disabled={workspaceIsReadOnly} onChange={e => setWorkspaceReportLocation(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500/20" />
+                <label className="block text-[10px] font-semibold text-gray-500 uppercase mb-1">
+                  Location
+                </label>
+                <input
+                  type="text"
+                  value={workspaceReportLocation}
+                  disabled={workspaceIsReadOnly}
+                  onChange={(e) => setWorkspaceReportLocation(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500/20"
+                />
               </div>
             </>
           )}
         </div>
 
         <div className="flex gap-2 mt-5">
-          <button onClick={onClose}
-            className="flex-1 border border-gray-200 text-gray-600 text-xs font-semibold py-2 rounded-xl hover:bg-gray-50 transition cursor-pointer">
+          <button
+            onClick={onClose}
+            className="flex-1 border border-gray-200 text-gray-600 text-xs font-semibold py-2 rounded-xl hover:bg-gray-50 transition cursor-pointer"
+          >
             Cancel
           </button>
-          <button onClick={onClose}
-            className="flex-1 bg-navy-blue text-white text-xs font-semibold py-2 rounded-xl hover:bg-navy-blue/90 transition cursor-pointer">
+          <button
+            onClick={onClose}
+            className="flex-1 bg-navy-blue text-white text-xs font-semibold py-2 rounded-xl hover:bg-navy-blue/90 transition cursor-pointer"
+          >
             Save Properties
           </button>
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 /**
@@ -283,34 +409,37 @@ export function TemplatesDialog({
   onDuplicateTemplate,
   onSetDefaultTemplate,
   defaultTemplateId,
-  onImportTemplate,
+  onImportTemplate
 }) {
-  if (!show) return null;
+  if (!show) return null
 
   const handleImportDocx = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const file = e.target.files?.[0]
+    if (!file) return
 
-    const reader = new FileReader();
+    const reader = new FileReader()
     reader.onload = async (event) => {
-      const arrayBuffer = event.target.result;
+      const arrayBuffer = event.target.result
       try {
-        const layout = await parseDocxLayout(arrayBuffer);
-        const result = await mammoth.convertToHtml({ arrayBuffer }, {
-          convertImage: mammoth.images.imgElement((image) => {
-            return image.readAsBase64String().then((base64String) => {
-              return {
-                src: `data:${image.contentType};base64,${base64String}`
-              };
-            });
-          })
-        });
-        const html = result.value;
-        
-        let tplName = file.name.replace(/\.[^/.]+$/, "");
-        const enteredName = window.prompt("Import Template — Enter Template Name:", tplName);
-        if (enteredName === null) return;
-        if (enteredName.trim()) tplName = enteredName.trim();
+        const layout = await parseDocxLayout(arrayBuffer)
+        const result = await mammoth.convertToHtml(
+          { arrayBuffer },
+          {
+            convertImage: mammoth.images.imgElement((image) => {
+              return image.readAsBase64String().then((base64String) => {
+                return {
+                  src: `data:${image.contentType};base64,${base64String}`
+                }
+              })
+            })
+          }
+        )
+        const html = result.value
+
+        let tplName = file.name.replace(/\.[^/.]+$/, '')
+        const enteredName = window.prompt('Import Template — Enter Template Name:', tplName)
+        if (enteredName === null) return
+        if (enteredName.trim()) tplName = enteredName.trim()
 
         onImportTemplate({
           name: tplName,
@@ -318,20 +447,20 @@ export function TemplatesDialog({
           paperKey: layout?.paperKey || 'A4',
           orientation: layout?.orientation || 'portrait',
           marginKey: layout?.marginKey || 'Normal',
-          lineSpacing: "1.5",
+          lineSpacing: '1.5',
           showHeader: !!layout?.showHeader,
           showFooter: !!layout?.showFooter,
           headerText: layout?.headerText || '',
-          footerText: layout?.footerText || '',
-        });
+          footerText: layout?.footerText || ''
+        })
       } catch (err) {
-        console.error("Error parsing .docx template:", err);
-        alert("Failed to parse the .docx template. Please check the file format.");
+        console.error('Error parsing .docx template:', err)
+        alert('Failed to parse the .docx template. Please check the file format.')
       }
-    };
-    reader.readAsArrayBuffer(file);
-    e.target.value = '';
-  };
+    }
+    reader.readAsArrayBuffer(file)
+    e.target.value = ''
+  }
 
   // Preset definitions
   const presets = [
@@ -346,7 +475,7 @@ export function TemplatesDialog({
       lineSpacing: '1.5',
       html: '<p></p>',
       fontFamily: 'Calibri, sans-serif',
-      fontSize: '11px',
+      fontSize: '11px'
     },
     {
       id: 'preset-outreach',
@@ -395,7 +524,7 @@ export function TemplatesDialog({
         <p></p>
         <h2>4. Key Outcomes & Recommendations</h2>
         <p>Detail what went well and outline areas of recommendation for CES programs in the future.</p>
-      `,
+      `
     },
     {
       id: 'preset-proposal',
@@ -447,7 +576,7 @@ export function TemplatesDialog({
             </tr>
           </tbody>
         </table>
-      `,
+      `
     },
     {
       id: 'preset-minutes',
@@ -495,34 +624,45 @@ export function TemplatesDialog({
             </tr>
           </tbody>
         </table>
-      `,
+      `
     }
-  ];
+  ]
 
   return (
-    <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/45 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-3xl p-6 shadow-2xl border border-gray-200 w-180 max-h-[85vh] flex flex-col animate-in fade-in-0 zoom-in-95" onClick={e => e.stopPropagation()}>
-        
+    <div
+      className="fixed inset-0 z-9999 flex items-center justify-center bg-black/45 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-3xl p-6 shadow-2xl border border-gray-200 w-180 max-h-[85vh] flex flex-col animate-in fade-in-0 zoom-in-95"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between mb-5 shrink-0 border-b border-gray-100 pb-3">
           <div>
             <h3 className="font-bold text-navy-blue text-sm">Start a New Document</h3>
-            <p className="text-[10px] text-gray-400">Choose a default preset template or load one of your custom template styles</p>
+            <p className="text-[10px] text-gray-400">
+              Choose a default preset template or load one of your custom template styles
+            </p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 cursor-pointer transition">
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 cursor-pointer transition"
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Gallery Scroll Container */}
         <div className="flex-1 overflow-y-auto pr-1 space-y-6">
-          
           {/* Section 1: Presets */}
           <div>
-            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Default Presets</h4>
+            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">
+              Default Presets
+            </h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {presets.map(p => {
-                const isDefault = defaultTemplateId === p.id;
+              {presets.map((p) => {
+                const isDefault = defaultTemplateId === p.id
                 return (
                   <div
                     key={p.id}
@@ -538,19 +678,26 @@ export function TemplatesDialog({
                       <span className="text-navy-blue font-bold text-xs">DOC</span>
                     </div>
                     <div>
-                      <h5 className="text-[11px] font-bold text-navy-blue leading-tight truncate">{p.name}</h5>
-                      <p className="text-[9px] text-gray-400 leading-tight mt-1 line-clamp-2">{p.description}</p>
+                      <h5 className="text-[11px] font-bold text-navy-blue leading-tight truncate">
+                        {p.name}
+                      </h5>
+                      <p className="text-[9px] text-gray-400 leading-tight mt-1 line-clamp-2">
+                        {p.description}
+                      </p>
                     </div>
                     <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center opacity-0 group-hover:opacity-100 transition">
                       <button
-                        onClick={(e) => { e.stopPropagation(); onSetDefaultTemplate(p.id); }}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onSetDefaultTemplate(p.id)
+                        }}
                         className="text-[9px] text-blue-600 hover:underline font-semibold cursor-pointer"
                       >
                         {isDefault ? 'Remove Default' : 'Make Default'}
                       </button>
                     </div>
                   </div>
-                );
+                )
               })}
             </div>
           </div>
@@ -560,7 +707,9 @@ export function TemplatesDialog({
             <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center justify-between">
               <span>My Custom Templates</span>
               <div className="flex items-center gap-3">
-                <span className="text-[9px] font-normal lowercase italic text-gray-400">Created from existing documents</span>
+                <span className="text-[9px] font-normal lowercase italic text-gray-400">
+                  Created from existing documents
+                </span>
                 <label className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider bg-navy-blue hover:bg-blue-800 text-white px-2.5 py-1 rounded-full cursor-pointer transition shadow-xs">
                   <Upload className="w-2.5 h-2.5" />
                   Import .docx
@@ -573,15 +722,16 @@ export function TemplatesDialog({
                 </label>
               </div>
             </h4>
-            
+
             {templates.length === 0 ? (
               <div className="text-center py-10 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200 text-gray-400 text-xs">
-                No custom templates saved yet. You can save your document as a template from the "File" menu.
+                No custom templates saved yet. You can save your document as a template from the
+                "File" menu.
               </div>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {templates.map(t => {
-                  const isDefault = defaultTemplateId === t.id;
+                {templates.map((t) => {
+                  const isDefault = defaultTemplateId === t.id
                   return (
                     <div
                       key={t.id}
@@ -593,49 +743,62 @@ export function TemplatesDialog({
                           Default
                         </span>
                       )}
-                      
+
                       <div className="h-10 w-10 bg-navy-blue rounded-xl flex items-center justify-center shadow-xs mb-3 group-hover:scale-110 transition">
                         <span className="text-white font-bold text-xs">TPL</span>
                       </div>
-                      
+
                       <div>
-                        <h5 className="text-[11px] font-bold text-navy-blue leading-tight truncate">{t.name}</h5>
-                        <p className="text-[9px] text-gray-400 mt-0.5">Saved {new Date(t.createdAt).toLocaleDateString()}</p>
+                        <h5 className="text-[11px] font-bold text-navy-blue leading-tight truncate">
+                          {t.name}
+                        </h5>
+                        <p className="text-[9px] text-gray-400 mt-0.5">
+                          Saved {new Date(t.createdAt).toLocaleDateString()}
+                        </p>
                       </div>
 
                       {/* Hover action bar */}
                       <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between items-center gap-1.5 opacity-0 group-hover:opacity-100 transition">
                         <button
-                          onClick={(e) => { e.stopPropagation(); onSetDefaultTemplate(t.id); }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onSetDefaultTemplate(t.id)
+                          }}
                           className="text-[8px] text-blue-600 hover:underline font-semibold cursor-pointer whitespace-nowrap"
                         >
                           {isDefault ? 'Clear Default' : 'Set Default'}
                         </button>
                         <button
                           onClick={(e) => {
-                            e.stopPropagation();
-                            const newN = window.prompt('Rename Template:', t.name);
-                            if (newN && newN.trim()) onRenameTemplate(t.id, newN.trim());
+                            e.stopPropagation()
+                            const newN = window.prompt('Rename Template:', t.name)
+                            if (newN && newN.trim()) onRenameTemplate(t.id, newN.trim())
                           }}
                           className="text-[8px] text-gray-500 hover:underline font-semibold cursor-pointer"
                         >
                           Rename
                         </button>
                         <button
-                          onClick={(e) => { e.stopPropagation(); onDuplicateTemplate(t.id); }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onDuplicateTemplate(t.id)
+                          }}
                           className="text-[8px] text-gray-500 hover:underline font-semibold cursor-pointer animate-pulse"
                         >
                           Clone
                         </button>
                         <button
-                          onClick={(e) => { e.stopPropagation(); if (window.confirm('Delete this template?')) onDeleteTemplate(t.id); }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (window.confirm('Delete this template?')) onDeleteTemplate(t.id)
+                          }}
                           className="text-[8px] text-red-500 hover:underline font-semibold cursor-pointer"
                         >
                           Delete
                         </button>
                       </div>
                     </div>
-                  );
+                  )
                 })}
               </div>
             )}
@@ -643,6 +806,5 @@ export function TemplatesDialog({
         </div>
       </div>
     </div>
-  );
+  )
 }
-

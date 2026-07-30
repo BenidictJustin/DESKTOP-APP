@@ -5,7 +5,15 @@ import { login, requestPasswordReset } from '../services/db'
 import { KeyRound, Mail, Eye, EyeOff, CheckCircle2, AlertCircle } from 'lucide-react'
 import logo from '../assets/logo.png'
 import logo3 from '../assets/logo3.png'
-import { modalOverlayVariants, modalContentVariants, modalOverlayTransition, modalContentTransition, fadeInUp, duration, easing } from './motion/motionConfig'
+import {
+  modalOverlayVariants,
+  modalContentVariants,
+  modalOverlayTransition,
+  modalContentTransition,
+  fadeInUp,
+  duration,
+  easing
+} from './motion/motionConfig'
 import AnimatedModal from './motion/AnimatedModal'
 
 export default function Login({ onLoginSuccess }) {
@@ -79,7 +87,12 @@ export default function Login({ onLoginSuccess }) {
       }, 1800)
     } catch (err) {
       const msg = err?.message || ''
-      if (msg.includes('auth/invalid-credential') || msg.includes('invalid-credential') || msg.includes('auth/user-not-found') || msg.includes('auth/wrong-password')) {
+      if (
+        msg.includes('auth/invalid-credential') ||
+        msg.includes('invalid-credential') ||
+        msg.includes('auth/user-not-found') ||
+        msg.includes('auth/wrong-password')
+      ) {
         setError('Invalid email or password. Please try again.')
       } else {
         setError(err?.message || 'Invalid email or password. Please try again.')
@@ -298,10 +311,11 @@ export default function Login({ onLoginSuccess }) {
                       }
                     }}
                     placeholder="Enter email"
-                    className={`w-full pl-11 pr-4 py-2.5 text-sm bg-white/90 backdrop-blur-md border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 placeholder:text-gray-400 text-navy-blue font-semibold shadow-inner ${emailError
+                    className={`w-full pl-11 pr-4 py-2.5 text-sm bg-white/90 backdrop-blur-md border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 placeholder:text-gray-400 text-navy-blue font-semibold shadow-inner ${
+                      emailError
                         ? 'border-red-400 focus:ring-red-400/30 focus:border-red-400'
                         : 'border-white/80 focus:ring-sig-green/40 focus:border-sig-green'
-                      }`}
+                    }`}
                   />
                 </div>
                 {emailError && (
@@ -314,7 +328,9 @@ export default function Login({ onLoginSuccess }) {
 
               <div>
                 <div className="flex justify-between items-center mb-1.5">
-                  <label className="block text-white/90 text-xs font-semibold tracking-wide drop-shadow-xs">Password</label>
+                  <label className="block text-white/90 text-xs font-semibold tracking-wide drop-shadow-xs">
+                    Password
+                  </label>
                   <button
                     type="button"
                     onClick={() => {
@@ -344,17 +360,22 @@ export default function Login({ onLoginSuccess }) {
                       }
                     }}
                     placeholder="••••••••"
-                    className={`w-full pl-11 pr-11 py-2.5 text-sm bg-white/90 backdrop-blur-md border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 placeholder:text-gray-400 text-navy-blue font-semibold shadow-inner ${passwordError
+                    className={`w-full pl-11 pr-11 py-2.5 text-sm bg-white/90 backdrop-blur-md border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 placeholder:text-gray-400 text-navy-blue font-semibold shadow-inner ${
+                      passwordError
                         ? 'border-red-400 focus:ring-red-400/30 focus:border-red-400'
                         : 'border-white/80 focus:ring-sig-green/40 focus:border-sig-green'
-                      }`}
+                    }`}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400 hover:text-navy-blue focus:outline-none transition-colors duration-150 cursor-pointer"
                   >
-                    {showPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
+                    {showPassword ? (
+                      <EyeOff className="w-4.5 h-4.5" />
+                    ) : (
+                      <Eye className="w-4.5 h-4.5" />
+                    )}
                   </button>
                 </div>
                 {passwordError && (
@@ -413,7 +434,12 @@ export default function Login({ onLoginSuccess }) {
                 aria-label="Close"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
 
@@ -582,12 +608,8 @@ export default function Login({ onLoginSuccess }) {
             <CheckCircle2 className="w-7 h-7 text-sig-green" />
           </div>
           <div>
-            <h3 className="font-extrabold text-navy-blue text-base">
-              Login Successful!
-            </h3>
-            <p className="text-xs text-gray-500 font-semibold mt-1">
-              Welcome back!
-            </p>
+            <h3 className="font-extrabold text-navy-blue text-base">Login Successful!</h3>
+            <p className="text-xs text-gray-500 font-semibold mt-1">Welcome back!</p>
           </div>
         </div>
       </AnimatedModal>

@@ -80,7 +80,9 @@ export default function CustomSelect({
         } ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-50' : ''}`}
         style={{ height: style.height || '40px' }}
       >
-        <span className={`truncate text-left ${!selectedOption ? 'text-gray-400 font-normal' : ''}`}>
+        <span
+          className={`truncate text-left ${!selectedOption ? 'text-gray-400 font-normal' : ''}`}
+        >
           {selectedOption ? selectedOption.label : placeholder}
         </span>
         <ChevronDown

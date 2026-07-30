@@ -1,24 +1,29 @@
-const fs = require('fs');
+const fs = require('fs')
 
-const filePath = 'c:\\Users\\JOHN HAROLD SANTOS\\OneDrive\\Desktop\\CAPSTONE 2 - DOMMUNITY CODE\\DOMMUNITY-main\\src\\renderer\\src\\modules\\admin\\AdminDashboard.jsx';
-let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n');
+const filePath =
+  'c:\\Users\\JOHN HAROLD SANTOS\\OneDrive\\Desktop\\CAPSTONE 2 - DOMMUNITY CODE\\DOMMUNITY-main\\src\\renderer\\src\\modules\\admin\\AdminDashboard.jsx'
+let content = fs.readFileSync(filePath, 'utf8').replace(/\r\n/g, '\n')
 
 // 1. Declare isDonationModalOpen state
 if (!content.includes('const [isDonationModalOpen, setIsDonationModalOpen] = useState(false)')) {
   content = content.replace(
     'const [isAddDeptModalOpen, setIsAddDeptModalOpen] = useState(false)',
     'const [isAddDeptModalOpen, setIsAddDeptModalOpen] = useState(false)\n  const [isDonationModalOpen, setIsDonationModalOpen] = useState(false)'
-  );
-  console.log("Declared isDonationModalOpen state variable");
+  )
+  console.log('Declared isDonationModalOpen state variable')
 }
 
 // 2. Add setIsDonationModalOpen(false) on success inside handleCreateDonation
-if (content.includes("triggerSuccess('Donation batch registered and items added to inventory stock.')")) {
+if (
+  content.includes(
+    "triggerSuccess('Donation batch registered and items added to inventory stock.')"
+  )
+) {
   content = content.replace(
     "triggerSuccess('Donation batch registered and items added to inventory stock.')",
     "triggerSuccess('Donation batch registered and items added to inventory stock.')\n      setIsDonationModalOpen(false)"
-  );
-  console.log("Added setIsDonationModalOpen(false) to handleCreateDonation success handler");
+  )
+  console.log('Added setIsDonationModalOpen(false) to handleCreateDonation success handler')
 }
 
 // 3. Define component-wide isAnyModalOpen
@@ -40,14 +45,14 @@ const modalStatesDef = `  const isAnyModalOpen =
     Boolean(validationError) ||
     Boolean(actionSuccess) ||
     Boolean(selectedReport) ||
-    Boolean(completedActivitiesModal?.isOpen)`;
+    Boolean(completedActivitiesModal?.isOpen)`
 
 if (!content.includes('const isAnyModalOpen =')) {
   content = content.replace(
     'const [editingEvent, setEditingEvent] = useState(null)',
     'const [editingEvent, setEditingEvent] = useState(null)\n\n' + modalStatesDef
-  );
-  console.log("Declared component-wide isAnyModalOpen");
+  )
+  console.log('Declared component-wide isAnyModalOpen')
 }
 
 // 4. Remove local isAnyModalOpen in useEffect
@@ -77,8 +82,8 @@ content = content.replace(
   `  // Body scroll lock effect whenever any modal/popup is open
   useEffect(() => {
     const mainEl = mainRef.current`
-);
-console.log("Updated scroll lock useEffect to reference component-wide isAnyModalOpen");
+)
+console.log('Updated scroll lock useEffect to reference component-wide isAnyModalOpen')
 
 // 5. Update header About button
 content = content.replace(
@@ -95,7 +100,7 @@ content = content.replace(
             className={\`text-navy-blue transition p-1 \${isAnyModalOpen ? 'opacity-40 cursor-not-allowed' : 'hover:opacity-85 cursor-pointer'}\`}
             title="About DommUnity"
           >`
-);
+)
 
 // 6. Update header Home button
 content = content.replace(
@@ -112,7 +117,7 @@ content = content.replace(
             className={\`text-navy-blue transition p-1 \${isAnyModalOpen ? 'opacity-40 cursor-not-allowed' : 'hover:opacity-85 cursor-pointer'}\`}
             title="Dashboard"
           >`
-);
+)
 
 // 7. Update sidebar menu navigation buttons
 content = content.replace(
@@ -137,7 +142,7 @@ content = content.replace(
                     ? 'bg-sig-green/20 text-sig-green backdrop-blur-md border-l-[3px] border-sig-green shadow-xs'
                     : 'text-gray-300 hover:bg-white/10 hover:text-white border-l-[3px] border-transparent'
                     } \${isAnyModalOpen ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}\`}`
-);
+)
 
 // 8. Update logout button
 content = content.replace(
@@ -158,29 +163,29 @@ content = content.replace(
             >
               Logout
             </button>`
-);
+)
 
 // 9. Cut the donation form from the layout and replace with flex header
-const marker = '/* Right Column: Donation batch compiler */';
-const markerIdx = content.indexOf(marker);
+const marker = '/* Right Column: Donation batch compiler */'
+const markerIdx = content.indexOf(marker)
 
 if (markerIdx === -1) {
-  console.error("Could not find the donation form marker in AdminDashboard.jsx!");
-  process.exit(1);
+  console.error('Could not find the donation form marker in AdminDashboard.jsx!')
+  process.exit(1)
 }
 
 // Find the start <div className="w-full"> before the comment
-const beforeMarker = content.slice(0, markerIdx);
-const startIdx = beforeMarker.lastIndexOf('<div');
+const beforeMarker = content.slice(0, markerIdx)
+const startIdx = beforeMarker.lastIndexOf('<div')
 
 // Find the end index of the donation form card
-const endFormIdx = content.indexOf('</form>', markerIdx);
-const afterForm = content.slice(endFormIdx);
-const div1 = afterForm.indexOf('</div>');
-const div2 = afterForm.indexOf('</div>', div1 + 6);
-const endIdx = endFormIdx + div2 + '</div>'.length;
+const endFormIdx = content.indexOf('</form>', markerIdx)
+const afterForm = content.slice(endFormIdx)
+const div1 = afterForm.indexOf('</div>')
+const div2 = afterForm.indexOf('</div>', div1 + 6)
+const endIdx = endFormIdx + div2 + '</div>'.length
 
-const originalFormCode = content.slice(startIdx, endIdx);
+const originalFormCode = content.slice(startIdx, endIdx)
 
 // Construct new layout for donations tab
 const newHeaderAndPlaceholder = `<div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1">
@@ -206,28 +211,33 @@ const newHeaderAndPlaceholder = `<div className="flex flex-col md:flex-row md:it
                       <Plus className="w-4 h-4" />
                       <span>Register Donation Batch</span>
                     </button>
-                  </div>`;
+                  </div>`
 
 // Find the header of the donations tab
-const fullTabBlockStart = content.indexOf("{activeTab === 'donations' && user.role === 'admin' && (");
-const headerCardStart = content.indexOf('<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">\n                    <h1 className="text-2xl font-bold text-navy-blue">Donors & Donations Logs</h1>\n                  </div>', fullTabBlockStart);
+const fullTabBlockStart = content.indexOf(
+  "{activeTab === 'donations' && user.role === 'admin' && ("
+)
+const headerCardStart = content.indexOf(
+  '<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">\n                    <h1 className="text-2xl font-bold text-navy-blue">Donors & Donations Logs</h1>\n                  </div>',
+  fullTabBlockStart
+)
 
 if (headerCardStart === -1) {
-  console.error("Could not find header card start!");
-  process.exit(1);
+  console.error('Could not find header card start!')
+  process.exit(1)
 }
 
 // Re-slice content to clean the embedded layout
-content = content.slice(0, headerCardStart) + newHeaderAndPlaceholder + '\n' + content.slice(endIdx);
-console.log("Refactored Donations Tab Panel header and removed the embedded form from layout");
+content = content.slice(0, headerCardStart) + newHeaderAndPlaceholder + '\n' + content.slice(endIdx)
+console.log('Refactored Donations Tab Panel header and removed the embedded form from layout')
 
 // 10. Wrap cut form code inside modal wrapper and insert in the bottom viewport modals block
-const insertionModalsMarker = '{/* Centered Glassmorphic Add / Edit User Modal */}';
-const insertionIdx = content.indexOf(insertionModalsMarker);
+const insertionModalsMarker = '{/* Centered Glassmorphic Add / Edit User Modal */}'
+const insertionIdx = content.indexOf(insertionModalsMarker)
 
 if (insertionIdx === -1) {
-  console.error("Could not find insertion modals section at the bottom of AdminDashboard.jsx!");
-  process.exit(1);
+  console.error('Could not find insertion modals section at the bottom of AdminDashboard.jsx!')
+  process.exit(1)
 }
 
 // Convert original form card layout to a centered glassmorphic modal overlay
@@ -235,7 +245,7 @@ const cleanFormCode = originalFormCode
   .replace(/<div className="\s*w-full\s*">/, '')
   .replace('{/* Right Column: Donation batch compiler */}', '')
   .replace('<div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">', '')
-  .slice(0, -'</div>\n                  </div>'.length);
+  .slice(0, -'</div>\n                  </div>'.length)
 
 const modalWrapper = `
         {/* REGISTER DONATION BATCH MODAL */}
@@ -259,10 +269,10 @@ const modalWrapper = `
             </div>
           </div>
         )}
-`;
+`
 
-content = content.slice(0, insertionIdx) + modalWrapper + '\n' + content.slice(insertionIdx);
-console.log("Appended Register Donation Batch Modal to the bottom viewport modals block!");
+content = content.slice(0, insertionIdx) + modalWrapper + '\n' + content.slice(insertionIdx)
+console.log('Appended Register Donation Batch Modal to the bottom viewport modals block!')
 
-fs.writeFileSync(filePath, content, 'utf8');
-console.log("Refactoring donation modal completed successfully!");
+fs.writeFileSync(filePath, content, 'utf8')
+console.log('Refactoring donation modal completed successfully!')

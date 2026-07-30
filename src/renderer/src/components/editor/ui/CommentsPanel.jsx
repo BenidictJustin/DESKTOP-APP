@@ -1,23 +1,29 @@
-import React from 'react';
-import { X } from 'lucide-react';
+import React from 'react'
+import { X } from 'lucide-react'
 
 /**
  * CommentsPanel — Side panel for adding, viewing, resolving, and deleting comments.
  */
 export default function CommentsPanel({
-  show, onClose,
-  comments, setComments,
-  commentInput, setCommentInput,
-  onAddComment,
+  show,
+  onClose,
+  comments,
+  setComments,
+  commentInput,
+  setCommentInput,
+  onAddComment
 }) {
-  if (!show) return null;
+  if (!show) return null
 
   return (
     <div className="w-64 bg-white border-r border-gray-200 shrink-0 overflow-y-auto flex flex-col">
       {/* Header */}
       <div className="p-3 border-b border-gray-100 flex items-center justify-between">
         <h3 className="text-[10px] font-bold text-gray-600 uppercase tracking-wide">Comments</h3>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 cursor-pointer transition">
+        <button
+          onClick={onClose}
+          className="text-gray-400 hover:text-gray-600 cursor-pointer transition"
+        >
           <X className="w-3.5 h-3.5" />
         </button>
       </div>
@@ -26,7 +32,7 @@ export default function CommentsPanel({
       <div className="p-3 border-b border-gray-100">
         <textarea
           value={commentInput}
-          onChange={e => setCommentInput(e.target.value)}
+          onChange={(e) => setCommentInput(e.target.value)}
           placeholder="Add a comment about selected text…"
           className="w-full text-xs border border-gray-200 rounded-lg p-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/20 h-16 transition"
         />
@@ -44,7 +50,7 @@ export default function CommentsPanel({
         {comments.length === 0 ? (
           <p className="text-[10px] text-gray-400 italic text-center py-4">No comments yet.</p>
         ) : (
-          comments.map(c => (
+          comments.map((c) => (
             <div
               key={c.id}
               className={`bg-gray-50 rounded-xl p-2.5 border transition ${
@@ -73,22 +79,29 @@ export default function CommentsPanel({
 
               <div className="flex gap-2 mt-2">
                 <button
-                  onClick={() => setComments(prev => prev.map(x =>
-                    x.id === c.id ? { ...x, resolved: !x.resolved } : x
-                  ))}
+                  onClick={() =>
+                    setComments((prev) =>
+                      prev.map((x) => (x.id === c.id ? { ...x, resolved: !x.resolved } : x))
+                    )
+                  }
                   className="text-[9px] text-green-600 hover:underline cursor-pointer font-semibold"
                 >
                   {c.resolved ? 'Unresolve' : 'Resolve'}
                 </button>
                 <button
                   onClick={() => {
-                    const reply = window.prompt('Reply:');
+                    const reply = window.prompt('Reply:')
                     if (reply) {
-                      setComments(prev => prev.map(x =>
-                        x.id === c.id
-                          ? { ...x, replies: [...(x.replies || []), { author: 'You', text: reply }] }
-                          : x
-                      ));
+                      setComments((prev) =>
+                        prev.map((x) =>
+                          x.id === c.id
+                            ? {
+                                ...x,
+                                replies: [...(x.replies || []), { author: 'You', text: reply }]
+                              }
+                            : x
+                        )
+                      )
                     }
                   }}
                   className="text-[9px] text-blue-600 hover:underline cursor-pointer font-semibold"
@@ -96,7 +109,7 @@ export default function CommentsPanel({
                   Reply
                 </button>
                 <button
-                  onClick={() => setComments(prev => prev.filter(x => x.id !== c.id))}
+                  onClick={() => setComments((prev) => prev.filter((x) => x.id !== c.id))}
                   className="text-[9px] text-red-500 hover:underline cursor-pointer font-semibold"
                 >
                   Delete
@@ -107,5 +120,5 @@ export default function CommentsPanel({
         )}
       </div>
     </div>
-  );
+  )
 }

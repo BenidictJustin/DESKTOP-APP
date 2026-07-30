@@ -23,7 +23,13 @@ import {
   sendPasswordResetEmail
 } from 'firebase/auth'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { db as fdb, auth as fauth, storage as fstorage, isDemoMode, firebaseConfig } from '../firebase'
+import {
+  db as fdb,
+  auth as fauth,
+  storage as fstorage,
+  isDemoMode,
+  firebaseConfig
+} from '../firebase'
 
 // ==========================================
 // 1. DEMO MODE DATA STORAGE (LOCAL STORAGE)
@@ -492,7 +498,10 @@ export const login = async (email, password) => {
       if (!querySnapshot.empty) {
         loginEmail = querySnapshot.docs[0].data().email
       } else {
-        const q2 = query(collection(fdb, 'users'), where('username', '==', loginEmail.toLowerCase()))
+        const q2 = query(
+          collection(fdb, 'users'),
+          where('username', '==', loginEmail.toLowerCase())
+        )
         const querySnapshot2 = await getDocs(q2)
         if (!querySnapshot2.empty) {
           loginEmail = querySnapshot2.docs[0].data().email
@@ -549,7 +558,8 @@ export const migrateLocalDataToFirebase = async () => {
 
     // Load data from LocalStorage or SEED_DATA
     const localUsers = getLocalData(LOCAL_STORAGE_KEYS.USERS) || SEED_DATA.USERS || []
-    const localOrgs = getLocalData(LOCAL_STORAGE_KEYS.ORGANIZATIONS) || SEED_DATA.ORGANIZATIONS || []
+    const localOrgs =
+      getLocalData(LOCAL_STORAGE_KEYS.ORGANIZATIONS) || SEED_DATA.ORGANIZATIONS || []
     const localInventory = getLocalData(LOCAL_STORAGE_KEYS.INVENTORY) || SEED_DATA.INVENTORY || []
     const localDonors = getLocalData(LOCAL_STORAGE_KEYS.DONORS) || SEED_DATA.DONORS || []
     const localDonations = getLocalData(LOCAL_STORAGE_KEYS.DONATIONS) || SEED_DATA.DONATIONS || []
@@ -566,10 +576,13 @@ export const migrateLocalDataToFirebase = async () => {
 
     console.log('Migrating users to Firebase Auth and Firestore...')
     for (const user of localUsers) {
-      const pwd = user.email === 'admin@gmail.com' ? 'admin12345' : 
-                  (user.email === 'coordinator@gmail.com' ? 'coordinator123' : 
-                   (user.password || 'password123'))
-      
+      const pwd =
+        user.email === 'admin@gmail.com'
+          ? 'admin12345'
+          : user.email === 'coordinator@gmail.com'
+            ? 'coordinator123'
+            : user.password || 'password123'
+
       let authUid = null
       try {
         const cred = await createUserWithEmailAndPassword(secondaryAuth, user.email, pwd)
@@ -638,7 +651,9 @@ export const migrateLocalDataToFirebase = async () => {
         unit: inv.unit,
         quantity: inv.quantity,
         expiryDate: inv.expiryDate ? Timestamp.fromDate(new Date(inv.expiryDate)) : null,
-        receivedDate: inv.receivedDate ? Timestamp.fromDate(new Date(inv.receivedDate)) : Timestamp.now(),
+        receivedDate: inv.receivedDate
+          ? Timestamp.fromDate(new Date(inv.receivedDate))
+          : Timestamp.now(),
         status: inv.status || 'available',
         lastUpdatedBy: inv.lastUpdatedBy ? mapUid(inv.lastUpdatedBy) : null,
         createdAt: inv.createdAt ? Timestamp.fromDate(new Date(inv.createdAt)) : Timestamp.now(),
@@ -670,9 +685,11 @@ export const migrateLocalDataToFirebase = async () => {
         id: don.id,
         donorId: don.donorId,
         donorName: don.donorName,
-        dateOfDonation: don.dateOfDonation ? Timestamp.fromDate(new Date(don.dateOfDonation)) : Timestamp.now(),
+        dateOfDonation: don.dateOfDonation
+          ? Timestamp.fromDate(new Date(don.dateOfDonation))
+          : Timestamp.now(),
         notes: don.notes || '',
-        items: (don.items || []).map(item => ({
+        items: (don.items || []).map((item) => ({
           name: item.name,
           category: item.category,
           quantity: item.quantity,
@@ -690,7 +707,9 @@ export const migrateLocalDataToFirebase = async () => {
         id: ev.id,
         title: ev.title,
         description: ev.description || '',
-        scheduleDate: ev.scheduleDate ? Timestamp.fromDate(new Date(ev.scheduleDate)) : Timestamp.now(),
+        scheduleDate: ev.scheduleDate
+          ? Timestamp.fromDate(new Date(ev.scheduleDate))
+          : Timestamp.now(),
         status: ev.status || 'pending',
         organizationId: ev.organizationId || null,
         coordinatorId: ev.coordinatorId ? mapUid(ev.coordinatorId) : null,
@@ -713,7 +732,7 @@ export const migrateLocalDataToFirebase = async () => {
         photos: rep.photos || [],
         status: rep.status || 'draft',
         adminFeedback: rep.adminFeedback || null,
-        history: (rep.history || []).map(h => ({
+        history: (rep.history || []).map((h) => ({
           status: h.status,
           changedBy: h.changedBy ? mapUid(h.changedBy) : null,
           timestamp: h.timestamp ? Timestamp.fromDate(new Date(h.timestamp)) : Timestamp.now(),
@@ -743,7 +762,6 @@ export const migrateLocalDataToFirebase = async () => {
     // Mark migration as completed in Firestore
     await setDoc(migrationDocRef, { completed: true, migratedAt: Timestamp.now() })
     console.log('Firebase migration completed successfully!')
-
   } catch (err) {
     console.error('Error during Firebase migration:', err)
   }
@@ -755,14 +773,14 @@ export const listenToAuthChanges = (callback) => {
       const user = getLocalData(LOCAL_STORAGE_KEYS.LOGGED_IN_USER)
       callback(user)
     } catch (e) {
-      console.error("Auth change listener failed in Demo Mode:", e)
+      console.error('Auth change listener failed in Demo Mode:', e)
       callback(null)
     }
     return () => {}
   } else {
     try {
       // Trigger migration check/run in Cloud Mode
-      migrateLocalDataToFirebase().catch(err => console.error("Migration error:", err))
+      migrateLocalDataToFirebase().catch((err) => console.error('Migration error:', err))
 
       return onAuthStateChanged(fauth, async (firebaseUser) => {
         try {
@@ -783,12 +801,12 @@ export const listenToAuthChanges = (callback) => {
             callback(null)
           }
         } catch (err) {
-          console.error("Firestore user fetch failed in auth listener:", err)
+          console.error('Firestore user fetch failed in auth listener:', err)
           callback(null)
         }
       })
     } catch (e) {
-      console.error("Auth listener registration failed:", e)
+      console.error('Auth listener registration failed:', e)
       callback(null)
       return () => {}
     }
@@ -804,7 +822,7 @@ export const registerUser = async (
   organizationId = null
 ) => {
   const normalizedRole = role === 'admin' ? 'admin' : 'office_coordinator'
-  const assignedOrg = normalizedRole === 'admin' ? (organizationId || null) : (organizationId || null)
+  const assignedOrg = normalizedRole === 'admin' ? organizationId || null : organizationId || null
 
   if (isDemoMode) {
     const users = getLocalData(LOCAL_STORAGE_KEYS.USERS)
@@ -903,10 +921,14 @@ export const subscribeUsers = (callback) => {
     }
   } else {
     const q = collection(fdb, 'users')
-    return onSnapshot(q, (snapshot) => {
-      const users = snapshot.docs.map((d) => ({ ...d.data(), uid: d.id }))
-      callback(users)
-    }, (err) => console.error('Users snapshot error:', err))
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const users = snapshot.docs.map((d) => ({ ...d.data(), uid: d.id }))
+        callback(users)
+      },
+      (err) => console.error('Users snapshot error:', err)
+    )
   }
 }
 
@@ -956,7 +978,13 @@ export const deleteUser = async (uid, email = null, password = null) => {
     if (targetEmail) {
       const passwordsToTry = []
       if (targetPassword) passwordsToTry.push(targetPassword)
-      passwordsToTry.push('Dommunity@123', 'coordinator123', 'admin12345', 'password123', 'Dommunity123')
+      passwordsToTry.push(
+        'Dommunity@123',
+        'coordinator123',
+        'admin12345',
+        'password123',
+        'Dommunity123'
+      )
 
       const secondaryAppName = 'DeleteApp_' + Date.now()
       const secondaryApp = initializeApp(firebaseConfig, secondaryAppName)
@@ -976,7 +1004,9 @@ export const deleteUser = async (uid, email = null, password = null) => {
       }
 
       if (!deletedAuth) {
-        console.warn(`Could not sign in to delete Firebase Auth account for ${targetEmail}. Proceeding with database deletion.`)
+        console.warn(
+          `Could not sign in to delete Firebase Auth account for ${targetEmail}. Proceeding with database deletion.`
+        )
       }
 
       await deleteApp(secondaryApp)
@@ -1096,10 +1126,14 @@ export const subscribeOrganizations = (callback) => {
     }
   } else {
     const q = collection(fdb, 'organizations')
-    return onSnapshot(q, (snapshot) => {
-      const orgs = snapshot.docs.map((d) => ({ ...d.data(), id: d.id }))
-      callback(orgs)
-    }, (err) => console.error('Organizations snapshot error:', err))
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const orgs = snapshot.docs.map((d) => ({ ...d.data(), id: d.id }))
+        callback(orgs)
+      },
+      (err) => console.error('Organizations snapshot error:', err)
+    )
   }
 }
 
@@ -1162,18 +1196,26 @@ export const subscribeInventory = (callback) => {
     }
   } else {
     const q = collection(fdb, 'inventory')
-    return onSnapshot(q, (snapshot) => {
-      const items = snapshot.docs.map((d) => {
-        const data = d.data()
-        return {
-          ...data,
-          id: d.id,
-          expiryDate: data.expiryDate?.toDate ? data.expiryDate.toDate().toISOString() : data.expiryDate || null,
-          receivedDate: data.receivedDate?.toDate ? data.receivedDate.toDate().toISOString() : data.receivedDate
-        }
-      })
-      callback(sortInventory(items))
-    }, (err) => console.error('Inventory snapshot error:', err))
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const items = snapshot.docs.map((d) => {
+          const data = d.data()
+          return {
+            ...data,
+            id: d.id,
+            expiryDate: data.expiryDate?.toDate
+              ? data.expiryDate.toDate().toISOString()
+              : data.expiryDate || null,
+            receivedDate: data.receivedDate?.toDate
+              ? data.receivedDate.toDate().toISOString()
+              : data.receivedDate
+          }
+        })
+        callback(sortInventory(items))
+      },
+      (err) => console.error('Inventory snapshot error:', err)
+    )
   }
 }
 
@@ -1412,10 +1454,14 @@ export const subscribeDonors = (callback) => {
     }
   } else {
     const q = collection(fdb, 'donors')
-    return onSnapshot(q, (snapshot) => {
-      const donors = snapshot.docs.map((d) => ({ ...d.data(), id: d.id }))
-      callback(donors)
-    }, (err) => console.error('Donors snapshot error:', err))
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const donors = snapshot.docs.map((d) => ({ ...d.data(), id: d.id }))
+        callback(donors)
+      },
+      (err) => console.error('Donors snapshot error:', err)
+    )
   }
 }
 
@@ -1485,10 +1531,14 @@ export const getDonations = async () => {
       return {
         ...data,
         id: d.id,
-        dateOfDonation: data.dateOfDonation?.toDate ? data.dateOfDonation.toDate().toISOString() : data.dateOfDonation,
+        dateOfDonation: data.dateOfDonation?.toDate
+          ? data.dateOfDonation.toDate().toISOString()
+          : data.dateOfDonation,
         items: (data.items || []).map((item) => ({
           ...item,
-          expiryDate: item.expiryDate?.toDate ? item.expiryDate.toDate().toISOString() : item.expiryDate || null
+          expiryDate: item.expiryDate?.toDate
+            ? item.expiryDate.toDate().toISOString()
+            : item.expiryDate || null
         }))
       }
     })
@@ -1510,21 +1560,29 @@ export const subscribeDonations = (callback) => {
     }
   } else {
     const q = collection(fdb, 'donations')
-    return onSnapshot(q, (snapshot) => {
-      const donations = snapshot.docs.map((d) => {
-        const data = d.data()
-        return {
-          ...data,
-          id: d.id,
-          dateOfDonation: data.dateOfDonation?.toDate ? data.dateOfDonation.toDate().toISOString() : data.dateOfDonation,
-          items: (data.items || []).map((item) => ({
-            ...item,
-            expiryDate: item.expiryDate?.toDate ? item.expiryDate.toDate().toISOString() : item.expiryDate || null
-          }))
-        }
-      })
-      callback(donations)
-    }, (err) => console.error('Donations snapshot error:', err))
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const donations = snapshot.docs.map((d) => {
+          const data = d.data()
+          return {
+            ...data,
+            id: d.id,
+            dateOfDonation: data.dateOfDonation?.toDate
+              ? data.dateOfDonation.toDate().toISOString()
+              : data.dateOfDonation,
+            items: (data.items || []).map((item) => ({
+              ...item,
+              expiryDate: item.expiryDate?.toDate
+                ? item.expiryDate.toDate().toISOString()
+                : item.expiryDate || null
+            }))
+          }
+        })
+        callback(donations)
+      },
+      (err) => console.error('Donations snapshot error:', err)
+    )
   }
 }
 
@@ -1704,7 +1762,9 @@ export const getEvents = async () => {
     return qSnap.docs.map((d) => ({
       ...d.data(),
       id: d.id,
-      scheduleDate: d.data().scheduleDate ? d.data().scheduleDate.toDate().toISOString() : d.data().scheduleDate
+      scheduleDate: d.data().scheduleDate
+        ? d.data().scheduleDate.toDate().toISOString()
+        : d.data().scheduleDate
     }))
   }
 }
@@ -1724,17 +1784,23 @@ export const subscribeEvents = (callback) => {
     }
   } else {
     const q = collection(fdb, 'events')
-    return onSnapshot(q, (snapshot) => {
-      const events = snapshot.docs.map((d) => {
-        const data = d.data()
-        return {
-          ...data,
-          id: d.id,
-          scheduleDate: data.scheduleDate?.toDate ? data.scheduleDate.toDate().toISOString() : data.scheduleDate
-        }
-      })
-      callback(events)
-    }, (err) => console.error('Events snapshot error:', err))
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const events = snapshot.docs.map((d) => {
+          const data = d.data()
+          return {
+            ...data,
+            id: d.id,
+            scheduleDate: data.scheduleDate?.toDate
+              ? data.scheduleDate.toDate().toISOString()
+              : data.scheduleDate
+          }
+        })
+        callback(events)
+      },
+      (err) => console.error('Events snapshot error:', err)
+    )
   }
 }
 
@@ -1842,8 +1908,12 @@ export const subscribeReports = (callback) => {
           return {
             ...data,
             id: d.id,
-            createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
-            updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt
+            createdAt: data.createdAt?.toDate
+              ? data.createdAt.toDate().toISOString()
+              : data.createdAt,
+            updatedAt: data.updatedAt?.toDate
+              ? data.updatedAt.toDate().toISOString()
+              : data.updatedAt
           }
         })
         callback(reports)

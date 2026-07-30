@@ -1,12 +1,12 @@
-import { Extension } from "@tiptap/core";
+import { Extension } from '@tiptap/core'
 
 export const LineHeightExtension = Extension.create({
-  name: "lineHeight",
+  name: 'lineHeight',
   addOptions() {
     return {
-      types: ["paragraph", "heading"],
-      defaultLineHeight: "normal",
-    };
+      types: ['paragraph', 'heading'],
+      defaultLineHeight: 'normal'
+    }
   },
   addGlobalAttributes() {
     return [
@@ -16,55 +16,59 @@ export const LineHeightExtension = Extension.create({
           lineHeight: {
             default: this.options.defaultLineHeight,
             renderHTML: (attributes) => {
-              if (!attributes.lineHeight) return {};
+              if (!attributes.lineHeight) return {}
               return {
-                style: `line-height: ${attributes.lineHeight}`,
-              };
+                style: `line-height: ${attributes.lineHeight}`
+              }
             },
             parseHTML: (element) => {
-              return element.style.lineHeight || this.options.defaultLineHeight;
-            },
-          },
-        },
-      },
-    ];
+              return element.style.lineHeight || this.options.defaultLineHeight
+            }
+          }
+        }
+      }
+    ]
   },
   addCommands() {
     return {
-      setLineHeight: (lineHeight) => ({ tr, state, dispatch }) => {
-        const { selection } = state;
-        tr = tr.setSelection(selection);
+      setLineHeight:
+        (lineHeight) =>
+        ({ tr, state, dispatch }) => {
+          const { selection } = state
+          tr = tr.setSelection(selection)
 
-        const { from, to } = selection;
-        state.doc.nodesBetween(from, to, (node, pos) => {
-          if (this.options.types.includes(node.type.name)) {
-            tr = tr.setNodeMarkup(pos, undefined, {
-              ...node.attrs,
-              lineHeight,
-            });
-          }
-        });
+          const { from, to } = selection
+          state.doc.nodesBetween(from, to, (node, pos) => {
+            if (this.options.types.includes(node.type.name)) {
+              tr = tr.setNodeMarkup(pos, undefined, {
+                ...node.attrs,
+                lineHeight
+              })
+            }
+          })
 
-        if (dispatch) dispatch(tr);
-        return true;
-      },
-      unsetLineHeight: () => ({ tr, state, dispatch }) => {
-        const { selection } = state;
-        tr = tr.setSelection(selection);
+          if (dispatch) dispatch(tr)
+          return true
+        },
+      unsetLineHeight:
+        () =>
+        ({ tr, state, dispatch }) => {
+          const { selection } = state
+          tr = tr.setSelection(selection)
 
-        const { from, to } = selection;
-        state.doc.nodesBetween(from, to, (node, pos) => {
-          if (this.options.types.includes(node.type.name)) {
-            tr = tr.setNodeMarkup(pos, undefined, {
-              ...node.attrs,
-              lineHeight: this.options.defaultLineHeight,
-            });
-          }
-        });
+          const { from, to } = selection
+          state.doc.nodesBetween(from, to, (node, pos) => {
+            if (this.options.types.includes(node.type.name)) {
+              tr = tr.setNodeMarkup(pos, undefined, {
+                ...node.attrs,
+                lineHeight: this.options.defaultLineHeight
+              })
+            }
+          })
 
-        if (dispatch) dispatch(tr);
-        return true;
-      },
-    };
-  },
-});
+          if (dispatch) dispatch(tr)
+          return true
+        }
+    }
+  }
+})

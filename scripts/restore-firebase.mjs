@@ -252,9 +252,24 @@ const SEED = {
       purpose: 'Typhoon Relief Operation',
       description: 'Food and hygiene kits for relief.',
       items: [
-        { name: 'Sardines (Canned)', quantity: 8, unit: 'cans', expiryDate: toTS(new Date(2026, 6, 15)) },
-        { name: 'Instant Noodles', quantity: 55, unit: 'packs', expiryDate: toTS(new Date(2026, 9, 30)) },
-        { name: 'Hygiene Soap', quantity: 120, unit: 'bars', expiryDate: toTS(new Date(2027, 11, 1)) }
+        {
+          name: 'Sardines (Canned)',
+          quantity: 8,
+          unit: 'cans',
+          expiryDate: toTS(new Date(2026, 6, 15))
+        },
+        {
+          name: 'Instant Noodles',
+          quantity: 55,
+          unit: 'packs',
+          expiryDate: toTS(new Date(2026, 9, 30))
+        },
+        {
+          name: 'Hygiene Soap',
+          quantity: 120,
+          unit: 'bars',
+          expiryDate: toTS(new Date(2027, 11, 1))
+        }
       ],
       receivedBy: 'user-admin'
     }
@@ -368,9 +383,15 @@ async function main() {
   // ── Step 2: Clear all existing Firestore collections ────────────────────────
   console.log('\nSTEP 2: Clearing existing Firestore data...')
   const COLLECTIONS = [
-    'users', 'organizations', 'inventory', 'donors',
-    'donations', 'events', 'narrative_reports',
-    'inventory_transactions', 'system'
+    'users',
+    'organizations',
+    'inventory',
+    'donors',
+    'donations',
+    'events',
+    'narrative_reports',
+    'inventory_transactions',
+    'system'
   ]
   for (const col of COLLECTIONS) {
     await deleteCollection(db, col)

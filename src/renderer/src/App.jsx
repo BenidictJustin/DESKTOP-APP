@@ -1,69 +1,69 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { listenToAuthChanges, logout } from './services/db';
-import Login from './components/Login';
-import AdminDashboard from './modules/admin/AdminDashboard';
-import OfficeCoordinatorDashboard from './modules/office-coordinator/OfficeCoordinatorDashboard';
-import SplashScreen from './components/SplashScreen';
-import { authTransitionVariants, authTransition } from './components/motion/motionConfig';
+import React, { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'motion/react'
+import { listenToAuthChanges, logout } from './services/db'
+import Login from './components/Login'
+import AdminDashboard from './modules/admin/AdminDashboard'
+import OfficeCoordinatorDashboard from './modules/office-coordinator/OfficeCoordinatorDashboard'
+import SplashScreen from './components/SplashScreen'
+import UpdateNotification from './components/UpdateNotification'
+import { authTransitionVariants, authTransition } from './components/motion/motionConfig'
 
 function App() {
-  const [user, setUser] = useState(null);
-  const [activeUser, setActiveUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [showSplash, setShowSplash] = useState(true);
+  const [user, setUser] = useState(null)
+  const [activeUser, setActiveUser] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [showSplash, setShowSplash] = useState(true)
 
   useEffect(() => {
     if (!activeUser && typeof document !== 'undefined') {
-      document.body.style.overflow = '';
-      document.body.style.pointerEvents = '';
-      document.documentElement.style.overflow = '';
-      document.documentElement.style.pointerEvents = '';
+      document.body.style.overflow = ''
+      document.body.style.pointerEvents = ''
+      document.documentElement.style.overflow = ''
+      document.documentElement.style.pointerEvents = ''
     }
-  }, [activeUser]);
+  }, [activeUser])
 
   useEffect(() => {
     // Listen to changes in auth context (either Firebase auth or LocalStorage simulation)
     const unsubscribe = listenToAuthChanges((currentUser) => {
-      setUser(currentUser);
+      setUser(currentUser)
       if (loading) {
-        setActiveUser(currentUser);
-        setLoading(false);
+        setActiveUser(currentUser)
+        setLoading(false)
       } else if (!currentUser) {
-        setActiveUser(null);
+        setActiveUser(null)
       }
-    });
+    })
 
-    return () => unsubscribe();
-  }, [loading]);
+    return () => unsubscribe()
+  }, [loading])
 
   const handleLogout = async () => {
     try {
-      await logout();
-      setUser(null);
-      setActiveUser(null);
+      await logout()
+      setUser(null)
+      setActiveUser(null)
       if (typeof document !== 'undefined') {
-        document.body.style.overflow = '';
-        document.body.style.pointerEvents = '';
-        document.documentElement.style.overflow = '';
-        document.documentElement.style.pointerEvents = '';
+        document.body.style.overflow = ''
+        document.body.style.pointerEvents = ''
+        document.documentElement.style.overflow = ''
+        document.documentElement.style.pointerEvents = ''
       }
     } catch (err) {
-      console.error("Logout failed:", err);
+      console.error('Logout failed:', err)
     }
-  };
+  }
 
   const handleLoginSuccess = (authenticatedUser) => {
-    setUser(authenticatedUser);
-    setActiveUser(authenticatedUser);
-  };
+    setUser(authenticatedUser)
+    setActiveUser(authenticatedUser)
+  }
 
   return (
     <div className="min-h-screen w-screen bg-[#F1EFEC] font-poppins relative overflow-hidden">
+      <UpdateNotification />
       <AnimatePresence>
-        {showSplash && (
-          <SplashScreen key="splash" onComplete={() => setShowSplash(false)} />
-        )}
+        {showSplash && <SplashScreen key="splash" onComplete={() => setShowSplash(false)} />}
       </AnimatePresence>
 
       {!showSplash && (
@@ -125,9 +125,12 @@ function App() {
               transition={authTransition}
             >
               <div className="glass-modal rounded-2xl p-8 max-w-md shadow-glass-xl border border-white/80 text-gray-800 animate-fade-in-scale">
-                <h2 className="text-lg font-bold text-error-600 mb-2 tracking-tight">Access Restrict Alert</h2>
+                <h2 className="text-lg font-bold text-error-600 mb-2 tracking-tight">
+                  Access Restrict Alert
+                </h2>
                 <p className="text-sm text-gray-600 font-medium mb-6">
-                  Your account role "{activeUser.role}" does not have access permissions to view this terminal panel.
+                  Your account role "{activeUser.role}" does not have access permissions to view
+                  this terminal panel.
                 </p>
                 <button
                   onClick={handleLogout}
@@ -141,7 +144,7 @@ function App() {
         </AnimatePresence>
       )}
     </div>
-  );
+  )
 }
 
-export default App;
+export default App

@@ -99,7 +99,7 @@ flowchart LR
         admin["<svg width='30' height='55' style='display:block;margin:auto;'><circle cx='15' cy='10' r='6' stroke='#111827' stroke-width='2' fill='none'/><line x1='15' y1='16' x2='15' y2='34' stroke='#111827' stroke-width='2'/><line x1='15' y1='22' x2='5' y2='20' stroke='#111827' stroke-width='2'/><line x1='15' y1='22' x2='25' y2='20' stroke='#111827' stroke-width='2'/><line x1='15' y1='34' x2='5' y2='48' stroke='#111827' stroke-width='2'/><line x1='15' y1='34' x2='25' y2='48' stroke='#111827' stroke-width='2'/></svg>Admin"]
         coordinator["<svg width='30' height='55' style='display:block;margin:auto;'><circle cx='15' cy='10' r='6' stroke='#111827' stroke-width='2' fill='none'/><line x1='15' y1='16' x2='15' y2='34' stroke='#111827' stroke-width='2'/><line x1='15' y1='22' x2='5' y2='20' stroke='#111827' stroke-width='2'/><line x1='15' y1='22' x2='25' y2='20' stroke='#111827' stroke-width='2'/><line x1='15' y1='34' x2='5' y2='48' stroke='#111827' stroke-width='2'/><line x1='15' y1='34' x2='25' y2='48' stroke='#111827' stroke-width='2'/></svg>Office Coordinator"]
     end
-    
+
     subgraph LoginModule [DommUnity: Login Module]
         UC_Login([Login / Authenticate])
         UC_InputCreds([Input Email/Username & Password])
@@ -122,7 +122,7 @@ flowchart LR
         UC_ReadJEEPGY([Browse CEAP Advocacy])
         UC_ReadProponent([Read Proponent Profiles])
     end
-    
+
     subgraph RightCol [ ]
         fbAuth[(Firebase Auth)]
         firestore[(Firestore DB)]
@@ -133,7 +133,7 @@ flowchart LR
     admin --> UC_ForgotPwd
     admin --> UC_Logout
     admin --> UC_Info
-    
+
     coordinator --> UC_Login
     coordinator --> UC_ForgotPwd
     coordinator --> UC_Logout
@@ -413,7 +413,8 @@ flowchart LR
     class UC_DashViewOC,UC_ManageReports,UC_RegistryOC,UC_RevisionOC,UC_DashboardMetrics,UC_RecentActivity,UC_CreateReportDraft,UC_LinkEvent,UC_ManualInput,UC_TiptapEditor,UC_UploadPhoto,UC_SaveDraft,UC_SubmitReport,UC_SearchOC,UC_InspectReadOnly,UC_ReadFeedback,UC_CorrectNarrative,UC_ResubmitReport usecase;
     class firestore,fbStorage database;
 ```
-```
+
+````
 
 ---
 
@@ -436,9 +437,9 @@ config:
 flowchart TD
     startNode(( )) --> AppLaunched["User Launches DommUnity Application"]
     AppLaunched --> LoginScreenDisplayed["Login Screen is Displayed"]
-    
+
     LoginScreenDisplayed --> fork_login[" "]
-    
+
     subgraph LoginCol ["Authentication Process"]
         EnterCredentials["Input Email/Username & Password"] --> CheckFormat{Validate inputs?}
         CheckFormat -->|No| ShowFormatError["Show Format Error"]
@@ -452,7 +453,7 @@ flowchart TD
         CheckRole -->|admin| AdminRoute["Route to Admin Dashboard"]
         CheckRole -->|office_coordinator| CoordRoute["Route to Coordinator Dashboard"]
     end
-    
+
     subgraph RecoveryCol ["Password Recovery"]
         EnterRecoveryEmail["Input Recovery Email"] --> CheckRecoveryEmail{Is email valid format?}
         CheckRecoveryEmail -->|No| ShowRecoveryError["Show Recovery Error"]
@@ -460,24 +461,24 @@ flowchart TD
         CheckRecoveryEmail -->|Yes| CallResetAPI["Send Password Reset link"]
         CallResetAPI --> ShowSuccessConfirmation["Show Success Confirmation"]
     end
-    
+
     subgraph InfoCol ["Information Module"]
         ReadMV["Read Mission & Vision"] --> InspectOrgChart["Inspect Org Chart"]
         InspectOrgChart --> BrowseJEEPGY["Browse CEAP JEEPGY Advocacy Areas"]
         BrowseJEEPGY --> ReadDeveloperInfo["Read Developer Profiles"]
     end
-    
+
     fork_login --> EnterCredentials
     fork_login --> EnterRecoveryEmail
     fork_login --> ReadMV
-    
+
     AdminRoute --> join_login[" "]
     CoordRoute --> join_login
     ShowSuccessConfirmation --> join_login
     ReadDeveloperInfo --> join_login
-    
+
     join_login --> endNode((( )))
-    
+
     %% Styles
     classDef startState fill:#000,stroke:#000;
     classDef endState fill:#000,stroke:#000;
@@ -485,7 +486,7 @@ flowchart TD
     class startNode startState;
     class endNode endState;
     class fork_login,join_login forkStyle;
-```
+````
 
 ### 2.2 Admin Dashboard Workflows
 
@@ -501,9 +502,9 @@ config:
 ---
 flowchart TD
     startNode(( )) --> AdminDashboardDisplayed["Admin Dashboard is Displayed"]
-    
+
     AdminDashboardDisplayed --> fork_db[" "]
-    
+
     subgraph UserMgmtCol ["User Management"]
         OpenUserMgmt["Opens User Management"] --> fork_user[" "]
         fork_user --> AddEditUser["Add / Edit User"]
@@ -511,7 +512,7 @@ flowchart TD
         AddEditUser --> join_user[" "]
         DeactivateUser --> join_user
     end
-    
+
     subgraph InvMgmtCol ["Inventory Management"]
         OpenInvMgmt["Opens Inventory Management"] --> ManageItems["Manage Items"]
         ManageItems --> fork_inv[" "]
@@ -520,7 +521,7 @@ flowchart TD
         TrackStock --> join_inv[" "]
         PrintReport --> join_inv
     end
-    
+
     subgraph EventMgmtCol ["Event Management"]
         OpenEvtMgmt["Opens Event Management"] --> fork_evt[" "]
         fork_evt --> AddSchedule["Add Schedule"]
@@ -528,12 +529,12 @@ flowchart TD
         AddSchedule --> join_evt[" "]
         UpdateStatus --> join_evt
     end
-    
+
     subgraph OrgMgmtCol ["Organization Management"]
         OpenOrgMgmt["Opens Organization Management"] --> CreateDeptProfile["Create Dept Profile"]
         CreateDeptProfile --> AssignEvents["Assign Events"]
     end
-    
+
     subgraph DonorMgmtCol ["Donor Management"]
         OpenDonorMgmt["Opens Donor Management"] --> InputDonorItems["Input Donor & Items"]
         InputDonorItems --> fork_dnr[" "]
@@ -544,7 +545,7 @@ flowchart TD
         InputExpiration --> join_dnr
         CheckItems --> join_dnr
     end
-    
+
     subgraph ReportMgmtCol ["Report Management"]
         OpenReportMgmt["Opens Report Management"] --> fork_rep[" "]
         fork_rep --> ViewNarrativeReports["View Narrative Reports"]
@@ -559,16 +560,16 @@ flowchart TD
     fork_db --> OpenOrgMgmt
     fork_db --> OpenDonorMgmt
     fork_db --> OpenReportMgmt
-    
+
     join_user --> join_db[" "]
     join_inv --> join_db
     join_evt --> join_db
     AssignEvents --> join_db
     join_dnr --> join_db
     join_rep --> join_db
-    
+
     join_db --> endNode((( )))
-    
+
     %% Styles
     classDef startState fill:#000,stroke:#000;
     classDef endState fill:#000,stroke:#000;
@@ -592,9 +593,9 @@ config:
 ---
 flowchart TD
     startNode(( )) --> CoordinatorDashboardDisplayed["Coordinator Dashboard is Displayed"]
-    
+
     CoordinatorDashboardDisplayed --> fork_dashboard[" "]
-    
+
     subgraph ReportCreationCol ["Report Creation"]
         OpensReportCreation["Opens Report Creation"] --> fork_creation[" "]
         fork_creation --> WriteDiaryNarrative["Write Diary Narrative"]
@@ -606,7 +607,7 @@ flowchart TD
         WriteDiaryNarrative --> join_creation[" "]
         SubmitCompletedReport --> join_creation
     end
-    
+
     subgraph ReportHistoryCol ["Report Status & History"]
         OpensReportStatusHistory["Opens Report Status & History"] --> FilterSemesterEvent["Filter by Semester or Event"]
         FilterSemesterEvent --> fork_status[" "]
@@ -615,15 +616,15 @@ flowchart TD
         ViewDraftStatus --> join_status[" "]
         ViewApprovedReturnedStatus --> join_status
     end
-    
+
     fork_dashboard --> OpensReportCreation
     fork_dashboard --> OpensReportStatusHistory
-    
+
     join_creation --> join_dashboard[" "]
     join_status --> join_dashboard
-    
+
     join_dashboard --> endNode((( )))
-    
+
     %% Styles
     classDef startState fill:#000,stroke:#000;
     classDef endState fill:#000,stroke:#000;
@@ -632,7 +633,6 @@ flowchart TD
     class endNode endState;
     class fork_dashboard,fork_creation,join_creation,fork_status,join_status,join_dashboard forkStyle;
 ```
-
 
 ---
 
@@ -696,7 +696,7 @@ sequenceDiagram
 
     Admin->>UI: Select/Create Donor & Enter Donation Details (Date, Purpose, Items)
     UI->>UI: Validate donation metadata, item quantities, and units
-    
+
     alt New Donor Selected
         UI->>FS: addDonor(donorData) -> Write to donors collection
         FS-->>UI: Return Donor Document ID

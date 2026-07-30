@@ -67,12 +67,12 @@ export default function SplashScreen({ onComplete }) {
           alt="DommUnity Main Logo"
           className="h-32 w-32 md:h-40 md:w-40 object-contain drop-shadow-[0_12px_30px_rgba(0,0,0,0.8)] mb-4 relative z-10"
           animate={{
-            y: [0, -5, 0],
+            y: [0, -5, 0]
           }}
           transition={{
             duration: 3.5,
             ease: 'easeInOut',
-            repeat: Infinity,
+            repeat: Infinity
           }}
         />
 

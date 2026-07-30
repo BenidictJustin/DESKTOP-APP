@@ -1,73 +1,73 @@
-import React, { useRef, useState } from "react";
-import { useEditorStore, LEFT_MARGIN_DEFAULT, RIGHT_MARGIN_DEFAULT } from "../store/useEditorStore";
+import React, { useRef, useState } from 'react'
+import { useEditorStore, LEFT_MARGIN_DEFAULT, RIGHT_MARGIN_DEFAULT } from '../store/useEditorStore'
 
-const markers = Array.from({ length: 83 }, (_, i) => i);
+const markers = Array.from({ length: 83 }, (_, i) => i)
 
 const CaretDown = ({ className }) => (
   <svg
     viewBox="0 0 10 10"
     className={className}
-    style={{ display: "block", width: "12px", height: "12px" }}
+    style={{ display: 'block', width: '12px', height: '12px' }}
   >
     <path d="M 2,3 L 8,3 L 5,7 Z" fill="#3b82f6" />
   </svg>
-);
+)
 
 export const Ruler = () => {
-  const leftMargin = useEditorStore((state) => state.leftMargin) ?? LEFT_MARGIN_DEFAULT;
-  const setLeftMargin = useEditorStore((state) => state.setLeftMargin);
-  const rightMargin = useEditorStore((state) => state.rightMargin) ?? RIGHT_MARGIN_DEFAULT;
-  const setRightMargin = useEditorStore((state) => state.setRightMargin);
+  const leftMargin = useEditorStore((state) => state.leftMargin) ?? LEFT_MARGIN_DEFAULT
+  const setLeftMargin = useEditorStore((state) => state.setLeftMargin)
+  const rightMargin = useEditorStore((state) => state.rightMargin) ?? RIGHT_MARGIN_DEFAULT
+  const setRightMargin = useEditorStore((state) => state.setRightMargin)
 
-  const [isDraggingLeft, setIsDraggingLeft] = useState(false);
-  const [isDraggingRight, setIsDraggingRight] = useState(false);
-  const rulerRef = useRef(null);
+  const [isDraggingLeft, setIsDraggingLeft] = useState(false)
+  const [isDraggingRight, setIsDraggingRight] = useState(false)
+  const rulerRef = useRef(null)
 
   const handleLeftMouseDown = () => {
-    setIsDraggingLeft(true);
-  };
+    setIsDraggingLeft(true)
+  }
 
   const handleRightMouseDown = () => {
-    setIsDraggingRight(true);
-  };
+    setIsDraggingRight(true)
+  }
 
   const handleMouseMove = (e) => {
-    const PAGE_WIDTH = 816;
-    const MINIMUM_SPACE = 100;
+    const PAGE_WIDTH = 816
+    const MINIMUM_SPACE = 100
 
     if ((isDraggingLeft || isDraggingRight) && rulerRef.current) {
-      const container = rulerRef.current.querySelector("#ruler-container");
+      const container = rulerRef.current.querySelector('#ruler-container')
       if (container) {
-        const containerRect = container.getBoundingClientRect();
-        const relativeX = e.clientX - containerRect.left;
-        const rawPosition = Math.max(0, Math.min(PAGE_WIDTH, relativeX));
+        const containerRect = container.getBoundingClientRect()
+        const relativeX = e.clientX - containerRect.left
+        const rawPosition = Math.max(0, Math.min(PAGE_WIDTH, relativeX))
 
         if (isDraggingLeft) {
-          const maxLeftPosition = PAGE_WIDTH - rightMargin - MINIMUM_SPACE;
-          const newLeftPosition = Math.min(rawPosition, maxLeftPosition);
-          setLeftMargin(newLeftPosition);
+          const maxLeftPosition = PAGE_WIDTH - rightMargin - MINIMUM_SPACE
+          const newLeftPosition = Math.min(rawPosition, maxLeftPosition)
+          setLeftMargin(newLeftPosition)
         } else if (isDraggingRight) {
-          const maxRightPosition = PAGE_WIDTH - (leftMargin + MINIMUM_SPACE);
-          const newRightPosition = Math.max(PAGE_WIDTH - rawPosition, 0);
-          const constrainedRightPosition = Math.min(newRightPosition, maxRightPosition);
-          setRightMargin(constrainedRightPosition);
+          const maxRightPosition = PAGE_WIDTH - (leftMargin + MINIMUM_SPACE)
+          const newRightPosition = Math.max(PAGE_WIDTH - rawPosition, 0)
+          const constrainedRightPosition = Math.min(newRightPosition, maxRightPosition)
+          setRightMargin(constrainedRightPosition)
         }
       }
     }
-  };
+  }
 
   const handleMouseUp = () => {
-    setIsDraggingLeft(false);
-    setIsDraggingRight(false);
-  };
+    setIsDraggingLeft(false)
+    setIsDraggingRight(false)
+  }
 
   const handleLeftDoubleClick = () => {
-    setLeftMargin(LEFT_MARGIN_DEFAULT);
-  };
+    setLeftMargin(LEFT_MARGIN_DEFAULT)
+  }
 
   const handleRightDoubleClick = () => {
-    setRightMargin(RIGHT_MARGIN_DEFAULT);
-  };
+    setRightMargin(RIGHT_MARGIN_DEFAULT)
+  }
 
   return (
     <div
@@ -95,14 +95,10 @@ export const Ruler = () => {
         <div className="absolute inset-x-0 bottom-0 h-full">
           <div className="relative h-full w-[816px]">
             {markers.map((marker) => {
-              const position = (marker * 816) / 82;
+              const position = (marker * 816) / 82
 
               return (
-                <div
-                  key={marker}
-                  className="absolute bottom-0"
-                  style={{ left: `${position}px` }}
-                >
+                <div key={marker} className="absolute bottom-0" style={{ left: `${position}px` }}>
                   {marker % 10 === 0 && (
                     <>
                       <div className="absolute bottom-0 w-[1px] h-2 bg-neutral-500" />
@@ -118,20 +114,20 @@ export const Ruler = () => {
                     <div className="absolute bottom-0 w-[1px] h-1 bg-neutral-500" />
                   )}
                 </div>
-              );
+              )
             })}
           </div>
         </div>
       </div>
     </div>
-  );
-};
+  )
+}
 
 const Marker = ({ position, isLeft, isDragging, onMouseDown, onDoubleClick }) => {
   return (
     <div
       className="absolute top-0 w-4 h-full cursor-ew-resize z-[5] group -ml-2"
-      style={{ [isLeft ? "left" : "right"]: `${position}px` }}
+      style={{ [isLeft ? 'left' : 'right']: `${position}px` }}
       onMouseDown={onMouseDown}
       onDoubleClick={onDoubleClick}
     >
@@ -139,13 +135,13 @@ const Marker = ({ position, isLeft, isDragging, onMouseDown, onDoubleClick }) =>
       <div
         className="absolute left-1/2 top-4 transform -translate-x-1/2"
         style={{
-          height: "100vh",
-          width: "1px",
-          transform: "scaleX(0.5)",
-          backgroundColor: "#3b82f6",
-          display: isDragging ? "block" : "none",
+          height: '100vh',
+          width: '1px',
+          transform: 'scaleX(0.5)',
+          backgroundColor: '#3b82f6',
+          display: isDragging ? 'block' : 'none'
         }}
       />
     </div>
-  );
-};
+  )
+}

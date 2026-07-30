@@ -26,7 +26,7 @@
 //   handleFind as doFind, handleReplaceAll as doReplaceAll,
 //   parseDocxLayout,
 // } from './utils/editorHelpers';
-// 
+//
 // /**
 //  * TextEditor — Complete document editor component.
 //  * Integrates all ribbon tabs, document canvas, floating toolbar, and panels.
@@ -59,7 +59,7 @@
 //   StatusBadge,
 // }) {
 //   const [hasBeenEdited, setHasBeenEdited] = useState(false);
-// 
+//
 // ── Editor ──
 //   const editor = useEditor({
 //     extensions: getEditorExtensions(),
@@ -87,9 +87,9 @@
 //       setCharCount(txt.length);
 //     },
 //   });
-// 
+//
 //   const [activeEditingArea, setActiveEditingArea] = useState('body'); // 'body' | 'header' | 'footer'
-// 
+//
 //   const headerEditor = useEditor({
 //     extensions: getEditorExtensions().filter(ext => ext.name !== 'pageFlow'),
 //     content: '<p></p>',
@@ -103,7 +103,7 @@
 //       setHeaderText(ed.getHTML());
 //     },
 //   });
-// 
+//
 //   const footerEditor = useEditor({
 //     extensions: getEditorExtensions().filter(ext => ext.name !== 'pageFlow'),
 //     content: '<p></p>',
@@ -117,7 +117,7 @@
 //       setFooterText(ed.getHTML());
 //     },
 //   });
-// 
+//
 // ── Editor Config State ──
 //   const [activeRibbonTab, setActiveRibbonTab] = useState('Home');
 //   const [showFileMenu, setShowFileMenu] = useState(false);
@@ -139,41 +139,41 @@
 //   const [trackChanges, setTrackChanges] = useState(false);
 //   const [wordCount, setWordCount] = useState(0);
 //   const [charCount, setCharCount] = useState(0);
-// 
+//
 // ── Templates System State ──
 //   const [showTemplatesModal, setShowTemplatesModal] = useState(false);
 //   const [customTemplates, setCustomTemplates] = useState([]);
 //   const [defaultTemplateId, setDefaultTemplateId] = useState(null);
-// 
+//
 // ── Page Count States ──
 //   const [currentPage, setCurrentPage] = useState(1);
 //   const [totalPages, setTotalPages] = useState(1);
 //   const [docxBuffer, setDocxBuffer] = useState(null);
-// 
+//
 // ── Modals ──
 //   const [showFindReplace, setShowFindReplace] = useState(false);
 //   const [showWordCount, setShowWordCount] = useState(false);
 //   const [showOpenModal, setShowOpenModal] = useState(false);
 //   const [showDocProps, setShowDocProps] = useState(false);
 //   const [showComments, setShowComments] = useState(false);
-// 
-// 
-// 
+//
+//
+//
 // ── Find & Replace ──
 //   const [findText, setFindText] = useState('');
 //   const [replaceText, setReplaceText] = useState('');
-// 
+//
 // ── Comments ──
 //   const [comments, setComments] = useState([]);
 //   const [commentInput, setCommentInput] = useState('');
-// 
+//
 // ── Refs ──
 //   const canvasRef = useRef(null);
 //   const imageInputRef = useRef(null);
 //   const docxInputRef = useRef(null);
 //   const fileMenuRef = useRef(null);
 //   const autoSaveTimer = useRef(null);
-// 
+//
 // ── Sync editor editable state ──
 //   useEffect(() => {
 //     const isReadOnly = !!workspaceIsReadOnly;
@@ -187,20 +187,20 @@
 //       footerEditor.setEditable(!isReadOnly && activeEditingArea === 'footer');
 //     }
 //   }, [editor, headerEditor, footerEditor, workspaceIsReadOnly, activeEditingArea]);
-// 
+//
 // ── Expose editor to parent for resetForm/openReport ──
 //   useEffect(() => {
 //     if (editor && window.__dommunityEditor !== editor) {
 //       window.__dommunityEditor = editor;
 //     }
 //   }, [editor]);
-// 
+//
 // ── Callback for dynamic page updates ──
 //   const handlePageChange = useCallback((cur, tot) => {
 //     setCurrentPage(cur);
 //     setTotalPages(tot);
 //   }, []);
-// 
+//
 // ── Sync page flow settings to TipTap PageFlow extension ──
 //   useEffect(() => {
 //     if (editor && !editor.isDestroyed && editor.commands.updatePageFlowOptions) {
@@ -216,7 +216,7 @@
 //       });
 //     }
 //   }, [editor, paperKey, orientation, marginKey, headerText, footerText, showHeader, showFooter, handlePageChange]);
-// 
+//
 // ── Load template library on mount ──
 //   useEffect(() => {
 //     const saved = localStorage.getItem('dommunity_doc_templates');
@@ -232,7 +232,7 @@
 //       setDefaultTemplateId(defId);
 //     }
 //   }, []);
-// 
+//
 // ── Template Selection Handler ──
 //   const handleSelectTemplate = useCallback((tpl) => {
 //     if (tpl.paperKey) setPaperKey(tpl.paperKey);
@@ -257,21 +257,21 @@
 //       setFooterText('');
 //       footerEditor?.commands.setContent('<p></p>');
 //     }
-// 
+//
 //     if (editor) {
 //       if (setWorkspaceIsReadOnly) setWorkspaceIsReadOnly(false);
 //       editor.setEditable(true);
 //       editor.commands.setContent(tpl.html || '<p></p>');
-// 
+//
 //       if (tpl.fontFamily) {
 //         editor.commands.setFontFamily(tpl.fontFamily);
 //       }
 //       if (tpl.fontSize) {
 //         editor.commands.setFontSize(tpl.fontSize);
 //       }
-// 
+//
 //       editor.chain().focus('start').run();
-// 
+//
 // Update options immediately inside extension view
 //       setTimeout(() => {
 //         if (editor.commands.updatePageFlowOptions) {
@@ -290,7 +290,7 @@
 //     }
 //     setShowTemplatesModal(false);
 //   }, [editor, headerEditor, footerEditor, setWorkspaceIsReadOnly]);
-// 
+//
 // ── Load Default Template on Load for new document ──
 //   useEffect(() => {
 //     if (editor && !workspaceReportId) {
@@ -360,16 +360,16 @@
 //       }
 //     }
 //   }, [editor, workspaceReportId, handleSelectTemplate]);
-// 
+//
 // ── Template CRUD actions ──
 //   const handleSaveAsTemplate = useCallback(() => {
 //     if (!editor) return;
 //     const name = window.prompt('Save Current Document as Template — Enter Name:');
 //     if (!name || !name.trim()) return;
-// 
+//
 //     const currentFont = editor.getAttributes('textStyle').fontFamily || 'Calibri, sans-serif';
 //     const currentSize = editor.getAttributes('textStyle').fontSize || '11px';
-// 
+//
 //     const newTpl = {
 //       id: 'tpl-' + Math.random().toString(36).substr(2, 9),
 //       name: name.trim(),
@@ -387,7 +387,7 @@
 //       fontFamily: currentFont,
 //       fontSize: currentSize,
 //     };
-// 
+//
 //     setCustomTemplates(prev => {
 //       const updated = [...prev, newTpl];
 //       localStorage.setItem('dommunity_doc_templates', JSON.stringify(updated));
@@ -395,7 +395,7 @@
 //     });
 //     alert(`Template "${name}" saved to library successfully!`);
 //   }, [editor, paperKey, orientation, marginKey, lineSpacing, columns, showHeader, showFooter, headerText, footerText]);
-// 
+//
 //   const handleDeleteTemplate = useCallback((id) => {
 //     setCustomTemplates(prev => {
 //       const updated = prev.filter(x => x.id !== id);
@@ -407,7 +407,7 @@
 //       localStorage.removeItem('dommunity_default_template_id');
 //     }
 //   }, [defaultTemplateId]);
-// 
+//
 //   const handleRenameTemplate = useCallback((id, newName) => {
 //     setCustomTemplates(prev => {
 //       const updated = prev.map(x => x.id === id ? { ...x, name: newName } : x);
@@ -415,7 +415,7 @@
 //       return updated;
 //     });
 //   }, []);
-// 
+//
 //   const handleDuplicateTemplate = useCallback((id) => {
 //     const target = customTemplates.find(x => x.id === id);
 //     if (!target) return;
@@ -431,7 +431,7 @@
 //       return updated;
 //     });
 //   }, [customTemplates]);
-// 
+//
 //   const handleSetDefaultTemplate = useCallback((id) => {
 //     if (defaultTemplateId === id) {
 //       setDefaultTemplateId(null);
@@ -454,12 +454,12 @@
 //     });
 //     alert(`Template "${tplData.name}" imported successfully!`);
 //   }, []);
-// 
+//
 // ── Open local .docx — load directly into editor ──
 //   const handleOpenLocalDocx = useCallback((e) => {
 //     const file = e.target.files?.[0];
 //     if (!file) return;
-// 
+//
 //     const reader = new FileReader();
 //     reader.onload = async (event) => {
 //       const arrayBuffer = event.target.result;
@@ -477,22 +477,22 @@
 //           }),
 //         ]);
 //         const html = result.value;
-// 
+//
 //         if (editor) {
 // Put the editor in edit mode immediately
 //           if (setWorkspaceIsReadOnly) setWorkspaceIsReadOnly(false);
 //           editor.setEditable(true);
-// 
+//
 // Update active document title
 //           if (setWorkspaceReportTitle) {
 //             setWorkspaceReportTitle(file.name.replace(/\.[^/.]+$/, ''));
 //           }
-// 
+//
 // Reset report ID so it is loaded as the active new draft
 //           if (setWorkspaceReportId) {
 //             setWorkspaceReportId(null);
 //           }
-// 
+//
 //           const paper = layout?.paperKey || 'A4';
 //           const orient = layout?.orientation || 'portrait';
 //           const margin = layout?.marginKey || 'Normal';
@@ -500,7 +500,7 @@
 //           const sFooter = !!layout?.showFooter;
 //           const headerTxt = layout?.headerText || '';
 //           const footerTxt = layout?.footerText || '';
-// 
+//
 //           setPaperKey(paper);
 //           setOrientation(orient);
 //           setMarginKey(margin);
@@ -517,7 +517,7 @@
 //     reader.readAsArrayBuffer(file);
 //     e.target.value = '';
 //   }, [editor, headerEditor, footerEditor, setWorkspaceIsReadOnly, setWorkspaceReportTitle, setWorkspaceReportId]);
-// 
+//
 // ── Save handler wrapper ──
 //   const handleSave = useCallback(async (status, silent = false) => {
 //     if (!editor) return;
@@ -534,7 +534,7 @@
 //     }
 //     await onSave(status, html, silent);
 //   }, [editor, docxBuffer, onSave]);
-// 
+//
 // ── AutoSave ──
 //   useEffect(() => {
 //     if (autoSaveTimer.current) clearInterval(autoSaveTimer.current);
@@ -545,7 +545,7 @@
 //     }
 //     return () => { if (autoSaveTimer.current) clearInterval(autoSaveTimer.current); };
 //   }, [autoSave, workspaceReportId, handleSave]);
-// 
+//
 // ── Zoom & Keyboard Shortcuts ──
 //   useEffect(() => {
 //     const handleWheel = (e) => {
@@ -578,7 +578,7 @@
 //       window.removeEventListener('keydown', handleKeyDown);
 //     };
 //   }, [editor, handleSave]);
-// 
+//
 // ── Comment handler ──
 //   const handleAddComment = useCallback(() => {
 //     if (!commentInput.trim()) return;
@@ -595,10 +595,10 @@
 //     }]);
 //     setCommentInput('');
 //   }, [commentInput, editor, user.name]);
-// 
+//
 // ── My reports ──
 //   const myReports = reportsList.filter(r => r.authorId === user.uid);
-// 
+//
 // ── File menu actions ──
 //   const fileMenuItems = [
 //     { icon: Plus, l: 'New Document…', fn: () => setShowTemplatesModal(true) },
@@ -616,25 +616,25 @@
 //     null,
 //     { icon: FileText, l: 'Document Properties', fn: () => setShowDocProps(true) },
 //   ];
-// 
+//
 // ── Open report handler ──
 //   const handleOpenReport = useCallback((rep) => {
 //     onOpenReport(rep, editor);
 //     setShowOpenModal(false);
 //   }, [editor, onOpenReport]);
-// 
+//
 //   const activeEditor = (activeEditingArea === 'header' && headerEditor)
 //     ? headerEditor
 //     : (activeEditingArea === 'footer' && footerEditor)
 //       ? footerEditor
 //       : editor;
-// 
+//
 //   const docTitle = workspaceReportTitle || eventsList.find(x => x.id === workspaceReportEventId)?.name || 'Document1';
-// 
+//
 //   return (
 //     <RichTextProvider editor={editor}>
 //       <div className="flex flex-col h-full overflow-hidden">
-// 
+//
 //       {/* ── Title Bar ── */}
 //       <div className="bg-navy-blue text-white flex items-center justify-between px-4 py-1.5 shrink-0">
 //         <div className="flex items-center gap-2.5">
@@ -653,7 +653,7 @@
 //           {autoSave && <span className="text-sig-green font-semibold">AutoSave ON</span>}
 //         </div>
 //       </div>
-// 
+//
 //       {/* ── Ribbon Tab Switcher ── */}
 //       <div className="bg-gray-50 border-b border-gray-200 flex items-center px-2 shrink-0">
 //         {/* File menu */}
@@ -682,7 +682,7 @@
 //             </div>
 //           </DropdownWrapper>
 //         </div>
-// 
+//
 //         {/* Ribbon tabs */}
 //         {['Home', 'Insert', 'Layout', 'Review', 'View'].map(tab => (
 //           <button
@@ -697,7 +697,7 @@
 //           </button>
 //         ))}
 //       </div>
-// 
+//
 //       {/* ── Ribbon Toolbar Content ── */}
 //       <div className="bg-white border-b border-gray-200 px-3 py-2 shrink-0 overflow-visible z-30">
 //         {activeRibbonTab === 'Home' && (
@@ -741,7 +741,7 @@
 //           />
 //         )}
 //       </div>
-// 
+//
 //       {/* ── Editor Body ── */}
 //       <div className="flex flex-1 overflow-hidden">
 //         <NavigationPane show={showNavPane} editor={activeEditor} />
@@ -773,10 +773,10 @@
 //           setCharCount={setCharCount}
 //         />
 //       </div>
-// 
+//
 //       {/* ── Floating Toolbar ── */}
 //       <FloatingToolbar editor={activeEditor} />
-// 
+//
 //       {/* ── Status Bar ── */}
 //       <StatusBar
 //         wordCount={wordCount} charCount={charCount}
@@ -788,7 +788,7 @@
 //         currentPage={currentPage}
 //         totalPages={totalPages}
 //       />
-// 
+//
 //       {/* ── Dialogs ── */}
 //       <FindReplaceDialog
 //         show={showFindReplace} onClose={() => setShowFindReplace(false)}
@@ -845,7 +845,7 @@
 //     </RichTextProvider>
 //   );
 // }
-// 
+//
 // ─────────────────────────────────────────────────────────────────────────────
 // ── NEW IMPLEMENTATION: RICH GOOGLE DOCS STYLE EDITOR ──────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
@@ -853,58 +853,78 @@
 // ── NEW IMPLEMENTATION: RICH GOOGLE DOCS STYLE EDITOR ──────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import Underline from '@tiptap/extension-underline';
-import { Image } from '@tiptap/extension-image';
-import { Table } from '@tiptap/extension-table';
-import { TableCell } from '@tiptap/extension-table-cell';
-import { TableHeader } from '@tiptap/extension-table-header';
-import { TableRow } from '@tiptap/extension-table-row';
-import { TaskItem } from '@tiptap/extension-task-item';
-import { TaskList } from '@tiptap/extension-task-list';
-import TextAlign from '@tiptap/extension-text-align';
-import Link from '@tiptap/extension-link';
-import { Color } from '@tiptap/extension-color';
-import Highlight from '@tiptap/extension-highlight';
-import { FontFamily } from '@tiptap/extension-font-family';
-import { TextStyle } from '@tiptap/extension-text-style';
-import ImageResize from 'tiptap-extension-resize-image';
-import mammoth from 'mammoth';
-import * as pdfjsLib from 'pdfjs-dist';
+import React, { useState, useRef, useCallback, useEffect } from 'react'
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import Underline from '@tiptap/extension-underline'
+import { Image } from '@tiptap/extension-image'
+import { Table } from '@tiptap/extension-table'
+import { TableCell } from '@tiptap/extension-table-cell'
+import { TableHeader } from '@tiptap/extension-table-header'
+import { TableRow } from '@tiptap/extension-table-row'
+import { TaskItem } from '@tiptap/extension-task-item'
+import { TaskList } from '@tiptap/extension-task-list'
+import TextAlign from '@tiptap/extension-text-align'
+import Link from '@tiptap/extension-link'
+import { Color } from '@tiptap/extension-color'
+import Highlight from '@tiptap/extension-highlight'
+import { FontFamily } from '@tiptap/extension-font-family'
+import { TextStyle } from '@tiptap/extension-text-style'
+import ImageResize from 'tiptap-extension-resize-image'
+import mammoth from 'mammoth'
+import * as pdfjsLib from 'pdfjs-dist'
 
 // Configure PDFJS worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
   import.meta.url
-).toString();
+).toString()
 
-import logoImg from '../../assets/logo.png';
-import logo2Img from '../../assets/logo2.png';
+import logoImg from '../../assets/logo.png'
+import logo2Img from '../../assets/logo2.png'
 
 import {
-  Plus, FolderOpen, Save, Send, Printer, FileDown, Download, RefreshCw,
-  FileText, Check, X, ChevronDown, ZoomIn, ZoomOut
-} from 'lucide-react';
+  Plus,
+  FolderOpen,
+  Save,
+  Send,
+  Printer,
+  FileDown,
+  Download,
+  RefreshCw,
+  FileText,
+  Check,
+  X,
+  ChevronDown,
+  ZoomIn,
+  ZoomOut
+} from 'lucide-react'
 
-import { useEditorStore } from './store/useEditorStore';
-import { FontSizeExtension } from './extensions/fontSize';
-import { LineHeightExtension } from './extensions/lineHeight';
-import { Toolbar } from './ui/Toolbar';
-import { Ruler } from './ui/Ruler';
-import StatusBar from './ui/StatusBar';
-import { DropdownWrapper } from './ui/DropdownWrapper';
-import { DocPropertiesDialog } from './ui/Dialogs';
-import { handleExportPDF, handleExportDOCX, handleExportTXT, docxToHtml, parseDocxLayout, loadInitialContentAndResetHistory, resolveHeaderHtml } from './utils/editorHelpers';
-import DocumentCanvas from './ui/DocumentCanvas';
-import PageFlow from './extensions/PageFlow';
-import PageBreak from './extensions/PageBreak';
-import FloatingImage from './extensions/FloatingImage';
-import FloatingTextBox from './extensions/FloatingTextBox';
-import FloatingToolbar from './ui/FloatingToolbar';
-import { cn } from './utils/cn';
-import { mergeAttributes } from '@tiptap/core';
+import { useEditorStore } from './store/useEditorStore'
+import { FontSizeExtension } from './extensions/fontSize'
+import { LineHeightExtension } from './extensions/lineHeight'
+import { Toolbar } from './ui/Toolbar'
+import { Ruler } from './ui/Ruler'
+import StatusBar from './ui/StatusBar'
+import { DropdownWrapper } from './ui/DropdownWrapper'
+import { DocPropertiesDialog } from './ui/Dialogs'
+import {
+  handleExportPDF,
+  handleExportDOCX,
+  handleExportTXT,
+  docxToHtml,
+  parseDocxLayout,
+  loadInitialContentAndResetHistory,
+  resolveHeaderHtml
+} from './utils/editorHelpers'
+import DocumentCanvas from './ui/DocumentCanvas'
+import PageFlow from './extensions/PageFlow'
+import PageBreak from './extensions/PageBreak'
+import FloatingImage from './extensions/FloatingImage'
+import FloatingTextBox from './extensions/FloatingTextBox'
+import FloatingToolbar from './ui/FloatingToolbar'
+import { cn } from './utils/cn'
+import { mergeAttributes } from '@tiptap/core'
 
 const MovableTable = Table.extend({
   addAttributes() {
@@ -912,294 +932,331 @@ const MovableTable = Table.extend({
       ...this.parent?.(),
       leftOffset: {
         default: 0,
-        parseHTML: element => {
-          const match = (element.style.transform || '').match(/translate\(([^px]+)px,\s*([^px]+)px\)/);
-          if (match) return parseFloat(match[1]);
-          const leftVal = element.style.left;
-          return leftVal ? parseFloat(leftVal) : 0;
+        parseHTML: (element) => {
+          const match = (element.style.transform || '').match(
+            /translate\(([^px]+)px,\s*([^px]+)px\)/
+          )
+          if (match) return parseFloat(match[1])
+          const leftVal = element.style.left
+          return leftVal ? parseFloat(leftVal) : 0
         },
-        renderHTML: attributes => {
-          if (!attributes.leftOffset && !attributes.topOffset) return {};
-          return { style: `transform: translate(${attributes.leftOffset || 0}px, ${attributes.topOffset || 0}px); position: relative;` };
-        },
+        renderHTML: (attributes) => {
+          if (!attributes.leftOffset && !attributes.topOffset) return {}
+          return {
+            style: `transform: translate(${attributes.leftOffset || 0}px, ${attributes.topOffset || 0}px); position: relative;`
+          }
+        }
       },
       topOffset: {
         default: 0,
-        parseHTML: element => {
-          const match = (element.style.transform || '').match(/translate\(([^px]+)px,\s*([^px]+)px\)/);
-          if (match) return parseFloat(match[2]);
-          const topVal = element.style.top;
-          return topVal ? parseFloat(topVal) : 0;
+        parseHTML: (element) => {
+          const match = (element.style.transform || '').match(
+            /translate\(([^px]+)px,\s*([^px]+)px\)/
+          )
+          if (match) return parseFloat(match[2])
+          const topVal = element.style.top
+          return topVal ? parseFloat(topVal) : 0
         },
-        renderHTML: attributes => {
-          if (!attributes.leftOffset && !attributes.topOffset) return {};
-          return { style: `transform: translate(${attributes.leftOffset || 0}px, ${attributes.topOffset || 0}px); position: relative;` };
-        },
+        renderHTML: (attributes) => {
+          if (!attributes.leftOffset && !attributes.topOffset) return {}
+          return {
+            style: `transform: translate(${attributes.leftOffset || 0}px, ${attributes.topOffset || 0}px); position: relative;`
+          }
+        }
       },
       tableWidth: {
         default: null,
-        parseHTML: element => element.style.width || null,
-        renderHTML: attributes => {
-          if (!attributes.tableWidth) return {};
-          return { style: `width: ${attributes.tableWidth}; max-width: none;` };
-        },
-      },
-    };
+        parseHTML: (element) => element.style.width || null,
+        renderHTML: (attributes) => {
+          if (!attributes.tableWidth) return {}
+          return { style: `width: ${attributes.tableWidth}; max-width: none;` }
+        }
+      }
+    }
   },
 
   renderHTML({ node, HTMLAttributes }) {
-    const styles = ['position: relative'];
+    const styles = ['position: relative']
     if (node.attrs.leftOffset || node.attrs.topOffset) {
-      styles.push(`transform: translate(${node.attrs.leftOffset || 0}px, ${node.attrs.topOffset || 0}px)`);
+      styles.push(
+        `transform: translate(${node.attrs.leftOffset || 0}px, ${node.attrs.topOffset || 0}px)`
+      )
     }
     if (node.attrs.tableWidth) {
-      styles.push(`width: ${node.attrs.tableWidth}`, 'max-width: none');
+      styles.push(`width: ${node.attrs.tableWidth}`, 'max-width: none')
     }
-    const styleAttr = { style: styles.join(';') };
-    return ['table', mergeAttributes(HTMLAttributes, styleAttr), 0];
+    const styleAttr = { style: styles.join(';') }
+    return ['table', mergeAttributes(HTMLAttributes, styleAttr), 0]
   },
 
   addNodeView() {
     return ({ node, HTMLAttributes, getPos, editor }) => {
-      let currentNode = node;
-      const tableDOM = document.createElement('table');
+      let currentNode = node
+      const tableDOM = document.createElement('table')
       Object.entries(HTMLAttributes).forEach(([key, val]) => {
-        if (key !== 'style') tableDOM.setAttribute(key, val);
-      });
-      tableDOM.style.position = 'relative';
-      tableDOM.style.width = currentNode.attrs.tableWidth || '100%';
-      tableDOM.style.maxWidth = 'none';
-      tableDOM.style.transform = `translate(${currentNode.attrs.leftOffset || 0}px, ${currentNode.attrs.topOffset || 0}px)`;
-      tableDOM.classList.add('movable-table');
+        if (key !== 'style') tableDOM.setAttribute(key, val)
+      })
+      tableDOM.style.position = 'relative'
+      tableDOM.style.width = currentNode.attrs.tableWidth || '100%'
+      tableDOM.style.maxWidth = 'none'
+      tableDOM.style.transform = `translate(${currentNode.attrs.leftOffset || 0}px, ${currentNode.attrs.topOffset || 0}px)`
+      tableDOM.classList.add('movable-table')
 
-      const contentDOM = document.createElement('tbody');
-      tableDOM.appendChild(contentDOM);
+      const contentDOM = document.createElement('tbody')
+      tableDOM.appendChild(contentDOM)
 
       if (!editor.isEditable) {
         return {
           dom: tableDOM,
-          contentDOM,
-        };
+          contentDOM
+        }
       }
 
       // Create MS Word-style table move handle icon (straddling top-left corner)
-      const moveHandle = document.createElement('div');
-      moveHandle.className = 'table-move-handle';
-      moveHandle.setAttribute('contenteditable', 'false');
-      moveHandle.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4b5563" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>`;
-      moveHandle.style.position = 'absolute';
-      moveHandle.style.left = '-10px';
-      moveHandle.style.top = '-10px';
-      moveHandle.style.width = '18px';
-      moveHandle.style.height = '18px';
-      moveHandle.style.background = '#ffffff';
-      moveHandle.style.border = '1px solid #9ca3af';
-      moveHandle.style.borderRadius = '2px';
-      moveHandle.style.display = 'flex';
-      moveHandle.style.alignItems = 'center';
-      moveHandle.style.justifyContent = 'center';
-      moveHandle.style.cursor = 'move';
-      moveHandle.style.zIndex = '9999';
-      moveHandle.style.userSelect = 'none';
-      moveHandle.style.boxShadow = '0 1px 3px rgba(0,0,0,0.15)';
-      tableDOM.appendChild(moveHandle);
+      const moveHandle = document.createElement('div')
+      moveHandle.className = 'table-move-handle'
+      moveHandle.setAttribute('contenteditable', 'false')
+      moveHandle.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4b5563" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg>`
+      moveHandle.style.position = 'absolute'
+      moveHandle.style.left = '-10px'
+      moveHandle.style.top = '-10px'
+      moveHandle.style.width = '18px'
+      moveHandle.style.height = '18px'
+      moveHandle.style.background = '#ffffff'
+      moveHandle.style.border = '1px solid #9ca3af'
+      moveHandle.style.borderRadius = '2px'
+      moveHandle.style.display = 'flex'
+      moveHandle.style.alignItems = 'center'
+      moveHandle.style.justifyContent = 'center'
+      moveHandle.style.cursor = 'move'
+      moveHandle.style.zIndex = '9999'
+      moveHandle.style.userSelect = 'none'
+      moveHandle.style.boxShadow = '0 1px 3px rgba(0,0,0,0.15)'
+      tableDOM.appendChild(moveHandle)
 
       // Create MS Word-style table resize handle (bottom-right corner)
-      const resizeHandle = document.createElement('div');
-      resizeHandle.className = 'table-resize-handle';
-      resizeHandle.setAttribute('contenteditable', 'false');
-      resizeHandle.style.position = 'absolute';
-      resizeHandle.style.right = '-4px';
-      resizeHandle.style.bottom = '-4px';
-      resizeHandle.style.width = '8px';
-      resizeHandle.style.height = '8px';
-      resizeHandle.style.background = '#ffffff';
-      resizeHandle.style.border = '1px solid #6b7280';
-      resizeHandle.style.cursor = 'se-resize';
-      resizeHandle.style.zIndex = '9999';
-      resizeHandle.style.boxShadow = '0 1px 2px rgba(0,0,0,0.2)';
-      tableDOM.appendChild(resizeHandle);
+      const resizeHandle = document.createElement('div')
+      resizeHandle.className = 'table-resize-handle'
+      resizeHandle.setAttribute('contenteditable', 'false')
+      resizeHandle.style.position = 'absolute'
+      resizeHandle.style.right = '-4px'
+      resizeHandle.style.bottom = '-4px'
+      resizeHandle.style.width = '8px'
+      resizeHandle.style.height = '8px'
+      resizeHandle.style.background = '#ffffff'
+      resizeHandle.style.border = '1px solid #6b7280'
+      resizeHandle.style.cursor = 'se-resize'
+      resizeHandle.style.zIndex = '9999'
+      resizeHandle.style.boxShadow = '0 1px 2px rgba(0,0,0,0.2)'
+      tableDOM.appendChild(resizeHandle)
 
       // Drag/move event handlers
       moveHandle.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
+        e.preventDefault()
+        e.stopPropagation()
 
-        const startX = e.clientX;
-        const startY = e.clientY;
-        const initialLeft = currentNode.attrs.leftOffset || 0;
-        const initialTop = currentNode.attrs.topOffset || 0;
-        let currentLeft = initialLeft;
-        let currentTop = initialTop;
+        const startX = e.clientX
+        const startY = e.clientY
+        const initialLeft = currentNode.attrs.leftOffset || 0
+        const initialTop = currentNode.attrs.topOffset || 0
+        let currentLeft = initialLeft
+        let currentTop = initialTop
 
         const onMouseMove = (moveEvent) => {
-          const dx = moveEvent.clientX - startX;
-          const dy = moveEvent.clientY - startY;
-          currentLeft = initialLeft + dx;
-          currentTop = initialTop + dy;
-          tableDOM.style.transform = `translate(${currentLeft}px, ${currentTop}px)`;
-        };
+          const dx = moveEvent.clientX - startX
+          const dy = moveEvent.clientY - startY
+          currentLeft = initialLeft + dx
+          currentTop = initialTop + dy
+          tableDOM.style.transform = `translate(${currentLeft}px, ${currentTop}px)`
+        }
 
         const onMouseUp = () => {
-          document.removeEventListener('mousemove', onMouseMove);
-          document.removeEventListener('mouseup', onMouseUp);
+          document.removeEventListener('mousemove', onMouseMove)
+          document.removeEventListener('mouseup', onMouseUp)
 
           if (typeof getPos === 'function') {
-            const pos = getPos();
+            const pos = getPos()
             if (typeof pos === 'number') {
               editor.view.dispatch(
                 editor.view.state.tr.setNodeMarkup(pos, undefined, {
                   ...currentNode.attrs,
                   leftOffset: currentLeft,
-                  topOffset: currentTop,
+                  topOffset: currentTop
                 })
-              );
+              )
             }
           }
-        };
+        }
 
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
-      });
+        document.addEventListener('mousemove', onMouseMove)
+        document.addEventListener('mouseup', onMouseUp)
+      })
 
       // Resize event handlers
       resizeHandle.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
+        e.preventDefault()
+        e.stopPropagation()
 
-        const startX = e.clientX;
-        const initialWidth = tableDOM.offsetWidth;
-        let currentWidth = `${initialWidth}px`;
+        const startX = e.clientX
+        const initialWidth = tableDOM.offsetWidth
+        let currentWidth = `${initialWidth}px`
 
         const onMouseMove = (moveEvent) => {
-          const dx = moveEvent.clientX - startX;
-          const newWidth = Math.max(100, initialWidth + dx);
-          currentWidth = `${newWidth}px`;
-          tableDOM.style.width = currentWidth;
-          tableDOM.style.maxWidth = 'none';
-        };
+          const dx = moveEvent.clientX - startX
+          const newWidth = Math.max(100, initialWidth + dx)
+          currentWidth = `${newWidth}px`
+          tableDOM.style.width = currentWidth
+          tableDOM.style.maxWidth = 'none'
+        }
 
         const onMouseUp = () => {
-          document.removeEventListener('mousemove', onMouseMove);
-          document.removeEventListener('mouseup', onMouseUp);
+          document.removeEventListener('mousemove', onMouseMove)
+          document.removeEventListener('mouseup', onMouseUp)
 
           if (typeof getPos === 'function') {
-            const pos = getPos();
+            const pos = getPos()
             if (typeof pos === 'number') {
               editor.view.dispatch(
                 editor.view.state.tr.setNodeMarkup(pos, undefined, {
                   ...currentNode.attrs,
-                  tableWidth: currentWidth,
+                  tableWidth: currentWidth
                 })
-              );
+              )
             }
           }
-        };
+        }
 
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
-      });
+        document.addEventListener('mousemove', onMouseMove)
+        document.addEventListener('mouseup', onMouseUp)
+      })
 
       return {
         dom: tableDOM,
         contentDOM,
         update: (updatedNode) => {
-          if (updatedNode.type.name !== 'table') return false;
-          currentNode = updatedNode;
-          const left = updatedNode.attrs.leftOffset || 0;
-          const top = updatedNode.attrs.topOffset || 0;
-          tableDOM.style.transform = `translate(${left}px, ${top}px)`;
-          tableDOM.style.position = 'relative';
+          if (updatedNode.type.name !== 'table') return false
+          currentNode = updatedNode
+          const left = updatedNode.attrs.leftOffset || 0
+          const top = updatedNode.attrs.topOffset || 0
+          tableDOM.style.transform = `translate(${left}px, ${top}px)`
+          tableDOM.style.position = 'relative'
           if (updatedNode.attrs.tableWidth) {
-            tableDOM.style.width = updatedNode.attrs.tableWidth;
-            tableDOM.style.maxWidth = 'none';
+            tableDOM.style.width = updatedNode.attrs.tableWidth
+            tableDOM.style.maxWidth = 'none'
           }
-          return true;
+          return true
         },
         stopEvent: (event) => {
-          const target = event.target;
-          if (target && (target.closest('.table-move-handle') || target.closest('.table-resize-handle'))) {
-            return true;
+          const target = event.target
+          if (
+            target &&
+            (target.closest('.table-move-handle') || target.closest('.table-resize-handle'))
+          ) {
+            return true
           }
-          return false;
+          return false
         },
         ignoreMutation: (mutation) => {
-          const target = mutation.target;
-          if (target && (target.closest('.table-move-handle') || target.closest('.table-resize-handle'))) {
-            return true;
+          const target = mutation.target
+          if (
+            target &&
+            (target.closest('.table-move-handle') || target.closest('.table-resize-handle'))
+          ) {
+            return true
           }
-          return false;
-        },
-      };
-    };
-  },
-});
+          return false
+        }
+      }
+    }
+  }
+})
 
 export default function TextEditor({
   user,
-  workspaceReportId, setWorkspaceReportId,
-  workspaceReportAY, setWorkspaceReportAY,
-  workspaceReportSem, setWorkspaceReportSem,
-  workspaceReportType, setWorkspaceReportType,
-  workspaceReportEventId, setWorkspaceReportEventId,
-  workspaceReportTitle, setWorkspaceReportTitle,
-  workspaceReportDate, setWorkspaceReportDate,
-  workspaceReportLocation, setWorkspaceReportLocation,
-  workspaceReportBenef, setWorkspaceReportBenef,
-  workspaceReportOrgId, setWorkspaceReportOrgId,
-  workspaceReportPhotos, setWorkspaceReportPhotos,
-  workspaceIsReadOnly, setWorkspaceIsReadOnly,
+  workspaceReportId,
+  setWorkspaceReportId,
+  workspaceReportAY,
+  setWorkspaceReportAY,
+  workspaceReportSem,
+  setWorkspaceReportSem,
+  workspaceReportType,
+  setWorkspaceReportType,
+  workspaceReportEventId,
+  setWorkspaceReportEventId,
+  workspaceReportTitle,
+  setWorkspaceReportTitle,
+  workspaceReportDate,
+  setWorkspaceReportDate,
+  workspaceReportLocation,
+  setWorkspaceReportLocation,
+  workspaceReportBenef,
+  setWorkspaceReportBenef,
+  workspaceReportOrgId,
+  setWorkspaceReportOrgId,
+  workspaceReportPhotos,
+  setWorkspaceReportPhotos,
+  workspaceIsReadOnly,
+  setWorkspaceIsReadOnly,
   workspaceFeedback,
-  linkToEvent, setLinkToEvent,
-  loading, setLoading,
-  saveStatus, setSaveStatus,
-  autoSave, setAutoSave,
-  reportsList, orgsList, eventsList,
-  onSave, onResetForm, onOpenReport, onLoadData,
+  linkToEvent,
+  setLinkToEvent,
+  loading,
+  setLoading,
+  saveStatus,
+  setSaveStatus,
+  autoSave,
+  setAutoSave,
+  reportsList,
+  orgsList,
+  eventsList,
+  onSave,
+  onResetForm,
+  onOpenReport,
+  onLoadData,
   setActiveTab,
-  StatusBadge,
+  StatusBadge
 }) {
-  const [customTemplates, setCustomTemplates] = useState([]);
-  const [defaultTemplateId, setDefaultTemplateId] = useState(null);
-  const [showDocProps, setShowDocProps] = useState(false);
-  const [showFileMenu, setShowFileMenu] = useState(false);
-  const [showTemplatesMenu, setShowTemplatesMenu] = useState(false);
-  const [wordCount, setWordCount] = useState(0);
-  const [charCount, setCharCount] = useState(0);
+  const [customTemplates, setCustomTemplates] = useState([])
+  const [defaultTemplateId, setDefaultTemplateId] = useState(null)
+  const [showDocProps, setShowDocProps] = useState(false)
+  const [showFileMenu, setShowFileMenu] = useState(false)
+  const [showTemplatesMenu, setShowTemplatesMenu] = useState(false)
+  const [wordCount, setWordCount] = useState(0)
+  const [charCount, setCharCount] = useState(0)
 
   // -- Pagination & Header/Footer States --
-  const [activeEditingArea, setActiveEditingArea] = useState('body'); // 'body' | 'header' | 'footer'
-  const [showHeader, setShowHeader] = useState(true);
-  const [showFooter, setShowFooter] = useState(true);
-  const [headerText, setHeaderText] = useState('');
-  const [footerText, setFooterText] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [zoom, setZoom] = useState(100);
-  const [isTemplateActive, setIsTemplateActive] = useState(false);
-  const [activeTemplateId, setActiveTemplateId] = useState(null);
-  const [docxBuffer, setDocxBuffer] = useState(null);
-  const [paperKey, setPaperKey] = useState('Letter');
-  const [orientation, setOrientation] = useState('portrait');
-  const [marginKey, setMarginKey] = useState('Normal');
+  const [activeEditingArea, setActiveEditingArea] = useState('body') // 'body' | 'header' | 'footer'
+  const [showHeader, setShowHeader] = useState(true)
+  const [showFooter, setShowFooter] = useState(true)
+  const [headerText, setHeaderText] = useState('')
+  const [footerText, setFooterText] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [zoom, setZoom] = useState(100)
+  const [isTemplateActive, setIsTemplateActive] = useState(false)
+  const [activeTemplateId, setActiveTemplateId] = useState(null)
+  const [docxBuffer, setDocxBuffer] = useState(null)
+  const [paperKey, setPaperKey] = useState('Letter')
+  const [orientation, setOrientation] = useState('portrait')
+  const [marginKey, setMarginKey] = useState('Normal')
 
-  const fileMenuRef = useRef(null);
-  const templatesMenuRef = useRef(null);
-  const docxInputRef = useRef(null);
-  const pdfInputRef = useRef(null);
-  const templateInputRef = useRef(null);
-  const canvasRef = useRef(null);
-  const autoSaveTimer = useRef(null);
-  const lastLoadedReportIdRef = useRef(null);
+  const fileMenuRef = useRef(null)
+  const templatesMenuRef = useRef(null)
+  const docxInputRef = useRef(null)
+  const pdfInputRef = useRef(null)
+  const templateInputRef = useRef(null)
+  const canvasRef = useRef(null)
+  const autoSaveTimer = useRef(null)
+  const lastLoadedReportIdRef = useRef(null)
 
-  const zoomRef = useRef(zoom);
+  const zoomRef = useRef(zoom)
   useEffect(() => {
-    zoomRef.current = zoom;
-  }, [zoom]);
+    zoomRef.current = zoom
+  }, [zoom])
 
-  const leftMargin = useEditorStore((state) => state.leftMargin);
-  const rightMargin = useEditorStore((state) => state.rightMargin);
-  const setEditor = useEditorStore((state) => state.setEditor);
+  const leftMargin = useEditorStore((state) => state.leftMargin)
+  const rightMargin = useEditorStore((state) => state.rightMargin)
+  const setEditor = useEditorStore((state) => state.setEditor)
 
   // ── Editor Instance ──
   const editor = useEditor({
@@ -1223,30 +1280,32 @@ export default function TextEditor({
       TaskItem.configure({ nested: true }),
       TaskList,
       PageFlow,
-      PageBreak,
+      PageBreak
     ],
     content: '<p></p>',
     editable: !workspaceIsReadOnly && activeEditingArea === 'body',
     onCreate: ({ editor: ed }) => {
-      try { ed.commands.clearHistory(); } catch (e) {}
+      try {
+        ed.commands.clearHistory()
+      } catch (e) {}
 
-      const originalPosAtCoords = ed.view.posAtCoords.bind(ed.view);
+      const originalPosAtCoords = ed.view.posAtCoords.bind(ed.view)
       ed.view.posAtCoords = (coords) => {
-        const scale = zoomRef.current / 100;
-        if (scale === 1) return originalPosAtCoords(coords);
-        const rect = ed.view.dom.getBoundingClientRect();
-        const left = rect.left + (coords.left - rect.left) / scale;
-        const top = rect.top + (coords.top - rect.top) / scale;
-        return originalPosAtCoords({ left, top });
-      };
+        const scale = zoomRef.current / 100
+        if (scale === 1) return originalPosAtCoords(coords)
+        const rect = ed.view.dom.getBoundingClientRect()
+        const left = rect.left + (coords.left - rect.left) / scale
+        const top = rect.top + (coords.top - rect.top) / scale
+        return originalPosAtCoords({ left, top })
+      }
     },
     onUpdate: ({ editor: ed }) => {
-      const txt = ed.getText();
-      const words = txt.trim() ? txt.trim().split(/\s+/).length : 0;
-      setWordCount(words);
-      setCharCount(txt.length);
-    },
-  });
+      const txt = ed.getText()
+      const words = txt.trim() ? txt.trim().split(/\s+/).length : 0
+      setWordCount(words)
+      setCharCount(txt.length)
+    }
+  })
 
   // ── Header/Footer Editors ──
   const headerEditor = useEditor({
@@ -1263,34 +1322,36 @@ export default function TextEditor({
       MovableTable.configure({ resizable: true }),
       TableCell,
       TableHeader,
-      TableRow,
+      TableRow
     ],
     content: '<p></p>',
     editable: !workspaceIsReadOnly && activeEditingArea === 'header',
     editorProps: {
       attributes: {
-        class: 'focus:outline-none text-[10px] text-gray-800 font-sans',
-      },
+        class: 'focus:outline-none text-[10px] text-gray-800 font-sans'
+      }
     },
     onCreate: ({ editor: ed }) => {
-      try { ed.commands.clearHistory(); } catch (e) {}
+      try {
+        ed.commands.clearHistory()
+      } catch (e) {}
 
-      const originalPosAtCoords = ed.view.posAtCoords.bind(ed.view);
+      const originalPosAtCoords = ed.view.posAtCoords.bind(ed.view)
       ed.view.posAtCoords = (coords) => {
-        const scale = zoomRef.current / 100;
-        if (scale === 1) return originalPosAtCoords(coords);
-        const rect = ed.view.dom.getBoundingClientRect();
-        const left = rect.left + (coords.left - rect.left) / scale;
-        const top = rect.top + (coords.top - rect.top) / scale;
-        return originalPosAtCoords({ left, top });
-      };
+        const scale = zoomRef.current / 100
+        if (scale === 1) return originalPosAtCoords(coords)
+        const rect = ed.view.dom.getBoundingClientRect()
+        const left = rect.left + (coords.left - rect.left) / scale
+        const top = rect.top + (coords.top - rect.top) / scale
+        return originalPosAtCoords({ left, top })
+      }
     },
     onUpdate: ({ editor: ed }) => {
       if (ed.isFocused) {
-        setHeaderText(ed.getHTML());
+        setHeaderText(ed.getHTML())
       }
-    },
-  });
+    }
+  })
 
   const footerEditor = useEditor({
     extensions: [
@@ -1306,75 +1367,81 @@ export default function TextEditor({
       MovableTable.configure({ resizable: true }),
       TableCell,
       TableHeader,
-      TableRow,
+      TableRow
     ],
     content: '<p></p>',
     editable: !workspaceIsReadOnly && activeEditingArea === 'footer',
     editorProps: {
       attributes: {
-        class: 'focus:outline-none text-[10px] text-gray-800 font-sans',
-      },
+        class: 'focus:outline-none text-[10px] text-gray-800 font-sans'
+      }
     },
     onCreate: ({ editor: ed }) => {
-      try { ed.commands.clearHistory(); } catch (e) {}
+      try {
+        ed.commands.clearHistory()
+      } catch (e) {}
 
-      const originalPosAtCoords = ed.view.posAtCoords.bind(ed.view);
+      const originalPosAtCoords = ed.view.posAtCoords.bind(ed.view)
       ed.view.posAtCoords = (coords) => {
-        const scale = zoomRef.current / 100;
-        if (scale === 1) return originalPosAtCoords(coords);
-        const rect = ed.view.dom.getBoundingClientRect();
-        const left = rect.left + (coords.left - rect.left) / scale;
-        const top = rect.top + (coords.top - rect.top) / scale;
-        return originalPosAtCoords({ left, top });
-      };
+        const scale = zoomRef.current / 100
+        if (scale === 1) return originalPosAtCoords(coords)
+        const rect = ed.view.dom.getBoundingClientRect()
+        const left = rect.left + (coords.left - rect.left) / scale
+        const top = rect.top + (coords.top - rect.top) / scale
+        return originalPosAtCoords({ left, top })
+      }
     },
     onUpdate: ({ editor: ed }) => {
       if (ed.isFocused) {
-        setFooterText(ed.getHTML());
+        setFooterText(ed.getHTML())
       }
-    },
-  });
+    }
+  })
 
   // ── Sync Editable State & Focus ──
   useEffect(() => {
-    const isReadOnly = !!workspaceIsReadOnly;
+    const isReadOnly = !!workspaceIsReadOnly
     if (editor) {
-      editor.setEditable(!isReadOnly && activeEditingArea === 'body');
+      editor.setEditable(!isReadOnly && activeEditingArea === 'body')
     }
     if (headerEditor) {
-      headerEditor.setEditable(!isReadOnly && activeEditingArea === 'header');
+      headerEditor.setEditable(!isReadOnly && activeEditingArea === 'header')
       if (!isReadOnly && activeEditingArea === 'header') {
         setTimeout(() => {
-          try { headerEditor.commands.focus(); } catch (e) {}
-        }, 50);
+          try {
+            headerEditor.commands.focus()
+          } catch (e) {}
+        }, 50)
       }
     }
     if (footerEditor) {
-      footerEditor.setEditable(!isReadOnly && activeEditingArea === 'footer');
+      footerEditor.setEditable(!isReadOnly && activeEditingArea === 'footer')
       if (!isReadOnly && activeEditingArea === 'footer') {
         setTimeout(() => {
-          try { footerEditor.commands.focus(); } catch (e) {}
-        }, 50);
+          try {
+            footerEditor.commands.focus()
+          } catch (e) {}
+        }, 50)
       }
     }
-  }, [editor, headerEditor, footerEditor, workspaceIsReadOnly, activeEditingArea]);
+  }, [editor, headerEditor, footerEditor, workspaceIsReadOnly, activeEditingArea])
 
   // ── Sync margins to ProseMirror DOM styles dynamically ──
   useEffect(() => {
     if (editor) {
-      const pmNode = editor.view.dom;
+      const pmNode = editor.view.dom
       if (pmNode) {
-        pmNode.style.paddingLeft = `${leftMargin}px`;
-        pmNode.style.paddingRight = `${rightMargin}px`;
+        pmNode.style.paddingLeft = `${leftMargin}px`
+        pmNode.style.paddingRight = `${rightMargin}px`
       }
     }
-  }, [editor, leftMargin, rightMargin]);
+  }, [editor, leftMargin, rightMargin])
 
   // ── Sync page flow settings to TipTap PageFlow extension ──
   const handlePageChange = useCallback((cur, tot) => {
-    setCurrentPage(cur);
-    setTotalPages(tot);
-  }, []);
+    setCurrentPage(cur)
+    setTotalPages(tot)
+  }, [])
 
   useEffect(() => {
     if (editor && !editor.isDestroyed && editor.commands.updatePageFlowOptions) {
@@ -1387,76 +1454,91 @@ export default function TextEditor({
         showHeader,
         showFooter,
         isTemplateActive,
-        onPageChange: handlePageChange,
-      });
+        onPageChange: handlePageChange
+      })
     }
-  }, [editor, paperKey, orientation, marginKey, headerText, footerText, showHeader, showFooter, isTemplateActive, handlePageChange]);
+  }, [
+    editor,
+    paperKey,
+    orientation,
+    marginKey,
+    headerText,
+    footerText,
+    showHeader,
+    showFooter,
+    isTemplateActive,
+    handlePageChange
+  ])
 
-  const activeEditor = (activeEditingArea === 'header' && headerEditor)
-    ? headerEditor
-    : (activeEditingArea === 'footer' && footerEditor)
-      ? footerEditor
-      : editor;
+  const activeEditor =
+    activeEditingArea === 'header' && headerEditor
+      ? headerEditor
+      : activeEditingArea === 'footer' && footerEditor
+        ? footerEditor
+        : editor
 
   // ── Register active editor globally ──
   useEffect(() => {
     if (activeEditor) {
-      setEditor(activeEditor);
-      window.__dommunityEditor = activeEditor;
+      setEditor(activeEditor)
+      window.__dommunityEditor = activeEditor
     }
 
     window.__dommunityResetEditorLayout = () => {
-      setHeaderText('');
-      loadInitialContentAndResetHistory(headerEditor, '<p></p>');
-      setFooterText('');
-      loadInitialContentAndResetHistory(footerEditor, '<p></p>');
-      setShowHeader(true);
-      setShowFooter(true);
-      setPaperKey('Letter');
-      setOrientation('portrait');
-      setMarginKey('Normal');
-      setIsTemplateActive(false);
-      setActiveTemplateId(null);
-      setDocxBuffer(null);
-      setActiveEditingArea('body');
+      setHeaderText('')
+      loadInitialContentAndResetHistory(headerEditor, '<p></p>')
+      setFooterText('')
+      loadInitialContentAndResetHistory(footerEditor, '<p></p>')
+      setShowHeader(true)
+      setShowFooter(true)
+      setPaperKey('Letter')
+      setOrientation('portrait')
+      setMarginKey('Normal')
+      setIsTemplateActive(false)
+      setActiveTemplateId(null)
+      setDocxBuffer(null)
+      setActiveEditingArea('body')
       if (editor) {
-        editor.setEditable(true);
-        loadInitialContentAndResetHistory(editor, '<p></p>');
+        editor.setEditable(true)
+        loadInitialContentAndResetHistory(editor, '<p></p>')
         setTimeout(() => {
-          try { editor.commands.focus('start'); } catch (e) {}
-        }, 50);
+          try {
+            editor.commands.focus('start')
+          } catch (e) {}
+        }, 50)
       }
-    };
+    }
 
     return () => {
-      setEditor(null);
-      window.__dommunityEditor = null;
-      delete window.__dommunityResetEditorLayout;
-    };
-  }, [activeEditor, setEditor, editor, headerEditor, footerEditor]);
+      setEditor(null)
+      window.__dommunityEditor = null
+      delete window.__dommunityResetEditorLayout
+    }
+  }, [activeEditor, setEditor, editor, headerEditor, footerEditor])
 
   // ── Load template library on mount ──
   useEffect(() => {
-    const saved = localStorage.getItem('dommunity_doc_templates');
+    const saved = localStorage.getItem('dommunity_doc_templates')
     if (saved) {
       try {
-        setCustomTemplates(JSON.parse(saved));
+        setCustomTemplates(JSON.parse(saved))
       } catch (e) {
-        console.error('Failed to parse templates:', e);
+        console.error('Failed to parse templates:', e)
       }
     }
-    const defId = localStorage.getItem('dommunity_default_template_id');
+    const defId = localStorage.getItem('dommunity_default_template_id')
     if (defId) {
-      setDefaultTemplateId(defId);
+      setDefaultTemplateId(defId)
     }
-  }, []);
+  }, [])
 
   // ── Built-in System Templates ──
   const systemTemplates = [
     {
       id: 'system-dct-narrative',
       name: 'DCT CES Narrative Report',
-      description: 'Official multi-page narrative report template with Dominican College of Tarlac styling',
+      description:
+        'Official multi-page narrative report template with Dominican College of Tarlac styling',
       paperKey: 'Folio',
       orientation: 'portrait',
       marginKey: 'Narrative',
@@ -1520,129 +1602,147 @@ export default function TextEditor({
 <div class="page-break" data-page-break="true"></div>
 <p style="text-align: left;"><span style="font-size: 12pt; font-family: 'Times New Roman', serif;"> </span></p>`
     }
-  ];
+  ]
 
   // ── Template Selection Handler ──
-  const handleSelectTemplate = useCallback((tpl) => {
-    if (editor) {
-      if (setWorkspaceIsReadOnly) setWorkspaceIsReadOnly(false);
-      editor.setEditable(true);
-      loadInitialContentAndResetHistory(editor, tpl.html || '<p></p>');
-      editor.chain().focus('start').run();
+  const handleSelectTemplate = useCallback(
+    (tpl) => {
+      if (editor) {
+        if (setWorkspaceIsReadOnly) setWorkspaceIsReadOnly(false)
+        editor.setEditable(true)
+        loadInitialContentAndResetHistory(editor, tpl.html || '<p></p>')
+        editor.chain().focus('start').run()
 
-      // Mark whether this is a built-in system template
-      const isSystem = !!(tpl.id && tpl.id.startsWith('system-'));
-      setIsTemplateActive(isSystem);
-      setActiveTemplateId(isSystem ? tpl.id : null);
+        // Mark whether this is a built-in system template
+        const isSystem = !!(tpl.id && tpl.id.startsWith('system-'))
+        setIsTemplateActive(isSystem)
+        setActiveTemplateId(isSystem ? tpl.id : null)
 
-      if (tpl.headerText !== undefined && tpl.headerText) {
-        setHeaderText(tpl.headerText);
-        loadInitialContentAndResetHistory(headerEditor, tpl.headerText);
-        setShowHeader(true);
-      } else {
-        setHeaderText('');
-        loadInitialContentAndResetHistory(headerEditor, '<p></p>');
+        if (tpl.headerText !== undefined && tpl.headerText) {
+          setHeaderText(tpl.headerText)
+          loadInitialContentAndResetHistory(headerEditor, tpl.headerText)
+          setShowHeader(true)
+        } else {
+          setHeaderText('')
+          loadInitialContentAndResetHistory(headerEditor, '<p></p>')
+        }
+
+        if (tpl.footerText !== undefined && tpl.footerText) {
+          setFooterText(tpl.footerText)
+          loadInitialContentAndResetHistory(footerEditor, tpl.footerText)
+          setShowFooter(true)
+        } else {
+          setFooterText('')
+          loadInitialContentAndResetHistory(footerEditor, '<p></p>')
+        }
+
+        const pKey = tpl.paperKey || 'Letter'
+        const orient = tpl.orientation || 'portrait'
+        const mKey = tpl.marginKey || 'Normal'
+        setPaperKey(pKey)
+        setOrientation(orient)
+        setMarginKey(mKey)
+
+        editor.commands.updatePageFlowOptions({
+          paperKey: pKey,
+          orientation: orient,
+          marginKey: mKey,
+          showHeader: tpl.showHeader !== undefined ? tpl.showHeader : true,
+          showFooter: tpl.showFooter !== undefined ? tpl.showFooter : true,
+          headerText: tpl.headerText || '',
+          footerText: tpl.footerText || '',
+          isTemplateActive: isSystem
+        })
+
+        if (setWorkspaceReportTitle) {
+          setWorkspaceReportTitle(tpl.name || 'Untitled')
+        }
+        if (setWorkspaceReportId) {
+          setWorkspaceReportId(null)
+        }
+
+        setActiveEditingArea('body')
       }
-
-      if (tpl.footerText !== undefined && tpl.footerText) {
-        setFooterText(tpl.footerText);
-        loadInitialContentAndResetHistory(footerEditor, tpl.footerText);
-        setShowFooter(true);
-      } else {
-        setFooterText('');
-        loadInitialContentAndResetHistory(footerEditor, '<p></p>');
-      }
-
-      const pKey = tpl.paperKey || 'Letter';
-      const orient = tpl.orientation || 'portrait';
-      const mKey = tpl.marginKey || 'Normal';
-      setPaperKey(pKey);
-      setOrientation(orient);
-      setMarginKey(mKey);
-
-      editor.commands.updatePageFlowOptions({
-        paperKey: pKey,
-        orientation: orient,
-        marginKey: mKey,
-        showHeader: tpl.showHeader !== undefined ? tpl.showHeader : true,
-        showFooter: tpl.showFooter !== undefined ? tpl.showFooter : true,
-        headerText: tpl.headerText || '',
-        footerText: tpl.footerText || '',
-        isTemplateActive: isSystem,
-      });
-
-      if (setWorkspaceReportTitle) {
-        setWorkspaceReportTitle(tpl.name || 'Untitled');
-      }
-      if (setWorkspaceReportId) {
-        setWorkspaceReportId(null);
-      }
-
-      setActiveEditingArea('body');
-    }
-    setShowTemplatesMenu(false);
-  }, [editor, headerEditor, footerEditor, setWorkspaceIsReadOnly, setWorkspaceReportTitle, setWorkspaceReportId, setPaperKey, setOrientation, setMarginKey, setIsTemplateActive, setActiveTemplateId]);
+      setShowTemplatesMenu(false)
+    },
+    [
+      editor,
+      headerEditor,
+      footerEditor,
+      setWorkspaceIsReadOnly,
+      setWorkspaceReportTitle,
+      setWorkspaceReportId,
+      setPaperKey,
+      setOrientation,
+      setMarginKey,
+      setIsTemplateActive,
+      setActiveTemplateId
+    ]
+  )
 
   // ── Load Default Template on mount for new docs ──
   useEffect(() => {
     if (editor && !workspaceReportId) {
-      const defId = localStorage.getItem('dommunity_default_template_id');
+      const defId = localStorage.getItem('dommunity_default_template_id')
       if (defId) {
-        const saved = localStorage.getItem('dommunity_doc_templates');
-        let tpls = [];
+        const saved = localStorage.getItem('dommunity_doc_templates')
+        let tpls = []
         if (saved) {
-          try { tpls = JSON.parse(saved); } catch (e) { }
+          try {
+            tpls = JSON.parse(saved)
+          } catch (e) {}
         }
-        const found = tpls.find(x => x.id === defId);
+        const found = tpls.find((x) => x.id === defId)
         if (found) {
-          handleSelectTemplate(found);
+          handleSelectTemplate(found)
         }
       }
     }
-  }, [editor, workspaceReportId, handleSelectTemplate]);
+  }, [editor, workspaceReportId, handleSelectTemplate])
 
   // ── Load Report Layout configurations when workspaceReportId changes ──
   useEffect(() => {
     if (workspaceReportId && reportsList) {
       if (lastLoadedReportIdRef.current !== workspaceReportId) {
-        const rep = reportsList.find((r) => r.id === workspaceReportId);
+        const rep = reportsList.find((r) => r.id === workspaceReportId)
         if (rep) {
-          const defaultHeader = `<table style="width:100%;border-collapse:collapse;border:none;margin:0;padding:0;font-family:'Times New Roman',serif;table-layout:fixed;"><tbody><tr><td style="width:0.85in;vertical-align:middle;border:none;padding:0;text-align:left;"><img src="${logo2Img}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:1.1in;vertical-align:middle;border:none;padding:0 0.15in 0 0.1in;text-align:left;"><img src="${logoImg}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:4.55in;text-align:left;vertical-align:middle;border:none;border-left:2px solid #555;padding:0 0 0 0.15in;line-height:1.25;"><div style="font-family:'Book Antiqua','Palatino',serif;font-size:14pt;font-weight:bold;color:#000;margin:0 0 1px 0;">DOMINICAN COLLEGE OF TARLAC, INC.</div><div style="font-family:'Times New Roman',serif;font-size:12pt;color:#000;margin:0 0 2px 0;">COMMUNITY EXTENSION SERVICES</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">McArthur Highway, Poblacion (Sto. Rosario), Capas, 2315 Tarlac, Philippines</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">Institutional Contact No.: +63938-918-4093</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0;white-space:nowrap;">Website: dct.edu.ph | E-mail: <span style="color:#030e69;text-decoration:underline;">domct_2315@yahoo.com.ph / domct_2315@dct.edu.ph</span></div></td></tr></tbody></table><hr style="border:none;border-top:3px solid #000;margin:8px 0 0 0;width:110%;" />`;
-          const defaultFooter = `<hr style="border:none;border-top:3px solid #000;margin:0 0 8px 0;width:100%;" /><div style="text-align:center;font-family:'Times New Roman',serif;line-height:1.25;color:#000;"><div style="font-size:12pt;font-weight:bold;margin:0 0 2px 0;">FIDES. PATRIA. SAPIENTIA.</div><div style="font-size:10pt;font-style:italic;margin:0 0 2px 0;">A God-loving educational community with passion for truth and compassion for humanity.</div><div style="font-size:10pt;margin:0;">Department/Office Facebook Page: www.facebook.com/dctces</div></div>`;
+          const defaultHeader = `<table style="width:100%;border-collapse:collapse;border:none;margin:0;padding:0;font-family:'Times New Roman',serif;table-layout:fixed;"><tbody><tr><td style="width:0.85in;vertical-align:middle;border:none;padding:0;text-align:left;"><img src="${logo2Img}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:1.1in;vertical-align:middle;border:none;padding:0 0.15in 0 0.1in;text-align:left;"><img src="${logoImg}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:4.55in;text-align:left;vertical-align:middle;border:none;border-left:2px solid #555;padding:0 0 0 0.15in;line-height:1.25;"><div style="font-family:'Book Antiqua','Palatino',serif;font-size:14pt;font-weight:bold;color:#000;margin:0 0 1px 0;">DOMINICAN COLLEGE OF TARLAC, INC.</div><div style="font-family:'Times New Roman',serif;font-size:12pt;color:#000;margin:0 0 2px 0;">COMMUNITY EXTENSION SERVICES</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">McArthur Highway, Poblacion (Sto. Rosario), Capas, 2315 Tarlac, Philippines</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">Institutional Contact No.: +63938-918-4093</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0;white-space:nowrap;">Website: dct.edu.ph | E-mail: <span style="color:#030e69;text-decoration:underline;">domct_2315@yahoo.com.ph / domct_2315@dct.edu.ph</span></div></td></tr></tbody></table><hr style="border:none;border-top:3px solid #000;margin:8px 0 0 0;width:110%;" />`
+          const defaultFooter = `<hr style="border:none;border-top:3px solid #000;margin:0 0 8px 0;width:100%;" /><div style="text-align:center;font-family:'Times New Roman',serif;line-height:1.25;color:#000;"><div style="font-size:12pt;font-weight:bold;margin:0 0 2px 0;">FIDES. PATRIA. SAPIENTIA.</div><div style="font-size:10pt;font-style:italic;margin:0 0 2px 0;">A God-loving educational community with passion for truth and compassion for humanity.</div><div style="font-size:10pt;margin:0;">Department/Office Facebook Page: www.facebook.com/dctces</div></div>`
 
-          const headerVal = rep.headerText !== undefined ? rep.headerText : defaultHeader;
-          const resolvedHeader = resolveHeaderHtml(headerVal, logo2Img, logoImg);
-          const footerVal = rep.footerText !== undefined ? rep.footerText : defaultFooter;
-          const showHeaderVal = rep.showHeader !== undefined ? rep.showHeader : true;
-          const showFooterVal = rep.showFooter !== undefined ? rep.showFooter : true;
-          const paperKeyVal = rep.paperKey || 'Folio';
-          const orientationVal = rep.orientation || 'portrait';
-          const marginKeyVal = rep.marginKey || 'Narrative';
-          const isTemplateActiveVal = rep.isTemplateActive !== undefined ? rep.isTemplateActive : true;
+          const headerVal = rep.headerText !== undefined ? rep.headerText : defaultHeader
+          const resolvedHeader = resolveHeaderHtml(headerVal, logo2Img, logoImg)
+          const footerVal = rep.footerText !== undefined ? rep.footerText : defaultFooter
+          const showHeaderVal = rep.showHeader !== undefined ? rep.showHeader : true
+          const showFooterVal = rep.showFooter !== undefined ? rep.showFooter : true
+          const paperKeyVal = rep.paperKey || 'Folio'
+          const orientationVal = rep.orientation || 'portrait'
+          const marginKeyVal = rep.marginKey || 'Narrative'
+          const isTemplateActiveVal =
+            rep.isTemplateActive !== undefined ? rep.isTemplateActive : true
 
-          setHeaderText(resolvedHeader);
-          loadInitialContentAndResetHistory(headerEditor, resolvedHeader || '<p></p>');
-          setFooterText(footerVal);
-          loadInitialContentAndResetHistory(footerEditor, footerVal || '<p></p>');
-          setShowHeader(showHeaderVal);
-          setShowFooter(showFooterVal);
-          setPaperKey(paperKeyVal);
-          setOrientation(orientationVal);
-          setMarginKey(marginKeyVal);
-          setIsTemplateActive(isTemplateActiveVal);
-          lastLoadedReportIdRef.current = workspaceReportId;
+          setHeaderText(resolvedHeader)
+          loadInitialContentAndResetHistory(headerEditor, resolvedHeader || '<p></p>')
+          setFooterText(footerVal)
+          loadInitialContentAndResetHistory(footerEditor, footerVal || '<p></p>')
+          setShowHeader(showHeaderVal)
+          setShowFooter(showFooterVal)
+          setPaperKey(paperKeyVal)
+          setOrientation(orientationVal)
+          setMarginKey(marginKeyVal)
+          setIsTemplateActive(isTemplateActiveVal)
+          lastLoadedReportIdRef.current = workspaceReportId
         }
       }
     } else if (!workspaceReportId) {
-      lastLoadedReportIdRef.current = null;
+      lastLoadedReportIdRef.current = null
     }
-  }, [workspaceReportId, reportsList, editor, headerEditor, footerEditor]);
+  }, [workspaceReportId, reportsList, editor, headerEditor, footerEditor])
 
   // ── Save current document as a template ──
   const handleSaveAsTemplate = useCallback(() => {
-    if (!editor) return;
-    const name = window.prompt('Save Current Document as Template — Enter Name:');
-    if (!name || !name.trim()) return;
+    if (!editor) return
+    const name = window.prompt('Save Current Document as Template — Enter Name:')
+    if (!name || !name.trim()) return
 
     const newTpl = {
       id: 'tpl-' + Math.random().toString(36).substr(2, 9),
@@ -1652,49 +1752,52 @@ export default function TextEditor({
       headerText,
       footerText,
       showHeader,
-      showFooter,
-    };
+      showFooter
+    }
 
-    setCustomTemplates(prev => {
-      const updated = [...prev, newTpl];
-      localStorage.setItem('dommunity_doc_templates', JSON.stringify(updated));
-      return updated;
-    });
-    alert(`Template "${name}" saved successfully!`);
-  }, [editor, headerText, footerText, showHeader, showFooter]);
+    setCustomTemplates((prev) => {
+      const updated = [...prev, newTpl]
+      localStorage.setItem('dommunity_doc_templates', JSON.stringify(updated))
+      return updated
+    })
+    alert(`Template "${name}" saved successfully!`)
+  }, [editor, headerText, footerText, showHeader, showFooter])
 
   // ── Import a .docx file as a template ──
   const handleImportTemplateFile = useCallback((e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const file = e.target.files?.[0]
+    if (!file) return
 
-    const reader = new FileReader();
+    const reader = new FileReader()
     reader.onload = async (event) => {
-      const arrayBuffer = event.target.result;
+      const arrayBuffer = event.target.result
       try {
-        let layout = null;
+        let layout = null
         try {
-          layout = await parseDocxLayout(arrayBuffer);
+          layout = await parseDocxLayout(arrayBuffer)
         } catch (err) {
-          console.warn('Template layout parse failed:', err);
+          console.warn('Template layout parse failed:', err)
         }
 
-        let html = '';
+        let html = ''
         try {
-          html = await docxToHtml(arrayBuffer);
+          html = await docxToHtml(arrayBuffer)
         } catch (err) {
-          console.warn('docxToHtml failed, falling back to mammoth:', err);
-          const result = await mammoth.convertToHtml({ arrayBuffer }, {
-            convertImage: mammoth.images.imgElement((image) => {
-              return image.readAsBase64String().then((b64) => ({
-                src: `data:${image.contentType};base64,${b64}`
-              }));
-            })
-          });
-          html = result.value;
+          console.warn('docxToHtml failed, falling back to mammoth:', err)
+          const result = await mammoth.convertToHtml(
+            { arrayBuffer },
+            {
+              convertImage: mammoth.images.imgElement((image) => {
+                return image.readAsBase64String().then((b64) => ({
+                  src: `data:${image.contentType};base64,${b64}`
+                }))
+              })
+            }
+          )
+          html = result.value
         }
 
-        const tplName = file.name.replace(/\.[^/.]+$/, '');
+        const tplName = file.name.replace(/\.[^/.]+$/, '')
         const newTpl = {
           id: 'tpl-' + Math.random().toString(36).substr(2, 9),
           name: tplName,
@@ -1703,216 +1806,267 @@ export default function TextEditor({
           headerText: layout?.headerText || '',
           footerText: layout?.footerText || '',
           showHeader: layout?.showHeader || false,
-          showFooter: layout?.showFooter || false,
-        };
+          showFooter: layout?.showFooter || false
+        }
 
-        setCustomTemplates(prev => {
-          const updated = [...prev, newTpl];
-          localStorage.setItem('dommunity_doc_templates', JSON.stringify(updated));
-          return updated;
-        });
-        alert(`Template "${tplName}" added to your library!`);
+        setCustomTemplates((prev) => {
+          const updated = [...prev, newTpl]
+          localStorage.setItem('dommunity_doc_templates', JSON.stringify(updated))
+          return updated
+        })
+        alert(`Template "${tplName}" added to your library!`)
       } catch (err) {
-        console.error('Template import failed:', err);
-        alert('Failed to import template. Please check the file format.');
+        console.error('Template import failed:', err)
+        alert('Failed to import template. Please check the file format.')
       }
-    };
-    reader.readAsArrayBuffer(file);
-    e.target.value = '';
-  }, []);
+    }
+    reader.readAsArrayBuffer(file)
+    e.target.value = ''
+  }, [])
 
   // ── Delete a template ──
-  const handleDeleteTemplate = useCallback((id) => {
-    if (!window.confirm('Remove this template from your library?')) return;
-    setCustomTemplates(prev => {
-      const updated = prev.filter(x => x.id !== id);
-      localStorage.setItem('dommunity_doc_templates', JSON.stringify(updated));
-      return updated;
-    });
-    if (defaultTemplateId === id) {
-      setDefaultTemplateId(null);
-      localStorage.removeItem('dommunity_default_template_id');
-    }
-  }, [defaultTemplateId]);
+  const handleDeleteTemplate = useCallback(
+    (id) => {
+      if (!window.confirm('Remove this template from your library?')) return
+      setCustomTemplates((prev) => {
+        const updated = prev.filter((x) => x.id !== id)
+        localStorage.setItem('dommunity_doc_templates', JSON.stringify(updated))
+        return updated
+      })
+      if (defaultTemplateId === id) {
+        setDefaultTemplateId(null)
+        localStorage.removeItem('dommunity_default_template_id')
+      }
+    },
+    [defaultTemplateId]
+  )
 
   // ── Open local .docx ──
-  const handleOpenLocalDocx = useCallback((e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleOpenLocalDocx = useCallback(
+    (e) => {
+      const file = e.target.files?.[0]
+      if (!file) return
 
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const arrayBuffer = event.target.result;
-      setLoading(true);
-      try {
-        let layout = null;
+      const reader = new FileReader()
+      reader.onload = async (event) => {
+        const arrayBuffer = event.target.result
+        setLoading(true)
         try {
-          layout = await parseDocxLayout(arrayBuffer);
-        } catch (e) {
-          console.error('Failed to parse docx layout', e);
-        }
+          let layout = null
+          try {
+            layout = await parseDocxLayout(arrayBuffer)
+          } catch (e) {
+            console.error('Failed to parse docx layout', e)
+          }
 
-        let html = '';
-        try {
-          html = await docxToHtml(arrayBuffer);
+          let html = ''
+          try {
+            html = await docxToHtml(arrayBuffer)
+          } catch (err) {
+            console.warn('High-fidelity parser failed, falling back to mammoth:', err)
+            const result = await mammoth.convertToHtml(
+              { arrayBuffer },
+              {
+                convertImage: mammoth.images.imgElement((image) => {
+                  return image.readAsBase64String().then((base64String) => {
+                    return {
+                      src: `data:${image.contentType};base64,${base64String}`
+                    }
+                  })
+                })
+              }
+            )
+            html = result.value
+          }
+
+          if (editor) {
+            if (setWorkspaceIsReadOnly) setWorkspaceIsReadOnly(false)
+            editor.setEditable(true)
+
+            if (setWorkspaceReportTitle) {
+              setWorkspaceReportTitle(file.name.replace(/\.[^/.]+$/, ''))
+            }
+
+            if (setWorkspaceReportId) {
+              setWorkspaceReportId(null)
+            }
+
+            if (layout) {
+              if (layout.headerText) {
+                setHeaderText(layout.headerText)
+                loadInitialContentAndResetHistory(headerEditor, layout.headerText)
+              } else {
+                setHeaderText('')
+                loadInitialContentAndResetHistory(headerEditor, '<p></p>')
+              }
+
+              if (layout.footerText) {
+                setFooterText(layout.footerText)
+                loadInitialContentAndResetHistory(footerEditor, layout.footerText)
+              } else {
+                setFooterText('')
+                loadInitialContentAndResetHistory(footerEditor, '<p></p>')
+              }
+
+              setShowHeader(layout.showHeader !== false)
+              setShowFooter(layout.showFooter !== false)
+            }
+
+            loadInitialContentAndResetHistory(editor, html || '<p></p>')
+            setActiveEditingArea('body')
+          }
         } catch (err) {
-          console.warn('High-fidelity parser failed, falling back to mammoth:', err);
-          const result = await mammoth.convertToHtml({ arrayBuffer }, {
-            convertImage: mammoth.images.imgElement((image) => {
-              return image.readAsBase64String().then((base64String) => {
-                return {
-                  src: `data:${image.contentType};base64,${base64String}`
-                };
-              });
-            })
-          });
-          html = result.value;
+          console.error('Error loading docx:', err)
+          alert('Failed to open the document. Please check the file format.')
+        } finally {
+          setLoading(false)
         }
-
-        if (editor) {
-          if (setWorkspaceIsReadOnly) setWorkspaceIsReadOnly(false);
-          editor.setEditable(true);
-
-          if (setWorkspaceReportTitle) {
-            setWorkspaceReportTitle(file.name.replace(/\.[^/.]+$/, ''));
-          }
-
-          if (setWorkspaceReportId) {
-            setWorkspaceReportId(null);
-          }
-
-          if (layout) {
-            if (layout.headerText) {
-              setHeaderText(layout.headerText);
-              loadInitialContentAndResetHistory(headerEditor, layout.headerText);
-            } else {
-              setHeaderText('');
-              loadInitialContentAndResetHistory(headerEditor, '<p></p>');
-            }
-
-            if (layout.footerText) {
-              setFooterText(layout.footerText);
-              loadInitialContentAndResetHistory(footerEditor, layout.footerText);
-            } else {
-              setFooterText('');
-              loadInitialContentAndResetHistory(footerEditor, '<p></p>');
-            }
-
-            setShowHeader(layout.showHeader !== false);
-            setShowFooter(layout.showFooter !== false);
-          }
-
-          loadInitialContentAndResetHistory(editor, html || '<p></p>');
-          setActiveEditingArea('body');
-        }
-      } catch (err) {
-        console.error('Error loading docx:', err);
-        alert('Failed to open the document. Please check the file format.');
-      } finally {
-        setLoading(false);
       }
-    };
-    reader.readAsArrayBuffer(file);
-    e.target.value = '';
-  }, [editor, headerEditor, footerEditor, setWorkspaceIsReadOnly, setWorkspaceReportTitle, setWorkspaceReportId, setLoading]);
+      reader.readAsArrayBuffer(file)
+      e.target.value = ''
+    },
+    [
+      editor,
+      headerEditor,
+      footerEditor,
+      setWorkspaceIsReadOnly,
+      setWorkspaceReportTitle,
+      setWorkspaceReportId,
+      setLoading
+    ]
+  )
 
   // ── Open local .pdf ──
-  const handleOpenLocalPdf = useCallback((e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleOpenLocalPdf = useCallback(
+    (e) => {
+      const file = e.target.files?.[0]
+      if (!file) return
 
-    setLoading(true);
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const arrayBuffer = event.target.result;
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        let html = '';
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const textContent = await page.getTextContent();
+      setLoading(true)
+      const reader = new FileReader()
+      reader.onload = async (event) => {
+        try {
+          const arrayBuffer = event.target.result
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+          let html = ''
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i)
+            const textContent = await page.getTextContent()
 
-          // Reconstruct lines by grouping text items vertically
-          let lastY = null;
-          let lineText = '';
+            // Reconstruct lines by grouping text items vertically
+            let lastY = null
+            let lineText = ''
 
-          for (const item of textContent.items) {
-            const y = item.transform[5];
-            const fontSize = Math.round(Math.abs(item.transform[3]));
+            for (const item of textContent.items) {
+              const y = item.transform[5]
+              const fontSize = Math.round(Math.abs(item.transform[3]))
 
-            let itemStr = item.str;
-            if (item.fontName) {
-              const fnLower = item.fontName.toLowerCase();
-              if (fnLower.includes('bold') || fnLower.includes('-bd') || fnLower.includes('_bd')) {
-                itemStr = `<strong>${itemStr}</strong>`;
+              let itemStr = item.str
+              if (item.fontName) {
+                const fnLower = item.fontName.toLowerCase()
+                if (
+                  fnLower.includes('bold') ||
+                  fnLower.includes('-bd') ||
+                  fnLower.includes('_bd')
+                ) {
+                  itemStr = `<strong>${itemStr}</strong>`
+                }
+                if (
+                  fnLower.includes('italic') ||
+                  fnLower.includes('-it') ||
+                  fnLower.includes('_it')
+                ) {
+                  itemStr = `<em>${itemStr}</em>`
+                }
               }
-              if (fnLower.includes('italic') || fnLower.includes('-it') || fnLower.includes('_it')) {
-                itemStr = `<em>${itemStr}</em>`;
+
+              const styledItem =
+                fontSize && fontSize !== 16
+                  ? `<span style="font-size: ${fontSize}px;">${itemStr}</span>`
+                  : itemStr
+
+              if (lastY !== null && Math.abs(y - lastY) > 5) {
+                if (lineText.trim()) {
+                  html += `<p>${lineText}</p>`
+                }
+                lineText = styledItem
+              } else {
+                lineText += (lineText ? ' ' : '') + styledItem
               }
+              lastY = y
+            }
+            if (lineText.trim()) {
+              html += `<p>${lineText}</p>`
+            }
+          }
+
+          if (editor) {
+            if (setWorkspaceIsReadOnly) setWorkspaceIsReadOnly(false)
+            editor.setEditable(true)
+
+            if (setWorkspaceReportTitle) {
+              setWorkspaceReportTitle(file.name.replace(/\.[^/.]+$/, ''))
             }
 
-            const styledItem = fontSize && fontSize !== 16
-              ? `<span style="font-size: ${fontSize}px;">${itemStr}</span>`
-              : itemStr;
-
-            if (lastY !== null && Math.abs(y - lastY) > 5) {
-              if (lineText.trim()) {
-                html += `<p>${lineText}</p>`;
-              }
-              lineText = styledItem;
-            } else {
-              lineText += (lineText ? ' ' : '') + styledItem;
+            if (setWorkspaceReportId) {
+              setWorkspaceReportId(null)
             }
-            lastY = y;
+
+            // Clear headers and footers for PDF as it extracts layout directly into body
+            setHeaderText('')
+            headerEditor?.commands.setContent('<p></p>')
+            setFooterText('')
+            footerEditor?.commands.setContent('<p></p>')
+            setShowHeader(false)
+            setShowFooter(false)
+
+            editor.commands.setContent(html || '<p></p>')
+            setActiveEditingArea('body')
           }
-          if (lineText.trim()) {
-            html += `<p>${lineText}</p>`;
-          }
+        } catch (err) {
+          console.error('Error loading PDF:', err)
+          alert('Failed to parse PDF file. Ensure it contains selectable text.')
+        } finally {
+          setLoading(false)
         }
-
-        if (editor) {
-          if (setWorkspaceIsReadOnly) setWorkspaceIsReadOnly(false);
-          editor.setEditable(true);
-
-          if (setWorkspaceReportTitle) {
-            setWorkspaceReportTitle(file.name.replace(/\.[^/.]+$/, ''));
-          }
-
-          if (setWorkspaceReportId) {
-            setWorkspaceReportId(null);
-          }
-
-          // Clear headers and footers for PDF as it extracts layout directly into body
-          setHeaderText('');
-          headerEditor?.commands.setContent('<p></p>');
-          setFooterText('');
-          footerEditor?.commands.setContent('<p></p>');
-          setShowHeader(false);
-          setShowFooter(false);
-
-          editor.commands.setContent(html || '<p></p>');
-          setActiveEditingArea('body');
-        }
-      } catch (err) {
-        console.error('Error loading PDF:', err);
-        alert('Failed to parse PDF file. Ensure it contains selectable text.');
-      } finally {
-        setLoading(false);
       }
-    };
-    reader.readAsArrayBuffer(file);
-    e.target.value = '';
-  }, [editor, headerEditor, footerEditor, setWorkspaceIsReadOnly, setWorkspaceReportTitle, setWorkspaceReportId, setLoading]);
+      reader.readAsArrayBuffer(file)
+      e.target.value = ''
+    },
+    [
+      editor,
+      headerEditor,
+      footerEditor,
+      setWorkspaceIsReadOnly,
+      setWorkspaceReportTitle,
+      setWorkspaceReportId,
+      setLoading
+    ]
+  )
 
   // ── Save/Submit handler ──
-  const handleSave = useCallback(async (status, silent = false) => {
-    if (!editor) return;
-    const html = editor.getHTML();
-    if (!html || html === '<p></p>') {
-      if (!silent) alert('Please write some content before saving.');
-      return;
-    }
-    await onSave(status, html, silent, {
+  const handleSave = useCallback(
+    async (status, silent = false) => {
+      if (!editor) return
+      const html = editor.getHTML()
+      if (!html || html === '<p></p>') {
+        if (!silent) alert('Please write some content before saving.')
+        return
+      }
+      await onSave(status, html, silent, {
+        headerText,
+        footerText,
+        showHeader,
+        showFooter,
+        paperKey,
+        orientation,
+        marginKey,
+        isTemplateActive
+      })
+    },
+    [
+      editor,
+      onSave,
       headerText,
       footerText,
       showHeader,
@@ -1921,38 +2075,38 @@ export default function TextEditor({
       orientation,
       marginKey,
       isTemplateActive
-    });
-  }, [editor, onSave, headerText, footerText, showHeader, showFooter, paperKey, orientation, marginKey, isTemplateActive]);
+    ]
+  )
 
   // ── AutoSave ──
   useEffect(() => {
-    if (autoSaveTimer.current) clearInterval(autoSaveTimer.current);
+    if (autoSaveTimer.current) clearInterval(autoSaveTimer.current)
     if (autoSave && workspaceReportId) {
       autoSaveTimer.current = setInterval(() => {
-        handleSave('draft', true);
-      }, 30000);
+        handleSave('draft', true)
+      }, 30000)
     }
     return () => {
-      if (autoSaveTimer.current) clearInterval(autoSaveTimer.current);
-    };
-  }, [autoSave, workspaceReportId, handleSave]);
+      if (autoSaveTimer.current) clearInterval(autoSaveTimer.current)
+    }
+  }, [autoSave, workspaceReportId, handleSave])
 
   // ── Keyboard Shortcuts ──
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.ctrlKey) {
         if (e.key === 's' || e.key === 'S') {
-          e.preventDefault();
-          handleSave('draft');
+          e.preventDefault()
+          handleSave('draft')
         } else if (e.key === 'p' || e.key === 'P') {
-          e.preventDefault();
-          window.print();
+          e.preventDefault()
+          window.print()
         }
       }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [editor, handleSave]);
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [editor, handleSave])
 
   // ── File menu actions ──
   const fileMenuItems = [
@@ -1963,126 +2117,130 @@ export default function TextEditor({
         if (editor) {
           // Helper to calculate insert position at the end of current page
           const getInsertPositionForBlankPage = () => {
-            const { doc, selection } = editor.state;
-            const cursorFrom = selection.from;
+            const { doc, selection } = editor.state
+            const cursorFrom = selection.from
 
             // Paper configurations
             const PAPER = {
-              Letter:    { w: 816,  h: 1056 },
-              Folio:     { w: 816,  h: 1248 },
-              Legal:     { w: 816,  h: 1344 },
-              A4:        { w: 794,  h: 1122 },
-            };
+              Letter: { w: 816, h: 1056 },
+              Folio: { w: 816, h: 1248 },
+              Legal: { w: 816, h: 1344 },
+              A4: { w: 794, h: 1122 }
+            }
 
             const MARGINS = {
-              Normal:    96,
-              Narrow:    48,
-              Moderate:  72,
-              Wide:      128,
-              Narrative: { top: 96, bottom: 96, left: 144, right: 96 },
-            };
+              Normal: 96,
+              Narrow: 48,
+              Moderate: 72,
+              Wide: 128,
+              Narrative: { top: 96, bottom: 96, left: 144, right: 96 }
+            }
 
             const getMargins = (key) => {
-              const preset = MARGINS[key] || MARGINS.Normal;
+              const preset = MARGINS[key] || MARGINS.Normal
               if (typeof preset === 'number') {
-                return { top: preset, bottom: preset, left: preset, right: preset };
+                return { top: preset, bottom: preset, left: preset, right: preset }
               }
-              return preset;
-            };
+              return preset
+            }
 
             const getScale = (el) => {
-              let parent = el;
+              let parent = el
               while (parent) {
                 if (parent.style.transform && parent.style.transform.includes('scale')) {
-                  const match = parent.style.transform.match(/scale\(([^)]+)\)/);
-                  if (match) return parseFloat(match[1]) || 1;
+                  const match = parent.style.transform.match(/scale\(([^)]+)\)/)
+                  if (match) return parseFloat(match[1]) || 1
                 }
-                parent = parent.parentElement;
+                parent = parent.parentElement
               }
-              return 1;
-            };
+              return 1
+            }
 
-            const paper = PAPER[paperKey] || PAPER.A4;
-            const pageHeight = orientation === 'landscape' ? paper.w : paper.h;
-            const margins = getMargins(marginKey);
-            const padTopActual = (showHeader && isTemplateActive) ? 170 : margins.top;
-            const usableHeight = pageHeight - (padTopActual + margins.bottom);
+            const paper = PAPER[paperKey] || PAPER.A4
+            const pageHeight = orientation === 'landscape' ? paper.w : paper.h
+            const margins = getMargins(marginKey)
+            const padTopActual = showHeader && isTemplateActive ? 170 : margins.top
+            const usableHeight = pageHeight - (padTopActual + margins.bottom)
 
-            let runningHeight = 0;
-            let pageNum = 1;
-            let cursorPage = 1;
-            const nodePages = [];
-            const scale = getScale(editor.view.dom);
+            let runningHeight = 0
+            let pageNum = 1
+            let cursorPage = 1
+            const nodePages = []
+            const scale = getScale(editor.view.dom)
 
             doc.forEach((node, offset) => {
-              const dom = editor.view.nodeDOM(offset);
-              let height = 0;
-              let marginTop = 0;
-              let marginBottom = 0;
+              const dom = editor.view.nodeDOM(offset)
+              let height = 0
+              let marginTop = 0
+              let marginBottom = 0
 
               if (dom && dom.nodeType === 1) {
-                const style = window.getComputedStyle(dom);
-                marginTop = parseFloat(style.marginTop) || 0;
-                marginBottom = parseFloat(style.marginBottom) || 0;
-                const rect = dom.getBoundingClientRect();
-                height = (rect.height / scale) + marginTop + marginBottom;
+                const style = window.getComputedStyle(dom)
+                marginTop = parseFloat(style.marginTop) || 0
+                marginBottom = parseFloat(style.marginBottom) || 0
+                const rect = dom.getBoundingClientRect()
+                height = rect.height / scale + marginTop + marginBottom
               } else {
                 if (node.type.name === 'heading') {
-                  height = node.attrs.level === 1 ? 40 : 30;
+                  height = node.attrs.level === 1 ? 40 : 30
                 } else if (node.type.name === 'paragraph') {
-                  height = 20;
+                  height = 20
                 } else if (node.type.name === 'table') {
-                  height = 120;
+                  height = 120
                 } else if (node.type.name === 'pageBreak') {
-                  height = 1;
+                  height = 1
                 } else {
-                  height = 20;
+                  height = 20
                 }
               }
 
-              const forceBreak = node.type.name === 'pageBreak' || (dom && dom.nodeType === 1 && (
-                dom.classList.contains('page-break') || 
-                dom.querySelector('.page-break') !== null ||
-                window.getComputedStyle(dom).pageBreakBefore === 'always' || 
-                window.getComputedStyle(dom).breakBefore === 'page' ||
-                dom.getAttribute('data-page-break') === 'true'
-              ));
+              const forceBreak =
+                node.type.name === 'pageBreak' ||
+                (dom &&
+                  dom.nodeType === 1 &&
+                  (dom.classList.contains('page-break') ||
+                    dom.querySelector('.page-break') !== null ||
+                    window.getComputedStyle(dom).pageBreakBefore === 'always' ||
+                    window.getComputedStyle(dom).breakBefore === 'page' ||
+                    dom.getAttribute('data-page-break') === 'true'))
 
               if ((runningHeight + height > usableHeight || forceBreak) && runningHeight > 0) {
-                pageNum++;
-                const isBreakElementEmpty = (node.type.name === 'pageBreak' || (dom && dom.nodeType === 1 && dom.classList.contains('page-break'))) && height < 10;
-                runningHeight = isBreakElementEmpty ? 0 : height;
+                pageNum++
+                const isBreakElementEmpty =
+                  (node.type.name === 'pageBreak' ||
+                    (dom && dom.nodeType === 1 && dom.classList.contains('page-break'))) &&
+                  height < 10
+                runningHeight = isBreakElementEmpty ? 0 : height
               } else {
-                runningHeight += height;
+                runningHeight += height
               }
 
-              nodePages.push({ start: offset, end: offset + node.nodeSize, page: pageNum });
+              nodePages.push({ start: offset, end: offset + node.nodeSize, page: pageNum })
               if (offset <= cursorFrom) {
-                cursorPage = pageNum;
+                cursorPage = pageNum
               }
-            });
+            })
 
-            const currentNodes = nodePages.filter(n => n.page === cursorPage);
+            const currentNodes = nodePages.filter((n) => n.page === cursorPage)
             if (currentNodes.length > 0) {
-              return currentNodes[currentNodes.length - 1].end;
+              return currentNodes[currentNodes.length - 1].end
             }
-            return cursorFrom;
-          };
+            return cursorFrom
+          }
 
-          const insertPos = getInsertPositionForBlankPage();
-          const isAtEnd = (insertPos >= editor.state.doc.content.size - 2);
+          const insertPos = getInsertPositionForBlankPage()
+          const isAtEnd = insertPos >= editor.state.doc.content.size - 2
 
           if (isAtEnd) {
-            editor.chain()
+            editor
+              .chain()
               .focus()
-              .insertContentAt(insertPos, [
-                { type: 'pageBreak' },
-                { type: 'paragraph' }
-              ])
+              .insertContentAt(insertPos, [{ type: 'pageBreak' }, { type: 'paragraph' }])
               .setTextSelection(insertPos + 2)
-              .run();
+              .run()
           } else {
-            editor.chain()
+            editor
+              .chain()
               .focus()
               .insertContentAt(insertPos, [
                 { type: 'pageBreak' },
@@ -2090,9 +2248,9 @@ export default function TextEditor({
                 { type: 'pageBreak' }
               ])
               .setTextSelection(insertPos + 2)
-              .run();
+              .run()
           }
-          setActiveEditingArea('body');
+          setActiveEditingArea('body')
         }
       }
     },
@@ -2101,29 +2259,53 @@ export default function TextEditor({
     { icon: Send, l: 'Submit to Admin', fn: () => handleSave('submitted') },
     null,
     { icon: Printer, l: 'Print (Ctrl+P)', fn: () => window.print() },
-    { icon: FileDown, l: 'Export as PDF', fn: () => handleExportPDF(canvasRef, workspaceReportTitle || 'Report') },
-    { icon: Download, l: 'Export as DOCX', fn: () => handleExportDOCX(editor, workspaceReportTitle || 'Report') },
-  ];
+    {
+      icon: FileDown,
+      l: 'Export as PDF',
+      fn: () => handleExportPDF(canvasRef, workspaceReportTitle || 'Report')
+    },
+    {
+      icon: Download,
+      l: 'Export as DOCX',
+      fn: () => handleExportDOCX(editor, workspaceReportTitle || 'Report')
+    }
+  ]
 
-  const docTitle = workspaceReportTitle || eventsList.find(x => x.id === workspaceReportEventId)?.name || 'Document1';
+  const docTitle =
+    workspaceReportTitle ||
+    eventsList.find((x) => x.id === workspaceReportEventId)?.name ||
+    'Document1'
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[#FAFBFD] border border-neutral-200 rounded-lg">
-
       {/* ── Title Bar ── */}
       <div className="bg-navy-blue text-white flex items-center justify-between px-4 py-2 shrink-0 select-none">
         <div className="flex items-center gap-3">
-          <div className="bg-white text-navy-blue rounded w-6 h-6 flex items-center justify-center font-bold text-sm shadow">W</div>
+          <div className="bg-white text-navy-blue rounded w-6 h-6 flex items-center justify-center font-bold text-sm shadow">
+            W
+          </div>
           <span className="text-sm font-semibold text-gray-100 truncate max-w-md">
             {docTitle} – DommUnity Rich Editor
           </span>
           {workspaceIsReadOnly && (
-            <span className="text-[10px] bg-green-600 text-white px-2 py-0.5 rounded-full font-bold">Read-Only</span>
+            <span className="text-[10px] bg-green-600 text-white px-2 py-0.5 rounded-full font-bold">
+              Read-Only
+            </span>
           )}
         </div>
         <div className="flex items-center gap-4 text-xs text-gray-300">
-          {saveStatus === 'saving' && <span className="flex items-center gap-1.5"><RefreshCw className="w-3.5 h-3.5 animate-spin" />Saving…</span>}
-          {saveStatus === 'saved' && <span className="flex items-center gap-1.5 text-green-400"><Check className="w-3.5 h-3.5" />Saved</span>}
+          {saveStatus === 'saving' && (
+            <span className="flex items-center gap-1.5">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              Saving…
+            </span>
+          )}
+          {saveStatus === 'saved' && (
+            <span className="flex items-center gap-1.5 text-green-400">
+              <Check className="w-3.5 h-3.5" />
+              Saved
+            </span>
+          )}
           {saveStatus === 'error' && <span className="text-red-400">Save failed</span>}
           {autoSave && <span className="text-green-400 font-semibold">AutoSave ON</span>}
         </div>
@@ -2139,20 +2321,28 @@ export default function TextEditor({
           >
             File
           </button>
-          <DropdownWrapper open={showFileMenu} onClose={() => setShowFileMenu(false)} triggerRef={fileMenuRef} width={240}>
+          <DropdownWrapper
+            open={showFileMenu}
+            onClose={() => setShowFileMenu(false)}
+            triggerRef={fileMenuRef}
+            width={240}
+          >
             <div className="py-1 w-56 bg-white border border-neutral-200 shadow-lg rounded">
               {fileMenuItems.map((item, i) => {
-                if (!item) return <div key={i} className="my-1 border-t border-neutral-100" />;
+                if (!item) return <div key={i} className="my-1 border-t border-neutral-100" />
                 return (
                   <button
                     key={item.l}
-                    onClick={() => { item.fn(); setShowFileMenu(false); }}
+                    onClick={() => {
+                      item.fn()
+                      setShowFileMenu(false)
+                    }}
                     className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 hover:bg-neutral-100 cursor-pointer transition ${item.active ? 'text-blue-600 font-bold' : ''}`}
                   >
                     <item.icon className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
                     <span>{item.l}</span>
                   </button>
-                );
+                )
               })}
             </div>
           </DropdownWrapper>
@@ -2165,7 +2355,12 @@ export default function TextEditor({
           >
             Template
           </button>
-          <DropdownWrapper open={showTemplatesMenu} onClose={() => setShowTemplatesMenu(false)} triggerRef={templatesMenuRef} width={240}>
+          <DropdownWrapper
+            open={showTemplatesMenu}
+            onClose={() => setShowTemplatesMenu(false)}
+            triggerRef={templatesMenuRef}
+            width={240}
+          >
             <div className="py-1 w-56 bg-white border border-neutral-200 shadow-lg rounded max-h-80 overflow-y-auto">
               {systemTemplates.map((tpl) => (
                 <button
@@ -2177,7 +2372,9 @@ export default function TextEditor({
                     <FileText className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                     {tpl.name}
                   </span>
-                  <span className="text-[9px] text-neutral-500 truncate pl-5.5">{tpl.description}</span>
+                  <span className="text-[9px] text-neutral-500 truncate pl-5.5">
+                    {tpl.description}
+                  </span>
                 </button>
               ))}
             </div>
@@ -2189,15 +2386,17 @@ export default function TextEditor({
         {/* Zoom Controls */}
         <div className="flex items-center gap-1 bg-neutral-200/60 rounded px-1.5 py-0.5">
           <button
-            onClick={() => setZoom(z => Math.max(50, z - 10))}
+            onClick={() => setZoom((z) => Math.max(50, z - 10))}
             className="p-0.5 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-300/80 rounded transition cursor-pointer"
             title="Zoom Out"
           >
             <ZoomOut className="w-3.5 h-3.5" />
           </button>
-          <span className="text-xs font-semibold text-neutral-700 min-w-[32px] text-center">{zoom}%</span>
+          <span className="text-xs font-semibold text-neutral-700 min-w-[32px] text-center">
+            {zoom}%
+          </span>
           <button
-            onClick={() => setZoom(z => Math.min(200, z + 10))}
+            onClick={() => setZoom((z) => Math.min(200, z + 10))}
             className="p-0.5 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-300/80 rounded transition cursor-pointer"
             title="Zoom In"
           >
@@ -2268,19 +2467,30 @@ export default function TextEditor({
       <DocPropertiesDialog
         show={showDocProps}
         onClose={() => setShowDocProps(false)}
-        workspaceReportAY={workspaceReportAY} setWorkspaceReportAY={setWorkspaceReportAY}
-        workspaceReportSem={workspaceReportSem} setWorkspaceReportSem={setWorkspaceReportSem}
-        workspaceReportType={workspaceReportType} setWorkspaceReportType={setWorkspaceReportType}
-        workspaceReportOrgId={workspaceReportOrgId} setWorkspaceReportOrgId={setWorkspaceReportOrgId}
-        workspaceReportBenef={workspaceReportBenef} setWorkspaceReportBenef={setWorkspaceReportBenef}
-        workspaceReportEventId={workspaceReportEventId} setWorkspaceReportEventId={setWorkspaceReportEventId}
-        workspaceReportTitle={workspaceReportTitle} setWorkspaceReportTitle={setWorkspaceReportTitle}
-        workspaceReportDate={workspaceReportDate} setWorkspaceReportDate={setWorkspaceReportDate}
-        workspaceReportLocation={workspaceReportLocation} setWorkspaceReportLocation={setWorkspaceReportLocation}
+        workspaceReportAY={workspaceReportAY}
+        setWorkspaceReportAY={setWorkspaceReportAY}
+        workspaceReportSem={workspaceReportSem}
+        setWorkspaceReportSem={setWorkspaceReportSem}
+        workspaceReportType={workspaceReportType}
+        setWorkspaceReportType={setWorkspaceReportType}
+        workspaceReportOrgId={workspaceReportOrgId}
+        setWorkspaceReportOrgId={setWorkspaceReportOrgId}
+        workspaceReportBenef={workspaceReportBenef}
+        setWorkspaceReportBenef={setWorkspaceReportBenef}
+        workspaceReportEventId={workspaceReportEventId}
+        setWorkspaceReportEventId={setWorkspaceReportEventId}
+        workspaceReportTitle={workspaceReportTitle}
+        setWorkspaceReportTitle={setWorkspaceReportTitle}
+        workspaceReportDate={workspaceReportDate}
+        setWorkspaceReportDate={setWorkspaceReportDate}
+        workspaceReportLocation={workspaceReportLocation}
+        setWorkspaceReportLocation={setWorkspaceReportLocation}
         workspaceIsReadOnly={workspaceIsReadOnly}
         workspaceFeedback={workspaceFeedback}
-        linkToEvent={linkToEvent} setLinkToEvent={setLinkToEvent}
-        orgsList={orgsList} eventsList={eventsList}
+        linkToEvent={linkToEvent}
+        setLinkToEvent={setLinkToEvent}
+        orgsList={orgsList}
+        eventsList={eventsList}
       />
 
       <input
@@ -2309,5 +2519,5 @@ export default function TextEditor({
 
       <FloatingToolbar editor={editor} />
     </div>
-  );
+  )
 }

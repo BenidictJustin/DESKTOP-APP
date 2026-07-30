@@ -1,20 +1,25 @@
-import React from 'react';
-import { MessageSquare, Hash, AlertTriangle } from 'lucide-react';
-import { RBtn, RGroup } from './DropdownWrapper';
+import React from 'react'
+import { MessageSquare, Hash, AlertTriangle } from 'lucide-react'
+import { RBtn, RGroup } from './DropdownWrapper'
 
 export default function RibbonReview({
   editor,
-  showComments, setShowComments,
-  trackChanges, setTrackChanges,
+  showComments,
+  setShowComments,
+  trackChanges,
+  setTrackChanges,
   onOpenWordCount,
-  workspaceFeedback,
+  workspaceFeedback
 }) {
   return (
     <div className="flex items-end gap-0 overflow-visible flex-nowrap">
-
       {/* ── Comments ── */}
       <RGroup label="Comments">
-        <RBtn active={showComments} title="Comments Panel" onClick={() => setShowComments(!showComments)}>
+        <RBtn
+          active={showComments}
+          title="Comments Panel"
+          onClick={() => setShowComments(!showComments)}
+        >
           <MessageSquare className="w-3.5 h-3.5" />
         </RBtn>
       </RGroup>
@@ -24,11 +29,11 @@ export default function RibbonReview({
         <RBtn
           title="Spell Check"
           onClick={() => {
-            const el = document.querySelector('.ProseMirror');
+            const el = document.querySelector('.ProseMirror')
             if (el) {
-              el.setAttribute('spellcheck', 'true');
-              el.focus();
-              alert('Spell check enabled. Misspellings will be underlined by the browser.');
+              el.setAttribute('spellcheck', 'true')
+              el.focus()
+              alert('Spell check enabled. Misspellings will be underlined by the browser.')
             }
           }}
         >
@@ -61,5 +66,5 @@ export default function RibbonReview({
         </RGroup>
       )}
     </div>
-  );
+  )
 }

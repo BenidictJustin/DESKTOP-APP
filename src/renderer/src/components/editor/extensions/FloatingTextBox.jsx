@@ -1,109 +1,117 @@
-import { Node, mergeAttributes } from '@tiptap/core';
-import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewContent } from '@tiptap/react';
-import React, { useRef, useState, useEffect } from 'react';
+import { Node, mergeAttributes } from '@tiptap/core'
+import { ReactNodeViewRenderer, NodeViewWrapper, NodeViewContent } from '@tiptap/react'
+import React, { useRef, useState, useEffect } from 'react'
 
 const FloatingTextBoxComponent = ({ node, updateAttributes, selected, editor }) => {
-  const { left, top, width, height } = node.attrs;
-  const containerRef = useRef(null);
-  const [isMouseDown, setIsMouseDown] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0, left: 0, top: 0 });
-  const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
+  const { left, top, width, height } = node.attrs
+  const containerRef = useRef(null)
+  const [isMouseDown, setIsMouseDown] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+  const [isResizing, setIsResizing] = useState(false)
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0, left: 0, top: 0 })
+  const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 })
 
-  const isEditable = editor?.isEditable;
+  const isEditable = editor?.isEditable
 
   const handleMouseDown = (e) => {
-    if (!isEditable) return;
+    if (!isEditable) return
     // Prevent dragging if clicking inside the editable text area
-    if (e.target.closest('.text-box-content-wrapper')) return;
-    if (e.target.classList.contains('resize-handle')) return;
-    
+    if (e.target.closest('.text-box-content-wrapper')) return
+    if (e.target.classList.contains('resize-handle')) return
+
     // We do NOT call e.preventDefault() here so that ProseMirror's click/select handling
     // still receives the click event and can select the node view correctly.
-    setIsMouseDown(true);
+    setIsMouseDown(true)
     setDragStart({
       x: e.clientX,
       y: e.clientY,
       left: left,
-      top: top,
-    });
-  };
+      top: top
+    })
+  }
 
   const handleResizeMouseDown = (e) => {
-    if (!isEditable) return;
-    e.preventDefault();
-    e.stopPropagation();
-    setIsResizing(true);
+    if (!isEditable) return
+    e.preventDefault()
+    e.stopPropagation()
+    setIsResizing(true)
     setResizeStart({
       x: e.clientX,
       y: e.clientY,
       width: width,
-      height: height,
-    });
-  };
+      height: height
+    })
+  }
 
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (isMouseDown && !isDragging) {
-        const dx = e.clientX - dragStart.x;
-        const dy = e.clientY - dragStart.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+        const dx = e.clientX - dragStart.x
+        const dy = e.clientY - dragStart.y
+        const dist = Math.sqrt(dx * dx + dy * dy)
         // Drag threshold of 5 pixels to distinguish click/select from dragging
         if (dist > 5) {
-          setIsDragging(true);
+          setIsDragging(true)
         }
       }
 
       if (isDragging) {
-        const dx = e.clientX - dragStart.x;
-        const dy = e.clientY - dragStart.y;
+        const dx = e.clientX - dragStart.x
+        const dy = e.clientY - dragStart.y
 
         // Constrain horizontal positioning to printable width
-        const parentEl = containerRef.current?.parentElement?.parentElement;
-        const editorDom = parentEl?.closest('.ProseMirror');
-        let printableWidth = 600;
+        const parentEl = containerRef.current?.parentElement?.parentElement
+        const editorDom = parentEl?.closest('.ProseMirror')
+        let printableWidth = 600
         if (editorDom) {
-          const style = window.getComputedStyle(editorDom);
-          const padLeft = parseFloat(style.paddingLeft) || 0;
-          const padRight = parseFloat(style.paddingRight) || 0;
-          printableWidth = editorDom.clientWidth - (padLeft + padRight);
+          const style = window.getComputedStyle(editorDom)
+          const padLeft = parseFloat(style.paddingLeft) || 0
+          const padRight = parseFloat(style.paddingRight) || 0
+          printableWidth = editorDom.clientWidth - (padLeft + padRight)
         }
 
-        const newLeft = Math.max(0, Math.min(printableWidth - width, dragStart.left + dx));
+        const newLeft = Math.max(0, Math.min(printableWidth - width, dragStart.left + dx))
         updateAttributes({
           left: newLeft,
-          top: dragStart.top + dy,
-        });
+          top: dragStart.top + dy
+        })
       } else if (isResizing) {
-        const dx = e.clientX - resizeStart.x;
-        const dy = e.clientY - resizeStart.y;
+        const dx = e.clientX - resizeStart.x
+        const dy = e.clientY - resizeStart.y
         updateAttributes({
           width: Math.max(100, resizeStart.width + dx),
-          height: Math.max(50, resizeStart.height + dy),
-        });
+          height: Math.max(50, resizeStart.height + dy)
+        })
       }
-    };
+    }
 
     const handleMouseUp = () => {
-      setIsMouseDown(false);
-      setIsDragging(false);
-      setIsResizing(false);
-    };
+      setIsMouseDown(false)
+      setIsDragging(false)
+      setIsResizing(false)
+    }
 
     if (isMouseDown || isDragging || isResizing) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
     }
 
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isMouseDown, isDragging, isResizing, dragStart, resizeStart, width, height]);
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isMouseDown, isDragging, isResizing, dragStart, resizeStart, width, height])
 
   return (
-    <NodeViewWrapper style={{ position: 'relative', display: 'block', height: 0, overflow: 'visible', zIndex: selected && isEditable ? 150 : 100 }}>
+    <NodeViewWrapper
+      style={{
+        position: 'relative',
+        display: 'block',
+        height: 0,
+        overflow: 'visible',
+        zIndex: selected && isEditable ? 150 : 100
+      }}
+    >
       <div
         ref={containerRef}
         style={{
@@ -112,13 +120,16 @@ const FloatingTextBoxComponent = ({ node, updateAttributes, selected, editor }) 
           top: `${top}px`,
           width: `${width}px`,
           height: `${height}px`,
-          border: isEditable && (selected || isDragging || isResizing) ? '2px solid #3b82f6' : '1px solid #ccc',
+          border:
+            isEditable && (selected || isDragging || isResizing)
+              ? '2px solid #3b82f6'
+              : '1px solid #ccc',
           backgroundColor: '#ffffff',
           boxSizing: 'border-box',
           padding: '8px',
           display: 'flex',
           flexDirection: 'column',
-          cursor: isEditable && isDragging ? 'grabbing' : 'default',
+          cursor: isEditable && isDragging ? 'grabbing' : 'default'
         }}
       >
         {/* Drag handle header bar - hide completely if not editable */}
@@ -136,7 +147,7 @@ const FloatingTextBoxComponent = ({ node, updateAttributes, selected, editor }) 
               fontSize: '9px',
               color: selected || isDragging || isResizing ? '#ffffff' : '#6b7280',
               fontWeight: 'bold',
-              userSelect: 'none',
+              userSelect: 'none'
             }}
           >
             {selected || isDragging || isResizing ? 'Text Box' : ''}
@@ -163,14 +174,14 @@ const FloatingTextBoxComponent = ({ node, updateAttributes, selected, editor }) 
               border: '2px solid #ffffff',
               borderRadius: '50%',
               cursor: 'se-resize',
-              zIndex: 10,
+              zIndex: 10
             }}
           />
         )}
       </div>
     </NodeViewWrapper>
-  );
-};
+  )
+}
 
 export const FloatingTextBox = Node.create({
   name: 'floatingTextBox',
@@ -183,32 +194,32 @@ export const FloatingTextBox = Node.create({
   addAttributes() {
     return {
       left: {
-        default: 50,
+        default: 50
       },
       top: {
-        default: 0,
+        default: 0
       },
       width: {
-        default: 250,
+        default: 250
       },
       height: {
-        default: 150,
-      },
-    };
+        default: 150
+      }
+    }
   },
 
   parseHTML() {
     return [
       {
         tag: 'div[data-floating-text-box]',
-        getAttrs: dom => ({
+        getAttrs: (dom) => ({
           left: parseFloat(dom.getAttribute('data-left')) || 0,
           top: parseFloat(dom.getAttribute('data-top')) || 0,
           width: parseFloat(dom.getAttribute('data-width')) || 250,
-          height: parseFloat(dom.getAttribute('data-height')) || 150,
-        }),
-      },
-    ];
+          height: parseFloat(dom.getAttribute('data-height')) || 150
+        })
+      }
+    ]
   },
 
   renderHTML({ HTMLAttributes }) {
@@ -220,21 +231,21 @@ export const FloatingTextBox = Node.create({
         'data-top': HTMLAttributes.top,
         'data-width': HTMLAttributes.width,
         'data-height': HTMLAttributes.height,
-        style: `position: relative; display: block; margin: 0; padding: 0; height: 0; overflow: visible; z-index: 100;`,
+        style: `position: relative; display: block; margin: 0; padding: 0; height: 0; overflow: visible; z-index: 100;`
       }),
       [
         'div',
         {
-          style: `position: absolute; left: ${HTMLAttributes.left}px; top: ${HTMLAttributes.top}px; width: ${HTMLAttributes.width}px; height: ${HTMLAttributes.height}px; border: 1px solid #ccc; background-color: white; padding: 8px; box-sizing: border-box; overflow: auto; pointer-events: auto;`,
+          style: `position: absolute; left: ${HTMLAttributes.left}px; top: ${HTMLAttributes.top}px; width: ${HTMLAttributes.width}px; height: ${HTMLAttributes.height}px; border: 1px solid #ccc; background-color: white; padding: 8px; box-sizing: border-box; overflow: auto; pointer-events: auto;`
         },
         0
       ]
-    ];
+    ]
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(FloatingTextBoxComponent);
-  },
-});
+    return ReactNodeViewRenderer(FloatingTextBoxComponent)
+  }
+})
 
-export default FloatingTextBox;
+export default FloatingTextBox

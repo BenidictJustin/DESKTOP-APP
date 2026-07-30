@@ -1,31 +1,31 @@
-import JSZip from 'jszip';
-import { EditorState } from 'prosemirror-state';
-import { createDocument } from '@tiptap/core';
+import JSZip from 'jszip'
+import { EditorState } from 'prosemirror-state'
+import { createDocument } from '@tiptap/core'
 
 /**
  * Loads baseline content into a Tiptap editor and resets the ProseMirror undo/redo history state to 0 steps.
  * Prevents Ctrl+Z from undoing or erasing the loaded document/template/report content.
  */
 export function loadInitialContentAndResetHistory(editor, content) {
-  if (!editor || editor.isDestroyed) return;
+  if (!editor || editor.isDestroyed) return
   try {
-    const docNode = createDocument(content || '<p></p>', editor.schema);
+    const docNode = createDocument(content || '<p></p>', editor.schema)
     const newState = EditorState.create({
       schema: editor.schema,
       doc: docNode,
-      plugins: editor.state.plugins,
-    });
-    editor.view.updateState(newState);
+      plugins: editor.state.plugins
+    })
+    editor.view.updateState(newState)
   } catch (err) {
-    console.warn('loadInitialContentAndResetHistory fallback:', err);
+    console.warn('loadInitialContentAndResetHistory fallback:', err)
     try {
-      const docNode = createDocument(content || '<p></p>', editor.schema);
-      const tr = editor.state.tr;
-      tr.replaceWith(0, editor.state.doc.content.size, docNode);
-      tr.setMeta('addToHistory', false);
-      editor.view.dispatch(tr);
+      const docNode = createDocument(content || '<p></p>', editor.schema)
+      const tr = editor.state.tr
+      tr.replaceWith(0, editor.state.doc.content.size, docNode)
+      tr.setMeta('addToHistory', false)
+      editor.view.dispatch(tr)
     } catch (e) {
-      editor.commands.setContent(content || '<p></p>');
+      editor.commands.setContent(content || '<p></p>')
     }
   }
 }
@@ -36,26 +36,30 @@ export function loadInitialContentAndResetHistory(editor, content) {
 
 /** Insert a shape (Unicode character) into the editor. */
 export function insertShape(editor, shapeHtml) {
-  if (!editor) return;
-  editor.chain().focus().insertContent(shapeHtml).run();
+  if (!editor) return
+  editor.chain().focus().insertContent(shapeHtml).run()
 }
 
 /** Insert an icon (emoji) into the editor. */
 export function insertIcon(editor, iconChar) {
-  if (!editor) return;
-  editor.chain().focus().insertContent(iconChar).run();
+  if (!editor) return
+  editor.chain().focus().insertContent(iconChar).run()
 }
 
 /** Insert current date & time string. */
 export function insertDateTime(editor) {
-  if (!editor) return;
-  editor.chain().focus().insertContent(new Date().toLocaleString()).run();
+  if (!editor) return
+  editor.chain().focus().insertContent(new Date().toLocaleString()).run()
 }
 
 /** Insert a data table as a chart representation. */
 export function insertChart(editor) {
-  if (!editor) return;
-  editor.chain().focus().insertContent(`
+  if (!editor) return
+  editor
+    .chain()
+    .focus()
+    .insertContent(
+      `
     <table style="border: 1px solid #c0c0c0; width: 100%; margin: 12px 0;">
       <thead>
         <tr style="background-color: #f3f4f6;">
@@ -82,13 +86,19 @@ export function insertChart(editor) {
         </tr>
       </tbody>
     </table>
-  `).run();
+  `
+    )
+    .run()
 }
 
 /** Insert a SmartArt process diagram. */
 export function insertSmartArt(editor) {
-  if (!editor) return;
-  editor.chain().focus().insertContent(`
+  if (!editor) return
+  editor
+    .chain()
+    .focus()
+    .insertContent(
+      `
     <div style="display: flex; gap: 8px; justify-content: center; margin: 16px 0; font-family: sans-serif;">
       <div style="background: #eff6ff; border: 1.5px solid #2563eb; border-radius: 6px; padding: 8px; width: 110px; text-align: center; font-size: 11px;">
         <div style="font-weight: bold; color: #1e3a8a;">1. PLANNING</div>
@@ -105,127 +115,161 @@ export function insertSmartArt(editor) {
         <div style="color: #fbbf24; font-size: 9px; margin-top: 2px;">Submit Narrative</div>
       </div>
     </div>
-  `).run();
+  `
+    )
+    .run()
 }
 
 /** Insert a text box with border. */
 export function insertTextBox(editor) {
-  if (!editor) return;
-  editor.chain().focus().insertContent({
-    type: 'floatingTextBox',
-    content: [
-      {
-        type: 'paragraph',
-        content: [
-          {
-            type: 'text',
-            text: 'Type your text here…'
-          }
-        ]
-      }
-    ]
-  }).run();
+  if (!editor) return
+  editor
+    .chain()
+    .focus()
+    .insertContent({
+      type: 'floatingTextBox',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            {
+              type: 'text',
+              text: 'Type your text here…'
+            }
+          ]
+        }
+      ]
+    })
+    .run()
 }
 
 /** Insert a hyperlink via prompt. */
 export function handleLink(editor) {
-  if (!editor) return;
-  const prev = editor.getAttributes('link').href;
-  const url = window.prompt('Enter URL:', prev || 'https://');
-  if (url === null) return;
+  if (!editor) return
+  const prev = editor.getAttributes('link').href
+  const url = window.prompt('Enter URL:', prev || 'https://')
+  if (url === null) return
   if (url === '') {
-    editor.chain().focus().extendMarkRange('link').unsetLink().run();
-    return;
+    editor.chain().focus().extendMarkRange('link').unsetLink().run()
+    return
   }
-  editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
+  editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
 }
 
 /** Insert an image from a file input event. */
 export function handleInsertImage(editor, e) {
-  const file = e.target.files?.[0];
-  if (!file || !editor) return;
-  const reader = new FileReader();
+  const file = e.target.files?.[0]
+  if (!file || !editor) return
+  const reader = new FileReader()
   reader.onload = () => {
-    editor.chain().focus().insertContent({
-      type: 'floatingImage',
-      attrs: { src: reader.result }
-    }).run();
-  };
-  reader.readAsDataURL(file);
-  e.target.value = '';
+    editor
+      .chain()
+      .focus()
+      .insertContent({
+        type: 'floatingImage',
+        attrs: { src: reader.result }
+      })
+      .run()
+  }
+  reader.readAsDataURL(file)
+  e.target.value = ''
 }
 
 /** Change paragraph indentation. */
 export function changeIndent(editor, direction) {
-  if (!editor) return;
-  const { state } = editor;
-  const { from } = state.selection;
-  const node = state.doc.resolve(from).parent;
-  let current = 0;
+  if (!editor) return
+  const { state } = editor
+  const { from } = state.selection
+  const node = state.doc.resolve(from).parent
+  let current = 0
   if (node.attrs.style && node.attrs.style.includes('margin-left')) {
-    const match = node.attrs.style.match(/margin-left:\s*(\d+)px/);
-    if (match) current = parseInt(match[1], 10);
+    const match = node.attrs.style.match(/margin-left:\s*(\d+)px/)
+    if (match) current = parseInt(match[1], 10)
   }
-  const next = direction === 'increase' ? current + 40 : Math.max(0, current - 40);
-  editor.chain().focus().updateAttributes('paragraph', {
-    style: next > 0 ? `margin-left: ${next}px` : null
-  }).run();
+  const next = direction === 'increase' ? current + 40 : Math.max(0, current - 40)
+  editor
+    .chain()
+    .focus()
+    .updateAttributes('paragraph', {
+      style: next > 0 ? `margin-left: ${next}px` : null
+    })
+    .run()
 }
 
 /** Insert a page number indicator. */
 export function insertPageNumber(editor) {
-  if (!editor) return;
-  editor.chain().focus().insertContent(
-    '<p style="text-align:right;font-size:10px;color:#9ca3af;font-style:italic;">Page 1 of 1</p>'
-  ).run();
+  if (!editor) return
+  editor
+    .chain()
+    .focus()
+    .insertContent(
+      '<p style="text-align:right;font-size:10px;color:#9ca3af;font-style:italic;">Page 1 of 1</p>'
+    )
+    .run()
 }
 
 /** Insert an equation/math symbol. */
 export function insertEquation(editor, eqValue) {
-  if (!editor) return;
-  editor.chain().focus().insertContent(
-    `<span style="font-family: 'Cambria Math', serif; font-style: italic;">${eqValue}</span>`
-  ).run();
+  if (!editor) return
+  editor
+    .chain()
+    .focus()
+    .insertContent(
+      `<span style="font-family: 'Cambria Math', serif; font-style: italic;">${eqValue}</span>`
+    )
+    .run()
 }
 
 /** Insert an online video iframe. */
 export function insertVideo(editor) {
-  if (!editor) return;
-  const url = window.prompt('Enter Video Embed URL (e.g. YouTube Embed):', 'https://www.youtube.com/embed/dQw4w9WgXcQ');
-  if (!url) return;
-  editor.chain().focus().insertContent(`
+  if (!editor) return
+  const url = window.prompt(
+    'Enter Video Embed URL (e.g. YouTube Embed):',
+    'https://www.youtube.com/embed/dQw4w9WgXcQ'
+  )
+  if (!url) return
+  editor
+    .chain()
+    .focus()
+    .insertContent(
+      `
     <div style="text-align: center; margin: 16px 0;">
       <iframe src="${url}" width="480" height="270" style="border: 1px solid #d1d5db; border-radius: 6px; max-width: 100%;" allowfullscreen></iframe>
     </div>
-  `).run();
+  `
+    )
+    .run()
 }
 
 /** Export the editor content as a plain text file. */
 export function handleExportTXT(editor, title) {
-  if (!editor) return;
-  const text = editor.getText();
-  const blob = new Blob([text], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${title || 'Document'}.txt`;
-  a.click();
-  URL.revokeObjectURL(url);
+  if (!editor) return
+  const text = editor.getText()
+  const blob = new Blob([text], { type: 'text/plain' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${title || 'Document'}.txt`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 /** Export the editor content as a DOCX-compatible HTML file. */
 export function handleExportDOCX(editor, title) {
-  if (!editor) return;
-  const html = editor.getHTML();
-  const blob = new Blob([
-    `<html><head><meta charset="utf-8"><style>body{font-family:Calibri,sans-serif;font-size:11pt;margin:2.54cm;}</style></head><body>${html}</body></html>`
-  ], { type: 'application/msword' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${title || 'Document'}.doc`;
-  a.click();
-  URL.revokeObjectURL(url);
+  if (!editor) return
+  const html = editor.getHTML()
+  const blob = new Blob(
+    [
+      `<html><head><meta charset="utf-8"><style>body{font-family:Calibri,sans-serif;font-size:11pt;margin:2.54cm;}</style></head><body>${html}</body></html>`
+    ],
+    { type: 'application/msword' }
+  )
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${title || 'Document'}.doc`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 /**
@@ -233,47 +277,47 @@ export function handleExportDOCX(editor, title) {
  * by converting them to browser-computed rgb()/rgba() strings for html2canvas compatibility.
  */
 export function sanitizeOklchInDocument(doc) {
-  if (!doc) return;
-  let tempDiv = null;
-  const colorCache = new Map();
+  if (!doc) return
+  let tempDiv = null
+  const colorCache = new Map()
 
   function convertOklch(match) {
-    if (colorCache.has(match)) return colorCache.get(match);
+    if (colorCache.has(match)) return colorCache.get(match)
     try {
       if (!tempDiv) {
-        tempDiv = doc.createElement('div');
-        tempDiv.style.display = 'none';
-        (doc.body || doc.documentElement).appendChild(tempDiv);
+        tempDiv = doc.createElement('div')
+        tempDiv.style.display = 'none'
+        ;(doc.body || doc.documentElement).appendChild(tempDiv)
       }
-      tempDiv.style.color = match;
-      const computed = doc.defaultView ? doc.defaultView.getComputedStyle(tempDiv).color : '';
-      const result = (computed && computed !== 'transparent') ? computed : match;
-      colorCache.set(match, result);
-      return result;
+      tempDiv.style.color = match
+      const computed = doc.defaultView ? doc.defaultView.getComputedStyle(tempDiv).color : ''
+      const result = computed && computed !== 'transparent' ? computed : match
+      colorCache.set(match, result)
+      return result
     } catch {
-      colorCache.set(match, match);
-      return match;
+      colorCache.set(match, match)
+      return match
     }
   }
 
   // 1. Convert oklch in <style> elements
-  const styleTags = doc.querySelectorAll('style');
+  const styleTags = doc.querySelectorAll('style')
   styleTags.forEach((styleTag) => {
     if (styleTag.textContent && styleTag.textContent.includes('oklch')) {
-      styleTag.textContent = styleTag.textContent.replace(/oklch\([^)]+\)/g, convertOklch);
+      styleTag.textContent = styleTag.textContent.replace(/oklch\([^)]+\)/g, convertOklch)
     }
-  });
+  })
 
   // 2. Convert oklch in inline style attributes
-  const elementsWithStyle = doc.querySelectorAll('[style*="oklch"]');
+  const elementsWithStyle = doc.querySelectorAll('[style*="oklch"]')
   elementsWithStyle.forEach((el) => {
-    const styleAttr = el.getAttribute('style');
+    const styleAttr = el.getAttribute('style')
     if (styleAttr) {
-      el.setAttribute('style', styleAttr.replace(/oklch\([^)]+\)/g, convertOklch));
+      el.setAttribute('style', styleAttr.replace(/oklch\([^)]+\)/g, convertOklch))
     }
-  });
+  })
 
-  if (tempDiv) tempDiv.remove();
+  if (tempDiv) tempDiv.remove()
 }
 
 /** Export the editor content as a PDF using html2canvas + jsPDF. */
@@ -281,17 +325,90 @@ export function sanitizeOklchInDocument(doc) {
  * Scrapes document stylesheets, packages the DOM element,
  * and calls Electron's native printToPDF engine via IPC.
  */
+export const parseNarrativePages = (htmlString) => {
+  if (!htmlString) return []
+  const tempDiv = document.createElement('div')
+  tempDiv.innerHTML = htmlString
+  const children = Array.from(tempDiv.children)
+
+  if (children.length === 0) {
+    return [htmlString]
+  }
+
+  const pages = []
+  let currentPageHtml = ''
+  let currentPageTextLength = 0
+  let maxChars = 1000
+
+  children.forEach((child) => {
+    const childText = child.textContent || child.innerText || ''
+    const childHtml = child.outerHTML
+
+    if (currentPageTextLength + childText.length > maxChars && currentPageHtml) {
+      pages.push(currentPageHtml)
+      currentPageHtml = childHtml
+      currentPageTextLength = childText.length
+      maxChars = 1600
+    } else {
+      currentPageHtml += childHtml
+      currentPageTextLength += childText.length
+    }
+  })
+
+  if (currentPageHtml) {
+    pages.push(currentPageHtml)
+  }
+
+  return pages
+}
+
+export async function urlToBase64(url) {
+  try {
+    const response = await fetch(url)
+    const blob = await response.blob()
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result)
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+  } catch (error) {
+    console.warn('urlToBase64 fetch failed, trying canvas fallback for:', url, error)
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas')
+          canvas.width = img.naturalWidth || img.width
+          canvas.height = img.naturalHeight || img.height
+          const ctx = canvas.getContext('2d')
+          ctx.drawImage(img, 0, 0)
+          resolve(canvas.toDataURL('image/png'))
+        } catch (e) {
+          console.error('Canvas base64 convert failed:', e)
+          resolve(url)
+        }
+      }
+      img.onerror = () => {
+        resolve(url)
+      }
+      img.src = url
+    })
+  }
+}
+
 export async function exportElementToPDF(element, title, options = {}) {
-  if (!element) return;
+  if (!element) return
 
   // 1. Scrape all active document stylesheets
-  let appStyles = '';
+  let appStyles = ''
   for (const sheet of document.styleSheets) {
     try {
-      const rules = sheet.cssRules || sheet.rules;
+      const rules = sheet.cssRules || sheet.rules
       if (rules) {
         for (const rule of rules) {
-          appStyles += rule.cssText + '\n';
+          appStyles += rule.cssText + '\n'
         }
       }
     } catch (e) {
@@ -300,24 +417,141 @@ export async function exportElementToPDF(element, title, options = {}) {
   }
 
   // 2. Clone DOM element for preprocessing
-  const cloned = element.cloneNode(true);
+  const cloned = element.cloneNode(true)
 
   // Replace <select> tags with their current text values for styling correctness in PDF
-  const originalSelects = element.querySelectorAll('select');
-  const clonedSelects = cloned.querySelectorAll('select');
+  const originalSelects = element.querySelectorAll('select')
+  const clonedSelects = cloned.querySelectorAll('select')
   originalSelects.forEach((origSelect, idx) => {
-    const clonedSelect = clonedSelects[idx];
+    const clonedSelect = clonedSelects[idx]
     if (clonedSelect) {
-      const parent = clonedSelect.parentNode;
-      const textSpan = document.createElement('span');
-      textSpan.className = 'print-select-replacement font-semibold text-xs text-navy-blue';
-      textSpan.textContent = origSelect.options[origSelect.selectedIndex]?.text || '';
-      parent.replaceChild(textSpan, clonedSelect);
+      const parent = clonedSelect.parentNode
+      const textSpan = document.createElement('span')
+      textSpan.className = 'print-select-replacement font-semibold text-xs text-navy-blue'
+      textSpan.textContent = origSelect.options[origSelect.selectedIndex]?.text || ''
+      parent.replaceChild(textSpan, clonedSelect)
     }
-  });
+  })
+
+  // Convert local/relative images to base64 data URLs to solve broken image icons in Electron printWindow
+  const imgs = Array.from(cloned.querySelectorAll('img'))
+  for (const img of imgs) {
+    const src = img.getAttribute('src')
+    if (
+      src &&
+      !src.startsWith('data:') &&
+      (!src.startsWith('http://') || src.startsWith('http://localhost')) &&
+      !src.startsWith('https://')
+    ) {
+      try {
+        const base64 = await urlToBase64(src)
+        if (base64 && base64.startsWith('data:')) {
+          img.setAttribute('src', base64)
+        }
+      } catch (err) {
+        console.warn('Failed to convert image to base64:', src, err)
+      }
+    }
+  }
+
+  const isDocument = options.isDocument !== false
+
+  if (isDocument) {
+    // Strip layout/scroll containers styles from the cloned root element
+    cloned.className = 'print-document-container'
+    cloned.style.cssText =
+      'width: 100%; height: auto; background: transparent; padding: 0; margin: 0; display: block;'
+
+    // Restructure the cloned DOM into individual page containers for clean printing
+    const bgSheets = Array.from(cloned.querySelectorAll('.bg-white.shadow-xl.border'))
+    const proseMirror = cloned.querySelector('.ProseMirror')
+    const docPage = cloned.querySelector('.doc-page')
+
+    if (bgSheets.length > 0) {
+      const docW = bgSheets[0].style.width || '794px'
+      const docH = bgSheets[0].style.height || '1122px'
+
+      const padTop = docPage ? docPage.style.paddingTop || '96px' : '96px'
+      const padTopActual = docPage ? docPage.style.paddingTop || '170px' : '170px'
+      const padBottom = docPage ? docPage.style.paddingBottom || '96px' : '96px'
+      const padLeft = docPage ? docPage.style.paddingLeft || '144px' : '144px'
+      const padRight = docPage ? docPage.style.paddingRight || '96px' : '96px'
+
+      // Group elements by page break widgets
+      let pagesData = []
+      if (proseMirror) {
+        let currentPageNodes = []
+        Array.from(proseMirror.childNodes).forEach((node) => {
+          if (node.nodeType === 1 && node.classList.contains('page-break-widget')) {
+            pagesData.push(currentPageNodes)
+            currentPageNodes = []
+          } else {
+            currentPageNodes.push(node.cloneNode(true))
+          }
+        })
+        pagesData.push(currentPageNodes)
+      }
+
+      let pagesHtml = ''
+
+      // 1. Render narrative content pages
+      pagesData.forEach((nodes, pageIdx) => {
+        const bgSheet = bgSheets[pageIdx] || bgSheets[bgSheets.length - 1]
+        let headerHtml = ''
+        let footerHtml = ''
+        if (bgSheet) {
+          const headerDiv = bgSheet.querySelector('div[style*="top"]')
+          if (headerDiv) headerHtml = headerDiv.innerHTML
+          const footerDiv =
+            bgSheet.querySelector('div[style*="bottom"]') || bgSheet.querySelector('footer')
+          if (footerDiv) footerHtml = footerDiv.innerHTML
+        }
+
+        pagesHtml += `
+          <div class="pdf-page" style="position: relative; width: ${docW}; height: ${docH}; box-sizing: border-box; overflow: hidden; page-break-after: always; background: white; margin: 0 auto;">
+            <!-- Background Sheet Header/Footer -->
+            <div style="position: absolute; inset: 0; pointer-events: none; border: none; box-shadow: none; background: white;">
+              ${headerHtml ? `<div style="position: absolute; left: 0; right: 0; top: 48px; padding-left: 96px; padding-right: 96px; box-sizing: border-box;">${headerHtml}</div>` : ''}
+              ${footerHtml ? `<div style="position: absolute; left: 0; right: 0; bottom: 0px; padding-left: 96px; padding-right: 96px; padding-bottom: 24px; box-sizing: border-box;">${footerHtml}</div>` : ''}
+            </div>
+            
+            <!-- Content Area -->
+            <div class="ProseMirror" style="position: relative; z-index: 10; box-sizing: border-box; padding-top: ${padTopActual}; padding-bottom: ${padBottom}; padding-left: ${padLeft}; padding-right: ${padRight}; width: ${docW}; height: ${docH}; overflow: hidden; background: transparent; font-family: 'Calibri', sans-serif; font-size: 13px; line-height: 1.5; color: #1f2937;">
+              ${nodes.map((n) => (n.nodeType === 3 ? n.textContent : n.outerHTML)).join('')}
+            </div>
+          </div>
+        `
+      })
+
+      // 2. Render photo pages (if present)
+      const photoPageDivs = Array.from(cloned.querySelectorAll('div')).filter((el) => {
+        return (
+          el.id &&
+          el.id.includes('doc-viewer-page-') &&
+          (el.querySelector('img[alt*="evidence"]') ||
+            el.querySelector('img[alt*="outreach evidence"]'))
+        )
+      })
+
+      photoPageDivs.forEach((photoPage) => {
+        const innerCard = photoPage.querySelector('.bg-white.shadow-xl.border') || photoPage
+        const padT = innerCard.style.paddingTop || padTop
+        const padB = innerCard.style.paddingBottom || padBottom
+        const padL = innerCard.style.paddingLeft || padLeft
+        const padR = innerCard.style.paddingRight || padRight
+
+        pagesHtml += `
+          <div class="pdf-page" style="position: relative; width: ${docW}; height: ${docH}; box-sizing: border-box; overflow: hidden; page-break-after: always; background: white; margin: 0 auto; padding-top: ${padT}; padding-bottom: ${padB}; padding-left: ${padL}; padding-right: ${padR};">
+            ${innerCard.innerHTML}
+          </div>
+        `
+      })
+
+      cloned.innerHTML = pagesHtml
+    }
+  }
 
   // 3. Construct self-contained print payload
-  const isDocument = options.isDocument !== false;
   const htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -363,8 +597,10 @@ export async function exportElementToPDF(element, title, options = {}) {
             }
 
             /* Pagination overrides for document canvas pages */
-            ${isDocument ? `
-              .bg-white.shadow-xl.border, .doc-page-container > div {
+            ${
+              isDocument
+                ? `
+              .pdf-page {
                 page-break-after: always !important;
                 page-break-inside: avoid !important;
                 margin: 0 !important;
@@ -372,14 +608,18 @@ export async function exportElementToPDF(element, title, options = {}) {
                 border: none !important;
                 box-shadow: none !important;
                 background: white !important;
+                position: relative !important;
+                box-sizing: border-box !important;
               }
-            ` : `
+            `
+                : `
               /* Normal content target (e.g. lists/tables) needs print margins */
               .print-target {
                 padding: 15mm !important;
                 box-sizing: border-box !important;
               }
-            `}
+            `
+            }
             
             /* Table formatting */
             table {
@@ -412,12 +652,12 @@ export async function exportElementToPDF(element, title, options = {}) {
         </div>
       </body>
     </html>
-  `;
+  `
 
   // 4. Fire print-to-pdf event on Electron IPC channel
   try {
     if (!window.electron?.ipcRenderer) {
-      throw new Error('Electron ipcRenderer is not available in this context.');
+      throw new Error('Electron ipcRenderer is not available in this context.')
     }
     const result = await window.electron.ipcRenderer.invoke('print-to-pdf', {
       html: htmlContent,
@@ -427,134 +667,138 @@ export async function exportElementToPDF(element, title, options = {}) {
         pageSize: options.pageSize || 'A4',
         margins: options.margins || { marginType: 'none' }
       }
-    });
-    return result;
+    })
+    return result
   } catch (error) {
-    console.error('print-to-pdf IPC failed:', error);
-    alert('PDF generation failed: ' + (error.message || error));
-    throw error;
+    console.error('print-to-pdf IPC failed:', error)
+    alert('PDF generation failed: ' + (error.message || error))
+    throw error
   }
 }
 
 /** Export the editor content as a native vector PDF using Electron printToPDF. */
 export async function handleExportPDF(canvasRef, title) {
-  if (!canvasRef?.current) return;
+  if (!canvasRef?.current) return
   try {
-    await exportElementToPDF(canvasRef.current, title, { isDocument: true });
+    await exportElementToPDF(canvasRef.current, title, { isDocument: true })
   } catch (err) {
-    console.error('Native PDF export failed:', err);
+    console.error('Native PDF export failed:', err)
   }
 }
 
 /** Handle find text in editor. */
 export function handleFind(editor, findText) {
-  if (!editor || !findText) return false;
-  const { doc } = editor.state;
-  const text = doc.textContent;
-  const idx = text.indexOf(findText);
+  if (!editor || !findText) return false
+  const { doc } = editor.state
+  const text = doc.textContent
+  const idx = text.indexOf(findText)
   if (idx === -1) {
-    alert(`"${findText}" not found.`);
-    return false;
+    alert(`"${findText}" not found.`)
+    return false
   }
-  editor.chain().focus().setTextSelection({ from: idx + 1, to: idx + 1 + findText.length }).run();
-  return true;
+  editor
+    .chain()
+    .focus()
+    .setTextSelection({ from: idx + 1, to: idx + 1 + findText.length })
+    .run()
+  return true
 }
 
 /** Handle replace all in editor. */
 export function handleReplaceAll(editor, findText, replaceText) {
-  if (!editor || !findText) return;
-  const html = editor.getHTML();
-  const escaped = findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const newHtml = html.replace(new RegExp(escaped, 'g'), replaceText);
-  editor.commands.setContent(newHtml);
+  if (!editor || !findText) return
+  const html = editor.getHTML()
+  const escaped = findText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const newHtml = html.replace(new RegExp(escaped, 'g'), replaceText)
+  editor.commands.setContent(newHtml)
 }
 
 /** Parse docx layout, margins, paper size, orientation, headers, and footers. */
 export async function parseDocxLayout(arrayBuffer) {
   try {
-    const zip = await JSZip.loadAsync(arrayBuffer);
-    
-    let paperKey = 'A4';
-    let orientation = 'portrait';
-    let marginKey = 'Normal';
-    let headerText = '';
-    let footerText = '';
-    let showHeader = false;
-    let showFooter = false;
+    const zip = await JSZip.loadAsync(arrayBuffer)
+
+    let paperKey = 'A4'
+    let orientation = 'portrait'
+    let marginKey = 'Normal'
+    let headerText = ''
+    let footerText = ''
+    let showHeader = false
+    let showFooter = false
 
     // 1. Parse document.xml for page size and margins
-    const docFile = zip.file('word/document.xml');
+    const docFile = zip.file('word/document.xml')
     if (docFile) {
-      const docXmlStr = await docFile.async('text');
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(docXmlStr, 'application/xml');
-      
-      const sectPrs = xmlDoc.getElementsByTagName('w:sectPr');
+      const docXmlStr = await docFile.async('text')
+      const parser = new DOMParser()
+      const xmlDoc = parser.parseFromString(docXmlStr, 'application/xml')
+
+      const sectPrs = xmlDoc.getElementsByTagName('w:sectPr')
       if (sectPrs && sectPrs.length > 0) {
-        const sectPr = sectPrs[sectPrs.length - 1]; // get final section properties
-        
+        const sectPr = sectPrs[sectPrs.length - 1] // get final section properties
+
         // Page Size
-        const pgSzs = sectPr.getElementsByTagName('w:pgSz');
+        const pgSzs = sectPr.getElementsByTagName('w:pgSz')
         if (pgSzs && pgSzs.length > 0) {
-          const pgSz = pgSzs[0];
-          const wVal = parseInt(pgSz.getAttribute('w:w')) || 12240;
-          const hVal = parseInt(pgSz.getAttribute('w:h')) || 15840;
-          const orientVal = pgSz.getAttribute('w:orient') || 'portrait';
-          
-          orientation = orientVal;
-          
-          const aspect = wVal / hVal;
+          const pgSz = pgSzs[0]
+          const wVal = parseInt(pgSz.getAttribute('w:w')) || 12240
+          const hVal = parseInt(pgSz.getAttribute('w:h')) || 15840
+          const orientVal = pgSz.getAttribute('w:orient') || 'portrait'
+
+          orientation = orientVal
+
+          const aspect = wVal / hVal
           if (Math.abs(wVal - 12240) < 500 && Math.abs(hVal - 15840) < 500) {
-            paperKey = 'Letter';
+            paperKey = 'Letter'
           } else if (Math.abs(wVal - 11906) < 500 && Math.abs(hVal - 16838) < 500) {
-            paperKey = 'A4';
+            paperKey = 'A4'
           } else if (hVal > 18000) {
-            paperKey = 'Legal';
+            paperKey = 'Legal'
           } else {
-            paperKey = Math.abs(aspect - (8.5 / 11)) < Math.abs(aspect - (210 / 297)) ? 'Letter' : 'A4';
+            paperKey = Math.abs(aspect - 8.5 / 11) < Math.abs(aspect - 210 / 297) ? 'Letter' : 'A4'
           }
         }
-        
+
         // Margins
-        const pgMars = sectPr.getElementsByTagName('w:pgMar');
+        const pgMars = sectPr.getElementsByTagName('w:pgMar')
         if (pgMars && pgMars.length > 0) {
-          const pgMar = pgMars[0];
-          const topVal = parseInt(pgMar.getAttribute('w:top')) || 1440;
-          
-          if (Math.abs(topVal - 1440) < 200) marginKey = 'Normal';
-          else if (Math.abs(topVal - 720) < 200) marginKey = 'Narrow';
-          else if (Math.abs(topVal - 1080) < 200) marginKey = 'Moderate';
-          else if (Math.abs(topVal - 1920) < 200) marginKey = 'Wide';
-          else marginKey = 'Normal';
+          const pgMar = pgMars[0]
+          const topVal = parseInt(pgMar.getAttribute('w:top')) || 1440
+
+          if (Math.abs(topVal - 1440) < 200) marginKey = 'Normal'
+          else if (Math.abs(topVal - 720) < 200) marginKey = 'Narrow'
+          else if (Math.abs(topVal - 1080) < 200) marginKey = 'Moderate'
+          else if (Math.abs(topVal - 1920) < 200) marginKey = 'Wide'
+          else marginKey = 'Normal'
         }
       }
     }
 
-    const files = Object.keys(zip.files);
-    
+    const files = Object.keys(zip.files)
+
     // Look for any header files and parse with high fidelity relationships
-    const headerFileNames = files.filter(f => f.startsWith('word/header') && f.endsWith('.xml'));
+    const headerFileNames = files.filter((f) => f.startsWith('word/header') && f.endsWith('.xml'))
     for (const hfName of headerFileNames) {
-      const xmlStr = await zip.files[hfName].async('text');
-      const relsMap = await getRelsMap(zip, hfName);
-      const html = await parseXmlToHtml(xmlStr, zip, relsMap);
+      const xmlStr = await zip.files[hfName].async('text')
+      const relsMap = await getRelsMap(zip, hfName)
+      const html = await parseXmlToHtml(xmlStr, zip, relsMap)
       if (html && html.trim() && html !== '<p>&nbsp;</p>') {
-        headerText = html;
-        showHeader = true;
-        break;
+        headerText = html
+        showHeader = true
+        break
       }
     }
 
     // Look for any footer files and parse with high fidelity relationships
-    const footerFileNames = files.filter(f => f.startsWith('word/footer') && f.endsWith('.xml'));
+    const footerFileNames = files.filter((f) => f.startsWith('word/footer') && f.endsWith('.xml'))
     for (const ffName of footerFileNames) {
-      const xmlStr = await zip.files[ffName].async('text');
-      const relsMap = await getRelsMap(zip, ffName);
-      const html = await parseXmlToHtml(xmlStr, zip, relsMap);
+      const xmlStr = await zip.files[ffName].async('text')
+      const relsMap = await getRelsMap(zip, ffName)
+      const html = await parseXmlToHtml(xmlStr, zip, relsMap)
       if (html && html.trim() && html !== '<p>&nbsp;</p>') {
-        footerText = html;
-        showFooter = true;
-        break;
+        footerText = html
+        showFooter = true
+        break
       }
     }
 
@@ -565,335 +809,348 @@ export async function parseDocxLayout(arrayBuffer) {
       headerText,
       footerText,
       showHeader,
-      showFooter,
-    };
+      showFooter
+    }
   } catch (err) {
-    console.error('Failed to parse docx layout:', err);
-    return null;
+    console.error('Failed to parse docx layout:', err)
+    return null
   }
 }
 
-/** 
+/**
  * Resolves relationship properties mapping rId to image files specifically for a given XML file path.
  */
 export async function getRelsMap(zip, xmlPath) {
-  const relsMap = {};
-  const parts = xmlPath.split('/');
-  const fileName = parts.pop();
-  const relsPath = parts.join('/') + '/_rels/' + fileName + '.rels';
-  
-  const relsFile = zip.file(relsPath);
+  const relsMap = {}
+  const parts = xmlPath.split('/')
+  const fileName = parts.pop()
+  const relsPath = parts.join('/') + '/_rels/' + fileName + '.rels'
+
+  const relsFile = zip.file(relsPath)
   if (relsFile) {
-    const xmlStr = await relsFile.async('text');
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(xmlStr, 'application/xml');
-    const rels = xmlDoc.getElementsByTagName('Relationship');
+    const xmlStr = await relsFile.async('text')
+    const parser = new DOMParser()
+    const xmlDoc = parser.parseFromString(xmlStr, 'application/xml')
+    const rels = xmlDoc.getElementsByTagName('Relationship')
     for (let i = 0; i < rels.length; i++) {
-      const id = rels[i].getAttribute('Id');
-      const target = rels[i].getAttribute('Target');
-      relsMap[id] = target;
+      const id = rels[i].getAttribute('Id')
+      const target = rels[i].getAttribute('Target')
+      relsMap[id] = target
     }
   }
-  return relsMap;
+  return relsMap
 }
 
 /**
  * Parses any Open XML section (body, header, footer) and converts it to HTML.
  */
 export async function parseXmlToHtml(xmlStr, zip, relsMap) {
-  const parser = new DOMParser();
-  const xmlDoc = parser.parseFromString(xmlStr, 'application/xml');
-  
-  const rootNode = xmlDoc.getElementsByTagName('w:body')[0] || 
-                   xmlDoc.getElementsByTagName('w:hdr')[0] || 
-                   xmlDoc.getElementsByTagName('w:ftr')[0];
-  
-  if (!rootNode) return '';
+  const parser = new DOMParser()
+  const xmlDoc = parser.parseFromString(xmlStr, 'application/xml')
+
+  const rootNode =
+    xmlDoc.getElementsByTagName('w:body')[0] ||
+    xmlDoc.getElementsByTagName('w:hdr')[0] ||
+    xmlDoc.getElementsByTagName('w:ftr')[0]
+
+  if (!rootNode) return ''
 
   const getBase64Image = async (target) => {
-    let path = target;
+    let path = target
     if (!path.startsWith('word/')) {
-      path = 'word/' + path;
+      path = 'word/' + path
     }
-    const file = zip.file(path);
-    if (!file) return '';
-    const buffer = await file.async('uint8array');
-    let binary = '';
-    const len = buffer.byteLength;
+    const file = zip.file(path)
+    if (!file) return ''
+    const buffer = await file.async('uint8array')
+    let binary = ''
+    const len = buffer.byteLength
     for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(buffer[i]);
+      binary += String.fromCharCode(buffer[i])
     }
-    const base64 = window.btoa(binary);
-    let mime = 'image/png';
-    if (path.endsWith('.jpeg') || path.endsWith('.jpg')) mime = 'image/jpeg';
-    else if (path.endsWith('.gif')) mime = 'image/gif';
-    else if (path.endsWith('.webp')) mime = 'image/webp';
-    return `data:${mime};base64,${base64}`;
-  };
+    const base64 = window.btoa(binary)
+    let mime = 'image/png'
+    if (path.endsWith('.jpeg') || path.endsWith('.jpg')) mime = 'image/jpeg'
+    else if (path.endsWith('.gif')) mime = 'image/gif'
+    else if (path.endsWith('.webp')) mime = 'image/webp'
+    return `data:${mime};base64,${base64}`
+  }
 
   const processNode = async (node) => {
     if (node.nodeType === Node.TEXT_NODE) {
-      return node.textContent;
+      return node.textContent
     }
     if (node.nodeType !== Node.ELEMENT_NODE) {
-      return '';
+      return ''
     }
 
-    const tagName = node.tagName || node.localName;
+    const tagName = node.tagName || node.localName
 
     // Table Row
     if (tagName === 'w:tr') {
-      let trHtml = '';
+      let trHtml = ''
       for (let i = 0; i < node.childNodes.length; i++) {
-        trHtml += await processNode(node.childNodes[i]);
+        trHtml += await processNode(node.childNodes[i])
       }
-      return `<tr>${trHtml}</tr>`;
+      return `<tr>${trHtml}</tr>`
     }
 
     // Table Cell
     if (tagName === 'w:tc') {
-      let tcHtml = '';
+      let tcHtml = ''
       for (let i = 0; i < node.childNodes.length; i++) {
-        tcHtml += await processNode(node.childNodes[i]);
+        tcHtml += await processNode(node.childNodes[i])
       }
-      let cellStyle = 'border: 1px solid #c0c0c0; padding: 6px 10px; text-align: left; vertical-align: top;';
-      const tcPr = node.getElementsByTagName('w:tcPr')[0];
+      let cellStyle =
+        'border: 1px solid #c0c0c0; padding: 6px 10px; text-align: left; vertical-align: top;'
+      const tcPr = node.getElementsByTagName('w:tcPr')[0]
       if (tcPr) {
-        const shd = tcPr.getElementsByTagName('w:shd')[0];
+        const shd = tcPr.getElementsByTagName('w:shd')[0]
         if (shd) {
-          const fill = shd.getAttribute('w:fill');
+          const fill = shd.getAttribute('w:fill')
           if (fill && fill !== 'auto') {
-            cellStyle += ` background-color: #${fill};`;
+            cellStyle += ` background-color: #${fill};`
           }
         }
-        const tcW = tcPr.getElementsByTagName('w:tcW')[0];
+        const tcW = tcPr.getElementsByTagName('w:tcW')[0]
         if (tcW) {
-          const wVal = parseInt(tcW.getAttribute('w:w'));
+          const wVal = parseInt(tcW.getAttribute('w:w'))
           if (wVal) {
-            cellStyle += ` width: ${Math.round(wVal / 15)}px;`;
+            cellStyle += ` width: ${Math.round(wVal / 15)}px;`
           }
         }
       }
-      return `<td style="${cellStyle}">${tcHtml}</td>`;
+      return `<td style="${cellStyle}">${tcHtml}</td>`
     }
 
     // Table
     if (tagName === 'w:tbl') {
-      let tblHtml = '';
+      let tblHtml = ''
       for (let i = 0; i < node.childNodes.length; i++) {
-        tblHtml += await processNode(node.childNodes[i]);
+        tblHtml += await processNode(node.childNodes[i])
       }
-      return `<table style="border-collapse: collapse; width: 100%; margin: 12px 0; border: 1px solid #c0c0c0;">${tblHtml}</table>`;
+      return `<table style="border-collapse: collapse; width: 100%; margin: 12px 0; border: 1px solid #c0c0c0;">${tblHtml}</table>`
     }
 
     // Paragraph
     if (tagName === 'w:p') {
-      let styles = 'margin-bottom: 8px;';
-      const pPr = node.getElementsByTagName('w:pPr')[0];
+      let styles = 'margin-bottom: 8px;'
+      const pPr = node.getElementsByTagName('w:pPr')[0]
       if (pPr) {
-        const jc = pPr.getElementsByTagName('w:jc')[0];
+        const jc = pPr.getElementsByTagName('w:jc')[0]
         if (jc) {
-          const align = jc.getAttribute('w:val');
-          if (align) styles += ` text-align: ${align};`;
+          const align = jc.getAttribute('w:val')
+          if (align) styles += ` text-align: ${align};`
         }
-        const spacing = pPr.getElementsByTagName('w:spacing')[0];
+        const spacing = pPr.getElementsByTagName('w:spacing')[0]
         if (spacing) {
-          const line = parseInt(spacing.getAttribute('w:line'));
+          const line = parseInt(spacing.getAttribute('w:line'))
           if (line) {
-            styles += ` line-height: ${line / 240};`;
+            styles += ` line-height: ${line / 240};`
           }
         }
       }
 
-      let pContent = '';
+      let pContent = ''
       for (let i = 0; i < node.childNodes.length; i++) {
-        const child = node.childNodes[i];
+        const child = node.childNodes[i]
         if (child.tagName !== 'w:pPr') {
-          pContent += await processNode(child);
+          pContent += await processNode(child)
         }
       }
-      
-      return `<p style="${styles}">${pContent || '&nbsp;'}</p>`;
+
+      return `<p style="${styles}">${pContent || '&nbsp;'}</p>`
     }
 
     // Run (formatted text)
     if (tagName === 'w:r') {
-      let runStyles = '';
-      const rPr = node.getElementsByTagName('w:rPr')[0];
-      let isBold = false;
-      let isItalic = false;
-      let isUnderline = false;
+      let runStyles = ''
+      const rPr = node.getElementsByTagName('w:rPr')[0]
+      let isBold = false
+      let isItalic = false
+      let isUnderline = false
 
       if (rPr) {
-        const sz = rPr.getElementsByTagName('w:sz')[0];
+        const sz = rPr.getElementsByTagName('w:sz')[0]
         if (sz) {
-          const sizeVal = parseInt(sz.getAttribute('w:val')) || 22;
-          runStyles += ` font-size: ${Math.round(sizeVal * 0.5 * 1.33)}px;`;
+          const sizeVal = parseInt(sz.getAttribute('w:val')) || 22
+          runStyles += ` font-size: ${Math.round(sizeVal * 0.5 * 1.33)}px;`
         }
-        const color = rPr.getElementsByTagName('w:color')[0];
+        const color = rPr.getElementsByTagName('w:color')[0]
         if (color) {
-          const colorVal = color.getAttribute('w:val');
+          const colorVal = color.getAttribute('w:val')
           if (colorVal && colorVal !== 'auto') {
-            runStyles += ` color: #${colorVal};`;
+            runStyles += ` color: #${colorVal};`
           }
         }
-        const rFonts = rPr.getElementsByTagName('w:rFonts')[0];
+        const rFonts = rPr.getElementsByTagName('w:rFonts')[0]
         if (rFonts) {
-          const fontVal = rFonts.getAttribute('w:ascii') || rFonts.getAttribute('w:hAnsi');
+          const fontVal = rFonts.getAttribute('w:ascii') || rFonts.getAttribute('w:hAnsi')
           if (fontVal) {
-            runStyles += ` font-family: '${fontVal}', sans-serif;`;
+            runStyles += ` font-family: '${fontVal}', sans-serif;`
           }
         }
-        const b = rPr.getElementsByTagName('w:b')[0];
+        const b = rPr.getElementsByTagName('w:b')[0]
         if (b && b.getAttribute('w:val') !== 'false' && b.getAttribute('w:val') !== '0') {
-          isBold = true;
+          isBold = true
         }
-        const it = rPr.getElementsByTagName('w:i')[0];
+        const it = rPr.getElementsByTagName('w:i')[0]
         if (it && it.getAttribute('w:val') !== 'false' && it.getAttribute('w:val') !== '0') {
-          isItalic = true;
+          isItalic = true
         }
-        const u = rPr.getElementsByTagName('w:u')[0];
+        const u = rPr.getElementsByTagName('w:u')[0]
         if (u && u.getAttribute('w:val') !== 'none') {
-          isUnderline = true;
+          isUnderline = true
         }
       }
 
-      let runContent = '';
+      let runContent = ''
       for (let i = 0; i < node.childNodes.length; i++) {
-        const child = node.childNodes[i];
+        const child = node.childNodes[i]
         if (child.tagName !== 'w:rPr') {
-          runContent += await processNode(child);
+          runContent += await processNode(child)
         }
       }
 
-      if (!runContent && !node.getElementsByTagName('w:drawing').length) return '';
+      if (!runContent && !node.getElementsByTagName('w:drawing').length) return ''
 
-      let out = runContent;
-      if (isBold) out = `<strong>${out}</strong>`;
-      if (isItalic) out = `<em>${out}</em>`;
-      if (isUnderline) out = `<u>${out}</u>`;
+      let out = runContent
+      if (isBold) out = `<strong>${out}</strong>`
+      if (isItalic) out = `<em>${out}</em>`
+      if (isUnderline) out = `<u>${out}</u>`
       if (runStyles) {
-        out = `<span style="${runStyles}">${out}</span>`;
+        out = `<span style="${runStyles}">${out}</span>`
       }
-      return out;
+      return out
     }
 
     if (tagName === 'w:t') {
-      return node.textContent;
+      return node.textContent
     }
 
     if (tagName === 'w:tab') {
-      return '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;';
+      return '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'
     }
 
     if (tagName === 'w:drawing' || tagName === 'w:graphic' || tagName === 'w:pict') {
-      const blips = node.getElementsByTagName('a:blip');
-      let embedId = '';
+      const blips = node.getElementsByTagName('a:blip')
+      let embedId = ''
       if (blips && blips.length > 0) {
-        embedId = blips[0].getAttribute('r:embed') || blips[0].getAttribute('r:id');
+        embedId = blips[0].getAttribute('r:embed') || blips[0].getAttribute('r:id')
       }
       if (!embedId) {
-        const imageData = node.getElementsByTagName('v:imagedata');
+        const imageData = node.getElementsByTagName('v:imagedata')
         if (imageData && imageData.length > 0) {
-          embedId = imageData[0].getAttribute('r:id') || imageData[0].getAttribute('r:href');
+          embedId = imageData[0].getAttribute('r:id') || imageData[0].getAttribute('r:href')
         }
       }
       if (embedId && relsMap[embedId]) {
-        const b64 = await getBase64Image(relsMap[embedId]);
+        const b64 = await getBase64Image(relsMap[embedId])
         if (b64) {
-          let imgStyle = 'max-width: 100%; height: auto; display: inline-block; vertical-align: middle;';
-          const extent = node.getElementsByTagName('wp:extent')[0];
+          let imgStyle =
+            'max-width: 100%; height: auto; display: inline-block; vertical-align: middle;'
+          const extent = node.getElementsByTagName('wp:extent')[0]
           if (extent) {
-            const cx = parseInt(extent.getAttribute('cx'));
-            const cy = parseInt(extent.getAttribute('cy'));
+            const cx = parseInt(extent.getAttribute('cx'))
+            const cy = parseInt(extent.getAttribute('cy'))
             if (cx && cy) {
-              const wPx = Math.round(cx / 9525);
-              const hPx = Math.round(cy / 9525);
-              imgStyle = `width: ${wPx}px; height: ${hPx}px; object-fit: contain; display: inline-block; vertical-align: middle;`;
+              const wPx = Math.round(cx / 9525)
+              const hPx = Math.round(cy / 9525)
+              imgStyle = `width: ${wPx}px; height: ${hPx}px; object-fit: contain; display: inline-block; vertical-align: middle;`
             }
           } else {
-            const shape = node.getElementsByTagName('v:shape')[0];
+            const shape = node.getElementsByTagName('v:shape')[0]
             if (shape) {
-              const styleAttr = shape.getAttribute('style');
+              const styleAttr = shape.getAttribute('style')
               if (styleAttr) {
-                const wMatch = styleAttr.match(/width:\s*([\d\.]+)(pt|px|in)/i);
-                const hMatch = styleAttr.match(/height:\s*([\d\.]+)(pt|px|in)/i);
-                let wVal = '';
-                let hVal = '';
+                const wMatch = styleAttr.match(/width:\s*([\d\.]+)(pt|px|in)/i)
+                const hMatch = styleAttr.match(/height:\s*([\d\.]+)(pt|px|in)/i)
+                let wVal = ''
+                let hVal = ''
                 if (wMatch) {
-                  const val = parseFloat(wMatch[1]);
-                  const unit = wMatch[2].toLowerCase();
-                  wVal = unit === 'pt' ? `${Math.round(val * 1.33)}px` : unit === 'in' ? `${Math.round(val * 96)}px` : `${val}px`;
+                  const val = parseFloat(wMatch[1])
+                  const unit = wMatch[2].toLowerCase()
+                  wVal =
+                    unit === 'pt'
+                      ? `${Math.round(val * 1.33)}px`
+                      : unit === 'in'
+                        ? `${Math.round(val * 96)}px`
+                        : `${val}px`
                 }
                 if (hMatch) {
-                  const val = parseFloat(hMatch[1]);
-                  const unit = hMatch[2].toLowerCase();
-                  hVal = unit === 'pt' ? `${Math.round(val * 1.33)}px` : unit === 'in' ? `${Math.round(val * 96)}px` : `${val}px`;
+                  const val = parseFloat(hMatch[1])
+                  const unit = hMatch[2].toLowerCase()
+                  hVal =
+                    unit === 'pt'
+                      ? `${Math.round(val * 1.33)}px`
+                      : unit === 'in'
+                        ? `${Math.round(val * 96)}px`
+                        : `${val}px`
                 }
                 if (wVal && hVal) {
-                  imgStyle = `width: ${wVal}; height: ${hVal}; object-fit: contain; display: inline-block; vertical-align: middle;`;
+                  imgStyle = `width: ${wVal}; height: ${hVal}; object-fit: contain; display: inline-block; vertical-align: middle;`
                 }
               }
             }
           }
-          return `<img src="${b64}" style="${imgStyle}" />`;
+          return `<img src="${b64}" style="${imgStyle}" />`
         }
       }
     }
 
     if (tagName === 'w:hyperlink') {
-      const linkId = node.getAttribute('r:id');
-      const href = linkId && relsMap[linkId] ? relsMap[linkId] : '#';
-      let linkHtml = '';
+      const linkId = node.getAttribute('r:id')
+      const href = linkId && relsMap[linkId] ? relsMap[linkId] : '#'
+      let linkHtml = ''
       for (let i = 0; i < node.childNodes.length; i++) {
-        linkHtml += await processNode(node.childNodes[i]);
+        linkHtml += await processNode(node.childNodes[i])
       }
-      return `<a href="${href}" class="doc-link" style="color: #2563eb; text-decoration: underline;">${linkHtml}</a>`;
+      return `<a href="${href}" class="doc-link" style="color: #2563eb; text-decoration: underline;">${linkHtml}</a>`
     }
 
-    let html = '';
+    let html = ''
     for (let i = 0; i < node.childNodes.length; i++) {
-      html += await processNode(node.childNodes[i]);
+      html += await processNode(node.childNodes[i])
     }
-    return html;
-  };
+    return html
+  }
 
-  let finalHtml = '';
+  let finalHtml = ''
   for (let i = 0; i < rootNode.childNodes.length; i++) {
-    const child = rootNode.childNodes[i];
+    const child = rootNode.childNodes[i]
     if (child.tagName !== 'w:sectPr') {
-      finalHtml += await processNode(child);
+      finalHtml += await processNode(child)
     }
   }
 
-  return finalHtml;
+  return finalHtml
 }
 
-/** 
+/**
  * High-fidelity client-side DOCX parser.
  * Reads Open XML relationships, document nodes, tables, paragraph styles, colors, and inline drawings,
  * and converts them directly into HTML with inline styles.
  */
 export async function docxToHtml(arrayBuffer) {
-  const zip = await JSZip.loadAsync(arrayBuffer);
-  const relsMap = await getRelsMap(zip, 'word/document.xml');
-  const docFile = zip.file('word/document.xml');
-  if (!docFile) throw new Error('Not a valid word document XML');
-  const xmlStr = await docFile.async('text');
-  return parseXmlToHtml(xmlStr, zip, relsMap);
+  const zip = await JSZip.loadAsync(arrayBuffer)
+  const relsMap = await getRelsMap(zip, 'word/document.xml')
+  const docFile = zip.file('word/document.xml')
+  if (!docFile) throw new Error('Not a valid word document XML')
+  const xmlStr = await docFile.async('text')
+  return parseXmlToHtml(xmlStr, zip, relsMap)
 }
 
-/** 
+/**
  * Safely normalizes document header HTML to replace environment-specific or broken image paths with valid active logos.
  */
 export function resolveHeaderHtml(rawHeader, logo2Asset, logoAsset) {
   if (!rawHeader || typeof rawHeader !== 'string') return rawHeader || ''
-  
+
   try {
     const parser = new DOMParser()
     const doc = parser.parseFromString(rawHeader, 'text/html')
     const imgs = doc.querySelectorAll('img')
-    
+
     if (imgs.length >= 2) {
       if (logo2Asset) imgs[0].setAttribute('src', logo2Asset)
       if (logoAsset) imgs[1].setAttribute('src', logoAsset)
@@ -905,7 +1162,6 @@ export function resolveHeaderHtml(rawHeader, logo2Asset, logoAsset) {
   } catch (err) {
     console.error('Failed to resolve header HTML images:', err)
   }
-  
+
   return rawHeader
 }
-

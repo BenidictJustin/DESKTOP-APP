@@ -7,6 +7,7 @@ import fs from 'fs'
 import { autoUpdater } from 'electron-updater'
 
 // Configure autoUpdater log and settings
+autoUpdater.logger = console
 autoUpdater.autoDownload = true
 autoUpdater.autoInstallOnAppQuit = true
 
@@ -119,11 +120,11 @@ app.whenReady().then(() => {
     })
 
     const tempPath = join(app.getPath('temp'), `print-${Date.now()}.html`)
-    
+
     try {
       fs.writeFileSync(tempPath, html, 'utf8')
       await printWindow.loadURL(`file://${tempPath}`)
-      
+
       // Wait for fonts and layouts to finish rendering
       await new Promise((resolve) => setTimeout(resolve, 800))
 

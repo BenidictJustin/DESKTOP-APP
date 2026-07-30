@@ -30,29 +30,29 @@ The Administrator (Head of CES Office) and Office Coordinator (Mr. Jonnel B. Man
 ```mermaid
 graph TD
     AdminDash[Admin Dashboard] --> SelectTab{Sidebar Navigation}
-    
+
     %% User Management
     SelectTab --> UserMgmt[User Account Management]
     UserMgmt --> CreateUser[Create Department Coordinator Account]
     UserMgmt --> AssignOrg[Assign Coordinator to Department]
     UserMgmt --> EditUser[Edit/Update Permissions]
-    
+
     %% Inventory Flow
     SelectTab --> InvMgmt[Inventory Management]
     InvMgmt --> AddItem[Add New Item]
     InvMgmt --> TrackStock[Track Stock Levels / FIFO Sorting]
     InvMgmt --> ExportInv[Export Inventory Report PDF/Word]
-    
+
     %% Event & Org Flow
     SelectTab --> EventMgmt[Event & Org Management]
     EventMgmt --> ScheduleEvent[Schedule Monthly Event]
     EventMgmt --> AssignDept[Assign Event to Department]
-    
+
     %% Donor Flow
     SelectTab --> DonorMgmt[Donor Management]
     DonorMgmt --> LogDonation[Log Donor Info & Donations]
     DonorMgmt --> ExpiryTrack[Track Consumable Expirations]
-    
+
     %% Reports Flow
     SelectTab --> ReportReview[Report Management]
     ReportReview --> ViewSubmissions[View Submitted Department Reports]
@@ -60,7 +60,7 @@ graph TD
     ViewSubmissions --> Decision{Approve or Return?}
     Decision -->|Approve| ExportReport[Generate standard PDF/Word Report]
     Decision -->|Return| ReturnFeedback[Return to Coordinator with Feedback]
-    
+
     %% Information Module
     SelectTab --> InfoModule[Information Module]
     InfoModule --> CESInfo[CES Office Information]
@@ -68,6 +68,7 @@ graph TD
 ```
 
 ### 2.1 Key Admin Procedures
+
 1. **Inventory Sorting (FIFO & Expiration-based):**
    - System receives a release request for items.
    - Core algorithms filter by item category.
@@ -89,7 +90,7 @@ Each department has a designated coordinator who compiles narrative reports for 
 ```mermaid
 graph TD
     CoordDash[Department Coordinator Dashboard] --> CoordNav{Sidebar Navigation}
-    
+
     %% Report Workflow
     CoordNav --> ReportWorkspace[Report Creation Workspace]
     ReportWorkspace --> SetMetadata[Select Semester & Academic Year]
@@ -98,7 +99,7 @@ graph TD
     DiaryWriter --> PhotoUpload[Upload Photos max 10, JPG/PNG]
     PhotoUpload --> SaveDraft[Save Draft]
     SaveDraft --> SubmitReport[Submit Report for Review]
-    
+
     %% Report Status Tracking
     CoordNav --> ReportHistory[Report History & Status]
     ReportHistory --> FilterReports[Filter by Semester / Department Event]
@@ -107,7 +108,7 @@ graph TD
     ViewStatus -->|Submitted| ViewOnly[Read-Only Mode]
     ViewStatus -->|Returned| EditReturned[Modify details based on Admin feedback]
     ViewStatus -->|Approved| Archived[Archived / Read-Only]
-    
+
     %% Information Module
     CoordNav --> InfoModule[Information Module]
     InfoModule --> CESInfo[CES Office Information]
@@ -115,6 +116,7 @@ graph TD
 ```
 
 ### 3.1 Key Department Coordinator Procedures
+
 1. **Compiling a Narrative Report:**
    - Department Coordinator opens the **Report Creation Module**.
    - Input fields: Semester, Academic Year, Department Event Selection (only events assigned to their department are shown).

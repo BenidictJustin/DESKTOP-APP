@@ -1,17 +1,17 @@
-import React from 'react';
+import React from 'react'
 
 /**
  * NavigationPane — Shows document headings for quick navigation.
  */
 export default function NavigationPane({ show, editor }) {
-  if (!show || !editor) return null;
+  if (!show || !editor) return null
 
-  const headings = [];
+  const headings = []
   editor.state.doc.descendants((node, pos) => {
     if (node.type.name === 'heading') {
-      headings.push({ level: node.attrs.level, text: node.textContent, pos });
+      headings.push({ level: node.attrs.level, text: node.textContent, pos })
     }
-  });
+  })
 
   return (
     <div className="w-52 bg-white border-r border-gray-200 shrink-0 overflow-y-auto p-3">
@@ -38,5 +38,5 @@ export default function NavigationPane({ show, editor }) {
         </p>
       )}
     </div>
-  );
+  )
 }

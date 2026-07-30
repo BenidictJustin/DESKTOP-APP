@@ -118,16 +118,16 @@ export default function AnimatedSidebar({
                   whileTap={!disabled ? { scale: 0.98 } : {}}
                   transition={{ duration: duration.fast, ease: easing.easeOut }}
                 >
-                  <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3.5'}`}>
+                  <div
+                    className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3.5'}`}
+                  >
                     <motion.div
                       animate={isActive ? { scale: 1.1 } : { scale: 1 }}
                       transition={{ duration: duration.fast }}
                     >
                       <Icon
                         className={`w-4.5 h-4.5 shrink-0 ${
-                          isActive
-                            ? 'text-sig-green'
-                            : 'text-gray-200 group-hover:text-white'
+                          isActive ? 'text-sig-green' : 'text-gray-200 group-hover:text-white'
                         }`}
                       />
                     </motion.div>

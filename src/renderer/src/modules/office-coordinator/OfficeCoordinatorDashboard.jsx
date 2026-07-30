@@ -3,8 +3,20 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import AnimatedPage from '../../components/motion/AnimatedPage'
 import { staggerContainer, staggerItem } from '../../components/motion/motionConfig'
-import { getReports, subscribeReports, addReport, updateReport, getOrganizations, subscribeOrganizations, getEvents, subscribeEvents, getUsers, subscribeUsers } from '../../services/db'
+import {
+  getReports,
+  subscribeReports,
+  addReport,
+  updateReport,
+  getOrganizations,
+  subscribeOrganizations,
+  getEvents,
+  subscribeEvents,
+  getUsers,
+  subscribeUsers
+} from '../../services/db'
 import logo from '../../assets/logo.png'
+import logo2Img from '../../assets/logo2.png'
 import {
   LayoutDashboard,
   FileText,
@@ -18,12 +30,20 @@ import {
   Info,
   Users,
   Eye,
-  Download
+  Download,
+  Layers
 } from 'lucide-react'
 import TextEditor from '../../components/editor/TextEditor'
 import DocumentViewer from '../../components/DocumentViewer'
 import AnimatedSidebar from '../../components/AnimatedSidebar'
-import { sanitizeOklchInDocument, loadInitialContentAndResetHistory, exportElementToPDF } from '../../components/editor/utils/editorHelpers'
+import {
+  sanitizeOklchInDocument,
+  loadInitialContentAndResetHistory,
+  exportElementToPDF,
+  resolveHeaderHtml,
+  parseNarrativePages
+} from '../../components/editor/utils/editorHelpers'
+import { PAPER, MARGINS } from '../../components/editor/constants'
 
 // ─── Status Badge helper ───────────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
@@ -229,7 +249,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           paperKey: layoutOptions.paperKey || 'Letter',
           orientation: layoutOptions.orientation || 'portrait',
           marginKey: layoutOptions.marginKey || 'Normal',
-          isTemplateActive: layoutOptions.isTemplateActive !== undefined ? layoutOptions.isTemplateActive : true
+          isTemplateActive:
+            layoutOptions.isTemplateActive !== undefined ? layoutOptions.isTemplateActive : true
         }
 
         if (workspaceReportId) {
@@ -287,44 +308,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
   const compileReportPDF = useCallback((report) => {
     setExportingReport(report)
-
-    setTimeout(async () => {
-      const input = document.getElementById('report-pdf-target')
-      if (!input) {
-        setExportingReport(null)
-        alert('PDF template target element not found.')
-        return
-      }
-
-      // Wait for images inside target to load
-      const imgs = Array.from(input.querySelectorAll('img'))
-      await Promise.all(
-        imgs.map(
-          (img) =>
-            new Promise((resolve) => {
-              if (img.complete) resolve()
-              else {
-                img.onload = resolve
-                img.onerror = resolve
-              }
-            })
-        )
-      )
-
-      try {
-        await exportElementToPDF(
-          input,
-          `CES_Narrative_Report_${report.academicYear || 'AY'}_${(report.id || 'doc').substring(0, 6)}`,
-          { isDocument: true }
-        )
-      } catch (err) {
-        console.error('PDF export failed:', err)
-        alert('PDF export failed: ' + (err.message || 'Error compiling report'))
-      } finally {
-        setExportingReport(null)
-      }
-    }, 500)
-  }, [eventsList, orgsList])
+  }, [])
 
   // ── Derived ──
   const myReports = reportsList.filter((r) => {
@@ -420,122 +404,116 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         {/* Main Panel Content Area */}
         <main className="flex-1 my-4 mx-4 glass-panel rounded-2xl shadow-glass-md overflow-hidden flex flex-col">
           <AnimatedPage pageKey={activeTab} className="h-full flex flex-col">
-          {/* ── DASHBOARD ── */}
-          {activeTab === 'dashboard' && (
-            <div className="flex-1 overflow-y-auto p-8">
-              <div className="max-w-5xl mx-auto space-y-6">
-                {/* Stats row */}
-                <motion.div
-                  className="grid grid-cols-2 md:grid-cols-5 gap-4"
-                  variants={staggerContainer}
-                  initial="initial"
-                  animate="animate"
-                >
-                  {[
-                    {
-                      label: 'Total Reports',
-                      value: stats.total,
-                      color: 'text-navy-blue',
-                      bg: 'bg-blue-50'
-                    },
-                    {
-                      label: 'Drafts',
-                      value: stats.drafts,
-                      color: 'text-gray-700',
-                      bg: 'bg-gray-100'
-                    },
-                    {
-                      label: 'Submitted',
-                      value: stats.submitted,
-                      color: 'text-amber-700',
-                      bg: 'bg-amber-50'
-                    },
-                    {
-                      label: 'Approved',
-                      value: stats.approved,
-                      color: 'text-green-700',
-                      bg: 'bg-green-50'
-                    },
-                    {
-                      label: 'Returned',
-                      value: stats.returned,
-                      color: 'text-red-700',
-                      bg: 'bg-red-50'
-                    }
-                  ].map((s) => (
-                    <motion.div
-                      key={s.label}
-                      variants={staggerItem}
-                      className={`${s.bg} rounded-xl p-4 border border-gray-200/60 shadow-sm transition-all duration-150 hover:shadow-md`}
+            {/* ── DASHBOARD ── */}
+            {activeTab === 'dashboard' && (
+              <div className="flex-1 overflow-y-auto p-8">
+                <div className="max-w-5xl mx-auto space-y-6">
+                  {/* Stats row */}
+                  <motion.div
+                    className="grid grid-cols-2 md:grid-cols-5 gap-4"
+                    variants={staggerContainer}
+                    initial="initial"
+                    animate="animate"
+                  >
+                    {[
+                      {
+                        label: 'Total Reports',
+                        value: stats.total,
+                        color: 'text-navy-blue',
+                        bg: 'bg-blue-50'
+                      },
+                      {
+                        label: 'Drafts',
+                        value: stats.drafts,
+                        color: 'text-gray-700',
+                        bg: 'bg-gray-100'
+                      },
+                      {
+                        label: 'Submitted',
+                        value: stats.submitted,
+                        color: 'text-amber-700',
+                        bg: 'bg-amber-50'
+                      },
+                      {
+                        label: 'Approved',
+                        value: stats.approved,
+                        color: 'text-green-700',
+                        bg: 'bg-green-50'
+                      },
+                      {
+                        label: 'Returned',
+                        value: stats.returned,
+                        color: 'text-red-700',
+                        bg: 'bg-red-50'
+                      }
+                    ].map((s) => (
+                      <motion.div
+                        key={s.label}
+                        variants={staggerItem}
+                        className={`${s.bg} rounded-xl p-4 border border-gray-200/60 shadow-sm transition-all duration-150 hover:shadow-md`}
+                      >
+                        <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">
+                          {s.label}
+                        </p>
+                        <p className={`text-2xl font-bold mt-1 ${s.color}`}>{s.value}</p>
+                      </motion.div>
+                    ))}
+                  </motion.div>
+
+                  {/* Quick actions */}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        resetForm()
+                        setActiveTab('editor')
+                      }}
+                      className="flex items-center gap-2 bg-navy-blue text-white text-xs font-semibold px-4 py-2.5 rounded-xl border-b-2 border-sig-green hover:bg-navy-blue/90 transition cursor-pointer"
                     >
-                      <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">
-                        {s.label}
-                      </p>
-                      <p className={`text-2xl font-bold mt-1 ${s.color}`}>{s.value}</p>
-                    </motion.div>
-                  ))}
-                </motion.div>
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>New Report</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('reports')}
+                      className="flex items-center gap-2 bg-white text-navy-blue text-xs font-semibold px-4 py-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 transition cursor-pointer"
+                    >
+                      <FolderOpen className="w-3.5 h-3.5" />
+                      <span>View My Reports</span>
+                    </button>
+                  </div>
 
-                {/* Quick actions */}
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => {
-                      resetForm()
-                      setActiveTab('editor')
-                    }}
-                    className="flex items-center gap-2 bg-navy-blue text-white text-xs font-semibold px-4 py-2.5 rounded-xl border-b-2 border-sig-green hover:bg-navy-blue/90 transition cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>New Report</span>
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('reports')}
-                    className="flex items-center gap-2 bg-white text-navy-blue text-xs font-semibold px-4 py-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 transition cursor-pointer"
-                  >
-                    <FolderOpen className="w-3.5 h-3.5" />
-                    <span>View My Reports</span>
-                  </button>
-                </div>
-
-                {/* Recent reports */}
-                {myReports.length > 0 && (
-                  <div className="bg-white rounded-2xl border border-gray-100 shadow-xs p-5">
-                    <h3 className="text-xs font-bold text-navy-blue uppercase tracking-wide mb-4">
-                      Recent Reports
-                    </h3>
-                    <div className="space-y-2.5">
-                      {myReports.slice(0, 5).map((rep) => {
-                        const ev = eventsList.find((e) => e.id === rep.eventId)
-                        const author = usersList.find((u) => u.uid === rep.authorId)
-                        return (
-                          <div
-                            key={rep.id}
-                            className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0"
-                          >
-                            <div className="space-y-0.5">
-                              <div className="flex items-center gap-2">
-                                <StatusBadge status={rep.status} />
-                                <span className="text-[10px] text-gray-400">
-                                  {rep.semester} | AY {rep.academicYear}
-                                </span>
+                  {/* Recent reports */}
+                  {myReports.length > 0 && (
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-xs p-5">
+                      <h3 className="text-xs font-bold text-navy-blue uppercase tracking-wide mb-4">
+                        Recent Reports
+                      </h3>
+                      <div className="space-y-2.5">
+                        {myReports.slice(0, 5).map((rep) => {
+                          const ev = eventsList.find((e) => e.id === rep.eventId)
+                          const author = usersList.find((u) => u.uid === rep.authorId)
+                          return (
+                            <div
+                              key={rep.id}
+                              className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0"
+                            >
+                              <div className="space-y-0.5">
+                                <div className="flex items-center gap-2">
+                                  <StatusBadge status={rep.status} />
+                                  <span className="text-[10px] text-gray-400">
+                                    {rep.semester} | AY {rep.academicYear}
+                                  </span>
+                                </div>
+                                <p className="text-xs font-semibold text-navy-blue">
+                                  {ev?.name || rep.activityTitle || 'Untitled'}
+                                </p>
+                                <p className="text-[10px] text-gray-400">
+                                  Submitted by{' '}
+                                  <span className="font-semibold text-gray-600">
+                                    {author ? author.name : 'Coordinator'}
+                                  </span>
+                                </p>
                               </div>
-                              <p className="text-xs font-semibold text-navy-blue">
-                                {ev?.name || rep.activityTitle || 'Untitled'}
-                              </p>
-                              <p className="text-[10px] text-gray-400">
-                                Submitted by <span className="font-semibold text-gray-600">{author ? author.name : 'Coordinator'}</span>
-                              </p>
-                            </div>
-                            {rep.status === 'submitted' || rep.status === 'approved' ? (
-                              <button
-                                onClick={() => setSelectedViewerReport(rep)}
-                                className="text-[10px] font-semibold text-navy-blue hover:text-sig-green transition cursor-pointer flex items-center gap-1"
-                              >
-                                <Eye className="w-3 h-3" />
-                                View
-                              </button>
-                            ) : (
-                              <div className="flex items-center gap-3">
+                              {rep.status === 'submitted' || rep.status === 'approved' ? (
                                 <button
                                   onClick={() => setSelectedViewerReport(rep)}
                                   className="text-[10px] font-semibold text-navy-blue hover:text-sig-green transition cursor-pointer flex items-center gap-1"
@@ -543,260 +521,326 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                   <Eye className="w-3 h-3" />
                                   View
                                 </button>
-                                <button
-                                  onClick={() => openReport(rep)}
-                                  className="text-[10px] font-semibold text-navy-blue hover:text-sig-green transition cursor-pointer flex items-center gap-1"
-                                >
-                                  <Edit3 className="w-3 h-3" />
-                                  Edit
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ── WORD EDITOR ── */}
-          <div
-            className={`flex-1 flex flex-col overflow-hidden ${activeTab === 'editor' ? '' : 'hidden'}`}
-          >
-            <TextEditor
-              user={user}
-              workspaceReportId={workspaceReportId}
-              setWorkspaceReportId={setWorkspaceReportId}
-              workspaceReportAY={workspaceReportAY}
-              setWorkspaceReportAY={setWorkspaceReportAY}
-              workspaceReportSem={workspaceReportSem}
-              setWorkspaceReportSem={setWorkspaceReportSem}
-              workspaceReportType={workspaceReportType}
-              setWorkspaceReportType={setWorkspaceReportType}
-              workspaceReportEventId={workspaceReportEventId}
-              setWorkspaceReportEventId={setWorkspaceReportEventId}
-              workspaceReportTitle={workspaceReportTitle}
-              setWorkspaceReportTitle={setWorkspaceReportTitle}
-              workspaceReportDate={workspaceReportDate}
-              setWorkspaceReportDate={setWorkspaceReportDate}
-              workspaceReportLocation={workspaceReportLocation}
-              setWorkspaceReportLocation={setWorkspaceReportLocation}
-              workspaceReportBenef={workspaceReportBenef}
-              setWorkspaceReportBenef={setWorkspaceReportBenef}
-              workspaceReportOrgId={workspaceReportOrgId}
-              setWorkspaceReportOrgId={setWorkspaceReportOrgId}
-              workspaceReportPhotos={workspaceReportPhotos}
-              setWorkspaceReportPhotos={setWorkspaceReportPhotos}
-              workspaceIsReadOnly={workspaceIsReadOnly}
-              setWorkspaceIsReadOnly={setWorkspaceIsReadOnly}
-              workspaceFeedback={workspaceFeedback}
-              linkToEvent={linkToEvent}
-              setLinkToEvent={setLinkToEvent}
-              loading={loading}
-              setLoading={setLoading}
-              saveStatus={saveStatus}
-              setSaveStatus={setSaveStatus}
-              autoSave={autoSave}
-              setAutoSave={setAutoSave}
-              reportsList={reportsList}
-              orgsList={orgsList}
-              eventsList={eventsList}
-              onSave={handleSave}
-              onResetForm={resetForm}
-              onOpenReport={openReport}
-              onLoadData={loadData}
-              setActiveTab={setActiveTab}
-              StatusBadge={StatusBadge}
-            />
-          </div>
-
-          {/* ── COMPILED REPORTS ── */}
-          {activeTab === 'reports' && (
-            <div className="flex-1 overflow-y-auto p-8 bg-surface-soft">
-              <div className="max-w-4xl mx-auto space-y-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h1 className="text-lg font-bold text-navy-blue">Compiled Reports</h1>
-                  <button
-                    onClick={() => {
-                      resetForm()
-                      setActiveTab('editor')
-                    }}
-                    className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-3 py-2 rounded-xl border-b-2 border-sig-green hover:bg-navy-blue/90 transition cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>New Report</span>
-                  </button>
-                </div>
-
-                {myReports.length === 0 ? (
-                  <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200 text-gray-400 text-xs">
-                    No reports yet. Click "New Report" to get started.
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {myReports.map((rep) => {
-                      const ev = eventsList.find((e) => e.id === rep.eventId)
-                      const author = usersList.find((u) => u.uid === rep.authorId)
-                      return (
-                        <div
-                          key={rep.id}
-                          className="bg-white rounded-2xl border border-gray-100 hover:border-sig-green/30 p-4 flex flex-col md:flex-row md:items-center justify-between transition group shadow-xs"
-                        >
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <StatusBadge status={rep.status} />
-                              <span className="text-[10px] text-gray-400">
-                                {rep.semester} · AY {rep.academicYear}
-                              </span>
+                              ) : (
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    onClick={() => setSelectedViewerReport(rep)}
+                                    className="text-[10px] font-semibold text-navy-blue hover:text-sig-green transition cursor-pointer flex items-center gap-1"
+                                  >
+                                    <Eye className="w-3 h-3" />
+                                    View
+                                  </button>
+                                  <button
+                                    onClick={() => openReport(rep)}
+                                    className="text-[10px] font-semibold text-navy-blue hover:text-sig-green transition cursor-pointer flex items-center gap-1"
+                                  >
+                                    <Edit3 className="w-3 h-3" />
+                                    Edit
+                                  </button>
+                                </div>
+                              )}
                             </div>
-                            <h4 className="text-sm font-bold text-navy-blue">
-                              {ev?.name || rep.activityTitle || 'Untitled Report'}
-                            </h4>
-                            <p className="text-[10px] text-gray-400">
-                              Submitted by <span className="font-semibold text-gray-700">{author ? author.name : 'Coordinator'}</span> · Updated {new Date(rep.updatedAt).toLocaleDateString()}
-                            </p>
-                            {rep.status === 'returned' && rep.adminFeedback && (
-                              <p className="text-[10px] text-red-600 font-semibold flex items-center gap-1 mt-0.5">
-                                <AlertTriangle className="w-3 h-3" />
-                                {rep.adminFeedback}
-                              </p>
-                            )}
-                          </div>
-                          <div className="mt-3 md:mt-0">
-                            {rep.status === 'submitted' || rep.status === 'approved' ? (
-                              <button
-                                onClick={() => setSelectedViewerReport(rep)}
-                                className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:opacity-90 transition cursor-pointer shadow-xs"
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                                <span>View</span>
-                              </button>
-                            ) : (
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── WORD EDITOR ── */}
+            <div
+              className={`flex-1 flex flex-col overflow-hidden ${activeTab === 'editor' ? '' : 'hidden'}`}
+            >
+              <TextEditor
+                user={user}
+                workspaceReportId={workspaceReportId}
+                setWorkspaceReportId={setWorkspaceReportId}
+                workspaceReportAY={workspaceReportAY}
+                setWorkspaceReportAY={setWorkspaceReportAY}
+                workspaceReportSem={workspaceReportSem}
+                setWorkspaceReportSem={setWorkspaceReportSem}
+                workspaceReportType={workspaceReportType}
+                setWorkspaceReportType={setWorkspaceReportType}
+                workspaceReportEventId={workspaceReportEventId}
+                setWorkspaceReportEventId={setWorkspaceReportEventId}
+                workspaceReportTitle={workspaceReportTitle}
+                setWorkspaceReportTitle={setWorkspaceReportTitle}
+                workspaceReportDate={workspaceReportDate}
+                setWorkspaceReportDate={setWorkspaceReportDate}
+                workspaceReportLocation={workspaceReportLocation}
+                setWorkspaceReportLocation={setWorkspaceReportLocation}
+                workspaceReportBenef={workspaceReportBenef}
+                setWorkspaceReportBenef={setWorkspaceReportBenef}
+                workspaceReportOrgId={workspaceReportOrgId}
+                setWorkspaceReportOrgId={setWorkspaceReportOrgId}
+                workspaceReportPhotos={workspaceReportPhotos}
+                setWorkspaceReportPhotos={setWorkspaceReportPhotos}
+                workspaceIsReadOnly={workspaceIsReadOnly}
+                setWorkspaceIsReadOnly={setWorkspaceIsReadOnly}
+                workspaceFeedback={workspaceFeedback}
+                linkToEvent={linkToEvent}
+                setLinkToEvent={setLinkToEvent}
+                loading={loading}
+                setLoading={setLoading}
+                saveStatus={saveStatus}
+                setSaveStatus={setSaveStatus}
+                autoSave={autoSave}
+                setAutoSave={setAutoSave}
+                reportsList={reportsList}
+                orgsList={orgsList}
+                eventsList={eventsList}
+                onSave={handleSave}
+                onResetForm={resetForm}
+                onOpenReport={openReport}
+                onLoadData={loadData}
+                setActiveTab={setActiveTab}
+                StatusBadge={StatusBadge}
+              />
+            </div>
+
+            {/* ── COMPILED REPORTS ── */}
+            {activeTab === 'reports' && (
+              <div className="flex-1 overflow-y-auto p-8 bg-surface-soft">
+                <div className="max-w-4xl mx-auto space-y-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h1 className="text-lg font-bold text-navy-blue">Compiled Reports</h1>
+                    <button
+                      onClick={() => {
+                        resetForm()
+                        setActiveTab('editor')
+                      }}
+                      className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-3 py-2 rounded-xl border-b-2 border-sig-green hover:bg-navy-blue/90 transition cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>New Report</span>
+                    </button>
+                  </div>
+
+                  {myReports.length === 0 ? (
+                    <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200 text-gray-400 text-xs">
+                      No reports yet. Click "New Report" to get started.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {myReports.map((rep) => {
+                        const ev = eventsList.find((e) => e.id === rep.eventId)
+                        const author = usersList.find((u) => u.uid === rep.authorId)
+                        return (
+                          <div
+                            key={rep.id}
+                            className="bg-white rounded-2xl border border-gray-100 hover:border-sig-green/30 p-4 flex flex-col md:flex-row md:items-center justify-between transition group shadow-xs"
+                          >
+                            <div className="space-y-1">
                               <div className="flex items-center gap-2">
+                                <StatusBadge status={rep.status} />
+                                <span className="text-[10px] text-gray-400">
+                                  {rep.semester} · AY {rep.academicYear}
+                                </span>
+                              </div>
+                              <h4 className="text-sm font-bold text-navy-blue">
+                                {ev?.name || rep.activityTitle || 'Untitled Report'}
+                              </h4>
+                              <p className="text-[10px] text-gray-400">
+                                Submitted by{' '}
+                                <span className="font-semibold text-gray-700">
+                                  {author ? author.name : 'Coordinator'}
+                                </span>{' '}
+                                · Updated {new Date(rep.updatedAt).toLocaleDateString()}
+                              </p>
+                              {rep.status === 'returned' && rep.adminFeedback && (
+                                <p className="text-[10px] text-red-600 font-semibold flex items-center gap-1 mt-0.5">
+                                  <AlertTriangle className="w-3 h-3" />
+                                  {rep.adminFeedback}
+                                </p>
+                              )}
+                            </div>
+                            <div className="mt-3 md:mt-0">
+                              {rep.status === 'submitted' || rep.status === 'approved' ? (
                                 <button
                                   onClick={() => setSelectedViewerReport(rep)}
-                                  className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-gray-55 transition cursor-pointer shadow-2xs"
+                                  className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:opacity-90 transition cursor-pointer shadow-xs"
                                 >
                                   <Eye className="w-3.5 h-3.5" />
                                   <span>View</span>
                                 </button>
-                                <button
-                                  onClick={() => openReport(rep)}
-                                  className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:opacity-90 transition cursor-pointer shadow-xs"
-                                >
-                                  <Edit3 className="w-3.5 h-3.5" />
-                                  <span>Edit</span>
-                                </button>
-                              </div>
-                            )}
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => setSelectedViewerReport(rep)}
+                                    className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-gray-55 transition cursor-pointer shadow-2xs"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                    <span>View</span>
+                                  </button>
+                                  <button
+                                    onClick={() => openReport(rep)}
+                                    className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:opacity-90 transition cursor-pointer shadow-xs"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                    <span>Edit</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {/* ── ABOUT MODULE ── */}
+            {activeTab === 'about' && (
+              <div className="flex-1 overflow-y-auto p-8 bg-[#F1EFEC] text-left">
+                <div className="max-w-5xl mx-auto space-y-6">
+                  {/* Header section */}
+                  <h1 className="text-xl font-extrabold text-navy-blue tracking-tight pb-1">
+                    About DommUnity
+                  </h1>
+
+                  {/* System & Office Info Cards */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Left Column - System and CES Details */}
+                    <div className="lg:col-span-2 space-y-6">
+                      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
+                        <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">
+                          System Information
+                        </h2>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                              System Name
+                            </span>
+                            <span className="text-sm font-semibold text-navy-blue">DommUnity</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                              Version
+                            </span>
+                            <span className="text-sm font-semibold text-navy-blue">1.0.0</span>
                           </div>
                         </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-          {/* ── ABOUT MODULE ── */}
-          {activeTab === 'about' && (
-            <div className="flex-1 overflow-y-auto p-8 bg-[#F1EFEC] text-left">
-              <div className="max-w-5xl mx-auto space-y-6">
-                {/* Header section */}
-                <h1 className="text-xl font-extrabold text-navy-blue tracking-tight pb-1">
-                  About DommUnity
-                </h1>
-
-                {/* System & Office Info Cards */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Left Column - System and CES Details */}
-                  <div className="lg:col-span-2 space-y-6">
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
-                      <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">System Information</h2>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">System Name</span>
-                          <span className="text-sm font-semibold text-navy-blue">DommUnity</span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Version</span>
-                          <span className="text-sm font-semibold text-navy-blue">1.0.0</span>
+                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                            Project Description
+                          </span>
+                          <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                            DommUnity is a desktop-based management system developed for the
+                            Community Extension & Services (CES) Office of Dominican College of
+                            Tarlac, Inc. It streamlines community extension operations by automating
+                            inventory tracking (with FIFO & expiration management), donor records,
+                            event scheduling, and narrative report generation.
+                          </p>
                         </div>
                       </div>
-                      <div>
-                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Project Description</span>
-                        <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                          DommUnity is a desktop-based management system developed for the Community Extension & Services (CES) Office of Dominican College of Tarlac, Inc. It streamlines community extension operations by automating inventory tracking (with FIFO & expiration management), donor records, event scheduling, and narrative report generation.
-                        </p>
+
+                      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
+                        <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">
+                          Community Extension & Services (CES) Office
+                        </h2>
+                        <div>
+                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                            Vision & Mission
+                          </span>
+                          <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                            The Community Extension & Services (CES) Office is responsible for
+                            community involvement, engagement, and reform towards sustainable
+                            development. It transforms both institutional and academic values into
+                            ground-level exposure and applications, addressing significant and
+                            relevant challenges and problems of the local community, making
+                            education a pertinent medium for social and ecological improvement.
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                            Core Advocacy Areas (CEAP JEEPGY)
+                          </span>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {[
+                              'Justice and Peace',
+                              'Care for the Environment',
+                              'Active Citizenship',
+                              'Poverty Awareness',
+                              'Gender Equality',
+                              'Youth Empowerment'
+                            ].map((adv, idx) => (
+                              <span
+                                key={idx}
+                                className="bg-sig-green/10 text-navy-blue text-xs font-semibold px-3 py-1 rounded-full"
+                              >
+                                {adv}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
-                      <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">Community Extension & Services (CES) Office</h2>
-                      <div>
-                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Vision & Mission</span>
-                        <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                          The Community Extension & Services (CES) Office is responsible for community involvement, engagement, and reform towards sustainable development. It transforms both institutional and academic values into ground-level exposure and applications, addressing significant and relevant challenges and problems of the local community, making education a pertinent medium for social and ecological improvement.
-                        </p>
+                    {/* Right Column - Org Chart & Proponents */}
+                    <div className="space-y-6">
+                      {/* CES Organizational Chart */}
+                      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
+                        <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">
+                          CES Org Hierarchy
+                        </h2>
+                        <div className="space-y-3">
+                          {[
+                            { name: 'Sr. Lorna I. Ablog, O.P.', role: 'School Administrator' },
+                            {
+                              name: 'Dr. Augusto R. Dela Cruz',
+                              role: 'Vice President of Academic Affairs'
+                            },
+                            {
+                              name: 'Mrs. Faithful Anne F. Arugay',
+                              role: 'Head of the CES Office'
+                            },
+                            { name: 'Mr. Jonnel B. Manio', role: 'Coordinator of the CES Office' }
+                          ].map((person, idx) => (
+                            <div
+                              key={idx}
+                              className="p-2 border-b border-gray-50 last:border-0 text-left"
+                            >
+                              <p className="text-xs font-bold text-navy-blue">{person.name}</p>
+                              <p className="text-[9px] text-gray-400 font-medium mt-0.5">
+                                {person.role}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">Core Advocacy Areas (CEAP JEEPGY)</span>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {['Justice and Peace', 'Care for the Environment', 'Active Citizenship', 'Poverty Awareness', 'Gender Equality', 'Youth Empowerment'].map((adv, idx) => (
-                            <span key={idx} className="bg-sig-green/10 text-navy-blue text-xs font-semibold px-3 py-1 rounded-full">
-                              {adv}
-                            </span>
+
+                      {/* Developers section */}
+                      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
+                        <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">
+                          Development Team
+                        </h2>
+                        <div className="space-y-3">
+                          {[
+                            { name: 'Benidict Justin Salunga', role: 'Lead Programmer' },
+                            { name: 'Mc Harry Tolentino', role: 'Project Manager' },
+                            { name: 'Aron Stefan Taruc', role: 'UI-UX Designer' },
+                            { name: 'John Harold Santos', role: 'Tester' }
+                          ].map((dev, idx) => (
+                            <div
+                              key={idx}
+                              className="p-2 border-b border-gray-50 last:border-0 text-left"
+                            >
+                              <p className="text-xs font-bold text-navy-blue">{dev.name}</p>
+                              <p className="text-[9px] text-gray-400 font-semibold mt-0.5">
+                                {dev.role}
+                              </p>
+                            </div>
                           ))}
                         </div>
                       </div>
                     </div>
                   </div>
-
-                  {/* Right Column - Org Chart & Proponents */}
-                  <div className="space-y-6">
-                    {/* CES Organizational Chart */}
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
-                      <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">CES Org Hierarchy</h2>
-                      <div className="space-y-3">
-                        {[
-                          { name: 'Sr. Lorna I. Ablog, O.P.', role: 'School Administrator' },
-                          { name: 'Dr. Augusto R. Dela Cruz', role: 'Vice President of Academic Affairs' },
-                          { name: 'Mrs. Faithful Anne F. Arugay', role: 'Head of the CES Office' },
-                          { name: 'Mr. Jonnel B. Manio', role: 'Coordinator of the CES Office' }
-                        ].map((person, idx) => (
-                          <div key={idx} className="p-2 border-b border-gray-50 last:border-0 text-left">
-                            <p className="text-xs font-bold text-navy-blue">{person.name}</p>
-                            <p className="text-[9px] text-gray-400 font-medium mt-0.5">{person.role}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Developers section */}
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
-                      <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">Development Team</h2>
-                      <div className="space-y-3">
-                        {[
-                          { name: 'Benidict Justin Salunga', role: 'Lead Programmer' },
-                          { name: 'Mc Harry Tolentino', role: 'Project Manager' },
-                          { name: 'Aron Stefan Taruc', role: 'UI-UX Designer' },
-                          { name: 'John Harold Santos', role: 'Tester' }
-                        ].map((dev, idx) => (
-                          <div key={idx} className="p-2 border-b border-gray-50 last:border-0 text-left">
-                            <p className="text-xs font-bold text-navy-blue">{dev.name}</p>
-                            <p className="text-[9px] text-gray-400 font-semibold mt-0.5">{dev.role}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
           </AnimatedPage>
         </main>
       </div>
@@ -812,106 +856,17 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         />
       )}
 
-      {/* ==================================================== */}
-      {/* HIDDEN CES OFFICIAL PDF TEMPLATE CONVERTER */}
-      {/* ==================================================== */}
       {exportingReport && (
-        <div className="absolute top-[-9999px] left-[-9999px]">
-          <div
-            id="report-pdf-target"
-            className="w-200 bg-white p-12 text-gray-900 font-poppins relative"
-            style={{ boxSizing: 'border-box' }}
-          >
-            {/* Header Block */}
-            <div className="text-center border-b-2 border-sig-green pb-4 mb-6">
-              <h2 className="text-xl font-bold text-navy-blue tracking-wide">
-                DOMINICAN COLLEGE OF TARLAC, INC.
-              </h2>
-              <h3 className="text-sm font-semibold text-gray-700">
-                Community Extension & Services (CES) Office
-              </h3>
-              <p className="text-[10px] text-gray-400">
-                Tarlac, Philippines · Official Document Archive
-              </p>
-            </div>
-
-            {/* Document Details Metadata */}
-            <div className="grid grid-cols-2 gap-4 border border-gray-100 p-4 rounded-xl bg-gray-50/50 text-xs mb-6">
-              <div>
-                <strong className="text-navy-blue">Extension Outreach Program:</strong>
-                <p className="text-sm font-bold text-gray-800">
-                  {eventsList.find((e) => e.id === exportingReport.eventId)?.name ||
-                    exportingReport.activityTitle ||
-                    'Outreach'}
-                </p>
-              </div>
-              <div>
-                <strong className="text-navy-blue">Academic Schedule:</strong>
-                <p className="text-xs font-semibold text-gray-800">
-                  {exportingReport.semester} | AY {exportingReport.academicYear}
-                </p>
-              </div>
-              <div>
-                <strong className="text-navy-blue">Department / Organization:</strong>
-                <p className="text-xs font-semibold text-gray-800">
-                  {orgsList.find((o) => o.id === exportingReport.organizationId)?.name ||
-                    (exportingReport.organizationId ? 'Unknown' : 'CES Office')}
-                </p>
-              </div>
-              <div>
-                <strong className="text-navy-blue">Activity Details:</strong>
-                <p className="text-xs font-semibold text-gray-800">
-                  {exportingReport.activityDate
-                    ? new Date(exportingReport.activityDate).toLocaleDateString()
-                    : ''}
-                  {exportingReport.location ? ` @ ${exportingReport.location}` : ''}
-                </p>
-              </div>
-            </div>
-
-            {/* Narrative text description */}
-            <div className="space-y-4 text-xs leading-relaxed text-gray-800 border-b border-gray-100 pb-6 mb-6">
-              <style>{`
-                #report-pdf-target table { border-collapse: collapse; width: 100%; margin: 12px 0; }
-                #report-pdf-target th, #report-pdf-target td { border: 1px solid #c0c0c0; padding: 6px 10px; font-size: 11px; text-align: left; }
-                #report-pdf-target th { background: #f3f4f6; font-weight: 600; }
-                #report-pdf-target ul { list-style: disc; padding-left: 20px; margin-bottom: 8px; }
-                #report-pdf-target ol { list-style: decimal; padding-left: 20px; margin-bottom: 8px; }
-                #report-pdf-target p { margin-bottom: 8px; }
-                #report-pdf-target img { max-width: 100%; height: auto; border-radius: 4px; }
-              `}</style>
-              <h4 className="text-sm font-bold text-navy-blue mb-2">
-                Activity Description Narrative
-              </h4>
-              <div
-                className="prose prose-sm text-xs max-w-none text-gray-700"
-                dangerouslySetInnerHTML={{ __html: exportingReport.narrative }}
-              />
-            </div>
-
-            {/* Photos collage */}
-            {exportingReport.photos && exportingReport.photos.length > 0 && (
-              <div>
-                <h4 className="text-sm font-bold text-navy-blue mb-3">
-                  Photographic Documentation
-                </h4>
-                <div className="grid grid-cols-2 gap-3">
-                  {exportingReport.photos.map((p, idx) => (
-                    <div key={idx} className="border border-gray-100 p-1.5 rounded-lg bg-gray-50">
-                      <img
-                        src={p.url}
-                        className="w-full h-44 object-cover rounded"
-                        alt="evidence"
-                      />
-                      <p className="text-center text-[9px] text-gray-400 font-semibold mt-1">
-                        Photo Documentation {idx + 1}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+        <div className="absolute top-[-9999px] left-[-9999px] pointer-events-none select-none opacity-0">
+          <DocumentViewer
+            report={exportingReport}
+            onClose={() => setExportingReport(null)}
+            eventsList={eventsList}
+            orgsList={orgsList}
+            usersList={usersList}
+            isExportOnly={true}
+            onExportFinished={() => setExportingReport(null)}
+          />
         </div>
       )}
     </div>
