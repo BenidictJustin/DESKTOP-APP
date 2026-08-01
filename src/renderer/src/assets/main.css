@@ -119,6 +119,15 @@ body,
   box-shadow: 0 8px 32px 0 rgba(3, 14, 105, 0.3);
 }
 
+/* Collapsed Sidebar Hover Glassmorphism Effect */
+.glass-sidebar-hover-collapsed {
+  background: rgba(47, 42, 226, 0.32) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1) !important;
+  backdrop-filter: blur(1.4px) !important;
+  -webkit-backdrop-filter: blur(1.4px) !important;
+}
+
 /* Glass Form Control */
 .glass-input {
   background: rgba(255, 255, 255, 0.65);
@@ -315,13 +324,19 @@ body {
 .bg-white.rounded-3xl.border,
 .bg-white.rounded-3xl.p-6,
 .bg-white.rounded-3xl.p-8,
+.bg-white.rounded-2xl.shadow-sm,
+.bg-white.rounded-2xl.border,
+.bg-white.rounded-2xl.p-4,
+.bg-white.rounded-2xl.p-5,
 .glass-panel {
   transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 .bg-white.rounded-3xl.shadow-sm:hover,
 .bg-white.rounded-3xl.border:hover,
 .bg-white.rounded-3xl.p-6:hover,
-.bg-white.rounded-3xl.p-8:hover {
+.bg-white.rounded-3xl.p-8:hover,
+.bg-white.rounded-2xl.shadow-sm:hover,
+.bg-white.rounded-2xl.border:hover {
   background: rgba(255, 255, 255, 0.95);
   box-shadow: 0 10px 30px 0 rgba(0, 0, 0, 0.06);
   transform: translateY(-1px);
@@ -350,6 +365,34 @@ input[type='submit']:active:not(:disabled) {
 /* Transition for all Table Rows */
 tr {
   transition: background-color 150ms ease;
+}
+tbody tr:hover {
+  background-color: rgba(249, 250, 251, 0.5);
+}
+
+/* Consistent Form Input Focus Transitions */
+input[type='text'],
+input[type='number'],
+input[type='email'],
+input[type='password'],
+input[type='search'],
+textarea {
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+input[type='text']:focus,
+input[type='number']:focus,
+input[type='email']:focus,
+input[type='password']:focus,
+input[type='search']:focus,
+textarea:focus {
+  border-color: #80cc2a;
+  box-shadow: 0 0 0 3px rgba(128, 204, 42, 0.15);
+  outline: none;
+}
+
+/* Consistent Anchor / Link Transitions */
+a {
+  transition: color 150ms ease, opacity 150ms ease;
 }
 
 /* Modern Native Select Inputs styling matching design tokens */

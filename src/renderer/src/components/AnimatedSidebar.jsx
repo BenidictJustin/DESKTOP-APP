@@ -1,3 +1,4 @@
+/* eslint-disable */
 import React, { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { ChevronLeft, ChevronRight, LogOut } from 'lucide-react'
@@ -35,7 +36,7 @@ export default function AnimatedSidebar({
 
   return (
     <motion.aside
-      className="glass-sidebar flex flex-col justify-between shrink-0 relative rounded-2xl my-4 ml-4 shadow-glass-navy select-none"
+      className="glass-sidebar flex flex-col justify-between shrink-0 relative rounded-2xl my-4 ml-4 shadow-glass-navy select-none z-20"
       animate={{ width: isCollapsed ? 80 : 256 }}
       transition={sidebarTransition}
     >
@@ -77,7 +78,9 @@ export default function AnimatedSidebar({
           {/* Animated Sliding Active Indicator Pill */}
           {activeIndex !== -1 && (
             <motion.div
-              className="absolute left-0 right-0 rounded-xl bg-sig-green/20 backdrop-blur-md border-l-[3.5px] border-sig-green shadow-xs pointer-events-none"
+              className={`absolute rounded-xl bg-sig-green/20 backdrop-blur-md border-l-[3.5px] border-sig-green shadow-xs pointer-events-none ${
+                isCollapsed ? 'w-[42px] left-1/2 -translate-x-1/2' : 'left-0 right-0'
+              }`}
               style={{ height: '42px' }}
               animate={{ top: activeIndex * 48 }}
               transition={{
@@ -92,9 +95,10 @@ export default function AnimatedSidebar({
           {tabs.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
+            const isHovered = hoveredTab === tab.id
 
             return (
-              <div key={tab.id} className="relative group">
+              <div key={tab.id} className="relative group flex justify-center">
                 <motion.button
                   type="button"
                   disabled={disabled}
@@ -105,25 +109,36 @@ export default function AnimatedSidebar({
                   }}
                   onMouseEnter={() => setHoveredTab(tab.id)}
                   onMouseLeave={() => setHoveredTab(null)}
-                  className={`w-full flex items-center ${
-                    isCollapsed ? 'justify-center px-0' : 'justify-between px-3.5'
-                  } py-2.5 rounded-xl text-[13px] font-semibold tracking-normal transition-colors duration-200 relative z-10 h-[42px] ${
+                  className={`flex items-center py-2.5 rounded-xl text-[13px] font-semibold tracking-normal transition-all duration-200 relative z-10 h-[42px] ${
+                    isCollapsed
+                      ? 'w-[42px] justify-center px-0 mx-auto'
+                      : 'w-full justify-between px-3.5'
+                  } ${
                     disabled
                       ? 'opacity-40 cursor-not-allowed text-gray-500'
                       : isActive
-                        ? 'text-sig-green font-bold cursor-pointer'
-                        : 'text-gray-200 hover:text-white hover:bg-white/8 cursor-pointer'
+                        ? `text-sig-green font-bold cursor-pointer ${
+                            isCollapsed && isHovered ? 'glass-sidebar-hover-collapsed' : ''
+                          }`
+                        : `text-gray-200 hover:text-white cursor-pointer ${
+                            isCollapsed
+                              ? 'hover:glass-sidebar-hover-collapsed'
+                              : 'hover:bg-white/8'
+                          }`
                   }`}
-                  whileHover={!disabled ? { x: 2 } : {}}
-                  whileTap={!disabled ? { scale: 0.98 } : {}}
+                  whileHover={!disabled ? (isCollapsed ? { scale: 1.05 } : { x: 2 }) : {}}
+                  whileTap={!disabled ? { scale: 0.96 } : {}}
                   transition={{ duration: duration.fast, ease: easing.easeOut }}
                 >
                   <div
-                    className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3.5'}`}
+                    className={`flex items-center justify-center ${
+                      isCollapsed ? 'w-full' : 'space-x-3.5'
+                    }`}
                   >
                     <motion.div
                       animate={isActive ? { scale: 1.1 } : { scale: 1 }}
                       transition={{ duration: duration.fast }}
+                      className="flex items-center justify-center shrink-0"
                     >
                       <Icon
                         className={`w-4.5 h-4.5 shrink-0 ${

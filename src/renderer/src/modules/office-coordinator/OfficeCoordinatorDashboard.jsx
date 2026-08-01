@@ -31,11 +31,17 @@ import {
   Users,
   Eye,
   Download,
-  Layers
+  Layers,
+  Calendar,
+  X,
+  MapPin,
+  Clock,
+  CheckCircle2
 } from 'lucide-react'
 import TextEditor from '../../components/editor/TextEditor'
 import DocumentViewer from '../../components/DocumentViewer'
 import AnimatedSidebar from '../../components/AnimatedSidebar'
+import AnimatedModal from '../../components/motion/AnimatedModal'
 import {
   sanitizeOklchInDocument,
   loadInitialContentAndResetHistory,
@@ -86,6 +92,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   const [autoSave, setAutoSave] = useState(false)
   const [selectedViewerReport, setSelectedViewerReport] = useState(null)
   const [exportingReport, setExportingReport] = useState(null)
+  const [selectedViewEvent, setSelectedViewEvent] = useState(null)
+  const [isViewEventModalOpen, setIsViewEventModalOpen] = useState(false)
 
   // ── Database ──
   const [reportsList, setReportsList] = useState([])
@@ -127,7 +135,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
   // Body scroll lock effect whenever any modal/dialog is open
   useEffect(() => {
-    if (selectedViewerReport || exportingReport) {
+    if (selectedViewerReport || exportingReport || isViewEventModalOpen) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = ''
@@ -135,7 +143,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     return () => {
       document.body.style.overflow = ''
     }
-  }, [selectedViewerReport, exportingReport])
+  }, [selectedViewerReport, exportingReport, isViewEventModalOpen])
 
   // ── Reset form (clear all fields + editor) ──
   const resetForm = useCallback((editor) => {
@@ -324,6 +332,24 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     returned: myReports.filter((r) => r.status === 'returned').length
   }
 
+  const completedEvents = eventsList
+    .filter((e) => {
+      const s = (e.status || '').toLowerCase().trim()
+      return (
+        s === 'completed' ||
+        s === 'complete' ||
+        s === 'successful' ||
+        s === 'success' ||
+        s === 'done' ||
+        s === 'finished'
+      )
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.scheduleDate || a.date || 0).getTime()
+      const dateB = new Date(b.scheduleDate || b.date || 0).getTime()
+      return dateB - dateA
+    })
+
   // ─────────────────────────────────────────────────────────────────────────────
   // ── RENDER ────────────────────────────────────────────────────────────────────
   // ─────────────────────────────────────────────────────────────────────────────
@@ -351,7 +377,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           <button
             type="button"
             onClick={() => setActiveTab('editor')}
-            className="text-navy-blue hover:opacity-85 transition cursor-pointer p-1"
+            className="text-navy-blue hover:opacity-85 transition-all duration-150 cursor-pointer p-1"
             title="Document Editor"
           >
             <FileText className="w-5 h-5" />
@@ -359,7 +385,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           <button
             type="button"
             onClick={() => setActiveTab('dashboard')}
-            className="text-navy-blue hover:opacity-85 transition cursor-pointer p-1"
+            className="text-navy-blue hover:opacity-85 transition-all duration-150 cursor-pointer p-1"
             title="Dashboard"
           >
             <Home className="w-5 h-5" />
@@ -419,45 +445,55 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                       {
                         label: 'Total Reports',
                         value: stats.total,
-                        color: 'text-navy-blue',
-                        bg: 'bg-blue-50'
+                        iconBg: 'bg-blue-50 text-blue-500',
+                        icon: FileText
                       },
                       {
                         label: 'Drafts',
                         value: stats.drafts,
-                        color: 'text-gray-700',
-                        bg: 'bg-gray-100'
+                        iconBg: 'bg-gray-100 text-gray-500',
+                        icon: Edit3
                       },
                       {
                         label: 'Submitted',
                         value: stats.submitted,
-                        color: 'text-amber-700',
-                        bg: 'bg-amber-50'
+                        iconBg: 'bg-amber-50 text-amber-500',
+                        icon: Layers
                       },
                       {
                         label: 'Approved',
                         value: stats.approved,
-                        color: 'text-green-700',
-                        bg: 'bg-green-50'
+                        iconBg: 'bg-green-50 text-green-500',
+                        icon: Check
                       },
                       {
                         label: 'Returned',
                         value: stats.returned,
-                        color: 'text-red-700',
-                        bg: 'bg-red-50'
+                        iconBg: 'bg-red-50 text-red-500',
+                        icon: AlertTriangle
                       }
-                    ].map((s) => (
-                      <motion.div
-                        key={s.label}
-                        variants={staggerItem}
-                        className={`${s.bg} rounded-xl p-4 border border-gray-200/60 shadow-sm transition-all duration-150 hover:shadow-md`}
-                      >
-                        <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">
-                          {s.label}
-                        </p>
-                        <p className={`text-2xl font-bold mt-1 ${s.color}`}>{s.value}</p>
-                      </motion.div>
-                    ))}
+                    ].map((s) => {
+                      const StatIcon = s.icon
+                      return (
+                        <motion.div
+                          key={s.label}
+                          variants={staggerItem}
+                          className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3 hover:shadow-md hover:border-sig-green/30 transition-all duration-200"
+                        >
+                          <div className={`p-2.5 ${s.iconBg} rounded-xl shrink-0`}>
+                            <StatIcon className="w-4.5 h-4.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider block leading-none mb-1">
+                              {s.label}
+                            </span>
+                            <span className="text-xl font-black text-navy-blue leading-none">
+                              {s.value}
+                            </span>
+                          </div>
+                        </motion.div>
+                      )
+                    })}
                   </motion.div>
 
                   {/* Quick actions */}
@@ -467,18 +503,102 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                         resetForm()
                         setActiveTab('editor')
                       }}
-                      className="flex items-center gap-2 bg-navy-blue text-white text-xs font-semibold px-4 py-2.5 rounded-xl border-b-2 border-sig-green hover:bg-navy-blue/90 transition cursor-pointer"
+                      className="flex items-center gap-2 bg-navy-blue text-white text-xs font-semibold px-4 py-2.5 rounded-xl border-b-2 border-sig-green hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>New Report</span>
                     </button>
                     <button
                       onClick={() => setActiveTab('reports')}
-                      className="flex items-center gap-2 bg-white text-navy-blue text-xs font-semibold px-4 py-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 transition cursor-pointer"
+                      className="flex items-center gap-2 bg-white text-navy-blue text-xs font-semibold px-4 py-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 transition-all duration-150 cursor-pointer"
                     >
                       <FolderOpen className="w-3.5 h-3.5" />
                       <span>View My Reports</span>
                     </button>
+                  </div>
+
+                  {/* Completed Events Section */}
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-xs p-5 space-y-4 text-left">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                      <div className="flex items-center space-x-2">
+                        <h3 className="text-xs font-bold text-navy-blue uppercase tracking-wide">
+                          Completed Events
+                        </h3>
+                        <span className="bg-green-100 text-green-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-green-200/60">
+                          {completedEvents.length}
+                        </span>
+                      </div>
+                    </div>
+
+                    {completedEvents.length === 0 ? (
+                      <div className="text-center py-8 text-gray-400 text-xs font-medium">
+                        No completed or successful events found.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {completedEvents.map((evt) => {
+                          const org = orgsList.find((o) => o.id === evt.assignedOrganizationId)
+                          const orgDisplay =
+                            evt.eventType === 'organization'
+                              ? `${evt.organizationName || 'Organization'} (${org ? org.abbreviation : 'All'})`
+                              : org
+                                ? `${org.name} (${org.abbreviation})`
+                                : 'All'
+                          const eventDateDisplay = evt.scheduleDate
+                            ? new Date(evt.scheduleDate).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })
+                            : 'N/A'
+
+                          return (
+                            <div
+                              key={evt.id}
+                              onClick={() => {
+                                setSelectedViewEvent(evt)
+                                setIsViewEventModalOpen(true)
+                              }}
+                              className="bg-gray-50/60 hover:bg-white rounded-2xl p-4 border border-gray-200/80 hover:border-navy-blue/30 shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-3 group text-left"
+                            >
+                              <div className="space-y-2">
+                                <div className="flex items-start justify-between gap-2">
+                                  <h4 className="text-xs font-bold text-navy-blue group-hover:text-sig-green transition-colors leading-snug line-clamp-2">
+                                    {evt.name}
+                                  </h4>
+                                  <span className="inline-flex items-center text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-green-100 text-green-800 border border-green-200/60 shrink-0">
+                                    {evt.status}
+                                  </span>
+                                </div>
+
+                                <div className="space-y-1 text-[11px] text-gray-600 font-medium">
+                                  <div className="flex items-center space-x-1.5 truncate">
+                                    <Users className="w-3.5 h-3.5 text-navy-blue shrink-0" />
+                                    <span className="truncate">{orgDisplay}</span>
+                                  </div>
+                                  <div className="flex items-center space-x-1.5 truncate">
+                                    <MapPin className="w-3.5 h-3.5 text-sig-green shrink-0" />
+                                    <span className="truncate">
+                                      {evt.location || 'No location set'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[10px] text-gray-400 font-semibold">
+                                <div className="flex items-center space-x-1">
+                                  <Calendar className="w-3 h-3 text-navy-blue" />
+                                  <span>{eventDateDisplay}</span>
+                                </div>
+                                <span className="text-navy-blue group-hover:text-sig-green font-bold flex items-center gap-0.5">
+                                  View Details &rarr;
+                                </span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
 
                   {/* Recent reports */}
@@ -499,9 +619,6 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                               <div className="space-y-0.5">
                                 <div className="flex items-center gap-2">
                                   <StatusBadge status={rep.status} />
-                                  <span className="text-[10px] text-gray-400">
-                                    {rep.semester} | AY {rep.academicYear}
-                                  </span>
                                 </div>
                                 <p className="text-xs font-semibold text-navy-blue">
                                   {ev?.name || rep.activityTitle || 'Untitled'}
@@ -516,7 +633,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                               {rep.status === 'submitted' || rep.status === 'approved' ? (
                                 <button
                                   onClick={() => setSelectedViewerReport(rep)}
-                                  className="text-[10px] font-semibold text-navy-blue hover:text-sig-green transition cursor-pointer flex items-center gap-1"
+                                  className="text-[10px] font-semibold text-navy-blue hover:text-sig-green transition-colors duration-150 cursor-pointer flex items-center gap-1"
                                 >
                                   <Eye className="w-3 h-3" />
                                   View
@@ -525,14 +642,14 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                 <div className="flex items-center gap-3">
                                   <button
                                     onClick={() => setSelectedViewerReport(rep)}
-                                    className="text-[10px] font-semibold text-navy-blue hover:text-sig-green transition cursor-pointer flex items-center gap-1"
+                                    className="text-[10px] font-semibold text-navy-blue hover:text-sig-green transition-colors duration-150 cursor-pointer flex items-center gap-1"
                                   >
                                     <Eye className="w-3 h-3" />
                                     View
                                   </button>
                                   <button
                                     onClick={() => openReport(rep)}
-                                    className="text-[10px] font-semibold text-navy-blue hover:text-sig-green transition cursor-pointer flex items-center gap-1"
+                                    className="text-[10px] font-semibold text-navy-blue hover:text-sig-green transition-colors duration-150 cursor-pointer flex items-center gap-1"
                                   >
                                     <Edit3 className="w-3 h-3" />
                                     Edit
@@ -611,7 +728,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                         resetForm()
                         setActiveTab('editor')
                       }}
-                      className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-3 py-2 rounded-xl border-b-2 border-sig-green hover:bg-navy-blue/90 transition cursor-pointer"
+                      className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-3 py-2 rounded-xl border-b-2 border-sig-green hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>New Report</span>
@@ -630,14 +747,11 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                         return (
                           <div
                             key={rep.id}
-                            className="bg-white rounded-2xl border border-gray-100 hover:border-sig-green/30 p-4 flex flex-col md:flex-row md:items-center justify-between transition group shadow-xs"
+                            className="bg-white rounded-2xl border border-gray-100 hover:border-sig-green/30 p-4 flex flex-col md:flex-row md:items-center justify-between transition-all duration-200 group shadow-xs"
                           >
                             <div className="space-y-1">
                               <div className="flex items-center gap-2">
                                 <StatusBadge status={rep.status} />
-                                <span className="text-[10px] text-gray-400">
-                                  {rep.semester} · AY {rep.academicYear}
-                                </span>
                               </div>
                               <h4 className="text-sm font-bold text-navy-blue">
                                 {ev?.name || rep.activityTitle || 'Untitled Report'}
@@ -660,7 +774,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                               {rep.status === 'submitted' || rep.status === 'approved' ? (
                                 <button
                                   onClick={() => setSelectedViewerReport(rep)}
-                                  className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:opacity-90 transition cursor-pointer shadow-xs"
+                                  className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-xs"
                                 >
                                   <Eye className="w-3.5 h-3.5" />
                                   <span>View</span>
@@ -669,14 +783,14 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                 <div className="flex items-center gap-2">
                                   <button
                                     onClick={() => setSelectedViewerReport(rep)}
-                                    className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-gray-55 transition cursor-pointer shadow-2xs"
+                                    className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
                                   >
                                     <Eye className="w-3.5 h-3.5" />
                                     <span>View</span>
                                   </button>
                                   <button
                                     onClick={() => openReport(rep)}
-                                    className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:opacity-90 transition cursor-pointer shadow-xs"
+                                    className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-xs"
                                   >
                                     <Edit3 className="w-3.5 h-3.5" />
                                     <span>Edit</span>
@@ -869,6 +983,146 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           />
         </div>
       )}
+
+      {/* Event Details View Modal */}
+      <AnimatedModal
+        isOpen={isViewEventModalOpen}
+        onClose={() => {
+          setIsViewEventModalOpen(false)
+          setSelectedViewEvent(null)
+        }}
+        overlayClassName="fixed inset-0 z-[99999] flex items-center justify-center p-4 glass-modal-overlay"
+        contentClassName="glass-modal rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-white/80 space-y-5 max-h-[90vh] overflow-y-auto"
+      >
+        {selectedViewEvent &&
+          (() => {
+            const org = orgsList.find((o) => o.id === selectedViewEvent.assignedOrganizationId)
+            const dateObj = new Date(selectedViewEvent.scheduleDate)
+            return (
+              <>
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-gray-200/60 pb-3.5">
+                  <div className="flex items-center space-x-2">
+                    <div className="p-1.5 bg-navy-blue/5 text-navy-blue rounded-xl">
+                      <Calendar className="w-5 h-5" />
+                    </div>
+                    <h3 className="font-extrabold text-navy-blue text-base">Event Details</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsViewEventModalOpen(false)
+                      setSelectedViewEvent(null)
+                    }}
+                    className="text-gray-400 hover:text-navy-blue transition-colors cursor-pointer p-1.5 rounded-lg hover:bg-gray-100"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Event Details Content */}
+                <div className="space-y-4 text-left">
+                  {/* Event Name */}
+                  <div>
+                    <h4 className="text-lg font-black text-navy-blue leading-snug break-words whitespace-normal">
+                      {selectedViewEvent.name}
+                    </h4>
+                  </div>
+
+                  {/* Status & Type Badges */}
+                  <div className="flex flex-wrap gap-2">
+                    <span
+                      className={`inline-flex items-center text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${selectedViewEvent.status === 'completed' ||
+                        selectedViewEvent.status === 'successful'
+                        ? 'bg-green-100 text-green-800'
+                        : selectedViewEvent.status === 'cancelled'
+                          ? 'bg-red-100 text-red-800'
+                          : selectedViewEvent.status === 'planned'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                    >
+                      Status: {selectedViewEvent.status}
+                    </span>
+                    <span className="inline-flex items-center text-[10px] font-bold uppercase px-2.5 py-1 rounded-full bg-navy-blue/5 text-navy-blue">
+                      Type: {selectedViewEvent.eventType}
+                    </span>
+                  </div>
+
+                  {/* Info Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
+                    {/* Department / Org */}
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                        Assigned Department / Org
+                      </span>
+                      <span className="text-xs text-navy-blue font-bold flex items-center space-x-1.5">
+                        <Users className="w-3.5 h-3.5 text-navy-blue shrink-0" />
+                        <span className="break-words whitespace-normal">
+                          {selectedViewEvent.eventType === 'organization'
+                            ? `${selectedViewEvent.organizationName} (${org ? org.abbreviation : 'All'})`
+                            : org
+                              ? `${org.name} (${org.abbreviation})`
+                              : 'All'}
+                        </span>
+                      </span>
+                    </div>
+
+                    {/* Location/Venue */}
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                        Venue / Location
+                      </span>
+                      <span className="text-xs text-navy-blue font-bold flex items-center space-x-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-sig-green shrink-0" />
+                        <span className="break-words whitespace-normal">
+                          {selectedViewEvent.location}
+                        </span>
+                      </span>
+                    </div>
+
+                    {/* Scheduled Date */}
+                    <div className="space-y-1 md:col-span-2">
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                        Date & Time
+                      </span>
+                      <span className="text-xs text-navy-blue font-bold flex items-center space-x-1.5">
+                        <Clock className="w-3.5 h-3.5 text-navy-blue shrink-0" />
+                        <span>{dateObj.toLocaleString()}</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  {selectedViewEvent.description && (
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                        Description / Narrative
+                      </span>
+                      <div className="bg-white border border-gray-150 rounded-xl p-3 text-xs text-gray-650 leading-relaxed font-medium break-words whitespace-pre-wrap">
+                        {selectedViewEvent.description}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer */}
+                <div className="flex justify-end border-t border-gray-100 pt-3 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsViewEventModalOpen(false)
+                      setSelectedViewEvent(null)
+                    }}
+                    className="bg-navy-blue hover:bg-navy-blue/90 text-white rounded-xl text-xs font-semibold py-2 px-5 shadow-sm transition-all duration-150 cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+              </>
+            )
+          })()}
+      </AnimatedModal>
     </div>
   )
 }

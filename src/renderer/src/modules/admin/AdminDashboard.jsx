@@ -1,5 +1,6 @@
 /* eslint-disable */
 import React, { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'motion/react'
 import AnimatedModal from '../../components/motion/AnimatedModal'
 import AnimatedPage from '../../components/motion/AnimatedPage'
@@ -57,7 +58,9 @@ import {
   logInventoryTransaction,
   addReport,
   uploadPhoto,
-  sendCoordinatorResetEmail
+  sendCoordinatorResetEmail,
+  areNamesSimilar,
+  runInventoryDeduplicationMigration
 } from '../../services/db'
 import logo from '../../assets/logo.png'
 import logo2Img from '../../assets/logo2.png'
@@ -117,6 +120,7 @@ import {
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import SearchableDropdown from '../../components/SearchableDropdown'
+import CustomSelect from '../../components/CustomSelect'
 import DocumentViewer from '../../components/DocumentViewer'
 import GlassDatePicker from '../../components/GlassDatePicker'
 import AnimatedSidebar from '../../components/AnimatedSidebar'
@@ -218,6 +222,15 @@ export default function AdminDashboard({ user, onLogout }) {
   const [deletedUnits, setDeletedUnits] = useState(() => {
     try {
       const saved = localStorage.getItem('dommunity_deleted_units')
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
+
+  const [deletedItemNames, setDeletedItemNames] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dommunity_deleted_item_names')
       return saved ? JSON.parse(saved) : []
     } catch {
       return []
@@ -550,6 +563,14 @@ export default function AdminDashboard({ user, onLogout }) {
     }
   }
 
+  const handleDeleteItemName = (nameToDelete) => {
+    const nameLower = nameToDelete.toLowerCase().trim()
+    const updated = [...deletedItemNames, nameLower]
+    setDeletedItemNames(updated)
+    localStorage.setItem('dommunity_deleted_item_names', JSON.stringify(updated))
+    triggerSuccess(`Item name "${nameToDelete}" has been removed from the suggestions list.`)
+  }
+
   // Donor form
   const [donorName, setDonorName] = useState('')
   const [donorType, setDonorType] = useState('external_sponsor')
@@ -604,6 +625,8 @@ export default function AdminDashboard({ user, onLogout }) {
   const [evtStatus, setEvtStatus] = useState('planned')
   const [eventSearchQuery, setEventSearchQuery] = useState('')
   const [eventMonthFilter, setEventMonthFilter] = useState('')
+  const [selectedViewEvent, setSelectedViewEvent] = useState(null)
+  const [isViewEventModalOpen, setIsViewEventModalOpen] = useState(false)
   const [evtType, setEvtType] = useState('department')
   const [evtOrgName, setEvtOrgName] = useState('')
   const [evtParentDeptId, setEvtParentDeptId] = useState('')
@@ -611,6 +634,7 @@ export default function AdminDashboard({ user, onLogout }) {
   // Sync data from DB
   const loadData = async () => {
     try {
+      await runInventoryDeduplicationMigration()
       const u = await getUsers()
       const o = await getOrganizations()
       const inv = await getInventory()
@@ -955,15 +979,46 @@ export default function AdminDashboard({ user, onLogout }) {
         }
         triggerSuccess('Inventory catalog updated successfully')
       } else {
+        // Find existing similar
+        const cleanExpiry = payload.expiryDate
+          ? new Date(payload.expiryDate).toISOString().split('T')[0]
+          : null
+        const cleanCategory = (payload.category || '').toLowerCase().trim()
+        const cleanUnit = (payload.unit || '').toLowerCase().trim()
+
+        const existingSimilar = inventoryList.find((i) => {
+          const existingName = i.name.toLowerCase().trim()
+          const existingCategory = (i.category || '').toLowerCase().trim()
+          const existingUnit = (i.unit || '').toLowerCase().trim()
+          const existingExpiry = i.expiryDate
+            ? new Date(i.expiryDate).toISOString().split('T')[0]
+            : null
+          return (
+            areNamesSimilar(existingName, payload.name) &&
+            existingCategory === cleanCategory &&
+            existingUnit === cleanUnit &&
+            existingExpiry === cleanExpiry
+          )
+        })
+
         await addInventoryItem(payload, user.uid)
+
+        const targetName = existingSimilar ? existingSimilar.name : payload.name
+        const targetUnit = existingSimilar ? existingSimilar.unit : payload.unit
+        const message = existingSimilar
+          ? `Duplicate detected. Stock of existing "${existingSimilar.name}" updated successfully.`
+          : 'Item added successfully'
+
         await logInventoryTransaction(
           'added',
-          payload.name,
+          targetName,
           payload.quantity,
-          payload.unit,
-          'New item cataloged'
+          targetUnit,
+          existingSimilar
+            ? 'Stock updated automatically (duplicate detection)'
+            : 'New item cataloged'
         )
-        triggerSuccess('Item added successfully')
+        triggerSuccess(message)
         setIsAddModalOpen(false) // Close Add Modal on success
       }
 
@@ -1085,11 +1140,11 @@ export default function AdminDashboard({ user, onLogout }) {
         prev.map((p) =>
           p.id === releaseItemId
             ? {
-                ...p,
-                qtyGroup: newQtyGroup,
-                qtyPieces: newQtyPieces,
-                baseQty: newBaseQty
-              }
+              ...p,
+              qtyGroup: newQtyGroup,
+              qtyPieces: newQtyPieces,
+              baseQty: newBaseQty
+            }
             : p
         )
       )
@@ -1413,11 +1468,35 @@ export default function AdminDashboard({ user, onLogout }) {
       const donorNameStr = donorObj ? donorObj.name : donorName
 
       for (const item of payload.items) {
+        const cleanExpiry = item.expiryDate
+          ? new Date(item.expiryDate).toISOString().split('T')[0]
+          : null
+        const cleanCategory = (item.category || '').toLowerCase().trim()
+        const cleanUnit = (item.unit || '').toLowerCase().trim()
+
+        const existingSimilar = inventoryList.find((i) => {
+          const existingName = i.name.toLowerCase().trim()
+          const existingCategory = (i.category || '').toLowerCase().trim()
+          const existingUnit = (i.unit || '').toLowerCase().trim()
+          const existingExpiry = i.expiryDate
+            ? new Date(i.expiryDate).toISOString().split('T')[0]
+            : null
+          return (
+            areNamesSimilar(existingName, item.name) &&
+            existingCategory === cleanCategory &&
+            existingUnit === cleanUnit &&
+            existingExpiry === cleanExpiry
+          )
+        })
+
+        const targetName = existingSimilar ? existingSimilar.name : item.name
+        const targetUnit = existingSimilar ? existingSimilar.unit : item.unit
+
         await logInventoryTransaction(
           'added',
-          item.name,
+          targetName,
           item.quantity,
-          item.unit,
+          targetUnit,
           `Received via donation batch from: ${donorNameStr}`
         )
       }
@@ -1831,7 +1910,7 @@ export default function AdminDashboard({ user, onLogout }) {
             type="button"
             disabled={isAnyModalOpen}
             onClick={() => setActiveTab('about')}
-            className={`text-navy-blue transition p-1 ${isAnyModalOpen ? 'opacity-40 cursor-not-allowed' : 'hover:opacity-85 cursor-pointer'}`}
+            className={`text-navy-blue transition-all duration-150 p-1 ${isAnyModalOpen ? 'opacity-40 cursor-not-allowed' : 'hover:opacity-85 cursor-pointer'}`}
             title="About DommUnity"
           >
             <Info className="w-5 h-5" />
@@ -1840,7 +1919,7 @@ export default function AdminDashboard({ user, onLogout }) {
             type="button"
             disabled={isAnyModalOpen}
             onClick={() => setActiveTab('dashboard')}
-            className={`text-navy-blue transition p-1 ${isAnyModalOpen ? 'opacity-40 cursor-not-allowed' : 'hover:opacity-85 cursor-pointer'}`}
+            className={`text-navy-blue transition-all duration-150 p-1 ${isAnyModalOpen ? 'opacity-40 cursor-not-allowed' : 'hover:opacity-85 cursor-pointer'}`}
             title="Dashboard"
           >
             <Home className="w-5 h-5" />
@@ -1912,9 +1991,6 @@ export default function AdminDashboard({ user, onLogout }) {
                       <h1 className="text-lg font-extrabold text-navy-blue tracking-tight">
                         Dashboard
                       </h1>
-                      <p className="text-[11px] text-gray-400 font-medium mt-0.5">
-                        Overview of CES activities
-                      </p>
                     </div>
 
                     {/* Quick Stats Grid */}
@@ -1926,7 +2002,7 @@ export default function AdminDashboard({ user, onLogout }) {
                     >
                       <motion.div
                         variants={staggerItem}
-                        className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3"
+                        className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3 hover:shadow-md hover:border-sig-green/30 transition-all duration-200"
                       >
                         <div className="p-2.5 bg-blue-50 text-blue-500 rounded-xl shrink-0">
                           <Users className="w-4.5 h-4.5" />
@@ -1947,7 +2023,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
                       <motion.div
                         variants={staggerItem}
-                        className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3"
+                        className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3 hover:shadow-md hover:border-sig-green/30 transition-all duration-200"
                       >
                         <div className="p-2.5 bg-amber-50 text-amber-500 rounded-xl shrink-0">
                           <Package className="w-4.5 h-4.5" />
@@ -1964,7 +2040,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
                       <motion.div
                         variants={staggerItem}
-                        className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3"
+                        className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3 hover:shadow-md hover:border-sig-green/30 transition-all duration-200"
                       >
                         <div className="p-2.5 bg-navy-blue/5 text-navy-blue rounded-xl shrink-0">
                           <FolderOpen className="w-4.5 h-4.5" />
@@ -1981,7 +2057,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
                       <motion.div
                         variants={staggerItem}
-                        className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3"
+                        className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3 hover:shadow-md hover:border-sig-green/30 transition-all duration-200"
                       >
                         <div className="p-2.5 bg-sig-green/10 text-sig-green rounded-xl shrink-0">
                           <Calendar className="w-4.5 h-4.5" />
@@ -2111,7 +2187,7 @@ export default function AdminDashboard({ user, onLogout }) {
                         <div className="flex items-center gap-2">
                           <Calendar className="w-3.5 h-3.5 text-navy-blue" />
                           <h3 className="font-bold text-navy-blue text-[12.5px]">
-                            Upcoming Outreaches
+                            Upcoming Events
                           </h3>
                         </div>
                         <button
@@ -2189,7 +2265,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             className="flex items-center space-x-1.5 bg-navy-blue text-white border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green font-semibold py-2 px-4 rounded-full text-xs cursor-pointer transition"
                           >
                             <Plus className="w-3.5 h-3.5" />
-                            <span>Add Catalog Item</span>
+                            <span>Add Item</span>
                           </button>
                           <button
                             type="button"
@@ -2298,7 +2374,7 @@ export default function AdminDashboard({ user, onLogout }) {
                               <button
                                 type="button"
                                 onClick={() => setShowAllRecommended(!showAllRecommended)}
-                                className="px-4 py-1.5 border border-navy-blue/15 text-navy-blue hover:bg-navy-blue/5 rounded-full text-xs font-semibold transition cursor-pointer"
+                                className="px-4 py-1.5 border border-navy-blue/15 text-navy-blue hover:bg-navy-blue/5 rounded-full text-xs font-semibold transition-all duration-150 cursor-pointer"
                               >
                                 {showAllRecommended ? 'See Less' : 'See More'}
                               </button>
@@ -2414,15 +2490,14 @@ export default function AdminDashboard({ user, onLogout }) {
                                     </td>
                                     <td className="py-3 px-2">
                                       <span
-                                        className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                                          item.status === 'available'
-                                            ? 'bg-green-50 text-green-700 border border-green-200'
-                                            : item.status === 'low stock'
-                                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                              : item.status === 'expired'
-                                                ? 'bg-red-50 text-red-700 border border-red-200'
-                                                : 'bg-red-50 text-red-700 border border-red-200'
-                                        }`}
+                                        className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${item.status === 'available'
+                                          ? 'bg-green-50 text-green-700 border border-green-200'
+                                          : item.status === 'low stock'
+                                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                            : item.status === 'expired'
+                                              ? 'bg-red-50 text-red-700 border border-red-200'
+                                              : 'bg-red-50 text-red-700 border border-red-200'
+                                          }`}
                                       >
                                         {item.status}
                                       </span>
@@ -2444,13 +2519,13 @@ export default function AdminDashboard({ user, onLogout }) {
                                             )
                                             setItemGroupUnit(item.groupUnit || 'none')
                                           }}
-                                          className="p-1 text-gray-400 hover:text-navy-blue transition cursor-pointer"
+                                          className="p-1 text-gray-400 hover:text-navy-blue transition-all duration-150 cursor-pointer"
                                         >
                                           <Edit2 className="w-3.5 h-3.5" />
                                         </button>
                                         <button
                                           onClick={() => handleDeleteInventory(item.id)}
-                                          className="p-1 text-gray-400 hover:text-red-500 transition cursor-pointer"
+                                          className="p-1 text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer"
                                         >
                                           <Trash2 className="w-3.5 h-3.5" />
                                         </button>
@@ -2472,1048 +2547,598 @@ export default function AdminDashboard({ user, onLogout }) {
                     </div>
 
                     {/* Modal Overlay for Add Catalog Item */}
-                    {isAddModalOpen && (
-                      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
-                        <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto">
-                          <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-                            <h3 className="font-bold text-navy-blue text-sm">Add Catalog Item</h3>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsAddModalOpen(false)
-                                setItemName('')
-                                setItemUnit('')
-                                setItemQty('')
-                                setItemExpiry('')
-                                setItemPiecesPerUnit('')
-                                setItemGroupUnit('none')
-                                setItemErrors({})
-                              }}
-                              className="text-gray-400 hover:text-navy-blue transition cursor-pointer"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
+                    {isAddModalOpen &&
+                      createPortal(
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
+                          <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto">
+                            <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+                              <h3 className="font-bold text-navy-blue text-sm">Add Catalog Item</h3>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsAddModalOpen(false)
+                                  setItemName('')
+                                  setItemUnit('')
+                                  setItemQty('')
+                                  setItemExpiry('')
+                                  setItemPiecesPerUnit('')
+                                  setItemGroupUnit('none')
+                                  setItemErrors({})
+                                }}
+                                className="text-gray-400 hover:text-navy-blue transition-all duration-150 cursor-pointer"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
 
-                          <form onSubmit={handleSaveInventory} className="space-y-4">
-                            {/* Item Name Suggestions */}
-                            <div>
-                              <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                Item Name
-                              </label>
-                              <div className="relative">
-                                <input
-                                  type="text"
-                                  value={itemName}
-                                  onChange={(e) => {
-                                    setItemName(e.target.value)
-                                    setItemErrors((prev) => {
-                                      const copy = { ...prev }
-                                      delete copy.itemName
-                                      return copy
-                                    })
-                                    setShowItemNameSuggestions(true)
-                                  }}
-                                  onFocus={() => setShowItemNameSuggestions(true)}
-                                  onBlur={() =>
-                                    setTimeout(() => setShowItemNameSuggestions(false), 200)
-                                  }
-                                  placeholder="e.g. Corned Beef, Notebooks"
-                                  className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemName ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                  style={{ height: '40px' }}
-                                />
-                                {itemErrors.itemName && (
+                            <form onSubmit={handleSaveInventory} className="space-y-4">
+                              {/* Item Name Suggestions */}
+                              <div>
+                                <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                  Item Name
+                                </label>
+                                <div className="relative">
+                                  <input
+                                    type="text"
+                                    value={itemName}
+                                    onChange={(e) => {
+                                      setItemName(e.target.value)
+                                      setItemErrors((prev) => {
+                                        const copy = { ...prev }
+                                        delete copy.itemName
+                                        return copy
+                                      })
+                                      setShowItemNameSuggestions(true)
+                                    }}
+                                    onFocus={() => setShowItemNameSuggestions(true)}
+                                    onBlur={() =>
+                                      setTimeout(() => setShowItemNameSuggestions(false), 200)
+                                    }
+                                    placeholder="e.g. Corned Beef, Notebooks"
+                                    className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemName ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                    style={{ height: '40px' }}
+                                  />
+                                  {itemErrors.itemName && (
+                                    <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                      {itemErrors.itemName}
+                                    </p>
+                                  )}
+                                  {showItemNameSuggestions && itemName && (
+                                    <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                                      {(() => {
+                                        const matching = inventoryList.filter(
+                                          (item) =>
+                                            item.name
+                                              .toLowerCase()
+                                              .includes(itemName.toLowerCase()) &&
+                                            !deletedItemNames.includes(
+                                              item.name.toLowerCase().trim()
+                                            )
+                                        )
+                                        const uniqueNames = [
+                                          ...new Set(matching.map((item) => item.name))
+                                        ]
+                                        if (uniqueNames.length === 0) return null
+                                        return (
+                                          <div className="py-1">
+                                            {uniqueNames.map((name) => {
+                                              const originalItem = matching.find(
+                                                (item) => item.name === name
+                                              )
+                                              return (
+                                                <div
+                                                  key={name}
+                                                  onMouseDown={(e) => e.preventDefault()}
+                                                  onClick={() => {
+                                                    setItemName(name)
+                                                    if (originalItem) {
+                                                      setItemCategory(originalItem.category)
+                                                      setItemUnit(originalItem.unit)
+                                                      if (originalItem.piecesPerUnit) {
+                                                        setItemPiecesPerUnit(
+                                                          originalItem.piecesPerUnit.toString()
+                                                        )
+                                                      }
+                                                      if (originalItem.groupUnit) {
+                                                        setItemGroupUnit(originalItem.groupUnit)
+                                                      }
+                                                    }
+                                                    setShowItemNameSuggestions(false)
+                                                  }}
+                                                  className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left animate-fade-in"
+                                                >
+                                                  <span className="truncate">
+                                                    {name}{' '}
+                                                    {originalItem?.category && (
+                                                      <span className="text-[10px] text-gray-400 font-normal">
+                                                        ({originalItem.category})
+                                                      </span>
+                                                    )}
+                                                  </span>
+                                                  <button
+                                                    type="button"
+                                                    onMouseDown={(e) => {
+                                                      e.preventDefault()
+                                                      e.stopPropagation()
+                                                    }}
+                                                    onClick={(e) => {
+                                                      e.stopPropagation()
+                                                      handleDeleteItemName(name)
+                                                    }}
+                                                    className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100 shrink-0 ml-2"
+                                                  >
+                                                    <X className="w-3 h-3" />
+                                                  </button>
+                                                </div>
+                                              )
+                                            })}
+                                          </div>
+                                        )
+                                      })()}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Category Searchable Dropdown */}
+                              <div>
+                                <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                  Category
+                                </label>
+                                <div className="relative">
+                                  <input
+                                    type="text"
+                                    value={itemCategory}
+                                    onFocus={() => {
+                                      prevAddCategoryRef.current = itemCategory
+                                      setItemCategory('')
+                                      setShowAddCategoryDropdown(true)
+                                    }}
+                                    onBlur={() =>
+                                      setTimeout(() => {
+                                        setShowAddCategoryDropdown(false)
+                                        setItemCategory((current) =>
+                                          current ? current : prevAddCategoryRef.current
+                                        )
+                                      }, 200)
+                                    }
+                                    onChange={(e) => {
+                                      setItemCategory(e.target.value)
+                                      setItemErrors((prev) => {
+                                        const copy = { ...prev }
+                                        delete copy.itemCategory
+                                        return copy
+                                      })
+                                    }}
+                                    placeholder="Select or type category"
+                                    className={`w-full pl-2.5 pr-16 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemCategory ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                    style={{ height: '40px' }}
+                                  />
+                                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
+                                    <div className="pointer-events-none text-gray-400">
+                                      <ChevronRight className="w-4 h-4 transform rotate-90" />
+                                    </div>
+                                  </div>
+                                  {showAddCategoryDropdown &&
+                                    activeCategories.filter(
+                                      (cat) =>
+                                        !itemCategory ||
+                                        cat.toLowerCase().includes(itemCategory.toLowerCase())
+                                    ).length > 0 && (
+                                      <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                                        {activeCategories
+                                          .filter(
+                                            (cat) =>
+                                              !itemCategory ||
+                                              cat.toLowerCase().includes(itemCategory.toLowerCase())
+                                          )
+                                          .map((cat) => (
+                                            <div
+                                              key={cat}
+                                              onMouseDown={(e) => e.preventDefault()}
+                                              onClick={() => {
+                                                setItemCategory(cat)
+                                                prevAddCategoryRef.current = cat
+                                                setShowAddCategoryDropdown(false)
+                                                setItemErrors((prev) => {
+                                                  const copy = { ...prev }
+                                                  delete copy.itemCategory
+                                                  return copy
+                                                })
+                                              }}
+                                              className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
+                                            >
+                                              <span className="truncate">{cat}</span>
+                                              <button
+                                                type="button"
+                                                onMouseDown={(e) => {
+                                                  e.preventDefault()
+                                                  e.stopPropagation()
+                                                }}
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  handleDeleteCategory(cat)
+                                                }}
+                                                className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                              >
+                                                <X className="w-3 h-3" />
+                                              </button>
+                                            </div>
+                                          ))}
+                                      </div>
+                                    )}
+                                </div>
+                                {itemErrors.itemCategory && (
                                   <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                    {itemErrors.itemName}
+                                    {itemErrors.itemCategory}
                                   </p>
                                 )}
-                                {showItemNameSuggestions && itemName && (
-                                  <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                    {(() => {
-                                      const matching = inventoryList.filter((item) =>
-                                        item.name.toLowerCase().includes(itemName.toLowerCase())
-                                      )
-                                      const uniqueNames = [
-                                        ...new Set(matching.map((item) => item.name))
-                                      ]
-                                      if (uniqueNames.length === 0) return null
-                                      return (
-                                        <div className="py-1">
-                                          {uniqueNames.map((name) => {
-                                            const originalItem = matching.find(
-                                              (item) => item.name === name
-                                            )
-                                            return (
-                                              <div
-                                                key={name}
-                                                onMouseDown={(e) => e.preventDefault()}
-                                                onClick={() => {
-                                                  setItemName(name)
-                                                  if (originalItem) {
-                                                    setItemCategory(originalItem.category)
-                                                    setItemUnit(originalItem.unit)
-                                                    if (originalItem.piecesPerUnit) {
-                                                      setItemPiecesPerUnit(
-                                                        originalItem.piecesPerUnit.toString()
-                                                      )
-                                                    }
-                                                    if (originalItem.groupUnit) {
-                                                      setItemGroupUnit(originalItem.groupUnit)
-                                                    }
-                                                  }
-                                                  setShowItemNameSuggestions(false)
-                                                }}
-                                                className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left animate-fade-in"
-                                              >
-                                                {name}{' '}
-                                                {originalItem?.category && (
-                                                  <span className="text-[10px] text-gray-400 font-normal">
-                                                    ({originalItem.category})
-                                                  </span>
-                                                )}
-                                              </div>
-                                            )
-                                          })}
-                                        </div>
-                                      )
-                                    })()}
-                                  </div>
-                                )}
                               </div>
-                            </div>
 
-                            {/* Category Searchable Dropdown */}
-                            <div>
-                              <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                Category
-                              </label>
-                              <div className="relative">
-                                <input
-                                  type="text"
-                                  value={itemCategory}
-                                  onFocus={() => {
-                                    prevAddCategoryRef.current = itemCategory
-                                    setItemCategory('')
-                                    setShowAddCategoryDropdown(true)
-                                  }}
-                                  onBlur={() =>
-                                    setTimeout(() => {
-                                      setShowAddCategoryDropdown(false)
-                                      setItemCategory((current) =>
-                                        current ? current : prevAddCategoryRef.current
-                                      )
-                                    }, 200)
-                                  }
-                                  onChange={(e) => {
-                                    setItemCategory(e.target.value)
-                                    setItemErrors((prev) => {
-                                      const copy = { ...prev }
-                                      delete copy.itemCategory
-                                      return copy
-                                    })
-                                  }}
-                                  placeholder="Select or type category"
-                                  className={`w-full pl-2.5 pr-16 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemCategory ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                  style={{ height: '40px' }}
-                                />
-                                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
-                                  <div className="pointer-events-none text-gray-400">
-                                    <ChevronRight className="w-4 h-4 transform rotate-90" />
-                                  </div>
-                                </div>
-                                {showAddCategoryDropdown &&
-                                  activeCategories.filter(
-                                    (cat) =>
-                                      !itemCategory ||
-                                      cat.toLowerCase().includes(itemCategory.toLowerCase())
-                                  ).length > 0 && (
-                                    <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                      {activeCategories
-                                        .filter(
-                                          (cat) =>
-                                            !itemCategory ||
-                                            cat.toLowerCase().includes(itemCategory.toLowerCase())
+                              {/* Unit Searchable Dropdown */}
+                              <div>
+                                <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                  Unit
+                                </label>
+                                <div className="relative">
+                                  <input
+                                    type="text"
+                                    value={itemUnit}
+                                    onFocus={() => {
+                                      prevAddUnitRef.current = itemUnit
+                                      setItemUnit('')
+                                      setShowAddUnitDropdown(true)
+                                    }}
+                                    onBlur={() =>
+                                      setTimeout(() => {
+                                        setShowAddUnitDropdown(false)
+                                        setItemUnit((current) =>
+                                          current ? current : prevAddUnitRef.current
                                         )
-                                        .map((cat) => (
-                                          <div
-                                            key={cat}
-                                            onMouseDown={(e) => e.preventDefault()}
-                                            onClick={() => {
-                                              setItemCategory(cat)
-                                              prevAddCategoryRef.current = cat
-                                              setShowAddCategoryDropdown(false)
-                                              setItemErrors((prev) => {
-                                                const copy = { ...prev }
-                                                delete copy.itemCategory
-                                                return copy
-                                              })
-                                            }}
-                                            className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
-                                          >
-                                            <span className="truncate">{cat}</span>
-                                            <button
-                                              type="button"
-                                              onMouseDown={(e) => {
-                                                e.preventDefault()
-                                                e.stopPropagation()
-                                              }}
-                                              onClick={(e) => {
-                                                e.stopPropagation()
-                                                handleDeleteCategory(cat)
-                                              }}
-                                              className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5 rounded hover:bg-gray-100"
-                                            >
-                                              <X className="w-3 h-3" />
-                                            </button>
-                                          </div>
-                                        ))}
-                                    </div>
-                                  )}
-                              </div>
-                              {itemErrors.itemCategory && (
-                                <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                  {itemErrors.itemCategory}
-                                </p>
-                              )}
-                            </div>
-
-                            {/* Unit Searchable Dropdown */}
-                            <div>
-                              <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                Unit
-                              </label>
-                              <div className="relative">
-                                <input
-                                  type="text"
-                                  value={itemUnit}
-                                  onFocus={() => {
-                                    prevAddUnitRef.current = itemUnit
-                                    setItemUnit('')
-                                    setShowAddUnitDropdown(true)
-                                  }}
-                                  onBlur={() =>
-                                    setTimeout(() => {
-                                      setShowAddUnitDropdown(false)
-                                      setItemUnit((current) =>
-                                        current ? current : prevAddUnitRef.current
-                                      )
-                                    }, 200)
-                                  }
-                                  onChange={(e) => {
-                                    setItemUnit(e.target.value)
-                                    setItemErrors((prev) => {
-                                      const copy = { ...prev }
-                                      delete copy.itemUnit
-                                      return copy
-                                    })
-                                  }}
-                                  placeholder="Select or type unit"
-                                  className={`w-full pl-2.5 pr-16 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemUnit ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                  style={{ height: '40px' }}
-                                />
-                                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
-                                  {itemUnit && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setItemUnit('')
-                                        prevAddUnitRef.current = ''
-                                      }}
-                                      className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5"
-                                      tabIndex={-1}
-                                    >
-                                      <X className="w-3.5 h-3.5" />
-                                    </button>
-                                  )}
-                                  <div className="pointer-events-none text-gray-400">
-                                    <ChevronRight className="w-4 h-4 transform rotate-90" />
-                                  </div>
-                                </div>
-                                {showAddUnitDropdown &&
-                                  activeUnits.filter(
-                                    (u) =>
-                                      !itemUnit || u.toLowerCase().includes(itemUnit.toLowerCase())
-                                  ).length > 0 && (
-                                    <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                      {activeUnits
-                                        .filter(
-                                          (u) =>
-                                            !itemUnit ||
-                                            u.toLowerCase().includes(itemUnit.toLowerCase())
-                                        )
-                                        .map((u) => (
-                                          <div
-                                            key={u}
-                                            onMouseDown={(e) => e.preventDefault()}
-                                            onClick={() => {
-                                              setItemUnit(u)
-                                              prevAddUnitRef.current = u
-                                              setShowAddUnitDropdown(false)
-                                              setItemErrors((prev) => {
-                                                const copy = { ...prev }
-                                                delete copy.itemUnit
-                                                return copy
-                                              })
-                                            }}
-                                            className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
-                                          >
-                                            <span className="truncate">{u}</span>
-                                            <button
-                                              type="button"
-                                              onMouseDown={(e) => {
-                                                e.preventDefault()
-                                                e.stopPropagation()
-                                              }}
-                                              onClick={(e) => {
-                                                e.stopPropagation()
-                                                handleDeleteUnit(u)
-                                              }}
-                                              className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5 rounded hover:bg-gray-100"
-                                            >
-                                              <X className="w-3 h-3" />
-                                            </button>
-                                          </div>
-                                        ))}
-                                    </div>
-                                  )}
-                              </div>
-                              {itemErrors.itemUnit && (
-                                <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                  {itemErrors.itemUnit}
-                                </p>
-                              )}
-                            </div>
-
-                            {/* Quantity */}
-                            <div>
-                              <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                Quantity
-                              </label>
-                              <div className="relative">
-                                <input
-                                  type="text"
-                                  value={itemQty}
-                                  onFocus={() => {
-                                    prevAddQtyRef.current = itemQty
-                                    setItemQty('')
-                                    setShowAddQtyDropdown(true)
-                                  }}
-                                  onBlur={() =>
-                                    setTimeout(() => {
-                                      setShowAddQtyDropdown(false)
-                                      setItemQty((current) =>
-                                        current ? current : prevAddQtyRef.current
-                                      )
-                                    }, 200)
-                                  }
-                                  onChange={(e) => {
-                                    handleQtyChange(e.target.value)
-                                    setItemErrors((prev) => {
-                                      const copy = { ...prev }
-                                      delete copy.itemQty
-                                      return copy
-                                    })
-                                  }}
-                                  placeholder="Select or enter quantity"
-                                  className={`w-full pl-2.5 pr-8 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemQty ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                  style={{ height: '40px' }}
-                                />
-                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                  <ChevronRight className="w-4 h-4 transform rotate-90" />
-                                </div>
-                                {showAddQtyDropdown && (
-                                  <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                    {[5, 10, 20, 50, 100, 250, 500]
-                                      .filter((q) => !itemQty || q.toString().includes(itemQty))
-                                      .map((q) => (
-                                        <div
-                                          key={q}
-                                          onMouseDown={(e) => e.preventDefault()}
-                                          onClick={() => {
-                                            setItemQty(q.toString())
-                                            prevAddQtyRef.current = q.toString()
-                                            setItemErrors((prev) => {
-                                              const copy = { ...prev }
-                                              delete copy.itemQty
-                                              return copy
-                                            })
-                                            setShowAddQtyDropdown(false)
-                                          }}
-                                          className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
-                                        >
-                                          {q}
-                                        </div>
-                                      ))}
-                                  </div>
-                                )}
-                              </div>
-                              {itemErrors.itemQty && (
-                                <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                  {itemErrors.itemQty}
-                                </p>
-                              )}
-                            </div>
-
-                            {/* Group Stock & Pieces (if Quantity >= 12) */}
-                            {(() => {
-                              const parsedQty = parseInt(itemQty, 10)
-                              const unitLower = (itemUnit || '').toLowerCase().trim()
-                              const isAlreadyGrouped = [
-                                'pack',
-                                'packs',
-                                'box',
-                                'boxes',
-                                'bundle',
-                                'bundles'
-                              ].includes(unitLower)
-                              if (!isNaN(parsedQty) && parsedQty >= 12 && !isAlreadyGrouped) {
-                                return (
-                                  <div className="space-y-4">
-                                    <div>
-                                      <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                        Group stock into (Optional)
-                                      </label>
-                                      <select
-                                        value={itemGroupUnit}
-                                        onChange={(e) => {
-                                          setItemGroupUnit(e.target.value)
-                                          if (e.target.value === 'none') {
-                                            setItemPiecesPerUnit('')
-                                          } else if (!itemPiecesPerUnit) {
-                                            setItemPiecesPerUnit('12')
-                                          }
+                                      }, 200)
+                                    }
+                                    onChange={(e) => {
+                                      setItemUnit(e.target.value)
+                                      setItemErrors((prev) => {
+                                        const copy = { ...prev }
+                                        delete copy.itemUnit
+                                        return copy
+                                      })
+                                    }}
+                                    placeholder="Select or type unit"
+                                    className={`w-full pl-2.5 pr-16 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemUnit ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                    style={{ height: '40px' }}
+                                  />
+                                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
+                                    {itemUnit && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setItemUnit('')
+                                          prevAddUnitRef.current = ''
                                         }}
-                                        className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue cursor-pointer"
-                                        style={{ height: '40px' }}
+                                        className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                        tabIndex={-1}
                                       >
-                                        <option value="none">
-                                          Do not group (Individual pieces)
-                                        </option>
-                                        <option value="pack">Packs</option>
-                                        <option value="box">Boxes</option>
-                                        <option value="bundle">Bundles</option>
-                                      </select>
+                                        <X className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                    <div className="pointer-events-none text-gray-400">
+                                      <ChevronRight className="w-4 h-4 transform rotate-90" />
                                     </div>
-                                    {itemGroupUnit !== 'none' && (
-                                      <div className="space-y-4">
-                                        <div>
-                                          <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                            Pieces per Pack/Box/Bundle
-                                          </label>
-                                          <input
-                                            type="text"
-                                            value={itemPiecesPerUnit}
-                                            onChange={(e) =>
-                                              handlePiecesPerUnitChange(e.target.value)
-                                            }
-                                            placeholder="e.g. 12"
-                                            className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
-                                            style={{ height: '40px' }}
-                                          />
-                                        </div>
-                                        <div>
-                                          <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                            Remaining Pieces
-                                          </label>
-                                          <input
-                                            type="text"
-                                            readOnly
-                                            value={getRemainingPiecesText(
-                                              itemQty,
-                                              itemPiecesPerUnit || '12',
-                                              itemGroupUnit
-                                            )}
-                                            className="w-full p-2.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none font-bold text-navy-blue"
-                                            style={{ height: '40px' }}
-                                          />
-                                        </div>
+                                  </div>
+                                  {showAddUnitDropdown &&
+                                    activeUnits.filter(
+                                      (u) =>
+                                        !itemUnit ||
+                                        u.toLowerCase().includes(itemUnit.toLowerCase())
+                                    ).length > 0 && (
+                                      <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                                        {activeUnits
+                                          .filter(
+                                            (u) =>
+                                              !itemUnit ||
+                                              u.toLowerCase().includes(itemUnit.toLowerCase())
+                                          )
+                                          .map((u) => (
+                                            <div
+                                              key={u}
+                                              onMouseDown={(e) => e.preventDefault()}
+                                              onClick={() => {
+                                                setItemUnit(u)
+                                                prevAddUnitRef.current = u
+                                                setShowAddUnitDropdown(false)
+                                                setItemErrors((prev) => {
+                                                  const copy = { ...prev }
+                                                  delete copy.itemUnit
+                                                  return copy
+                                                })
+                                              }}
+                                              className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
+                                            >
+                                              <span className="truncate">{u}</span>
+                                              <button
+                                                type="button"
+                                                onMouseDown={(e) => {
+                                                  e.preventDefault()
+                                                  e.stopPropagation()
+                                                }}
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  handleDeleteUnit(u)
+                                                }}
+                                                className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                              >
+                                                <X className="w-3 h-3" />
+                                              </button>
+                                            </div>
+                                          ))}
                                       </div>
                                     )}
-                                  </div>
-                                )
-                              }
-                              return null
-                            })()}
-
-                            {/* Pieces per Unit (if Unit is already a Pack, Box, or Bundle) */}
-                            {(() => {
-                              const unitLower = (itemUnit || '').toLowerCase().trim()
-                              const isAlreadyGrouped = [
-                                'pack',
-                                'packs',
-                                'box',
-                                'boxes',
-                                'bundle',
-                                'bundles'
-                              ].includes(unitLower)
-                              if (isAlreadyGrouped) {
-                                return (
-                                  <div className="animate-fade-in">
-                                    <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                      Pieces per Unit <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                      type="text"
-                                      value={itemPiecesPerUnit}
-                                      onChange={(e) => {
-                                        handlePiecesPerUnitChange(e.target.value)
-                                        setItemErrors((prev) => {
-                                          const copy = { ...prev }
-                                          delete copy.itemPiecesPerUnit
-                                          return copy
-                                        })
-                                      }}
-                                      placeholder="e.g. 12"
-                                      className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemPiecesPerUnit ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                      style={{ height: '40px' }}
-                                    />
-                                    {itemErrors.itemPiecesPerUnit && (
-                                      <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                        {itemErrors.itemPiecesPerUnit}
-                                      </p>
-                                    )}
-                                  </div>
-                                )
-                              }
-                              return null
-                            })()}
-
-                            {/* Expiration Date */}
-                            <div>
-                              <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                Expiration Date{' '}
-                                {itemCategory.toLowerCase().trim() !== 'school supplies' && (
-                                  <span className="text-red-500">*</span>
+                                </div>
+                                {itemErrors.itemUnit && (
+                                  <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                    {itemErrors.itemUnit}
+                                  </p>
                                 )}
-                              </label>
-                              <div
-                                className={
-                                  itemErrors.itemExpiry
-                                    ? 'border border-red-500 rounded-xl p-0.5 ring-2 ring-red-500/10'
-                                    : ''
-                                }
-                              >
-                                <GlassDatePicker
-                                  value={itemExpiry ? itemExpiry.split('T')[0] : ''}
-                                  disabled={itemCategory.toLowerCase().trim() === 'school supplies'}
-                                  onChange={(val) => {
-                                    setItemExpiry(val)
-                                    setItemErrors((prev) => {
-                                      const copy = { ...prev }
-                                      delete copy.itemExpiry
-                                      return copy
-                                    })
-                                  }}
-                                  showTime={false}
-                                  placeholder="dd/mm/yyyy"
-                                />
                               </div>
-                              {itemErrors.itemExpiry && (
-                                <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                  {itemErrors.itemExpiry}
-                                </p>
-                              )}
-                            </div>
 
-                            <button
-                              type="submit"
-                              disabled={loading}
-                              className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center justify-center cursor-pointer animate-fade-in"
-                              style={{ height: '40px' }}
-                            >
-                              {loading ? 'Saving...' : 'Add Item'}
-                            </button>
-                          </form>
-                        </div>
-                      </div>
-                    )}
+                              {/* Quantity */}
+                              <div>
+                                <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                  Quantity
+                                </label>
+                                <div className="relative">
+                                  <input
+                                    type="text"
+                                    value={itemQty}
+                                    onFocus={() => {
+                                      prevAddQtyRef.current = itemQty
+                                      setItemQty('')
+                                      setShowAddQtyDropdown(true)
+                                    }}
+                                    onBlur={() =>
+                                      setTimeout(() => {
+                                        setShowAddQtyDropdown(false)
+                                        setItemQty((current) =>
+                                          current ? current : prevAddQtyRef.current
+                                        )
+                                      }, 200)
+                                    }
+                                    onChange={(e) => {
+                                      handleQtyChange(e.target.value)
+                                      setItemErrors((prev) => {
+                                        const copy = { ...prev }
+                                        delete copy.itemQty
+                                        return copy
+                                      })
+                                    }}
+                                    placeholder="Select or enter quantity"
+                                    className={`w-full pl-2.5 pr-8 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemQty ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                    style={{ height: '40px' }}
+                                  />
+                                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                    <ChevronRight className="w-4 h-4 transform rotate-90" />
+                                  </div>
+                                  {showAddQtyDropdown && (
+                                    <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                                      {[5, 10, 20, 50, 100, 250, 500]
+                                        .filter((q) => !itemQty || q.toString().includes(itemQty))
+                                        .map((q) => (
+                                          <div
+                                            key={q}
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onClick={() => {
+                                              setItemQty(q.toString())
+                                              prevAddQtyRef.current = q.toString()
+                                              setItemErrors((prev) => {
+                                                const copy = { ...prev }
+                                                delete copy.itemQty
+                                                return copy
+                                              })
+                                              setShowAddQtyDropdown(false)
+                                            }}
+                                            className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
+                                          >
+                                            {q}
+                                          </div>
+                                        ))}
+                                    </div>
+                                  )}
+                                </div>
+                                {itemErrors.itemQty && (
+                                  <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                    {itemErrors.itemQty}
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Group Stock & Pieces (if Quantity >= 12) */}
+                              {(() => {
+                                const parsedQty = parseInt(itemQty, 10)
+                                const unitLower = (itemUnit || '').toLowerCase().trim()
+                                const isAlreadyGrouped = [
+                                  'pack',
+                                  'packs',
+                                  'box',
+                                  'boxes',
+                                  'bundle',
+                                  'bundles'
+                                ].includes(unitLower)
+                                if (!isNaN(parsedQty) && parsedQty >= 12 && !isAlreadyGrouped) {
+                                  return (
+                                    <div className="space-y-4">
+                                      <div>
+                                        <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                          Group stock into (Optional)
+                                        </label>
+                                        <select
+                                          value={itemGroupUnit}
+                                          onChange={(e) => {
+                                            setItemGroupUnit(e.target.value)
+                                            if (e.target.value === 'none') {
+                                              setItemPiecesPerUnit('')
+                                            } else if (!itemPiecesPerUnit) {
+                                              setItemPiecesPerUnit('12')
+                                            }
+                                          }}
+                                          className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue cursor-pointer"
+                                          style={{ height: '40px' }}
+                                        >
+                                          <option value="none">
+                                            Do not group (Individual pieces)
+                                          </option>
+                                          <option value="pack">Packs</option>
+                                          <option value="box">Boxes</option>
+                                          <option value="bundle">Bundles</option>
+                                        </select>
+                                      </div>
+                                      {itemGroupUnit !== 'none' && (
+                                        <div className="space-y-4">
+                                          <div>
+                                            <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                              Pieces per Pack/Box/Bundle
+                                            </label>
+                                            <input
+                                              type="text"
+                                              value={itemPiecesPerUnit}
+                                              onChange={(e) =>
+                                                handlePiecesPerUnitChange(e.target.value)
+                                              }
+                                              placeholder="e.g. 12"
+                                              className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                                              style={{ height: '40px' }}
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                              Remaining Pieces
+                                            </label>
+                                            <input
+                                              type="text"
+                                              readOnly
+                                              value={getRemainingPiecesText(
+                                                itemQty,
+                                                itemPiecesPerUnit || '12',
+                                                itemGroupUnit
+                                              )}
+                                              className="w-full p-2.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none font-bold text-navy-blue"
+                                              style={{ height: '40px' }}
+                                            />
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )
+                                }
+                                return null
+                              })()}
+
+                              {/* Pieces per Unit (if Unit is already a Pack, Box, or Bundle) */}
+                              {(() => {
+                                const unitLower = (itemUnit || '').toLowerCase().trim()
+                                const isAlreadyGrouped = [
+                                  'pack',
+                                  'packs',
+                                  'box',
+                                  'boxes',
+                                  'bundle',
+                                  'bundles'
+                                ].includes(unitLower)
+                                if (isAlreadyGrouped) {
+                                  return (
+                                    <div className="animate-fade-in">
+                                      <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                        Pieces per Unit <span className="text-red-500">*</span>
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={itemPiecesPerUnit}
+                                        onChange={(e) => {
+                                          handlePiecesPerUnitChange(e.target.value)
+                                          setItemErrors((prev) => {
+                                            const copy = { ...prev }
+                                            delete copy.itemPiecesPerUnit
+                                            return copy
+                                          })
+                                        }}
+                                        placeholder="e.g. 12"
+                                        className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemPiecesPerUnit ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                        style={{ height: '40px' }}
+                                      />
+                                      {itemErrors.itemPiecesPerUnit && (
+                                        <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                          {itemErrors.itemPiecesPerUnit}
+                                        </p>
+                                      )}
+                                    </div>
+                                  )
+                                }
+                                return null
+                              })()}
+
+                              {/* Expiration Date */}
+                              <div>
+                                <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                  Expiration Date{' '}
+                                  {itemCategory.toLowerCase().trim() !== 'school supplies' && (
+                                    <span className="text-red-500">*</span>
+                                  )}
+                                </label>
+                                <div
+                                  className={
+                                    itemErrors.itemExpiry
+                                      ? 'border border-red-500 rounded-xl p-0.5 ring-2 ring-red-500/10'
+                                      : ''
+                                  }
+                                >
+                                  <GlassDatePicker
+                                    value={itemExpiry ? itemExpiry.split('T')[0] : ''}
+                                    disabled={
+                                      itemCategory.toLowerCase().trim() === 'school supplies'
+                                    }
+                                    onChange={(val) => {
+                                      setItemExpiry(val)
+                                      setItemErrors((prev) => {
+                                        const copy = { ...prev }
+                                        delete copy.itemExpiry
+                                        return copy
+                                      })
+                                    }}
+                                    showTime={false}
+                                    placeholder="dd/mm/yyyy"
+                                  />
+                                </div>
+                                {itemErrors.itemExpiry && (
+                                  <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                    {itemErrors.itemExpiry}
+                                  </p>
+                                )}
+                              </div>
+
+                              <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center justify-center cursor-pointer animate-fade-in"
+                                style={{ height: '40px' }}
+                              >
+                                {loading ? 'Saving...' : 'Add Item'}
+                              </button>
+                            </form>
+                          </div>
+                        </div>,
+                        document.body
+                      )}
 
                     {/* Modal Overlay for Edit */}
-                    {itemEditing && (
-                      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
-                        <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto">
-                          <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-                            <h3 className="font-bold text-navy-blue text-sm">
-                              Modify Catalog Item
-                            </h3>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setItemEditing(null)
-                                setItemName('')
-                                setItemUnit('')
-                                setItemQty('')
-                                setItemExpiry('')
-                                setItemPiecesPerUnit('')
-                                setItemGroupUnit('none')
-                                setItemErrors({})
-                              }}
-                              className="text-gray-400 hover:text-navy-blue transition cursor-pointer"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-
-                          <form onSubmit={handleSaveInventory} className="space-y-4">
-                            <div>
-                              <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                Item Name
-                              </label>
-                              <input
-                                type="text"
-                                value={itemName}
-                                onChange={(e) => {
-                                  setItemName(e.target.value)
-                                  setItemErrors((prev) => {
-                                    const copy = { ...prev }
-                                    delete copy.itemName
-                                    return copy
-                                  })
-                                }}
-                                placeholder="e.g. Corned Beef, Notebooks"
-                                className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemName ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                style={{ height: '40px' }}
-                              />
-                              {itemErrors.itemName && (
-                                <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                  {itemErrors.itemName}
-                                </p>
-                              )}
-                            </div>
-
-                            <div>
-                              <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                Category
-                              </label>
-                              <div className="relative">
-                                <input
-                                  type="text"
-                                  value={itemCategory}
-                                  onFocus={() => {
-                                    prevEditCategoryRef.current = itemCategory
-                                    setItemCategory('')
-                                    setShowEditCategoryDropdown(true)
-                                  }}
-                                  onBlur={() =>
-                                    setTimeout(() => {
-                                      setShowEditCategoryDropdown(false)
-                                      setItemCategory((current) =>
-                                        current ? current : prevEditCategoryRef.current
-                                      )
-                                    }, 200)
-                                  }
-                                  onChange={(e) => {
-                                    setItemCategory(e.target.value)
-                                    setItemErrors((prev) => {
-                                      const copy = { ...prev }
-                                      delete copy.itemCategory
-                                      return copy
-                                    })
-                                  }}
-                                  placeholder="Select or type category"
-                                  className={`w-full pl-2.5 pr-16 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemCategory ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                  style={{ height: '40px' }}
-                                />
-                                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
-                                  <div className="pointer-events-none text-gray-400">
-                                    <ChevronRight className="w-4 h-4 transform rotate-90" />
-                                  </div>
-                                </div>
-                                {showEditCategoryDropdown &&
-                                  activeCategories.filter(
-                                    (cat) =>
-                                      !itemCategory ||
-                                      cat.toLowerCase().includes(itemCategory.toLowerCase())
-                                  ).length > 0 && (
-                                    <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                      {activeCategories
-                                        .filter(
-                                          (cat) =>
-                                            !itemCategory ||
-                                            cat.toLowerCase().includes(itemCategory.toLowerCase())
-                                        )
-                                        .map((cat) => (
-                                          <div
-                                            key={cat}
-                                            onMouseDown={(e) => e.preventDefault()}
-                                            onClick={() => {
-                                              setItemCategory(cat)
-                                              prevEditCategoryRef.current = cat
-                                              setShowEditCategoryDropdown(false)
-                                              setItemErrors((prev) => {
-                                                const copy = { ...prev }
-                                                delete copy.itemCategory
-                                                return copy
-                                              })
-                                            }}
-                                            className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
-                                          >
-                                            <span className="truncate">{cat}</span>
-                                            <button
-                                              type="button"
-                                              onMouseDown={(e) => {
-                                                e.preventDefault()
-                                                e.stopPropagation()
-                                              }}
-                                              onClick={(e) => {
-                                                e.stopPropagation()
-                                                handleDeleteCategory(cat)
-                                              }}
-                                              className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5 rounded hover:bg-gray-100"
-                                            >
-                                              <X className="w-3 h-3" />
-                                            </button>
-                                          </div>
-                                        ))}
-                                    </div>
-                                  )}
-                              </div>
-                              {itemErrors.itemCategory && (
-                                <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                  {itemErrors.itemCategory}
-                                </p>
-                              )}
-                            </div>
-
-                            {/* Unit Searchable Dropdown */}
-                            <div>
-                              <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                Unit
-                              </label>
-                              <div className="relative">
-                                <input
-                                  type="text"
-                                  value={itemUnit}
-                                  onFocus={() => {
-                                    prevEditUnitRef.current = itemUnit
-                                    setItemUnit('')
-                                    setShowEditUnitDropdown(true)
-                                  }}
-                                  onBlur={() =>
-                                    setTimeout(() => {
-                                      setShowEditUnitDropdown(false)
-                                      setItemUnit((current) =>
-                                        current ? current : prevEditUnitRef.current
-                                      )
-                                    }, 200)
-                                  }
-                                  onChange={(e) => {
-                                    setItemUnit(e.target.value)
-                                    setItemErrors((prev) => {
-                                      const copy = { ...prev }
-                                      delete copy.itemUnit
-                                      return copy
-                                    })
-                                  }}
-                                  placeholder="Select or type unit"
-                                  className={`w-full pl-2.5 pr-16 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemUnit ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                  style={{ height: '40px' }}
-                                />
-                                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
-                                  {itemUnit && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setItemUnit('')
-                                        prevEditUnitRef.current = ''
-                                      }}
-                                      className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5"
-                                      tabIndex={-1}
-                                    >
-                                      <X className="w-3.5 h-3.5" />
-                                    </button>
-                                  )}
-                                  <div className="pointer-events-none text-gray-400">
-                                    <ChevronRight className="w-4 h-4 transform rotate-90" />
-                                  </div>
-                                </div>
-                                {showEditUnitDropdown &&
-                                  activeUnits.filter(
-                                    (u) =>
-                                      !itemUnit || u.toLowerCase().includes(itemUnit.toLowerCase())
-                                  ).length > 0 && (
-                                    <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                      {activeUnits
-                                        .filter(
-                                          (u) =>
-                                            !itemUnit ||
-                                            u.toLowerCase().includes(itemUnit.toLowerCase())
-                                        )
-                                        .map((u) => (
-                                          <div
-                                            key={u}
-                                            onMouseDown={(e) => e.preventDefault()}
-                                            onClick={() => {
-                                              setItemUnit(u)
-                                              prevEditUnitRef.current = u
-                                              setShowEditUnitDropdown(false)
-                                              setItemErrors((prev) => {
-                                                const copy = { ...prev }
-                                                delete copy.itemUnit
-                                                return copy
-                                              })
-                                            }}
-                                            className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
-                                          >
-                                            <span className="truncate">{u}</span>
-                                            <button
-                                              type="button"
-                                              onMouseDown={(e) => {
-                                                e.preventDefault()
-                                                e.stopPropagation()
-                                              }}
-                                              onClick={(e) => {
-                                                e.stopPropagation()
-                                                handleDeleteUnit(u)
-                                              }}
-                                              className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5 rounded hover:bg-gray-100"
-                                            >
-                                              <X className="w-3 h-3" />
-                                            </button>
-                                          </div>
-                                        ))}
-                                    </div>
-                                  )}
-                              </div>
-                              {itemErrors.itemUnit && (
-                                <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                  {itemErrors.itemUnit}
-                                </p>
-                              )}
-                            </div>
-
-                            {/* Quantity (directly below Unit) */}
-                            <div>
-                              <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                Quantity
-                              </label>
-                              <div className="relative">
-                                <input
-                                  type="text"
-                                  value={itemQty}
-                                  onFocus={() => {
-                                    prevEditQtyRef.current = itemQty
-                                    setItemQty('')
-                                    setShowEditQtyDropdown(true)
-                                  }}
-                                  onBlur={() =>
-                                    setTimeout(() => {
-                                      setShowEditQtyDropdown(false)
-                                      setItemQty((current) =>
-                                        current ? current : prevEditQtyRef.current
-                                      )
-                                    }, 200)
-                                  }
-                                  onChange={(e) => {
-                                    handleQtyChange(e.target.value)
-                                    setItemErrors((prev) => {
-                                      const copy = { ...prev }
-                                      delete copy.itemQty
-                                      return copy
-                                    })
-                                  }}
-                                  placeholder="Select or enter quantity"
-                                  className={`w-full pl-2.5 pr-8 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemQty ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                  style={{ height: '40px' }}
-                                />
-                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                  <ChevronRight className="w-4 h-4 transform rotate-90" />
-                                </div>
-                                {showEditQtyDropdown && (
-                                  <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                    {[5, 10, 20, 50, 100, 250, 500]
-                                      .filter((q) => !itemQty || q.toString().includes(itemQty))
-                                      .map((q) => (
-                                        <div
-                                          key={q}
-                                          onMouseDown={(e) => e.preventDefault()}
-                                          onClick={() => {
-                                            setItemQty(q.toString())
-                                            prevEditQtyRef.current = q.toString()
-                                            setItemErrors((prev) => {
-                                              const copy = { ...prev }
-                                              delete copy.itemQty
-                                              return copy
-                                            })
-                                            setShowEditQtyDropdown(false)
-                                          }}
-                                          className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
-                                        >
-                                          {q}
-                                        </div>
-                                      ))}
-                                  </div>
-                                )}
-                              </div>
-                              {itemErrors.itemQty && (
-                                <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                  {itemErrors.itemQty}
-                                </p>
-                              )}
-                            </div>
-
-                            {/* Group Stock & Pieces (if Quantity >= 12) */}
-                            {(() => {
-                              const parsedQty = parseInt(itemQty, 10)
-                              const unitLower = (itemUnit || '').toLowerCase().trim()
-                              const isAlreadyGrouped = [
-                                'pack',
-                                'packs',
-                                'box',
-                                'boxes',
-                                'bundle',
-                                'bundles'
-                              ].includes(unitLower)
-                              if (!isNaN(parsedQty) && parsedQty >= 12 && !isAlreadyGrouped) {
-                                return (
-                                  <div className="space-y-4">
-                                    <div>
-                                      <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                        Group stock into (Optional)
-                                      </label>
-                                      <select
-                                        value={itemGroupUnit}
-                                        onChange={(e) => {
-                                          setItemGroupUnit(e.target.value)
-                                          if (e.target.value === 'none') {
-                                            setItemPiecesPerUnit('')
-                                          } else if (!itemPiecesPerUnit) {
-                                            setItemPiecesPerUnit('12')
-                                          }
-                                        }}
-                                        className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue cursor-pointer"
-                                        style={{ height: '40px' }}
-                                      >
-                                        <option value="none">
-                                          Do not group (Individual pieces)
-                                        </option>
-                                        <option value="pack">Packs</option>
-                                        <option value="box">Boxes</option>
-                                        <option value="bundle">Bundles</option>
-                                      </select>
-                                    </div>
-                                    {itemGroupUnit !== 'none' && (
-                                      <div className="space-y-4">
-                                        <div>
-                                          <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                            Pieces per Pack/Box/Bundle
-                                          </label>
-                                          <input
-                                            type="text"
-                                            value={itemPiecesPerUnit}
-                                            onChange={(e) =>
-                                              handlePiecesPerUnitChange(e.target.value)
-                                            }
-                                            placeholder="e.g. 12"
-                                            className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
-                                            style={{ height: '40px' }}
-                                          />
-                                        </div>
-                                        <div>
-                                          <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                            Remaining Pieces
-                                          </label>
-                                          <input
-                                            type="text"
-                                            readOnly
-                                            value={getRemainingPiecesText(
-                                              itemQty,
-                                              itemPiecesPerUnit || '12',
-                                              itemGroupUnit
-                                            )}
-                                            className="w-full p-2.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none font-bold text-navy-blue"
-                                            style={{ height: '40px' }}
-                                          />
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                )
-                              }
-                              return null
-                            })()}
-
-                            {/* Pieces per Unit (if Unit is already a Pack, Box, or Bundle) */}
-                            {(() => {
-                              const unitLower = (itemUnit || '').toLowerCase().trim()
-                              const isAlreadyGrouped = [
-                                'pack',
-                                'packs',
-                                'box',
-                                'boxes',
-                                'bundle',
-                                'bundles'
-                              ].includes(unitLower)
-                              if (isAlreadyGrouped) {
-                                return (
-                                  <div className="animate-fade-in">
-                                    <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                      Pieces per Unit <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                      type="text"
-                                      value={itemPiecesPerUnit}
-                                      onChange={(e) => {
-                                        handlePiecesPerUnitChange(e.target.value)
-                                        setItemErrors((prev) => {
-                                          const copy = { ...prev }
-                                          delete copy.itemPiecesPerUnit
-                                          return copy
-                                        })
-                                      }}
-                                      placeholder="e.g. 12"
-                                      className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemPiecesPerUnit ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                      style={{ height: '40px' }}
-                                    />
-                                    {itemErrors.itemPiecesPerUnit && (
-                                      <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                        {itemErrors.itemPiecesPerUnit}
-                                      </p>
-                                    )}
-                                  </div>
-                                )
-                              }
-                              return null
-                            })()}
-
-                            {/* Expiration Date */}
-                            <div>
-                              <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                Expiration Date{' '}
-                                {itemCategory.toLowerCase().trim() !== 'school supplies' && (
-                                  <span className="text-red-500">*</span>
-                                )}
-                              </label>
-                              <div
-                                className={
-                                  itemErrors.itemExpiry
-                                    ? 'border border-red-500 rounded-xl p-0.5 ring-2 ring-red-500/10'
-                                    : ''
-                                }
-                              >
-                                <GlassDatePicker
-                                  value={itemExpiry ? itemExpiry.split('T')[0] : ''}
-                                  disabled={itemCategory.toLowerCase().trim() === 'school supplies'}
-                                  onChange={(val) => {
-                                    setItemExpiry(val)
-                                    setItemErrors((prev) => {
-                                      const copy = { ...prev }
-                                      delete copy.itemExpiry
-                                      return copy
-                                    })
-                                  }}
-                                  showTime={false}
-                                  placeholder="dd/mm/yyyy"
-                                />
-                              </div>
-                              {itemErrors.itemExpiry && (
-                                <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                  {itemErrors.itemExpiry}
-                                </p>
-                              )}
-                            </div>
-
-                            <div className="flex space-x-2 pt-2">
+                    {itemEditing &&
+                      createPortal(
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
+                          <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto">
+                            <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+                              <h3 className="font-bold text-navy-blue text-sm">
+                                Modify Catalog Item
+                              </h3>
                               <button
                                 type="button"
                                 onClick={() => {
@@ -3526,381 +3151,867 @@ export default function AdminDashboard({ user, onLogout }) {
                                   setItemGroupUnit('none')
                                   setItemErrors({})
                                 }}
-                                className="flex-1 py-2 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition cursor-pointer"
+                                className="text-gray-400 hover:text-navy-blue transition-all duration-150 cursor-pointer"
                               >
-                                Cancel
-                              </button>
-                              <button
-                                type="submit"
-                                disabled={loading}
-                                className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center justify-center cursor-pointer"
-                              >
-                                {loading ? 'Saving...' : 'Update Item'}
+                                <X className="w-4 h-4" />
                               </button>
                             </div>
-                          </form>
-                        </div>
-                      </div>
-                    )}
 
-                    {/* Modal Overlay for Release Item */}
-                    {isReleaseModalOpen && (
-                      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
-                        <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto">
-                          <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-                            <h3 className="font-bold text-navy-blue text-sm">Release Item</h3>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsReleaseModalOpen(false)
-                                setReleaseItemId('')
-                                setReleaseQty('')
-                                setReleaseSearch('')
-                                setReleaseUnitType('base')
-                              }}
-                              className="text-gray-400 hover:text-navy-blue transition cursor-pointer"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-
-                          <form onSubmit={handleAddPendingReleaseItem} className="space-y-4">
-                            {/* Select Item */}
-                            <div>
-                              <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                Select Item
-                              </label>
-                              <div className="relative">
+                            <form onSubmit={handleSaveInventory} className="space-y-4">
+                              <div>
+                                <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                  Item Name
+                                </label>
                                 <input
                                   type="text"
-                                  value={releaseSearch}
-                                  onFocus={() => {
-                                    prevReleaseSearchRef.current = releaseSearch
-                                    setReleaseSearch('')
-                                    setShowReleaseDropdown(true)
-                                  }}
-                                  onBlur={() =>
-                                    setTimeout(() => {
-                                      setShowReleaseDropdown(false)
-                                      setReleaseSearch(() => {
-                                        if (releaseItemId) {
-                                          const item = inventoryList.find(
-                                            (i) => i.id === releaseItemId
-                                          )
-                                          if (item) {
-                                            return `${item.name} (${item.category}) - ${displayStock(item.quantity, item.unit, item.groupUnit, item.piecesPerUnit)} left ${item.expiryDate ? `(Exp: ${new Date(item.expiryDate).toLocaleDateString()})` : ''}`
-                                          }
-                                        }
-                                        return ''
-                                      })
-                                    }, 200)
-                                  }
+                                  value={itemName}
                                   onChange={(e) => {
-                                    setReleaseSearch(e.target.value)
-                                    if (!e.target.value) {
-                                      setReleaseItemId('')
-                                    }
+                                    setItemName(e.target.value)
+                                    setItemErrors((prev) => {
+                                      const copy = { ...prev }
+                                      delete copy.itemName
+                                      return copy
+                                    })
                                   }}
-                                  placeholder="Type to search stock item..."
-                                  className={`w-full pl-2.5 pr-16 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('releaseItemId') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                  placeholder="e.g. Corned Beef, Notebooks"
+                                  className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemName ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
                                   style={{ height: '40px' }}
                                 />
-                                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
-                                  {releaseSearch && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setReleaseSearch('')
-                                        setReleaseItemId('')
-                                        prevReleaseSearchRef.current = ''
-                                      }}
-                                      className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5"
-                                      tabIndex={-1}
-                                    >
-                                      <X className="w-3.5 h-3.5" />
-                                    </button>
-                                  )}
-                                  <div className="pointer-events-none text-gray-400">
+                                {itemErrors.itemName && (
+                                  <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                    {itemErrors.itemName}
+                                  </p>
+                                )}
+                              </div>
+
+                              <div>
+                                <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                  Category
+                                </label>
+                                <div className="relative">
+                                  <input
+                                    type="text"
+                                    value={itemCategory}
+                                    onFocus={() => {
+                                      prevEditCategoryRef.current = itemCategory
+                                      setItemCategory('')
+                                      setShowEditCategoryDropdown(true)
+                                    }}
+                                    onBlur={() =>
+                                      setTimeout(() => {
+                                        setShowEditCategoryDropdown(false)
+                                        setItemCategory((current) =>
+                                          current ? current : prevEditCategoryRef.current
+                                        )
+                                      }, 200)
+                                    }
+                                    onChange={(e) => {
+                                      setItemCategory(e.target.value)
+                                      setItemErrors((prev) => {
+                                        const copy = { ...prev }
+                                        delete copy.itemCategory
+                                        return copy
+                                      })
+                                    }}
+                                    placeholder="Select or type category"
+                                    className={`w-full pl-2.5 pr-16 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemCategory ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                    style={{ height: '40px' }}
+                                  />
+                                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
+                                    <div className="pointer-events-none text-gray-400">
+                                      <ChevronRight className="w-4 h-4 transform rotate-90" />
+                                    </div>
+                                  </div>
+                                  {showEditCategoryDropdown &&
+                                    activeCategories.filter(
+                                      (cat) =>
+                                        !itemCategory ||
+                                        cat.toLowerCase().includes(itemCategory.toLowerCase())
+                                    ).length > 0 && (
+                                      <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                                        {activeCategories
+                                          .filter(
+                                            (cat) =>
+                                              !itemCategory ||
+                                              cat.toLowerCase().includes(itemCategory.toLowerCase())
+                                          )
+                                          .map((cat) => (
+                                            <div
+                                              key={cat}
+                                              onMouseDown={(e) => e.preventDefault()}
+                                              onClick={() => {
+                                                setItemCategory(cat)
+                                                prevEditCategoryRef.current = cat
+                                                setShowEditCategoryDropdown(false)
+                                                setItemErrors((prev) => {
+                                                  const copy = { ...prev }
+                                                  delete copy.itemCategory
+                                                  return copy
+                                                })
+                                              }}
+                                              className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
+                                            >
+                                              <span className="truncate">{cat}</span>
+                                              <button
+                                                type="button"
+                                                onMouseDown={(e) => {
+                                                  e.preventDefault()
+                                                  e.stopPropagation()
+                                                }}
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  handleDeleteCategory(cat)
+                                                }}
+                                                className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                              >
+                                                <X className="w-3 h-3" />
+                                              </button>
+                                            </div>
+                                          ))}
+                                      </div>
+                                    )}
+                                </div>
+                                {itemErrors.itemCategory && (
+                                  <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                    {itemErrors.itemCategory}
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Unit Searchable Dropdown */}
+                              <div>
+                                <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                  Unit
+                                </label>
+                                <div className="relative">
+                                  <input
+                                    type="text"
+                                    value={itemUnit}
+                                    onFocus={() => {
+                                      prevEditUnitRef.current = itemUnit
+                                      setItemUnit('')
+                                      setShowEditUnitDropdown(true)
+                                    }}
+                                    onBlur={() =>
+                                      setTimeout(() => {
+                                        setShowEditUnitDropdown(false)
+                                        setItemUnit((current) =>
+                                          current ? current : prevEditUnitRef.current
+                                        )
+                                      }, 200)
+                                    }
+                                    onChange={(e) => {
+                                      setItemUnit(e.target.value)
+                                      setItemErrors((prev) => {
+                                        const copy = { ...prev }
+                                        delete copy.itemUnit
+                                        return copy
+                                      })
+                                    }}
+                                    placeholder="Select or type unit"
+                                    className={`w-full pl-2.5 pr-16 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemUnit ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                    style={{ height: '40px' }}
+                                  />
+                                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
+                                    {itemUnit && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setItemUnit('')
+                                          prevEditUnitRef.current = ''
+                                        }}
+                                        className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                        tabIndex={-1}
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                    <div className="pointer-events-none text-gray-400">
+                                      <ChevronRight className="w-4 h-4 transform rotate-90" />
+                                    </div>
+                                  </div>
+                                  {showEditUnitDropdown &&
+                                    activeUnits.filter(
+                                      (u) =>
+                                        !itemUnit ||
+                                        u.toLowerCase().includes(itemUnit.toLowerCase())
+                                    ).length > 0 && (
+                                      <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                                        {activeUnits
+                                          .filter(
+                                            (u) =>
+                                              !itemUnit ||
+                                              u.toLowerCase().includes(itemUnit.toLowerCase())
+                                          )
+                                          .map((u) => (
+                                            <div
+                                              key={u}
+                                              onMouseDown={(e) => e.preventDefault()}
+                                              onClick={() => {
+                                                setItemUnit(u)
+                                                prevEditUnitRef.current = u
+                                                setShowEditUnitDropdown(false)
+                                                setItemErrors((prev) => {
+                                                  const copy = { ...prev }
+                                                  delete copy.itemUnit
+                                                  return copy
+                                                })
+                                              }}
+                                              className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
+                                            >
+                                              <span className="truncate">{u}</span>
+                                              <button
+                                                type="button"
+                                                onMouseDown={(e) => {
+                                                  e.preventDefault()
+                                                  e.stopPropagation()
+                                                }}
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  handleDeleteUnit(u)
+                                                }}
+                                                className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                              >
+                                                <X className="w-3 h-3" />
+                                              </button>
+                                            </div>
+                                          ))}
+                                      </div>
+                                    )}
+                                </div>
+                                {itemErrors.itemUnit && (
+                                  <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                    {itemErrors.itemUnit}
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Quantity (directly below Unit) */}
+                              <div>
+                                <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                  Quantity
+                                </label>
+                                <div className="relative">
+                                  <input
+                                    type="text"
+                                    value={itemQty}
+                                    onFocus={() => {
+                                      prevEditQtyRef.current = itemQty
+                                      setItemQty('')
+                                      setShowEditQtyDropdown(true)
+                                    }}
+                                    onBlur={() =>
+                                      setTimeout(() => {
+                                        setShowEditQtyDropdown(false)
+                                        setItemQty((current) =>
+                                          current ? current : prevEditQtyRef.current
+                                        )
+                                      }, 200)
+                                    }
+                                    onChange={(e) => {
+                                      handleQtyChange(e.target.value)
+                                      setItemErrors((prev) => {
+                                        const copy = { ...prev }
+                                        delete copy.itemQty
+                                        return copy
+                                      })
+                                    }}
+                                    placeholder="Select or enter quantity"
+                                    className={`w-full pl-2.5 pr-8 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemQty ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                    style={{ height: '40px' }}
+                                  />
+                                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
                                     <ChevronRight className="w-4 h-4 transform rotate-90" />
                                   </div>
-                                </div>
-                                {showReleaseDropdown && (
-                                  <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                    {inventoryList
-                                      .filter((item) => item.quantity > 0)
-                                      .filter(
-                                        (item) =>
-                                          !releaseSearch ||
-                                          item.name
-                                            .toLowerCase()
-                                            .includes(releaseSearch.toLowerCase())
-                                      )
-                                      .map((item) => {
-                                        const optionText = `${item.name} (${item.category}) - ${displayStock(item.quantity, item.unit, item.groupUnit, item.piecesPerUnit)} left ${item.expiryDate ? `(Exp: ${new Date(item.expiryDate).toLocaleDateString()})` : ''}`
-                                        return (
+                                  {showEditQtyDropdown && (
+                                    <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                                      {[5, 10, 20, 50, 100, 250, 500]
+                                        .filter((q) => !itemQty || q.toString().includes(itemQty))
+                                        .map((q) => (
                                           <div
-                                            key={item.id}
+                                            key={q}
                                             onMouseDown={(e) => e.preventDefault()}
                                             onClick={() => {
-                                              setReleaseItemId(item.id)
-                                              setReleaseSearch(optionText)
-                                              prevReleaseSearchRef.current = optionText
-                                              clearFieldValError('releaseItemId')
-                                              setShowReleaseDropdown(false)
+                                              setItemQty(q.toString())
+                                              prevEditQtyRef.current = q.toString()
+                                              setItemErrors((prev) => {
+                                                const copy = { ...prev }
+                                                delete copy.itemQty
+                                                return copy
+                                              })
+                                              setShowEditQtyDropdown(false)
                                             }}
                                             className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
                                           >
-                                            {item.name}{' '}
-                                            <span className="text-gray-400 font-normal">
-                                              ({item.category})
-                                            </span>{' '}
-                                            -{' '}
-                                            <span className="text-navy-blue font-bold">
-                                              {displayStock(
-                                                item.quantity,
-                                                item.unit,
-                                                item.groupUnit,
-                                                item.piecesPerUnit
-                                              )}
-                                            </span>{' '}
-                                            left{' '}
-                                            {item.expiryDate ? (
-                                              <span className="text-red-500 font-semibold">
-                                                (Exp:{' '}
-                                                {new Date(item.expiryDate).toLocaleDateString()})
-                                              </span>
-                                            ) : (
-                                              ''
-                                            )}
+                                            {q}
                                           </div>
-                                        )
-                                      })}
-                                    {inventoryList
-                                      .filter((item) => item.quantity > 0)
-                                      .filter((item) =>
-                                        item.name
-                                          .toLowerCase()
-                                          .includes(releaseSearch.toLowerCase())
-                                      ).length === 0 && (
-                                      <div className="p-2.5 text-xs text-gray-400 text-left font-semibold">
-                                        No matching items found
-                                      </div>
-                                    )}
-                                  </div>
+                                        ))}
+                                    </div>
+                                  )}
+                                </div>
+                                {itemErrors.itemQty && (
+                                  <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                    {itemErrors.itemQty}
+                                  </p>
                                 )}
                               </div>
-                            </div>
 
-                            {/* Quantities to Release */}
-                            {(() => {
-                              const item = inventoryList.find((i) => i.id === releaseItemId)
-                              const hasGroup =
-                                item &&
-                                item.groupUnit &&
-                                item.groupUnit !== 'none' &&
-                                item.piecesPerUnit
-                              if (hasGroup) {
-                                const groupLabel =
-                                  item.groupUnit === 'box'
-                                    ? 'Boxes'
-                                    : item.groupUnit === 'bundle'
-                                      ? 'Bundles'
-                                      : 'Packs'
-                                return (
-                                  <div className="grid grid-cols-2 gap-3 animate-fade-in">
-                                    <div>
+                              {/* Group Stock & Pieces (if Quantity >= 12) */}
+                              {(() => {
+                                const parsedQty = parseInt(itemQty, 10)
+                                const unitLower = (itemUnit || '').toLowerCase().trim()
+                                const isAlreadyGrouped = [
+                                  'pack',
+                                  'packs',
+                                  'box',
+                                  'boxes',
+                                  'bundle',
+                                  'bundles'
+                                ].includes(unitLower)
+                                if (!isNaN(parsedQty) && parsedQty >= 12 && !isAlreadyGrouped) {
+                                  return (
+                                    <div className="space-y-4">
+                                      <div>
+                                        <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                          Group stock into (Optional)
+                                        </label>
+                                        <select
+                                          value={itemGroupUnit}
+                                          onChange={(e) => {
+                                            setItemGroupUnit(e.target.value)
+                                            if (e.target.value === 'none') {
+                                              setItemPiecesPerUnit('')
+                                            } else if (!itemPiecesPerUnit) {
+                                              setItemPiecesPerUnit('12')
+                                            }
+                                          }}
+                                          className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue cursor-pointer"
+                                          style={{ height: '40px' }}
+                                        >
+                                          <option value="none">
+                                            Do not group (Individual pieces)
+                                          </option>
+                                          <option value="pack">Packs</option>
+                                          <option value="box">Boxes</option>
+                                          <option value="bundle">Bundles</option>
+                                        </select>
+                                      </div>
+                                      {itemGroupUnit !== 'none' && (
+                                        <div className="space-y-4">
+                                          <div>
+                                            <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                              Pieces per Pack/Box/Bundle
+                                            </label>
+                                            <input
+                                              type="text"
+                                              value={itemPiecesPerUnit}
+                                              onChange={(e) =>
+                                                handlePiecesPerUnitChange(e.target.value)
+                                              }
+                                              placeholder="e.g. 12"
+                                              className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                                              style={{ height: '40px' }}
+                                            />
+                                          </div>
+                                          <div>
+                                            <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                              Remaining Pieces
+                                            </label>
+                                            <input
+                                              type="text"
+                                              readOnly
+                                              value={getRemainingPiecesText(
+                                                itemQty,
+                                                itemPiecesPerUnit || '12',
+                                                itemGroupUnit
+                                              )}
+                                              className="w-full p-2.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none font-bold text-navy-blue"
+                                              style={{ height: '40px' }}
+                                            />
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )
+                                }
+                                return null
+                              })()}
+
+                              {/* Pieces per Unit (if Unit is already a Pack, Box, or Bundle) */}
+                              {(() => {
+                                const unitLower = (itemUnit || '').toLowerCase().trim()
+                                const isAlreadyGrouped = [
+                                  'pack',
+                                  'packs',
+                                  'box',
+                                  'boxes',
+                                  'bundle',
+                                  'bundles'
+                                ].includes(unitLower)
+                                if (isAlreadyGrouped) {
+                                  return (
+                                    <div className="animate-fade-in">
                                       <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                        Quantity ({groupLabel})
+                                        Pieces per Unit <span className="text-red-500">*</span>
                                       </label>
                                       <input
                                         type="text"
-                                        value={releaseQtyGroup}
+                                        value={itemPiecesPerUnit}
                                         onChange={(e) => {
-                                          if (/^\d*$/.test(e.target.value)) {
-                                            setReleaseQtyGroup(e.target.value)
-                                            clearFieldValError('releaseQtyGroup')
-                                          }
+                                          handlePiecesPerUnitChange(e.target.value)
+                                          setItemErrors((prev) => {
+                                            const copy = { ...prev }
+                                            delete copy.itemPiecesPerUnit
+                                            return copy
+                                          })
                                         }}
-                                        placeholder="e.g. 2"
-                                        className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('releaseQtyGroup') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                        placeholder="e.g. 12"
+                                        className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemPiecesPerUnit ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
                                         style={{ height: '40px' }}
                                       />
+                                      {itemErrors.itemPiecesPerUnit && (
+                                        <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                          {itemErrors.itemPiecesPerUnit}
+                                        </p>
+                                      )}
                                     </div>
-                                    <div>
-                                      <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                        Quantity (Pieces)
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={releaseQtyPieces}
-                                        onChange={(e) => {
-                                          if (/^\d*$/.test(e.target.value)) {
-                                            setReleaseQtyPieces(e.target.value)
-                                            clearFieldValError('releaseQtyPieces')
-                                          }
-                                        }}
-                                        placeholder="e.g. 2"
-                                        className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('releaseQtyPieces') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                        style={{ height: '40px' }}
-                                      />
-                                    </div>
-                                  </div>
-                                )
-                              }
-                              return (
-                                <div className="animate-fade-in">
-                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                    Quantity (Pieces)
-                                  </label>
-                                  <input
-                                    type="text"
-                                    value={releaseQtyPieces}
-                                    onChange={(e) => {
-                                      if (/^\d*$/.test(e.target.value)) {
-                                        setReleaseQtyPieces(e.target.value)
-                                        clearFieldValError('releaseQtyPieces')
-                                      }
+                                  )
+                                }
+                                return null
+                              })()}
+
+                              {/* Expiration Date */}
+                              <div>
+                                <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                  Expiration Date{' '}
+                                  {itemCategory.toLowerCase().trim() !== 'school supplies' && (
+                                    <span className="text-red-500">*</span>
+                                  )}
+                                </label>
+                                <div
+                                  className={
+                                    itemErrors.itemExpiry
+                                      ? 'border border-red-500 rounded-xl p-0.5 ring-2 ring-red-500/10'
+                                      : ''
+                                  }
+                                >
+                                  <GlassDatePicker
+                                    value={itemExpiry ? itemExpiry.split('T')[0] : ''}
+                                    disabled={
+                                      itemCategory.toLowerCase().trim() === 'school supplies'
+                                    }
+                                    onChange={(val) => {
+                                      setItemExpiry(val)
+                                      setItemErrors((prev) => {
+                                        const copy = { ...prev }
+                                        delete copy.itemExpiry
+                                        return copy
+                                      })
                                     }}
-                                    placeholder="e.g. 10"
-                                    className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('releaseQtyPieces') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                    style={{ height: '40px' }}
+                                    showTime={false}
+                                    placeholder="dd/mm/yyyy"
                                   />
                                 </div>
-                              )
-                            })()}
+                                {itemErrors.itemExpiry && (
+                                  <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                    {itemErrors.itemExpiry}
+                                  </p>
+                                )}
+                              </div>
 
-                            <button
-                              type="submit"
-                              className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center justify-center cursor-pointer animate-fade-in"
-                              style={{ height: '40px' }}
-                            >
-                              Add to Release List
-                            </button>
-                          </form>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Modal Overlay for Review List */}
-                    {isReviewModalOpen && (
-                      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
-                        <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto relative overflow-hidden">
-                          <div className="absolute top-0 left-0 right-0 h-1 bg-sig-green"></div>
-                          <div className="flex justify-between items-center border-b border-dashed border-gray-200 pb-3">
-                            <h3 className="font-bold text-navy-blue text-sm flex items-center space-x-2">
-                              <span>Release Review List</span>
-                              <span className="text-[10px] bg-navy-blue/10 text-navy-blue px-2 py-0.5 rounded-full font-bold">
-                                {pendingReleaseItems.length}
-                              </span>
-                            </h3>
-                            <button
-                              type="button"
-                              onClick={() => setIsReviewModalOpen(false)}
-                              className="text-gray-400 hover:text-navy-blue transition cursor-pointer"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-
-                          {pendingReleaseItems.length === 0 ? (
-                            <div className="py-8 text-center text-gray-400 text-xs font-medium">
-                              No items have been added to the Release Review List yet.
-                            </div>
-                          ) : (
-                            <div className="space-y-3 max-h-60 overflow-y-auto pr-1 pt-4">
-                              {pendingReleaseItems.map((pItem) => (
-                                <div
-                                  key={pItem.id}
-                                  className="flex justify-between items-center border border-gray-50 p-2.5 rounded-xl bg-gray-50/50 hover:bg-white transition"
+                              <div className="flex space-x-2 pt-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setItemEditing(null)
+                                    setItemName('')
+                                    setItemUnit('')
+                                    setItemQty('')
+                                    setItemExpiry('')
+                                    setItemPiecesPerUnit('')
+                                    setItemGroupUnit('none')
+                                    setItemErrors({})
+                                  }}
+                                  className="flex-1 py-2 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition-all duration-150 cursor-pointer"
                                 >
-                                  <div className="flex-1 min-w-0 pr-3">
-                                    <div className="font-bold text-navy-blue text-xs truncate">
-                                      {pItem.name}
-                                    </div>
-                                    <div className="text-[10px] text-gray-400 capitalize">
-                                      {pItem.category}
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center space-x-3 shrink-0">
-                                    <div className="text-right">
-                                      <div className="text-xs font-bold text-navy-blue capitalize">
-                                        {(() => {
-                                          const hasGroup =
-                                            pItem.groupUnit &&
-                                            pItem.groupUnit !== 'none' &&
-                                            pItem.piecesPerUnit
-                                          if (hasGroup) {
-                                            const groupName =
-                                              pItem.qtyGroup === 1
-                                                ? pItem.groupUnit
-                                                : pItem.groupUnit === 'box'
-                                                  ? 'boxes'
-                                                  : pItem.groupUnit === 'bundle'
-                                                    ? 'bundles'
-                                                    : 'packs'
-                                            const parts = []
-                                            if (pItem.qtyGroup > 0)
-                                              parts.push(`${pItem.qtyGroup} ${groupName}`)
-                                            if (pItem.qtyPieces > 0)
-                                              parts.push(`${pItem.qtyPieces} Pieces`)
-                                            return parts.join(' + ') || '0 Pieces'
-                                          }
-                                          return `${pItem.qtyPieces} ${formatUnit(pItem.qtyPieces, pItem.baseUnit)}`
-                                        })()}
-                                      </div>
-                                      <div className="text-[9px] text-gray-400 font-medium">
-                                        ({pItem.baseQty} Total Pieces)
-                                      </div>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRemovePendingItem(pItem.id)}
-                                      className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5"
-                                      title="Remove item"
-                                    >
-                                      <X className="w-4 h-4" />
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                                  Cancel
+                                </button>
+                                <button
+                                  type="submit"
+                                  disabled={loading}
+                                  className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center justify-center cursor-pointer"
+                                >
+                                  {loading ? 'Saving...' : 'Update Item'}
+                                </button>
+                              </div>
+                            </form>
+                          </div>
+                        </div>,
+                        document.body
+                      )}
 
-                          {pendingReleaseItems.length > 0 ? (
-                            <div className="flex space-x-2 pt-3 border-t border-dashed border-gray-150 mt-4">
+                    {/* Modal Overlay for Release Item */}
+                    {isReleaseModalOpen &&
+                      createPortal(
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
+                          <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto">
+                            <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+                              <h3 className="font-bold text-navy-blue text-sm">Release Item</h3>
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setPendingReleaseItems([])
-                                  setIsReviewModalOpen(false)
+                                  setIsReleaseModalOpen(false)
+                                  setReleaseItemId('')
+                                  setReleaseQty('')
+                                  setReleaseSearch('')
+                                  setReleaseUnitType('base')
                                 }}
-                                className="flex-1 py-2 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition cursor-pointer text-center"
+                                className="text-gray-400 hover:text-navy-blue transition-all duration-150 cursor-pointer"
                               >
-                                Clear List
-                              </button>
-                              <button
-                                type="button"
-                                disabled={loading}
-                                onClick={handleConfirmRelease}
-                                className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer text-center"
-                              >
-                                {loading ? 'Confirming...' : 'Confirm Release'}
+                                <X className="w-4 h-4" />
                               </button>
                             </div>
-                          ) : (
-                            <div className="flex pt-3 border-t border-dashed border-gray-150 mt-4">
+
+                            <form onSubmit={handleAddPendingReleaseItem} className="space-y-4">
+                              {/* Select Item */}
+                              <div>
+                                <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                  Select Item
+                                </label>
+                                <div className="relative">
+                                  <input
+                                    type="text"
+                                    value={releaseSearch}
+                                    onFocus={() => {
+                                      prevReleaseSearchRef.current = releaseSearch
+                                      setReleaseSearch('')
+                                      setShowReleaseDropdown(true)
+                                    }}
+                                    onBlur={() =>
+                                      setTimeout(() => {
+                                        setShowReleaseDropdown(false)
+                                        setReleaseSearch(() => {
+                                          if (releaseItemId) {
+                                            const item = inventoryList.find(
+                                              (i) => i.id === releaseItemId
+                                            )
+                                            if (item) {
+                                              return `${item.name} (${item.category}) - ${displayStock(item.quantity, item.unit, item.groupUnit, item.piecesPerUnit)} left ${item.expiryDate ? `(Exp: ${new Date(item.expiryDate).toLocaleDateString()})` : ''}`
+                                            }
+                                          }
+                                          return ''
+                                        })
+                                      }, 200)
+                                    }
+                                    onChange={(e) => {
+                                      setReleaseSearch(e.target.value)
+                                      if (!e.target.value) {
+                                        setReleaseItemId('')
+                                      }
+                                    }}
+                                    placeholder="Type to search stock item..."
+                                    className={`w-full pl-2.5 pr-16 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('releaseItemId') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                    style={{ height: '40px' }}
+                                  />
+                                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
+                                    {releaseSearch && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setReleaseSearch('')
+                                          setReleaseItemId('')
+                                          prevReleaseSearchRef.current = ''
+                                        }}
+                                        className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                        tabIndex={-1}
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                    <div className="pointer-events-none text-gray-400">
+                                      <ChevronRight className="w-4 h-4 transform rotate-90" />
+                                    </div>
+                                  </div>
+                                  {showReleaseDropdown && (
+                                    <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                                      {inventoryList
+                                        .filter((item) => item.quantity > 0)
+                                        .filter(
+                                          (item) =>
+                                            !releaseSearch ||
+                                            item.name
+                                              .toLowerCase()
+                                              .includes(releaseSearch.toLowerCase())
+                                        )
+                                        .map((item) => {
+                                          const optionText = `${item.name} (${item.category}) - ${displayStock(item.quantity, item.unit, item.groupUnit, item.piecesPerUnit)} left ${item.expiryDate ? `(Exp: ${new Date(item.expiryDate).toLocaleDateString()})` : ''}`
+                                          return (
+                                            <div
+                                              key={item.id}
+                                              onMouseDown={(e) => e.preventDefault()}
+                                              onClick={() => {
+                                                setReleaseItemId(item.id)
+                                                setReleaseSearch(optionText)
+                                                prevReleaseSearchRef.current = optionText
+                                                clearFieldValError('releaseItemId')
+                                                setShowReleaseDropdown(false)
+                                              }}
+                                              className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
+                                            >
+                                              {item.name}{' '}
+                                              <span className="text-gray-400 font-normal">
+                                                ({item.category})
+                                              </span>{' '}
+                                              -{' '}
+                                              <span className="text-navy-blue font-bold">
+                                                {displayStock(
+                                                  item.quantity,
+                                                  item.unit,
+                                                  item.groupUnit,
+                                                  item.piecesPerUnit
+                                                )}
+                                              </span>{' '}
+                                              left{' '}
+                                              {item.expiryDate ? (
+                                                <span className="text-red-500 font-semibold">
+                                                  (Exp:{' '}
+                                                  {new Date(item.expiryDate).toLocaleDateString()})
+                                                </span>
+                                              ) : (
+                                                ''
+                                              )}
+                                            </div>
+                                          )
+                                        })}
+                                      {inventoryList
+                                        .filter((item) => item.quantity > 0)
+                                        .filter((item) =>
+                                          item.name
+                                            .toLowerCase()
+                                            .includes(releaseSearch.toLowerCase())
+                                        ).length === 0 && (
+                                          <div className="p-2.5 text-xs text-gray-400 text-left font-semibold">
+                                            No matching items found
+                                          </div>
+                                        )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Quantities to Release */}
+                              {(() => {
+                                const item = inventoryList.find((i) => i.id === releaseItemId)
+                                const hasGroup =
+                                  item &&
+                                  item.groupUnit &&
+                                  item.groupUnit !== 'none' &&
+                                  item.piecesPerUnit
+                                if (hasGroup) {
+                                  const groupLabel =
+                                    item.groupUnit === 'box'
+                                      ? 'Boxes'
+                                      : item.groupUnit === 'bundle'
+                                        ? 'Bundles'
+                                        : 'Packs'
+                                  return (
+                                    <div className="grid grid-cols-2 gap-3 animate-fade-in">
+                                      <div>
+                                        <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                          Quantity ({groupLabel})
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={releaseQtyGroup}
+                                          onChange={(e) => {
+                                            if (/^\d*$/.test(e.target.value)) {
+                                              setReleaseQtyGroup(e.target.value)
+                                              clearFieldValError('releaseQtyGroup')
+                                            }
+                                          }}
+                                          placeholder="e.g. 2"
+                                          className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('releaseQtyGroup') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                          style={{ height: '40px' }}
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                          Quantity (Pieces)
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={releaseQtyPieces}
+                                          onChange={(e) => {
+                                            if (/^\d*$/.test(e.target.value)) {
+                                              setReleaseQtyPieces(e.target.value)
+                                              clearFieldValError('releaseQtyPieces')
+                                            }
+                                          }}
+                                          placeholder="e.g. 2"
+                                          className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('releaseQtyPieces') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                          style={{ height: '40px' }}
+                                        />
+                                      </div>
+                                    </div>
+                                  )
+                                }
+                                return (
+                                  <div className="animate-fade-in">
+                                    <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                      Quantity (Pieces)
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={releaseQtyPieces}
+                                      onChange={(e) => {
+                                        if (/^\d*$/.test(e.target.value)) {
+                                          setReleaseQtyPieces(e.target.value)
+                                          clearFieldValError('releaseQtyPieces')
+                                        }
+                                      }}
+                                      placeholder="e.g. 10"
+                                      className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('releaseQtyPieces') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                      style={{ height: '40px' }}
+                                    />
+                                  </div>
+                                )
+                              })()}
+
+                              <button
+                                type="submit"
+                                className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center justify-center cursor-pointer animate-fade-in"
+                                style={{ height: '40px' }}
+                              >
+                                Add to Release List
+                              </button>
+                            </form>
+                          </div>
+                        </div>,
+                        document.body
+                      )}
+
+                    {/* Modal Overlay for Review List */}
+                    {isReviewModalOpen &&
+                      createPortal(
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
+                          <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto relative overflow-hidden">
+                            <div className="absolute top-0 left-0 right-0 h-1 bg-sig-green"></div>
+                            <div className="flex justify-between items-center border-b border-dashed border-gray-200 pb-3">
+                              <h3 className="font-bold text-navy-blue text-sm flex items-center space-x-2">
+                                <span>Release Review List</span>
+                                <span className="text-[10px] bg-navy-blue/10 text-navy-blue px-2 py-0.5 rounded-full font-bold">
+                                  {pendingReleaseItems.length}
+                                </span>
+                              </h3>
                               <button
                                 type="button"
                                 onClick={() => setIsReviewModalOpen(false)}
-                                className="w-full py-2 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition cursor-pointer text-center"
+                                className="text-gray-400 hover:text-navy-blue transition-all duration-150 cursor-pointer"
                               >
-                                Close
+                                <X className="w-4 h-4" />
                               </button>
                             </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
+
+                            {pendingReleaseItems.length === 0 ? (
+                              <div className="py-8 text-center text-gray-400 text-xs font-medium">
+                                No items have been added to the Release Review List yet.
+                              </div>
+                            ) : (
+                              <div className="space-y-3 max-h-60 overflow-y-auto pr-1 pt-4">
+                                {pendingReleaseItems.map((pItem) => (
+                                  <div
+                                    key={pItem.id}
+                                    className="flex justify-between items-center border border-gray-50 p-2.5 rounded-xl bg-gray-50/50 hover:bg-white transition"
+                                  >
+                                    <div className="flex-1 min-w-0 pr-3">
+                                      <div className="font-bold text-navy-blue text-xs truncate">
+                                        {pItem.name}
+                                      </div>
+                                      <div className="text-[10px] text-gray-400 capitalize">
+                                        {pItem.category}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center space-x-3 shrink-0">
+                                      <div className="text-right">
+                                        <div className="text-xs font-bold text-navy-blue capitalize">
+                                          {(() => {
+                                            const hasGroup =
+                                              pItem.groupUnit &&
+                                              pItem.groupUnit !== 'none' &&
+                                              pItem.piecesPerUnit
+                                            if (hasGroup) {
+                                              const groupName =
+                                                pItem.qtyGroup === 1
+                                                  ? pItem.groupUnit
+                                                  : pItem.groupUnit === 'box'
+                                                    ? 'boxes'
+                                                    : pItem.groupUnit === 'bundle'
+                                                      ? 'bundles'
+                                                      : 'packs'
+                                              const parts = []
+                                              if (pItem.qtyGroup > 0)
+                                                parts.push(`${pItem.qtyGroup} ${groupName}`)
+                                              if (pItem.qtyPieces > 0)
+                                                parts.push(`${pItem.qtyPieces} Pieces`)
+                                              return parts.join(' + ') || '0 Pieces'
+                                            }
+                                            return `${pItem.qtyPieces} ${formatUnit(pItem.qtyPieces, pItem.baseUnit)}`
+                                          })()}
+                                        </div>
+                                        <div className="text-[9px] text-gray-400 font-medium">
+                                          ({pItem.baseQty} Total Pieces)
+                                        </div>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemovePendingItem(pItem.id)}
+                                        className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                        title="Remove item"
+                                      >
+                                        <X className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {pendingReleaseItems.length > 0 ? (
+                              <div className="flex space-x-2 pt-3 border-t border-dashed border-gray-150 mt-4">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setPendingReleaseItems([])
+                                    setIsReviewModalOpen(false)
+                                  }}
+                                  className="flex-1 py-2 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition-all duration-150 cursor-pointer text-center"
+                                >
+                                  Clear List
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={loading}
+                                  onClick={handleConfirmRelease}
+                                  className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition-all duration-150 cursor-pointer text-center"
+                                >
+                                  {loading ? 'Confirming...' : 'Confirm Release'}
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex pt-3 border-t border-dashed border-gray-150 mt-4">
+                                <button
+                                  type="button"
+                                  onClick={() => setIsReviewModalOpen(false)}
+                                  className="w-full py-2 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition-all duration-150 cursor-pointer text-center"
+                                >
+                                  Close
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>,
+                        document.body
+                      )}
                   </div>
                 )}
 
@@ -3929,11 +4040,10 @@ export default function AdminDashboard({ user, onLogout }) {
                           ])
                           setIsDonationModalOpen(true)
                         }}
-                        className={`flex items-center space-x-1.5 bg-navy-blue text-white rounded-lg text-xs font-semibold py-2 px-4 border border-navy-blue shadow-xs transition-all duration-150 ${
-                          isAnyModalOpen
-                            ? 'opacity-40 cursor-not-allowed'
-                            : 'hover:bg-navy-blue-600 active:bg-navy-blue-700 cursor-pointer'
-                        }`}
+                        className={`flex items-center space-x-1.5 bg-navy-blue text-white rounded-lg text-xs font-semibold py-2 px-4 border border-navy-blue shadow-xs transition-all duration-150 ${isAnyModalOpen
+                          ? 'opacity-40 cursor-not-allowed'
+                          : 'hover:bg-navy-blue-600 active:bg-navy-blue-700 cursor-pointer'
+                          }`}
                       >
                         <Plus className="w-4 h-4" />
                         <span>Register Donation Batch</span>
@@ -3950,7 +4060,7 @@ export default function AdminDashboard({ user, onLogout }) {
                           <thead>
                             <tr className="border-b border-gray-100 bg-gray-50 text-[10px] uppercase font-bold text-gray-500">
                               <th className="py-3 px-3">Date</th>
-                              <th className="py-3 px-2">Donor Source</th>
+                              <th className="py-3 px-2">Donor</th>
                               <th className="py-3 px-2">Purpose</th>
                               <th className="py-3 px-2">Items</th>
                             </tr>
@@ -4028,7 +4138,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             setEvtParentDeptId('')
                             setIsEventModalOpen(true)
                           }}
-                          className="flex items-center gap-1.5 bg-navy-blue text-white rounded-full text-xs font-semibold px-4 py-2.5 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer animate-fade-in"
+                          className="flex items-center gap-1.5 bg-navy-blue text-white rounded-full text-xs font-semibold px-4 py-2.5 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition-all duration-150 cursor-pointer animate-fade-in"
                         >
                           <Plus className="w-3.5 h-3.5" />
                           <span>Schedule Event</span>
@@ -4056,26 +4166,27 @@ export default function AdminDashboard({ user, onLogout }) {
                           />
                         </div>
                         <div className="relative w-full sm:w-48">
-                          <select
+                          <CustomSelect
                             value={eventMonthFilter}
                             onChange={(e) => setEventMonthFilter(e.target.value)}
-                            className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                            options={[
+                              { value: '', label: 'All Months' },
+                              { value: '0', label: 'January' },
+                              { value: '1', label: 'February' },
+                              { value: '2', label: 'March' },
+                              { value: '3', label: 'April' },
+                              { value: '4', label: 'May' },
+                              { value: '5', label: 'June' },
+                              { value: '6', label: 'July' },
+                              { value: '7', label: 'August' },
+                              { value: '8', label: 'September' },
+                              { value: '9', label: 'October' },
+                              { value: '10', label: 'November' },
+                              { value: '11', label: 'December' }
+                            ]}
+                            placeholder="All Months"
                             style={{ height: '38px' }}
-                          >
-                            <option value="">All Months</option>
-                            <option value="0">January</option>
-                            <option value="1">February</option>
-                            <option value="2">March</option>
-                            <option value="3">April</option>
-                            <option value="4">May</option>
-                            <option value="5">June</option>
-                            <option value="6">July</option>
-                            <option value="7">August</option>
-                            <option value="8">September</option>
-                            <option value="9">October</option>
-                            <option value="10">November</option>
-                            <option value="11">December</option>
-                          </select>
+                          />
                         </div>
                       </div>
 
@@ -4115,20 +4226,23 @@ export default function AdminDashboard({ user, onLogout }) {
                             return (
                               <div
                                 key={evt.id}
-                                className="border border-gray-100 p-5 rounded-2xl bg-gray-50/50 hover:bg-white hover:border-sig-green/30 transition duration-200 flex flex-col justify-between"
+                                onClick={() => {
+                                  setSelectedViewEvent(evt)
+                                  setIsViewEventModalOpen(true)
+                                }}
+                                className="border border-gray-100 p-5 rounded-2xl bg-gray-50/50 hover:bg-white hover:border-sig-green/30 transition duration-200 flex flex-col justify-between cursor-pointer"
                               >
                                 <div>
                                   <div className="flex justify-between items-start mb-2">
                                     <span
-                                      className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                                        evt.status === 'completed'
-                                          ? 'bg-green-100 text-green-800'
-                                          : evt.status === 'cancelled'
-                                            ? 'bg-red-100 text-red-800'
-                                            : evt.status === 'planned'
-                                              ? 'bg-blue-100 text-blue-800'
-                                              : 'bg-gray-100 text-gray-800'
-                                      }`}
+                                      className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${evt.status === 'completed'
+                                        ? 'bg-green-100 text-green-800'
+                                        : evt.status === 'cancelled'
+                                          ? 'bg-red-100 text-red-800'
+                                          : evt.status === 'planned'
+                                            ? 'bg-blue-100 text-blue-800'
+                                            : 'bg-gray-100 text-gray-800'
+                                        }`}
                                     >
                                       {evt.status}
                                     </span>
@@ -4141,14 +4255,20 @@ export default function AdminDashboard({ user, onLogout }) {
                                             : 'All'}
                                       </span>
                                       <button
-                                        onClick={() => handleEditClick(evt)}
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleEditClick(evt)
+                                        }}
                                         className="text-navy-blue hover:text-sig-green transition p-1 rounded hover:bg-gray-100 cursor-pointer"
                                         title="Edit Event"
                                       >
                                         <Edit2 className="w-3.5 h-3.5" />
                                       </button>
                                       <button
-                                        onClick={() => handleDeleteEventClick(evt)}
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleDeleteEventClick(evt)
+                                        }}
                                         className="text-red-550 hover:text-red-700 transition p-1 rounded hover:bg-red-50 cursor-pointer"
                                         title="Delete Event"
                                       >
@@ -4181,267 +4301,158 @@ export default function AdminDashboard({ user, onLogout }) {
                       </div>
                     </div>
 
-                    {/* SCHEDULE / EDIT EVENT MODAL */}
-                    {isEventModalOpen && (
-                      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
-                        <div className="glass-modal rounded-2xl max-w-lg w-full shadow-2xl border border-white/80 flex flex-col max-h-[80vh] overflow-hidden animate-fade-in-scale">
-                          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 shrink-0">
-                            <h3 className="font-bold text-navy-blue text-base">
-                              {editingEvent ? 'Edit Event' : 'Schedule Event'}
-                            </h3>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsEventModalOpen(false)
-                                setEditingEvent(null)
-                                setEvtName('')
-                                setEvtDesc('')
-                                setEvtDate('')
-                                setEvtLoc('')
-                                setEvtOrgId('')
-                                setEvtStatus('planned')
-                                setEvtType('department')
-                                setEvtOrgName('')
-                                setEvtParentDeptId('')
-                                setEvtErrors({})
-                              }}
-                              className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 cursor-pointer"
-                            >
-                              <X className="w-5 h-5" />
-                            </button>
-                          </div>
-
-                          <form
-                            onSubmit={handleCreateEvent}
-                            className="flex flex-col flex-1 min-h-0"
-                          >
-                            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                              <div>
-                                <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                  Event Name
-                                </label>
-                                <input
-                                  type="text"
-                                  value={evtName}
-                                  onChange={(e) => {
-                                    setEvtName(e.target.value)
-                                    setEvtErrors((prev) => {
-                                      const copy = { ...prev }
-                                      delete copy.evtName
-                                      return copy
-                                    })
-                                  }}
-                                  placeholder="Event name"
-                                  className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${evtErrors.evtName ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                  style={{ height: '40px' }}
-                                />
-                                {evtErrors.evtName && (
-                                  <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                    {evtErrors.evtName}
-                                  </p>
-                                )}
-                              </div>
-
-                              <div>
-                                <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                  Description
-                                </label>
-                                <textarea
-                                  value={evtDesc}
-                                  onChange={(e) => setEvtDesc(e.target.value)}
-                                  placeholder="Brief narrative of the event purpose..."
-                                  className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none resize-none font-semibold text-navy-blue"
-                                  rows="3"
-                                ></textarea>
-                              </div>
-
-                              <div>
-                                <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                  Scheduled Date & Time
-                                </label>
-                                <div
-                                  className={
-                                    evtErrors.evtDate
-                                      ? 'border border-red-500 rounded-xl p-0.5 ring-2 ring-red-500/10'
-                                      : ''
-                                  }
-                                >
-                                  <GlassDatePicker
-                                    value={evtDate}
-                                    onChange={(val) => {
-                                      setEvtDate(val)
-                                      setEvtErrors((prev) => {
-                                        const copy = { ...prev }
-                                        delete copy.evtDate
-                                        return copy
-                                      })
-                                    }}
-                                    showTime={true}
-                                    placeholder="dd/mm/yyyy, --:-- --"
-                                  />
-                                </div>
-                                {evtErrors.evtDate && (
-                                  <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                    {evtErrors.evtDate}
-                                  </p>
-                                )}
-                              </div>
-
-                              <div>
-                                <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                  Target Location
-                                </label>
-                                <input
-                                  type="text"
-                                  value={evtLoc}
-                                  onChange={(e) => {
-                                    setEvtLoc(e.target.value)
-                                    setEvtErrors((prev) => {
-                                      const copy = { ...prev }
-                                      delete copy.evtLoc
-                                      return copy
-                                    })
-                                  }}
-                                  placeholder="Location"
-                                  className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${evtErrors.evtLoc ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                  style={{ height: '40px' }}
-                                />
-                                {evtErrors.evtLoc && (
-                                  <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                    {evtErrors.evtLoc}
-                                  </p>
-                                )}
-                              </div>
-
-                              <div>
-                                <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                  Event Type
-                                </label>
-                                <select
-                                  value={evtType}
-                                  onChange={(e) => {
-                                    setEvtType(e.target.value)
-                                    clearFieldValError('evtType')
-                                  }}
-                                  className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
-                                  style={{ height: '40px' }}
-                                >
-                                  <option value="department">Department</option>
-                                  <option value="organization">Organization</option>
-                                </select>
-                              </div>
-
-                              {evtType === 'organization' ? (
-                                <>
-                                  <div>
-                                    <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                      Organization Name
-                                    </label>
-                                    <input
-                                      type="text"
-                                      value={evtOrgName}
-                                      onChange={(e) => {
-                                        setEvtOrgName(e.target.value)
-                                        setEvtErrors((prev) => {
-                                          const copy = { ...prev }
-                                          delete copy.evtOrgName
-                                          return copy
-                                        })
-                                      }}
-                                      placeholder="Organization Name"
-                                      className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${evtErrors.evtOrgName ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                      style={{ height: '40px' }}
-                                    />
-                                    {evtErrors.evtOrgName && (
-                                      <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                        {evtErrors.evtOrgName}
-                                      </p>
-                                    )}
+                    {/* Event Details View Modal */}
+                    <AnimatedModal
+                      isOpen={isViewEventModalOpen}
+                      onClose={() => {
+                        setIsViewEventModalOpen(false)
+                        setSelectedViewEvent(null)
+                      }}
+                      overlayClassName="fixed inset-0 z-[99999] flex items-center justify-center p-4 glass-modal-overlay"
+                      contentClassName="glass-modal rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-white/80 space-y-5 max-h-[90vh] overflow-y-auto"
+                    >
+                      {selectedViewEvent &&
+                        (() => {
+                          const org = orgsList.find(
+                            (o) => o.id === selectedViewEvent.assignedOrganizationId
+                          )
+                          const dateObj = new Date(selectedViewEvent.scheduleDate)
+                          return (
+                            <>
+                              {/* Header */}
+                              <div className="flex items-center justify-between border-b border-gray-200/60 pb-3.5">
+                                <div className="flex items-center space-x-2">
+                                  <div className="p-1.5 bg-navy-blue/5 text-navy-blue rounded-xl">
+                                    <Calendar className="w-5 h-5" />
                                   </div>
-                                  <div>
-                                    <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                      Assigned Department
-                                    </label>
-                                    <SearchableDropdown
-                                      value={evtParentDeptId}
-                                      onChange={(val) => {
-                                        setEvtParentDeptId(val)
-                                        setEvtErrors((prev) => {
-                                          const copy = { ...prev }
-                                          delete copy.evtParentDeptId
-                                          return copy
-                                        })
-                                      }}
-                                      options={orgsList.filter(
-                                        (o) => o.type === 'department' || !o.type
-                                      )}
-                                      onDelete={(o) => handleDeleteOrg(o.id)}
-                                      placeholder="Select department..."
-                                      className={
-                                        evtErrors.evtParentDeptId
-                                          ? 'border-red-500 ring-2 ring-red-500/10'
-                                          : ''
-                                      }
-                                    />
-                                    {evtErrors.evtParentDeptId && (
-                                      <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                        {evtErrors.evtParentDeptId}
-                                      </p>
-                                    )}
-                                  </div>
-                                </>
-                              ) : (
-                                <div>
-                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                    Assigned Department{' '}
-                                  </label>
-                                  <SearchableDropdown
-                                    value={evtOrgId}
-                                    onChange={(val) => {
-                                      setEvtOrgId(val)
-                                      setEvtErrors((prev) => {
-                                        const copy = { ...prev }
-                                        delete copy.evtOrgId
-                                        return copy
-                                      })
-                                    }}
-                                    options={orgsList}
-                                    onDelete={(o) => handleDeleteOrg(o.id)}
-                                    placeholder="Type to filter co-organizers..."
-                                    className={
-                                      evtErrors.evtOrgId
-                                        ? 'border-red-500 ring-2 ring-red-500/10'
-                                        : ''
-                                    }
-                                  />
-                                  {evtErrors.evtOrgId && (
-                                    <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                      {evtErrors.evtOrgId}
-                                    </p>
-                                  )}
+                                  <h3 className="font-extrabold text-navy-blue text-base">
+                                    Event Details
+                                  </h3>
                                 </div>
-                              )}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsViewEventModalOpen(false)
+                                    setSelectedViewEvent(null)
+                                  }}
+                                  className="text-gray-400 hover:text-navy-blue transition-colors cursor-pointer p-1.5 rounded-lg hover:bg-gray-100"
+                                >
+                                  <X className="w-5 h-5" />
+                                </button>
+                              </div>
 
-                              {editingEvent && (
+                              {/* Event Details Content */}
+                              <div className="space-y-4 text-left">
+                                {/* Event Name */}
                                 <div>
-                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                    Status
-                                  </label>
-                                  <select
-                                    value={evtStatus}
-                                    onChange={(e) => setEvtStatus(e.target.value)}
-                                    className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
-                                    style={{ height: '40px' }}
+                                  <h4 className="text-lg font-black text-navy-blue leading-snug break-words whitespace-normal">
+                                    {selectedViewEvent.name}
+                                  </h4>
+                                </div>
+
+                                {/* Status & Type Badges */}
+                                <div className="flex flex-wrap gap-2">
+                                  <span
+                                    className={`inline-flex items-center text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${selectedViewEvent.status === 'completed'
+                                      ? 'bg-green-100 text-green-800'
+                                      : selectedViewEvent.status === 'cancelled'
+                                        ? 'bg-red-100 text-red-800'
+                                        : selectedViewEvent.status === 'planned'
+                                          ? 'bg-blue-100 text-blue-800'
+                                          : 'bg-gray-100 text-gray-800'
+                                      }`}
                                   >
-                                    <option value="planned">Planned</option>
-                                    <option value="completed">Completed</option>
-                                    <option value="cancelled">Cancelled</option>
-                                  </select>
+                                    Status: {selectedViewEvent.status}
+                                  </span>
+                                  <span className="inline-flex items-center text-[10px] font-bold uppercase px-2.5 py-1 rounded-full bg-navy-blue/5 text-navy-blue">
+                                    Type: {selectedViewEvent.eventType}
+                                  </span>
                                 </div>
-                              )}
-                            </div>
 
-                            <div className="flex items-center space-x-2 px-6 py-4 border-t border-gray-100 shrink-0 bg-white/40">
+                                {/* Info Grid */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
+                                  {/* Department / Org */}
+                                  <div className="space-y-1">
+                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                                      Assigned Department / Org
+                                    </span>
+                                    <span className="text-xs text-navy-blue font-bold flex items-center space-x-1.5">
+                                      <Users className="w-3.5 h-3.5 text-navy-blue shrink-0" />
+                                      <span className="break-words whitespace-normal">
+                                        {selectedViewEvent.eventType === 'organization'
+                                          ? `${selectedViewEvent.organizationName} (${org ? org.abbreviation : 'All'})`
+                                          : org
+                                            ? `${org.name} (${org.abbreviation})`
+                                            : 'All'}
+                                      </span>
+                                    </span>
+                                  </div>
+
+                                  {/* Location/Venue */}
+                                  <div className="space-y-1">
+                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                                      Venue / Location
+                                    </span>
+                                    <span className="text-xs text-navy-blue font-bold flex items-center space-x-1.5">
+                                      <MapPin className="w-3.5 h-3.5 text-sig-green shrink-0" />
+                                      <span className="break-words whitespace-normal">
+                                        {selectedViewEvent.location}
+                                      </span>
+                                    </span>
+                                  </div>
+
+                                  {/* Scheduled Date */}
+                                  <div className="space-y-1 md:col-span-2">
+                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                                      Date & Time
+                                    </span>
+                                    <span className="text-xs text-navy-blue font-bold flex items-center space-x-1.5">
+                                      <Clock className="w-3.5 h-3.5 text-navy-blue shrink-0" />
+                                      <span>{dateObj.toLocaleString()}</span>
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Description */}
+                                {selectedViewEvent.description && (
+                                  <div className="space-y-1.5">
+                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                                      Description / Narrative
+                                    </span>
+                                    <div className="bg-white border border-gray-150 rounded-xl p-3 text-xs text-gray-650 leading-relaxed font-medium break-words whitespace-pre-wrap">
+                                      {selectedViewEvent.description}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Footer */}
+                              <div className="flex justify-end border-t border-gray-100 pt-3 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsViewEventModalOpen(false)
+                                    setSelectedViewEvent(null)
+                                  }}
+                                  className="bg-navy-blue hover:bg-navy-blue/90 text-white rounded-xl text-xs font-semibold py-2 px-5 shadow-sm transition-all duration-150 cursor-pointer"
+                                >
+                                  Close
+                                </button>
+                              </div>
+                            </>
+                          )
+                        })()}
+                    </AnimatedModal>
+
+                    {/* SCHEDULE / EDIT EVENT MODAL */}
+                    {isEventModalOpen &&
+                      createPortal(
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
+                          <div className="glass-modal rounded-2xl max-w-lg w-full shadow-2xl border border-white/80 flex flex-col max-h-[80vh] overflow-hidden animate-fade-in-scale">
+                            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 shrink-0">
+                              <h3 className="font-bold text-navy-blue text-base">
+                                {editingEvent ? 'Edit Event' : 'Schedule Event'}
+                              </h3>
                               <button
                                 type="button"
                                 onClick={() => {
@@ -4458,24 +4469,278 @@ export default function AdminDashboard({ user, onLogout }) {
                                   setEvtParentDeptId('')
                                   setEvtErrors({})
                                 }}
-                                className="flex-1 bg-gray-100 hover:bg-red-500 hover:text-white text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition cursor-pointer text-center"
-                                style={{ height: '40px' }}
+                                className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 cursor-pointer"
                               >
-                                Cancel
-                              </button>
-                              <button
-                                type="submit"
-                                disabled={loading}
-                                className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer flex items-center justify-center gap-1.5"
-                                style={{ height: '40px' }}
-                              >
-                                {editingEvent ? 'Save Changes' : 'Schedule Event'}
+                                <X className="w-5 h-5" />
                               </button>
                             </div>
-                          </form>
-                        </div>
-                      </div>
-                    )}
+
+                            <form
+                              onSubmit={handleCreateEvent}
+                              className="flex flex-col flex-1 min-h-0"
+                            >
+                              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                                <div>
+                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                    Event Name
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={evtName}
+                                    onChange={(e) => {
+                                      setEvtName(e.target.value)
+                                      setEvtErrors((prev) => {
+                                        const copy = { ...prev }
+                                        delete copy.evtName
+                                        return copy
+                                      })
+                                    }}
+                                    placeholder="Event name"
+                                    className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${evtErrors.evtName ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                    style={{ height: '40px' }}
+                                  />
+                                  {evtErrors.evtName && (
+                                    <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                      {evtErrors.evtName}
+                                    </p>
+                                  )}
+                                </div>
+
+                                <div>
+                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                    Description
+                                  </label>
+                                  <textarea
+                                    value={evtDesc}
+                                    onChange={(e) => setEvtDesc(e.target.value)}
+                                    placeholder="Brief narrative of the event purpose..."
+                                    className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none resize-none font-semibold text-navy-blue"
+                                    rows="3"
+                                  ></textarea>
+                                </div>
+
+                                <div>
+                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                    Scheduled Date & Time
+                                  </label>
+                                  <div
+                                    className={
+                                      evtErrors.evtDate
+                                        ? 'border border-red-500 rounded-xl p-0.5 ring-2 ring-red-500/10'
+                                        : ''
+                                    }
+                                  >
+                                    <GlassDatePicker
+                                      value={evtDate}
+                                      onChange={(val) => {
+                                        setEvtDate(val)
+                                        setEvtErrors((prev) => {
+                                          const copy = { ...prev }
+                                          delete copy.evtDate
+                                          return copy
+                                        })
+                                      }}
+                                      showTime={true}
+                                      placeholder="dd/mm/yyyy, --:-- --"
+                                    />
+                                  </div>
+                                  {evtErrors.evtDate && (
+                                    <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                      {evtErrors.evtDate}
+                                    </p>
+                                  )}
+                                </div>
+
+                                <div>
+                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                    Target Location
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={evtLoc}
+                                    onChange={(e) => {
+                                      setEvtLoc(e.target.value)
+                                      setEvtErrors((prev) => {
+                                        const copy = { ...prev }
+                                        delete copy.evtLoc
+                                        return copy
+                                      })
+                                    }}
+                                    placeholder="Location"
+                                    className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${evtErrors.evtLoc ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                    style={{ height: '40px' }}
+                                  />
+                                  {evtErrors.evtLoc && (
+                                    <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                      {evtErrors.evtLoc}
+                                    </p>
+                                  )}
+                                </div>
+
+                                <div>
+                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                    Event Type
+                                  </label>
+                                  <select
+                                    value={evtType}
+                                    onChange={(e) => {
+                                      setEvtType(e.target.value)
+                                      clearFieldValError('evtType')
+                                    }}
+                                    className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                                    style={{ height: '40px' }}
+                                  >
+                                    <option value="department">Department</option>
+                                    <option value="organization">Organization</option>
+                                  </select>
+                                </div>
+
+                                {evtType === 'organization' ? (
+                                  <>
+                                    <div>
+                                      <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                        Organization Name
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={evtOrgName}
+                                        onChange={(e) => {
+                                          setEvtOrgName(e.target.value)
+                                          setEvtErrors((prev) => {
+                                            const copy = { ...prev }
+                                            delete copy.evtOrgName
+                                            return copy
+                                          })
+                                        }}
+                                        placeholder="Organization Name"
+                                        className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${evtErrors.evtOrgName ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                        style={{ height: '40px' }}
+                                      />
+                                      {evtErrors.evtOrgName && (
+                                        <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                          {evtErrors.evtOrgName}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                        Assigned Department
+                                      </label>
+                                      <SearchableDropdown
+                                        value={evtParentDeptId}
+                                        onChange={(val) => {
+                                          setEvtParentDeptId(val)
+                                          setEvtErrors((prev) => {
+                                            const copy = { ...prev }
+                                            delete copy.evtParentDeptId
+                                            return copy
+                                          })
+                                        }}
+                                        options={orgsList.filter(
+                                          (o) => o.type === 'department' || !o.type
+                                        )}
+                                        onDelete={(o) => handleDeleteOrg(o.id)}
+                                        placeholder="Select department..."
+                                        className={
+                                          evtErrors.evtParentDeptId
+                                            ? 'border-red-500 ring-2 ring-red-500/10'
+                                            : ''
+                                        }
+                                      />
+                                      {evtErrors.evtParentDeptId && (
+                                        <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                          {evtErrors.evtParentDeptId}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div>
+                                    <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                      Assigned Department{' '}
+                                    </label>
+                                    <SearchableDropdown
+                                      value={evtOrgId}
+                                      onChange={(val) => {
+                                        setEvtOrgId(val)
+                                        setEvtErrors((prev) => {
+                                          const copy = { ...prev }
+                                          delete copy.evtOrgId
+                                          return copy
+                                        })
+                                      }}
+                                      options={orgsList}
+                                      onDelete={(o) => handleDeleteOrg(o.id)}
+                                      placeholder="Type to filter co-organizers..."
+                                      className={
+                                        evtErrors.evtOrgId
+                                          ? 'border-red-500 ring-2 ring-red-500/10'
+                                          : ''
+                                      }
+                                    />
+                                    {evtErrors.evtOrgId && (
+                                      <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                        {evtErrors.evtOrgId}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+
+                                {editingEvent && (
+                                  <div>
+                                    <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                      Status
+                                    </label>
+                                    <select
+                                      value={evtStatus}
+                                      onChange={(e) => setEvtStatus(e.target.value)}
+                                      className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                                      style={{ height: '40px' }}
+                                    >
+                                      <option value="planned">Planned</option>
+                                      <option value="completed">Completed</option>
+                                      <option value="cancelled">Cancelled</option>
+                                    </select>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex items-center space-x-2 px-6 py-4 border-t border-gray-100 shrink-0 bg-white/40">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsEventModalOpen(false)
+                                    setEditingEvent(null)
+                                    setEvtName('')
+                                    setEvtDesc('')
+                                    setEvtDate('')
+                                    setEvtLoc('')
+                                    setEvtOrgId('')
+                                    setEvtStatus('planned')
+                                    setEvtType('department')
+                                    setEvtOrgName('')
+                                    setEvtParentDeptId('')
+                                    setEvtErrors({})
+                                  }}
+                                  className="flex-1 bg-gray-100 hover:bg-red-500 hover:text-white text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition-all duration-150 cursor-pointer text-center"
+                                  style={{ height: '40px' }}
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="submit"
+                                  disabled={loading}
+                                  className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition-all duration-150 cursor-pointer flex items-center justify-center gap-1.5"
+                                  style={{ height: '40px' }}
+                                >
+                                  {editingEvent ? 'Save Changes' : 'Schedule Event'}
+                                </button>
+                              </div>
+                            </form>
+                          </div>
+                        </div>,
+                        document.body
+                      )}
                   </div>
                 )}
 
@@ -4499,9 +4764,9 @@ export default function AdminDashboard({ user, onLogout }) {
                             handleCancelOrgEdit()
                             setIsAddDeptModalOpen(true)
                           }}
-                          className="flex items-center gap-1.5 bg-navy-blue text-white rounded-full text-xs font-semibold px-4 py-2.5 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer self-start sm:self-auto"
+                          className="flex items-center gap-1.5 bg-navy-blue text-white rounded-full text-xs font-semibold px-4 py-2.5 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition-all duration-150 cursor-pointer self-start sm:self-auto"
                         >
-                          <Plus className="w-3.5 h-3.5" /> Add Department
+                          <Plus className="w-3.5 h-3.5" /> Add
                         </button>
                       )}
                     </div>
@@ -4700,7 +4965,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                               isDept ? 'department' : 'organization'
                                             )
                                           }
-                                          className="flex items-center gap-1.5 px-3 py-1.5 bg-navy-blue text-white hover:opacity-90 text-xs font-semibold rounded-xl transition cursor-pointer"
+                                          className="flex items-center gap-1.5 px-3 py-1.5 bg-navy-blue text-white hover:bg-navy-blue/90 text-xs font-semibold rounded-xl transition-all duration-150 cursor-pointer"
                                         >
                                           Return to {isDept ? 'Department' : 'Organization'}{' '}
                                           Directory
@@ -4709,13 +4974,13 @@ export default function AdminDashboard({ user, onLogout }) {
                                           onClick={() => {
                                             handleEditOrgClick(selectedOrgObj)
                                           }}
-                                          className="flex items-center gap-1.5 px-3 py-1.5 bg-navy-blue/5 hover:bg-navy-blue/10 text-navy-blue text-xs font-semibold rounded-xl transition cursor-pointer"
+                                          className="flex items-center gap-1.5 px-3 py-1.5 bg-navy-blue/5 hover:bg-navy-blue/10 text-navy-blue text-xs font-semibold rounded-xl transition-all duration-150 cursor-pointer"
                                         >
                                           <Edit2 className="w-3.5 h-3.5" /> Edit Profile
                                         </button>
                                         <button
                                           onClick={() => handleDeleteOrg(selectedOrgObj.id)}
-                                          className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 text-xs font-semibold rounded-xl transition cursor-pointer"
+                                          className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 text-xs font-semibold rounded-xl transition-all duration-150 cursor-pointer"
                                         >
                                           <Trash2 className="w-3.5 h-3.5" /> Delete{' '}
                                           {isDept ? 'Department' : 'Organization'}
@@ -4817,9 +5082,8 @@ export default function AdminDashboard({ user, onLogout }) {
 
                                   {/* Activities & Statistics (Same Row Grid) */}
                                   <div
-                                    className={`grid grid-cols-1 ${
-                                      isDept ? 'lg:grid-cols-2' : 'lg:grid-cols-3'
-                                    } gap-6`}
+                                    className={`grid grid-cols-1 ${isDept ? 'lg:grid-cols-2' : 'lg:grid-cols-3'
+                                      } gap-6`}
                                   >
                                     {/* Ongoing Activities */}
                                     {!isDept && (
@@ -4841,8 +5105,8 @@ export default function AdminDashboard({ user, onLogout }) {
                                                 act.eventType === 'organization'
                                                   ? act.organizationName
                                                   : orgsList.find(
-                                                      (o) => o.id === act.assignedOrganizationId
-                                                    )?.abbreviation || 'CES'
+                                                    (o) => o.id === act.assignedOrganizationId
+                                                  )?.abbreviation || 'CES'
                                               return (
                                                 <div
                                                   key={act.id}
@@ -4856,8 +5120,8 @@ export default function AdminDashboard({ user, onLogout }) {
                                                       {act.date ||
                                                         (act.scheduleDate
                                                           ? new Date(
-                                                              act.scheduleDate
-                                                            ).toLocaleDateString()
+                                                            act.scheduleDate
+                                                          ).toLocaleDateString()
                                                           : '')}{' '}
                                                       • {act.location}
                                                     </p>
@@ -4892,8 +5156,8 @@ export default function AdminDashboard({ user, onLogout }) {
                                               act.eventType === 'organization'
                                                 ? act.organizationName
                                                 : orgsList.find(
-                                                    (o) => o.id === act.assignedOrganizationId
-                                                  )?.abbreviation || 'CES'
+                                                  (o) => o.id === act.assignedOrganizationId
+                                                )?.abbreviation || 'CES'
                                             return (
                                               <div
                                                 key={act.id}
@@ -4907,8 +5171,8 @@ export default function AdminDashboard({ user, onLogout }) {
                                                     {act.date ||
                                                       (act.scheduleDate
                                                         ? new Date(
-                                                            act.scheduleDate
-                                                          ).toLocaleDateString()
+                                                          act.scheduleDate
+                                                        ).toLocaleDateString()
                                                         : '')}{' '}
                                                     • {act.location}
                                                   </p>
@@ -5043,7 +5307,7 @@ export default function AdminDashboard({ user, onLogout }) {
                           <button
                             type="button"
                             onClick={handleCancelOrgEdit}
-                            className="flex-1 bg-gray-100 hover:bg-red-500 hover:text-white text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition cursor-pointer text-center"
+                            className="flex-1 bg-gray-100 hover:bg-red-500 hover:text-white text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition-all duration-150 cursor-pointer text-center"
                             style={{ height: '40px' }}
                           >
                             Cancel
@@ -5051,7 +5315,7 @@ export default function AdminDashboard({ user, onLogout }) {
                           <button
                             type="submit"
                             disabled={loading}
-                            className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer flex items-center justify-center gap-1.5"
+                            className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition-all duration-150 cursor-pointer flex items-center justify-center gap-1.5"
                             style={{ height: '40px' }}
                           >
                             {editingOrg ? (
@@ -5164,7 +5428,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             </div>
                             <label
                               htmlFor="dept-logo-upload"
-                              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-navy-blue text-xs font-bold rounded-xl transition cursor-pointer"
+                              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-navy-blue text-xs font-bold rounded-xl transition-all duration-150 cursor-pointer"
                             >
                               Upload Logo
                             </label>
@@ -5200,7 +5464,7 @@ export default function AdminDashboard({ user, onLogout }) {
                           <button
                             type="button"
                             onClick={handleCancelOrgEdit}
-                            className="flex-1 bg-gray-100 hover:bg-red-500 hover:text-white text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition cursor-pointer text-center"
+                            className="flex-1 bg-gray-100 hover:bg-red-500 hover:text-white text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition-all duration-150 cursor-pointer text-center"
                             style={{ height: '40px' }}
                           >
                             Cancel
@@ -5208,7 +5472,7 @@ export default function AdminDashboard({ user, onLogout }) {
                           <button
                             type="submit"
                             disabled={loading}
-                            className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer flex items-center justify-center gap-1.5"
+                            className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition-all duration-150 cursor-pointer flex items-center justify-center gap-1.5"
                             style={{ height: '40px' }}
                           >
                             {editingOrg ? (
@@ -5262,13 +5526,12 @@ export default function AdminDashboard({ user, onLogout }) {
                                 <div className="space-y-1">
                                   <div className="flex items-center space-x-2">
                                     <span
-                                      className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                                        rep.status === 'approved'
-                                          ? 'bg-green-100 text-green-800'
-                                          : rep.status === 'submitted'
-                                            ? 'bg-amber-100 text-amber-800'
-                                            : 'bg-red-100 text-red-800'
-                                      }`}
+                                      className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${rep.status === 'approved'
+                                        ? 'bg-green-100 text-green-800'
+                                        : rep.status === 'submitted'
+                                          ? 'bg-amber-100 text-amber-800'
+                                          : 'bg-red-100 text-red-800'
+                                        }`}
                                     >
                                       {rep.status}
                                     </span>
@@ -5279,10 +5542,6 @@ export default function AdminDashboard({ user, onLogout }) {
                                           ? 'Unknown Department'
                                           : 'CES Office'}{' '}
                                       ({org ? org.abbreviation : rep.organizationId ? '' : 'CES'})
-                                    </span>
-                                    <span className="text-[10px] text-gray-400">·</span>
-                                    <span className="text-[10px] text-gray-500">
-                                      {rep.semester} | {rep.academicYear}
                                     </span>
                                   </div>
                                   <h4 className="font-bold text-navy-blue text-sm">
@@ -5308,7 +5567,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                   {rep.status === 'approved' && (
                                     <button
                                       onClick={() => compileReportPDF(rep)}
-                                      className="bg-sig-green text-navy-blue font-semibold py-1.5 px-3 rounded-full text-[11px] flex items-center space-x-1 hover:opacity-90 cursor-pointer"
+                                      className="bg-sig-green text-navy-blue font-semibold py-1.5 px-3 rounded-full text-[11px] flex items-center space-x-1 hover:bg-sig-green-600 transition-all duration-150 cursor-pointer"
                                     >
                                       <Download className="w-3.5 h-3.5" />
                                       <span>Export PDF</span>
@@ -5324,10 +5583,10 @@ export default function AdminDashboard({ user, onLogout }) {
                             r.status === 'approved' ||
                             r.status === 'returned'
                         ).length === 0 && (
-                          <div className="text-center py-8 text-gray-400 text-xs">
-                            No reports submitted for review yet.
-                          </div>
-                        )}
+                            <div className="text-center py-8 text-gray-400 text-xs">
+                              No reports submitted for review yet.
+                            </div>
+                          )}
                       </div>
                     </div>
                   </div>
@@ -5344,9 +5603,6 @@ export default function AdminDashboard({ user, onLogout }) {
                         <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
                           User Account Management
                         </h1>
-                        <p className="text-xs text-gray-500 font-medium mt-0.5">
-                          Manage system access, roles, and coordinator accounts.
-                        </p>
                       </div>
                       <button
                         onClick={() => {
@@ -5416,11 +5672,10 @@ export default function AdminDashboard({ user, onLogout }) {
                                   </td>
                                   <td className="py-3.5 px-2">
                                     <span
-                                      className={`inline-block text-[9px] font-bold px-2.5 py-0.5 rounded-full uppercase ${
-                                        u.status === 'inactive'
-                                          ? 'bg-red-50 text-red-700 border border-red-200'
-                                          : 'bg-green-50 text-green-700 border border-green-200'
-                                      }`}
+                                      className={`inline-block text-[9px] font-bold px-2.5 py-0.5 rounded-full uppercase ${u.status === 'inactive'
+                                        ? 'bg-red-50 text-red-700 border border-red-200'
+                                        : 'bg-green-50 text-green-700 border border-green-200'
+                                        }`}
                                     >
                                       {u.status || 'active'}
                                     </span>
@@ -5475,13 +5730,12 @@ export default function AdminDashboard({ user, onLogout }) {
                                       onClick={() =>
                                         handleToggleStatus(u.uid, u.status || 'active')
                                       }
-                                      className={`py-1 px-2.5 rounded-lg text-xs font-semibold border shadow-2xs transition-all duration-150 cursor-pointer ${
-                                        isSelf
-                                          ? 'opacity-40 cursor-not-allowed bg-gray-100 text-gray-400 border-gray-200'
-                                          : u.status === 'inactive'
-                                            ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
-                                            : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
-                                      }`}
+                                      className={`py-1 px-2.5 rounded-lg text-xs font-semibold border shadow-2xs transition-all duration-150 cursor-pointer ${isSelf
+                                        ? 'opacity-40 cursor-not-allowed bg-gray-100 text-gray-400 border-gray-200'
+                                        : u.status === 'inactive'
+                                          ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
+                                          : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
+                                        }`}
                                     >
                                       {u.status === 'inactive' ? 'Activate' : 'Deactivate'}
                                     </button>
@@ -5489,11 +5743,10 @@ export default function AdminDashboard({ user, onLogout }) {
                                       type="button"
                                       disabled={isSelf}
                                       onClick={() => handleDeleteUser(u)}
-                                      className={`py-1 px-2.5 rounded-lg text-xs font-semibold border shadow-2xs transition-all duration-150 cursor-pointer ${
-                                        isSelf
-                                          ? 'opacity-40 cursor-not-allowed bg-gray-100 text-gray-400 border-gray-200'
-                                          : 'bg-red-50 hover:bg-red-500 hover:text-white text-red-600 border-red-200/80'
-                                      }`}
+                                      className={`py-1 px-2.5 rounded-lg text-xs font-semibold border shadow-2xs transition-all duration-150 cursor-pointer ${isSelf
+                                        ? 'opacity-40 cursor-not-allowed bg-gray-100 text-gray-400 border-gray-200'
+                                        : 'bg-red-50 hover:bg-red-500 hover:text-white text-red-600 border-red-200/80'
+                                        }`}
                                     >
                                       Delete
                                     </button>
@@ -5696,7 +5949,7 @@ export default function AdminDashboard({ user, onLogout }) {
                 <button
                   type="button"
                   onClick={() => setShowReportPreview(false)}
-                  className="text-gray-400 hover:text-navy-blue transition cursor-pointer"
+                  className="text-gray-400 hover:text-navy-blue transition-all duration-150 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -5720,7 +5973,7 @@ export default function AdminDashboard({ user, onLogout }) {
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="border-b border-gray-200 text-xs font-bold text-[#0f2c59]">
-                      <th className="py-2.5 px-2">Transaction Date</th>
+                      <th className="py-2.5 px-2">Date</th>
                       <th className="py-2.5 px-2">Item Name</th>
                       <th className="py-2.5 px-2">Action Type</th>
                       <th className="py-2.5 px-2 text-right">Quantity</th>
@@ -5764,7 +6017,7 @@ export default function AdminDashboard({ user, onLogout }) {
                 <button
                   type="button"
                   onClick={() => setShowReportPreview(false)}
-                  className="flex-1 py-2.5 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition cursor-pointer"
+                  className="flex-1 py-2.5 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition-all duration-150 cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -5772,7 +6025,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   type="button"
                   autoFocus
                   onClick={handleConfirmDownloadPDF}
-                  className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer"
+                  className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition-all duration-150 cursor-pointer"
                 >
                   Confirm Download
                 </button>
@@ -5852,10 +6105,10 @@ export default function AdminDashboard({ user, onLogout }) {
                             <td className="py-3 px-3 font-semibold text-gray-600">
                               {evt.scheduleDate
                                 ? new Date(evt.scheduleDate).toLocaleDateString('en-US', {
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric'
-                                  })
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric'
+                                })
                                 : 'N/A'}
                             </td>
                             <td className="py-3 px-3">
@@ -5893,7 +6146,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   onClick={() =>
                     setCompletedActivitiesModal((prev) => ({ ...prev, isOpen: false }))
                   }
-                  className="px-5 py-2 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition cursor-pointer"
+                  className="px-5 py-2 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition-all duration-150 cursor-pointer"
                 >
                   Close
                 </button>
@@ -5971,770 +6224,732 @@ export default function AdminDashboard({ user, onLogout }) {
       </div>
 
       {/* REGISTER DONATION BATCH MODAL */}
-      {isDonationModalOpen && (
-        <div className="fixed inset-0 glass-modal-overlay flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="glass-modal rounded-2xl p-6 max-w-4xl w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto animate-fade-in-scale">
-            <div className="flex items-center justify-between border-b border-gray-200/60 pb-3 text-left">
-              <h3 className="font-bold text-navy-blue text-base">Register Donation Batch</h3>
-              <button
-                type="button"
-                onClick={handleCloseDonationModal}
-                className="text-gray-400 hover:text-navy-blue transition-colors cursor-pointer p-1 rounded-lg hover:bg-gray-100"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {isDonationModalOpen &&
+        createPortal(
+          <div className="fixed inset-0 glass-modal-overlay flex items-center justify-center p-4 z-50 animate-fade-in">
+            <div className="glass-modal rounded-2xl p-6 max-w-4xl w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto animate-fade-in-scale">
+              <div className="flex items-center justify-between border-b border-gray-200/60 pb-3 text-left">
+                <h3 className="font-bold text-navy-blue text-base">Register Donation Batch</h3>
+                <button
+                  type="button"
+                  onClick={handleCloseDonationModal}
+                  className="text-gray-400 hover:text-navy-blue transition-colors cursor-pointer p-1 rounded-lg hover:bg-gray-100"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
 
-            <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3 mb-4">
-              Log Donation Batch
-            </h3>
+              <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3 mb-4">
+                Log Donation Batch
+              </h3>
 
-            <form onSubmit={handleCreateDonation} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-gray-700 text-xs font-semibold mb-1">
-                    Donor Name
-                  </label>
-                  <input
-                    type="text"
-                    value={donorName}
-                    onChange={(e) => {
-                      setDonorName(e.target.value)
-                      setDonErrors((prev) => {
-                        const copy = { ...prev }
-                        if (copy.fields) {
-                          copy.fields = { ...copy.fields }
-                          delete copy.fields.donorName
-                        }
-                        return copy
-                      })
-                    }}
-                    placeholder="Donor Name"
-                    className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${donErrors.fields?.donorName ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                    style={{ height: '40px' }}
-                  />
-                  {donErrors.fields?.donorName && (
-                    <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                      {donErrors.fields.donorName}
-                    </p>
-                  )}
-                </div>
-                <div className="relative">
-                  <label className="block text-gray-700 text-xs font-semibold mb-1">
-                    Donor Type
-                  </label>
-                  <input
-                    type="text"
-                    value={donorType}
-                    onChange={(e) => {
-                      setDonorType(e.target.value)
-                      setDonErrors((prev) => {
-                        const copy = { ...prev }
-                        if (copy.fields) {
-                          copy.fields = { ...copy.fields }
-                          delete copy.fields.donorType
-                        }
-                        return copy
-                      })
-                    }}
-                    onFocus={() => setIsDonorTypeSuggestionsOpen(true)}
-                    onBlur={() => setTimeout(() => setIsDonorTypeSuggestionsOpen(false), 200)}
-                    placeholder="Donor Type"
-                    className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${donErrors.fields?.donorType ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                    style={{ height: '40px' }}
-                  />
-                  {donErrors.fields?.donorType && (
-                    <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                      {donErrors.fields.donorType}
-                    </p>
-                  )}
-                  {isDonorTypeSuggestionsOpen && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                      <div className="py-1">
-                        {(() => {
-                          const suggestions = [
-                            ...new Set([
-                              'external_sponsor',
-                              'internal_department',
-                              'individual',
-                              ...donorsList.map((d) => d.type)
-                            ])
-                          ]
-                            .filter(Boolean)
-                            .filter((type) => !deletedDonorTypes.includes(type))
-                          const filtered = suggestions.filter(
-                            (type) =>
-                              !donorType || type.toLowerCase().includes(donorType.toLowerCase())
-                          )
-                          if (filtered.length === 0) {
-                            return null
-                          }
-                          return filtered.map((type) => (
-                            <div
-                              key={type}
-                              onMouseDown={(e) => e.preventDefault()}
-                              onClick={() => {
-                                setDonorType(type)
-                                setDonErrors((prev) => {
-                                  const copy = { ...prev }
-                                  if (copy.fields) {
-                                    copy.fields = { ...copy.fields }
-                                    delete copy.fields.donorType
-                                  }
-                                  return copy
-                                })
-                                setIsDonorTypeSuggestionsOpen(false)
-                              }}
-                              className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold flex justify-between items-center"
-                            >
-                              <span>{type}</span>
-                              <button
-                                type="button"
-                                onMouseDown={(e) => {
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  const updated = [...deletedDonorTypes, type]
-                                  setDeletedDonorTypes(updated)
-                                  localStorage.setItem(
-                                    'dommunity_deleted_donor_types',
-                                    JSON.stringify(updated)
-                                  )
-                                }}
-                                className="text-gray-400 hover:text-red-500 font-bold transition p-0.5 rounded hover:bg-gray-100 flex items-center justify-center cursor-pointer"
-                                style={{
-                                  width: '18px',
-                                  height: '18px',
-                                  fontSize: '10px'
-                                }}
-                                title="Delete suggestion"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          ))
-                        })()}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-gray-700 text-xs font-semibold mb-1">
-                    Donation Date
-                  </label>
-                  <div
-                    className={
-                      donErrors.fields?.donDate
-                        ? 'border border-red-500 rounded-xl p-0.5 ring-2 ring-red-500/10'
-                        : ''
-                    }
-                  >
-                    <GlassDatePicker
-                      value={donDate}
-                      onChange={(val) => {
-                        setDonDate(val)
+              <form onSubmit={handleCreateDonation} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-gray-700 text-xs font-semibold mb-1">
+                      Donor Name
+                    </label>
+                    <input
+                      type="text"
+                      value={donorName}
+                      onChange={(e) => {
+                        setDonorName(e.target.value)
                         setDonErrors((prev) => {
                           const copy = { ...prev }
                           if (copy.fields) {
                             copy.fields = { ...copy.fields }
-                            delete copy.fields.donDate
+                            delete copy.fields.donorName
                           }
                           return copy
                         })
                       }}
-                      showTime={false}
-                      placeholder="dd/mm/yyyy"
+                      placeholder="Donor Name"
+                      className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${donErrors.fields?.donorName ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                      style={{ height: '40px' }}
+                    />
+                    {donErrors.fields?.donorName && (
+                      <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                        {donErrors.fields.donorName}
+                      </p>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <label className="block text-gray-700 text-xs font-semibold mb-1">
+                      Donor Type
+                    </label>
+                    <input
+                      type="text"
+                      value={donorType}
+                      onChange={(e) => {
+                        setDonorType(e.target.value)
+                        setDonErrors((prev) => {
+                          const copy = { ...prev }
+                          if (copy.fields) {
+                            copy.fields = { ...copy.fields }
+                            delete copy.fields.donorType
+                          }
+                          return copy
+                        })
+                      }}
+                      onFocus={() => setIsDonorTypeSuggestionsOpen(true)}
+                      onBlur={() => setTimeout(() => setIsDonorTypeSuggestionsOpen(false), 200)}
+                      placeholder="Donor Type"
+                      className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${donErrors.fields?.donorType ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                      style={{ height: '40px' }}
+                    />
+                    {donErrors.fields?.donorType && (
+                      <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                        {donErrors.fields.donorType}
+                      </p>
+                    )}
+                    {isDonorTypeSuggestionsOpen && (
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                        <div className="py-1">
+                          {(() => {
+                            const suggestions = [
+                              ...new Set([
+                                'external_sponsor',
+                                'internal_department',
+                                'individual',
+                                ...donorsList.map((d) => d.type)
+                              ])
+                            ]
+                              .filter(Boolean)
+                              .filter((type) => !deletedDonorTypes.includes(type))
+                            const filtered = suggestions.filter(
+                              (type) =>
+                                !donorType || type.toLowerCase().includes(donorType.toLowerCase())
+                            )
+                            if (filtered.length === 0) {
+                              return null
+                            }
+                            return filtered.map((type) => (
+                              <div
+                                key={type}
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => {
+                                  setDonorType(type)
+                                  setDonErrors((prev) => {
+                                    const copy = { ...prev }
+                                    if (copy.fields) {
+                                      copy.fields = { ...copy.fields }
+                                      delete copy.fields.donorType
+                                    }
+                                    return copy
+                                  })
+                                  setIsDonorTypeSuggestionsOpen(false)
+                                }}
+                                className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold flex justify-between items-center"
+                              >
+                                <span>{type}</span>
+                                <button
+                                  type="button"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                  }}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    const updated = [...deletedDonorTypes, type]
+                                    setDeletedDonorTypes(updated)
+                                    localStorage.setItem(
+                                      'dommunity_deleted_donor_types',
+                                      JSON.stringify(updated)
+                                    )
+                                  }}
+                                  className="text-gray-400 hover:text-red-500 font-bold transition p-0.5 rounded hover:bg-gray-100 flex items-center justify-center cursor-pointer"
+                                  style={{
+                                    width: '18px',
+                                    height: '18px',
+                                    fontSize: '10px'
+                                  }}
+                                  title="Delete suggestion"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ))
+                          })()}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 text-xs font-semibold mb-1">
+                      Donation Date
+                    </label>
+                    <div
+                      className={
+                        donErrors.fields?.donDate
+                          ? 'border border-red-500 rounded-xl p-0.5 ring-2 ring-red-500/10'
+                          : ''
+                      }
+                    >
+                      <GlassDatePicker
+                        value={donDate}
+                        onChange={(val) => {
+                          setDonDate(val)
+                          setDonErrors((prev) => {
+                            const copy = { ...prev }
+                            if (copy.fields) {
+                              copy.fields = { ...copy.fields }
+                              delete copy.fields.donDate
+                            }
+                            return copy
+                          })
+                        }}
+                        showTime={false}
+                        placeholder="dd/mm/yyyy"
+                      />
+                    </div>
+                    {donErrors.fields?.donDate && (
+                      <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                        {donErrors.fields.donDate}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-gray-700 text-xs font-semibold mb-1">
+                      Purpose / Outreach
+                    </label>
+                    <input
+                      type="text"
+                      value={donPurpose}
+                      onChange={(e) => {
+                        setDonPurpose(e.target.value)
+                        setDonErrors((prev) => {
+                          const copy = { ...prev }
+                          if (copy.fields) {
+                            copy.fields = { ...copy.fields }
+                            delete copy.fields.donPurpose
+                          }
+                          return copy
+                        })
+                      }}
+                      placeholder="Purpose"
+                      className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${donErrors.fields?.donPurpose ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                      style={{ height: '40px' }}
+                    />
+                    {donErrors.fields?.donPurpose && (
+                      <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                        {donErrors.fields.donPurpose}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 text-xs font-semibold mb-1">
+                      General Description
+                    </label>
+                    <input
+                      type="text"
+                      value={donDesc}
+                      onChange={(e) => setDonDesc(e.target.value)}
+                      placeholder="Hygiene soap packages donated"
+                      className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none"
+                      style={{ height: '40px' }}
                     />
                   </div>
-                  {donErrors.fields?.donDate && (
-                    <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                      {donErrors.fields.donDate}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-700 text-xs font-semibold mb-1">
-                    Purpose / Outreach
-                  </label>
-                  <input
-                    type="text"
-                    value={donPurpose}
-                    onChange={(e) => {
-                      setDonPurpose(e.target.value)
-                      setDonErrors((prev) => {
-                        const copy = { ...prev }
-                        if (copy.fields) {
-                          copy.fields = { ...copy.fields }
-                          delete copy.fields.donPurpose
-                        }
-                        return copy
-                      })
-                    }}
-                    placeholder="Purpose"
-                    className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${donErrors.fields?.donPurpose ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                    style={{ height: '40px' }}
-                  />
-                  {donErrors.fields?.donPurpose && (
-                    <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                      {donErrors.fields.donPurpose}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-gray-700 text-xs font-semibold mb-1">
-                    General Description
-                  </label>
-                  <input
-                    type="text"
-                    value={donDesc}
-                    onChange={(e) => setDonDesc(e.target.value)}
-                    placeholder="Hygiene soap packages donated"
-                    className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none"
-                    style={{ height: '40px' }}
-                  />
-                </div>
-              </div>
-
-              {/* Batch items list inputs */}
-              <div className="border-t border-gray-100 pt-4">
-                <div className="flex justify-between items-center mb-3">
-                  <h4 className="text-xs font-bold text-navy-blue">Items Contributed</h4>
-                  <button
-                    type="button"
-                    onClick={handleAddDonItemLine}
-                    className="flex items-center gap-1.5 bg-navy-blue text-white rounded-full text-xs font-semibold px-4 py-2 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Item Line</span>
-                  </button>
                 </div>
 
-                <div className="space-y-4">
-                  {donItems.map((item, idx) => {
-                    const parsedQty = parseInt(item.quantity, 10)
-                    const unitLower = (item.unit || '').toLowerCase().trim()
-                    const isAlreadyGrouped = [
-                      'pack',
-                      'packs',
-                      'box',
-                      'boxes',
-                      'bundle',
-                      'bundles'
-                    ].includes(unitLower)
-                    const isSchoolSupplies =
-                      (item.category || '').toLowerCase().trim() === 'school supplies'
+                {/* Batch items list inputs */}
+                <div className="border-t border-gray-100 pt-4">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="text-xs font-bold text-navy-blue">Items Contributed</h4>
+                    <button
+                      type="button"
+                      onClick={handleAddDonItemLine}
+                      className="flex items-center gap-1.5 bg-navy-blue text-white rounded-full text-xs font-semibold px-4 py-2 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition-all duration-150 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Item Line</span>
+                    </button>
+                  </div>
 
-                    return (
-                      <div
-                        key={idx}
-                        className="border border-gray-150 rounded-2xl p-4 bg-gray-50/30 space-y-4 relative shadow-sm"
-                      >
-                        {/* Card Header */}
-                        <div className="flex justify-between items-center border-b border-gray-100 pb-2">
-                          <span className="text-xs font-bold text-navy-blue">Item #{idx + 1}</span>
-                          {donItems.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveDonItemLine(idx)}
-                              className="text-red-500 hover:text-red-700 text-xs font-bold flex items-center space-x-1 cursor-pointer"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                              <span>Remove</span>
-                            </button>
-                          )}
-                        </div>
+                  <div className="space-y-4">
+                    {donItems.map((item, idx) => {
+                      const parsedQty = parseInt(item.quantity, 10)
+                      const unitLower = (item.unit || '').toLowerCase().trim()
+                      const isAlreadyGrouped = [
+                        'pack',
+                        'packs',
+                        'box',
+                        'boxes',
+                        'bundle',
+                        'bundles'
+                      ].includes(unitLower)
+                      const isSchoolSupplies =
+                        (item.category || '').toLowerCase().trim() === 'school supplies'
 
-                        {/* Form Grid Layout */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {/* Item Name */}
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Item Name
-                            </label>
-                            <div className="relative">
-                              <input
-                                type="text"
-                                value={item.name}
-                                onChange={(e) => {
-                                  handleDonItemChange(idx, 'name', e.target.value)
-                                  setDonErrors((prev) => {
-                                    const copy = { ...prev }
-                                    if (copy.items && copy.items[idx]) {
-                                      copy.items = [...copy.items]
-                                      copy.items[idx] = { ...copy.items[idx] }
-                                      delete copy.items[idx].name
-                                    }
-                                    return copy
-                                  })
-                                  setActiveDonItemSuggestionsIdx(idx)
-                                }}
-                                onFocus={() => setActiveDonItemSuggestionsIdx(idx)}
-                                onBlur={() =>
-                                  setTimeout(() => setActiveDonItemSuggestionsIdx(null), 200)
-                                }
-                                placeholder="e.g. Corned Beef, Notebooks"
-                                className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${donErrors?.items?.[idx]?.name ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                style={{ height: '40px' }}
-                              />
-                              {donErrors?.items?.[idx]?.name && (
-                                <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                  {donErrors.items[idx].name}
-                                </p>
-                              )}
-                              {activeDonItemSuggestionsIdx === idx && item.name && (
-                                <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                  {(() => {
-                                    const matching = inventoryList.filter((invItem) =>
-                                      invItem.name.toLowerCase().includes(item.name.toLowerCase())
-                                    )
-                                    const uniqueNames = [
-                                      ...new Set(matching.map((invItem) => invItem.name))
-                                    ]
-                                    if (uniqueNames.length === 0) return null
-                                    return (
-                                      <div className="py-1">
-                                        {uniqueNames.map((name) => {
-                                          const originalItem = matching.find(
-                                            (invItem) => invItem.name === name
-                                          )
-                                          return (
-                                            <div
-                                              key={name}
-                                              onMouseDown={(e) => e.preventDefault()}
-                                              onClick={() => {
-                                                const list = [...donItems]
-                                                list[idx].name = name
-                                                if (originalItem) {
-                                                  list[idx].category = originalItem.category || ''
-                                                  list[idx].unit = originalItem.unit || ''
-                                                  list[idx].piecesPerUnit =
-                                                    originalItem.piecesPerUnit
-                                                      ? originalItem.piecesPerUnit.toString()
-                                                      : ''
-                                                  list[idx].groupUnit =
-                                                    originalItem.groupUnit || 'none'
-                                                }
-                                                setDonItems(list)
-                                                setDonErrors((prev) => {
-                                                  const copy = { ...prev }
-                                                  if (copy.items && copy.items[idx]) {
-                                                    copy.items = [...copy.items]
-                                                    copy.items[idx] = {}
-                                                  }
-                                                  return copy
-                                                })
-                                                setActiveDonItemSuggestionsIdx(null)
-                                              }}
-                                              className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left animate-fade-in"
-                                            >
-                                              {name}{' '}
-                                              {originalItem?.category && (
-                                                <span className="text-[10px] text-gray-400 font-normal">
-                                                  ({originalItem.category})
-                                                </span>
-                                              )}
-                                            </div>
-                                          )
-                                        })}
-                                      </div>
-                                    )
-                                  })()}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Category Searchable Dropdown */}
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Category
-                            </label>
-                            <div className="relative">
-                              <input
-                                type="text"
-                                value={item.category}
-                                onFocus={() => {
-                                  prevDonCategoryRef.current = {
-                                    idx,
-                                    value: item.category
-                                  }
-                                  handleDonItemChange(idx, 'category', '')
-                                  setActiveDonItemCategoryIdx(idx)
-                                }}
-                                onBlur={() =>
-                                  setTimeout(() => {
-                                    setActiveDonItemCategoryIdx(null)
-                                    if (prevDonCategoryRef.current.idx === idx) {
-                                      const currentItem = donItems[idx]
-                                      if (currentItem) {
-                                        handleDonItemChange(
-                                          idx,
-                                          'category',
-                                          currentItem.category
-                                            ? currentItem.category
-                                            : prevDonCategoryRef.current.value
-                                        )
-                                      }
-                                    }
-                                  }, 200)
-                                }
-                                onChange={(e) => {
-                                  handleDonItemChange(idx, 'category', e.target.value)
-                                  setDonErrors((prev) => {
-                                    const copy = { ...prev }
-                                    if (copy.items && copy.items[idx]) {
-                                      copy.items = [...copy.items]
-                                      copy.items[idx] = { ...copy.items[idx] }
-                                      delete copy.items[idx].category
-                                    }
-                                    return copy
-                                  })
-                                }}
-                                placeholder="Select or type category"
-                                className={`w-full pl-2.5 pr-16 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${donErrors?.items?.[idx]?.category ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                style={{ height: '40px' }}
-                              />
-                              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
-                                {item.category && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      handleDonItemChange(idx, 'category', '')
-                                      prevDonCategoryRef.current = { idx, value: '' }
-                                    }}
-                                    className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5"
-                                    tabIndex={-1}
-                                  >
-                                    <X className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                                <div className="pointer-events-none text-gray-400">
-                                  <ChevronRight className="w-4 h-4 transform rotate-90" />
-                                </div>
-                              </div>
-                              {activeDonItemCategoryIdx === idx &&
-                                activeCategories.filter(
-                                  (cat) =>
-                                    !item.category ||
-                                    cat.toLowerCase().includes(item.category.toLowerCase())
-                                ).length > 0 && (
-                                  <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                    {activeCategories
-                                      .filter(
-                                        (cat) =>
-                                          !item.category ||
-                                          cat.toLowerCase().includes(item.category.toLowerCase())
-                                      )
-                                      .map((cat) => (
-                                        <div
-                                          key={cat}
-                                          onMouseDown={(e) => e.preventDefault()}
-                                          onClick={() => {
-                                            handleDonItemChange(idx, 'category', cat)
-                                            prevDonCategoryRef.current = { idx, value: cat }
-                                            setDonErrors((prev) => {
-                                              const copy = { ...prev }
-                                              if (copy.items && copy.items[idx]) {
-                                                copy.items = [...copy.items]
-                                                copy.items[idx] = { ...copy.items[idx] }
-                                                delete copy.items[idx].category
-                                              }
-                                              return copy
-                                            })
-                                            setActiveDonItemCategoryIdx(null)
-                                          }}
-                                          className="flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
-                                        >
-                                          <span className="truncate">{cat}</span>
-                                        </div>
-                                      ))}
-                                  </div>
-                                )}
-                            </div>
-                            {donErrors?.items?.[idx]?.category && (
-                              <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                {donErrors.items[idx].category}
-                              </p>
+                      return (
+                        <div
+                          key={idx}
+                          className="border border-gray-150 rounded-2xl p-4 bg-gray-50/30 space-y-4 relative shadow-sm"
+                        >
+                          {/* Card Header */}
+                          <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                            <span className="text-xs font-bold text-navy-blue">
+                              Item #{idx + 1}
+                            </span>
+                            {donItems.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveDonItemLine(idx)}
+                                className="text-red-500 hover:text-red-700 text-xs font-bold flex items-center space-x-1 cursor-pointer"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                                <span>Remove</span>
+                              </button>
                             )}
                           </div>
 
-                          {/* Unit Searchable Dropdown */}
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Unit
-                            </label>
-                            <div className="relative">
-                              <input
-                                type="text"
-                                value={item.unit}
-                                onFocus={() => {
-                                  prevDonUnitRef.current = { idx, value: item.unit }
-                                  handleDonItemChange(idx, 'unit', '')
-                                  setActiveDonItemUnitIdx(idx)
-                                }}
-                                onBlur={() =>
-                                  setTimeout(() => {
-                                    setActiveDonItemUnitIdx(null)
-                                    if (prevDonUnitRef.current.idx === idx) {
-                                      const currentItem = donItems[idx]
-                                      if (currentItem) {
-                                        handleDonItemChange(
-                                          idx,
-                                          'unit',
-                                          currentItem.unit
-                                            ? currentItem.unit
-                                            : prevDonUnitRef.current.value
-                                        )
-                                      }
-                                    }
-                                  }, 200)
-                                }
-                                onChange={(e) => {
-                                  handleDonItemChange(idx, 'unit', e.target.value)
-                                  setDonErrors((prev) => {
-                                    const copy = { ...prev }
-                                    if (copy.items && copy.items[idx]) {
-                                      copy.items = [...copy.items]
-                                      copy.items[idx] = { ...copy.items[idx] }
-                                      delete copy.items[idx].unit
-                                    }
-                                    return copy
-                                  })
-                                }}
-                                placeholder="Select or type unit"
-                                className={`w-full pl-2.5 pr-16 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${donErrors?.items?.[idx]?.unit ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                style={{ height: '40px' }}
-                              />
-                              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
-                                {item.unit && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      handleDonItemChange(idx, 'unit', '')
-                                      prevDonUnitRef.current = { idx, value: '' }
-                                    }}
-                                    className="text-gray-400 hover:text-red-500 transition cursor-pointer p-0.5"
-                                    tabIndex={-1}
-                                  >
-                                    <X className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                                <div className="pointer-events-none text-gray-400">
-                                  <ChevronRight className="w-4 h-4 transform rotate-90" />
-                                </div>
-                              </div>
-                              {activeDonItemUnitIdx === idx &&
-                                activeUnits.filter(
-                                  (u) =>
-                                    !item.unit || u.toLowerCase().includes(item.unit.toLowerCase())
-                                ).length > 0 && (
-                                  <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                    {activeUnits
-                                      .filter(
-                                        (u) =>
-                                          !item.unit ||
-                                          u.toLowerCase().includes(item.unit.toLowerCase())
-                                      )
-                                      .map((u) => (
-                                        <div
-                                          key={u}
-                                          onMouseDown={(e) => e.preventDefault()}
-                                          onClick={() => {
-                                            handleDonItemChange(idx, 'unit', u)
-                                            prevDonUnitRef.current = { idx, value: u }
-                                            setDonErrors((prev) => {
-                                              const copy = { ...prev }
-                                              if (copy.items && copy.items[idx]) {
-                                                copy.items = [...copy.items]
-                                                copy.items[idx] = { ...copy.items[idx] }
-                                                delete copy.items[idx].unit
-                                              }
-                                              return copy
-                                            })
-                                            setActiveDonItemUnitIdx(null)
-                                          }}
-                                          className="flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
-                                        >
-                                          <span className="truncate">{u}</span>
-                                        </div>
-                                      ))}
-                                  </div>
-                                )}
-                            </div>
-                            {donErrors?.items?.[idx]?.unit && (
-                              <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                {donErrors.items[idx].unit}
-                              </p>
-                            )}
-                          </div>
-
-                          {/* Quantity */}
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Quantity
-                            </label>
-                            <div className="relative">
-                              <input
-                                type="text"
-                                value={item.quantity}
-                                onFocus={() => {
-                                  prevDonQtyRef.current = { idx, value: item.quantity }
-                                  handleDonItemChange(idx, 'quantity', '')
-                                  setActiveDonItemQtyIdx(idx)
-                                }}
-                                onBlur={() =>
-                                  setTimeout(() => {
-                                    setActiveDonItemQtyIdx(null)
-                                    if (prevDonQtyRef.current.idx === idx) {
-                                      const currentItem = donItems[idx]
-                                      if (currentItem) {
-                                        handleDonItemChange(
-                                          idx,
-                                          'quantity',
-                                          currentItem.quantity
-                                            ? currentItem.quantity
-                                            : prevDonQtyRef.current.value
-                                        )
-                                      }
-                                    }
-                                  }, 200)
-                                }
-                                onChange={(e) => {
-                                  handleDonItemChange(idx, 'quantity', e.target.value)
-                                  setDonErrors((prev) => {
-                                    const copy = { ...prev }
-                                    if (copy.items && copy.items[idx]) {
-                                      copy.items = [...copy.items]
-                                      copy.items[idx] = { ...copy.items[idx] }
-                                      delete copy.items[idx].quantity
-                                    }
-                                    return copy
-                                  })
-                                }}
-                                placeholder="Select or enter quantity"
-                                className={`w-full pl-2.5 pr-8 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${donErrors?.items?.[idx]?.quantity ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                style={{ height: '40px' }}
-                              />
-                              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                <ChevronRight className="w-4 h-4 transform rotate-90" />
-                              </div>
-                              {activeDonItemQtyIdx === idx && (
-                                <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                  {[5, 10, 20, 50, 100, 250, 500]
-                                    .filter(
-                                      (q) => !item.quantity || q.toString().includes(item.quantity)
-                                    )
-                                    .map((q) => (
-                                      <div
-                                        key={q}
-                                        onMouseDown={(e) => e.preventDefault()}
-                                        onClick={() => {
-                                          handleDonItemChange(idx, 'quantity', q.toString())
-                                          prevDonQtyRef.current = {
-                                            idx,
-                                            value: q.toString()
-                                          }
-                                          setDonErrors((prev) => {
-                                            const copy = { ...prev }
-                                            if (copy.items && copy.items[idx]) {
-                                              copy.items = [...copy.items]
-                                              copy.items[idx] = { ...copy.items[idx] }
-                                              delete copy.items[idx].quantity
-                                            }
-                                            return copy
-                                          })
-                                          setActiveDonItemQtyIdx(null)
-                                        }}
-                                        className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
-                                      >
-                                        {q}
-                                      </div>
-                                    ))}
-                                </div>
-                              )}
-                            </div>
-                            {donErrors?.items?.[idx]?.quantity && (
-                              <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                {donErrors.items[idx].quantity}
-                              </p>
-                            )}
-                          </div>
-
-                          {/* Pieces per Unit (if Unit is already pack/box/bundle) */}
-                          {isAlreadyGrouped && (
-                            <div className="animate-fade-in">
+                          {/* Form Grid Layout */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Item Name */}
+                            <div>
                               <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                Pieces per Unit <span className="text-red-500">*</span>
+                                Item Name
                               </label>
-                              <input
-                                type="text"
-                                value={item.piecesPerUnit}
-                                onChange={(e) => {
-                                  if (/^\d*$/.test(e.target.value)) {
-                                    handleDonItemChange(idx, 'piecesPerUnit', e.target.value)
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  value={item.name}
+                                  onChange={(e) => {
+                                    handleDonItemChange(idx, 'name', e.target.value)
                                     setDonErrors((prev) => {
                                       const copy = { ...prev }
                                       if (copy.items && copy.items[idx]) {
                                         copy.items = [...copy.items]
                                         copy.items[idx] = { ...copy.items[idx] }
-                                        delete copy.items[idx].piecesPerUnit
+                                        delete copy.items[idx].name
                                       }
                                       return copy
                                     })
+                                    setActiveDonItemSuggestionsIdx(idx)
+                                  }}
+                                  onFocus={() => setActiveDonItemSuggestionsIdx(idx)}
+                                  onBlur={() =>
+                                    setTimeout(() => setActiveDonItemSuggestionsIdx(null), 200)
                                   }
-                                }}
-                                placeholder="e.g. 12"
-                                className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${donErrors?.items?.[idx]?.piecesPerUnit ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                style={{ height: '40px' }}
-                              />
-                              {donErrors?.items?.[idx]?.piecesPerUnit && (
+                                  placeholder="e.g. Corned Beef, Notebooks"
+                                  className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${donErrors?.items?.[idx]?.name ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                  style={{ height: '40px' }}
+                                />
+                                {donErrors?.items?.[idx]?.name && (
+                                  <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                    {donErrors.items[idx].name}
+                                  </p>
+                                )}
+                                {activeDonItemSuggestionsIdx === idx && item.name && (
+                                  <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                                    {(() => {
+                                      const matching = inventoryList.filter(
+                                        (invItem) =>
+                                          invItem.name
+                                            .toLowerCase()
+                                            .includes(item.name.toLowerCase()) &&
+                                          !deletedItemNames.includes(
+                                            invItem.name.toLowerCase().trim()
+                                          )
+                                      )
+                                      const uniqueNames = [
+                                        ...new Set(matching.map((invItem) => invItem.name))
+                                      ]
+                                      if (uniqueNames.length === 0) return null
+                                      return (
+                                        <div className="py-1">
+                                          {uniqueNames.map((name) => {
+                                            const originalItem = matching.find(
+                                              (invItem) => invItem.name === name
+                                            )
+                                            return (
+                                              <div
+                                                key={name}
+                                                onMouseDown={(e) => e.preventDefault()}
+                                                onClick={() => {
+                                                  const list = [...donItems]
+                                                  list[idx].name = name
+                                                  if (originalItem) {
+                                                    list[idx].category = originalItem.category || ''
+                                                    list[idx].unit = originalItem.unit || ''
+                                                    list[idx].piecesPerUnit =
+                                                      originalItem.piecesPerUnit
+                                                        ? originalItem.piecesPerUnit.toString()
+                                                        : ''
+                                                    list[idx].groupUnit =
+                                                      originalItem.groupUnit || 'none'
+                                                  }
+                                                  setDonItems(list)
+                                                  setDonErrors((prev) => {
+                                                    const copy = { ...prev }
+                                                    if (copy.items && copy.items[idx]) {
+                                                      copy.items = [...copy.items]
+                                                      copy.items[idx] = {}
+                                                    }
+                                                    return copy
+                                                  })
+                                                  setActiveDonItemSuggestionsIdx(null)
+                                                }}
+                                                className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left animate-fade-in"
+                                              >
+                                                <span className="truncate">
+                                                  {name}{' '}
+                                                  {originalItem?.category && (
+                                                    <span className="text-[10px] text-gray-400 font-normal">
+                                                      ({originalItem.category})
+                                                    </span>
+                                                  )}
+                                                </span>
+                                                <button
+                                                  type="button"
+                                                  onMouseDown={(e) => {
+                                                    e.preventDefault()
+                                                    e.stopPropagation()
+                                                  }}
+                                                  onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    handleDeleteItemName(name)
+                                                  }}
+                                                  className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100 shrink-0 ml-2"
+                                                >
+                                                  <X className="w-3 h-3" />
+                                                </button>
+                                              </div>
+                                            )
+                                          })}
+                                        </div>
+                                      )
+                                    })()}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Category Searchable Dropdown */}
+                            <div>
+                              <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                Category
+                              </label>
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  value={item.category}
+                                  onFocus={() => {
+                                    prevDonCategoryRef.current = {
+                                      idx,
+                                      value: item.category
+                                    }
+                                    handleDonItemChange(idx, 'category', '')
+                                    setActiveDonItemCategoryIdx(idx)
+                                  }}
+                                  onBlur={() =>
+                                    setTimeout(() => {
+                                      setActiveDonItemCategoryIdx(null)
+                                      if (prevDonCategoryRef.current.idx === idx) {
+                                        const currentItem = donItems[idx]
+                                        if (currentItem) {
+                                          handleDonItemChange(
+                                            idx,
+                                            'category',
+                                            currentItem.category
+                                              ? currentItem.category
+                                              : prevDonCategoryRef.current.value
+                                          )
+                                        }
+                                      }
+                                    }, 200)
+                                  }
+                                  onChange={(e) => {
+                                    handleDonItemChange(idx, 'category', e.target.value)
+                                    setDonErrors((prev) => {
+                                      const copy = { ...prev }
+                                      if (copy.items && copy.items[idx]) {
+                                        copy.items = [...copy.items]
+                                        copy.items[idx] = { ...copy.items[idx] }
+                                        delete copy.items[idx].category
+                                      }
+                                      return copy
+                                    })
+                                  }}
+                                  placeholder="Select or type category"
+                                  className={`w-full pl-2.5 pr-16 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${donErrors?.items?.[idx]?.category ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                  style={{ height: '40px' }}
+                                />
+                                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
+                                  {item.category && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        handleDonItemChange(idx, 'category', '')
+                                        prevDonCategoryRef.current = { idx, value: '' }
+                                      }}
+                                      className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                      tabIndex={-1}
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                  <div className="pointer-events-none text-gray-400">
+                                    <ChevronRight className="w-4 h-4 transform rotate-90" />
+                                  </div>
+                                </div>
+                                {activeDonItemCategoryIdx === idx &&
+                                  activeCategories.filter(
+                                    (cat) =>
+                                      !item.category ||
+                                      cat.toLowerCase().includes(item.category.toLowerCase())
+                                  ).length > 0 && (
+                                    <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                                      {activeCategories
+                                        .filter(
+                                          (cat) =>
+                                            !item.category ||
+                                            cat.toLowerCase().includes(item.category.toLowerCase())
+                                        )
+                                        .map((cat) => (
+                                          <div
+                                            key={cat}
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onClick={() => {
+                                              handleDonItemChange(idx, 'category', cat)
+                                              prevDonCategoryRef.current = { idx, value: cat }
+                                              setDonErrors((prev) => {
+                                                const copy = { ...prev }
+                                                if (copy.items && copy.items[idx]) {
+                                                  copy.items = [...copy.items]
+                                                  copy.items[idx] = { ...copy.items[idx] }
+                                                  delete copy.items[idx].category
+                                                }
+                                                return copy
+                                              })
+                                              setActiveDonItemCategoryIdx(null)
+                                            }}
+                                            className="flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
+                                          >
+                                            <span className="truncate">{cat}</span>
+                                          </div>
+                                        ))}
+                                    </div>
+                                  )}
+                              </div>
+                              {donErrors?.items?.[idx]?.category && (
                                 <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                  {donErrors.items[idx].piecesPerUnit}
+                                  {donErrors.items[idx].category}
                                 </p>
                               )}
                             </div>
-                          )}
 
-                          {/* Group Stock Option (only if Quantity >= 12 and Unit is not pack/box/bundle) */}
-                          {!isNaN(parsedQty) && parsedQty >= 12 && !isAlreadyGrouped && (
+                            {/* Unit Searchable Dropdown */}
                             <div>
                               <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                Group stock into (Optional)
+                                Unit
                               </label>
-                              <select
-                                value={item.groupUnit}
-                                onChange={(e) => {
-                                  const list = [...donItems]
-                                  list[idx].groupUnit = e.target.value
-                                  if (e.target.value === 'none') {
-                                    list[idx].piecesPerUnit = ''
-                                  } else if (!list[idx].piecesPerUnit) {
-                                    list[idx].piecesPerUnit = '12'
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  value={item.unit}
+                                  onFocus={() => {
+                                    prevDonUnitRef.current = { idx, value: item.unit }
+                                    handleDonItemChange(idx, 'unit', '')
+                                    setActiveDonItemUnitIdx(idx)
+                                  }}
+                                  onBlur={() =>
+                                    setTimeout(() => {
+                                      setActiveDonItemUnitIdx(null)
+                                      if (prevDonUnitRef.current.idx === idx) {
+                                        const currentItem = donItems[idx]
+                                        if (currentItem) {
+                                          handleDonItemChange(
+                                            idx,
+                                            'unit',
+                                            currentItem.unit
+                                              ? currentItem.unit
+                                              : prevDonUnitRef.current.value
+                                          )
+                                        }
+                                      }
+                                    }, 200)
                                   }
-                                  setDonItems(list)
-                                }}
-                                className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue cursor-pointer"
-                                style={{ height: '40px' }}
-                              >
-                                <option value="none">Do not group (Individual pieces)</option>
-                                <option value="pack">Packs</option>
-                                <option value="box">Boxes</option>
-                                <option value="bundle">Bundles</option>
-                              </select>
+                                  onChange={(e) => {
+                                    handleDonItemChange(idx, 'unit', e.target.value)
+                                    setDonErrors((prev) => {
+                                      const copy = { ...prev }
+                                      if (copy.items && copy.items[idx]) {
+                                        copy.items = [...copy.items]
+                                        copy.items[idx] = { ...copy.items[idx] }
+                                        delete copy.items[idx].unit
+                                      }
+                                      return copy
+                                    })
+                                  }}
+                                  placeholder="Select or type unit"
+                                  className={`w-full pl-2.5 pr-16 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${donErrors?.items?.[idx]?.unit ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                  style={{ height: '40px' }}
+                                />
+                                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
+                                  {item.unit && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        handleDonItemChange(idx, 'unit', '')
+                                        prevDonUnitRef.current = { idx, value: '' }
+                                      }}
+                                      className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                      tabIndex={-1}
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                  <div className="pointer-events-none text-gray-400">
+                                    <ChevronRight className="w-4 h-4 transform rotate-90" />
+                                  </div>
+                                </div>
+                                {activeDonItemUnitIdx === idx &&
+                                  activeUnits.filter(
+                                    (u) =>
+                                      !item.unit ||
+                                      u.toLowerCase().includes(item.unit.toLowerCase())
+                                  ).length > 0 && (
+                                    <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                                      {activeUnits
+                                        .filter(
+                                          (u) =>
+                                            !item.unit ||
+                                            u.toLowerCase().includes(item.unit.toLowerCase())
+                                        )
+                                        .map((u) => (
+                                          <div
+                                            key={u}
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            onClick={() => {
+                                              handleDonItemChange(idx, 'unit', u)
+                                              prevDonUnitRef.current = { idx, value: u }
+                                              setDonErrors((prev) => {
+                                                const copy = { ...prev }
+                                                if (copy.items && copy.items[idx]) {
+                                                  copy.items = [...copy.items]
+                                                  copy.items[idx] = { ...copy.items[idx] }
+                                                  delete copy.items[idx].unit
+                                                }
+                                                return copy
+                                              })
+                                              setActiveDonItemUnitIdx(null)
+                                            }}
+                                            className="flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
+                                          >
+                                            <span className="truncate">{u}</span>
+                                          </div>
+                                        ))}
+                                    </div>
+                                  )}
+                              </div>
+                              {donErrors?.items?.[idx]?.unit && (
+                                <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                  {donErrors.items[idx].unit}
+                                </p>
+                              )}
                             </div>
-                          )}
 
-                          {/* Pieces per pack/box/bundle input and remaining pieces display */}
-                          {!isAlreadyGrouped && item.groupUnit && item.groupUnit !== 'none' && (
-                            <>
-                              <div>
+                            {/* Quantity */}
+                            <div>
+                              <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                Quantity
+                              </label>
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  value={item.quantity}
+                                  onFocus={() => {
+                                    prevDonQtyRef.current = { idx, value: item.quantity }
+                                    handleDonItemChange(idx, 'quantity', '')
+                                    setActiveDonItemQtyIdx(idx)
+                                  }}
+                                  onBlur={() =>
+                                    setTimeout(() => {
+                                      setActiveDonItemQtyIdx(null)
+                                      if (prevDonQtyRef.current.idx === idx) {
+                                        const currentItem = donItems[idx]
+                                        if (currentItem) {
+                                          handleDonItemChange(
+                                            idx,
+                                            'quantity',
+                                            currentItem.quantity
+                                              ? currentItem.quantity
+                                              : prevDonQtyRef.current.value
+                                          )
+                                        }
+                                      }
+                                    }, 200)
+                                  }
+                                  onChange={(e) => {
+                                    handleDonItemChange(idx, 'quantity', e.target.value)
+                                    setDonErrors((prev) => {
+                                      const copy = { ...prev }
+                                      if (copy.items && copy.items[idx]) {
+                                        copy.items = [...copy.items]
+                                        copy.items[idx] = { ...copy.items[idx] }
+                                        delete copy.items[idx].quantity
+                                      }
+                                      return copy
+                                    })
+                                  }}
+                                  placeholder="Select or enter quantity"
+                                  className={`w-full pl-2.5 pr-8 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${donErrors?.items?.[idx]?.quantity ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                  style={{ height: '40px' }}
+                                />
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                  <ChevronRight className="w-4 h-4 transform rotate-90" />
+                                </div>
+                                {activeDonItemQtyIdx === idx && (
+                                  <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                                    {[5, 10, 20, 50, 100, 250, 500]
+                                      .filter(
+                                        (q) =>
+                                          !item.quantity || q.toString().includes(item.quantity)
+                                      )
+                                      .map((q) => (
+                                        <div
+                                          key={q}
+                                          onMouseDown={(e) => e.preventDefault()}
+                                          onClick={() => {
+                                            handleDonItemChange(idx, 'quantity', q.toString())
+                                            prevDonQtyRef.current = {
+                                              idx,
+                                              value: q.toString()
+                                            }
+                                            setDonErrors((prev) => {
+                                              const copy = { ...prev }
+                                              if (copy.items && copy.items[idx]) {
+                                                copy.items = [...copy.items]
+                                                copy.items[idx] = { ...copy.items[idx] }
+                                                delete copy.items[idx].quantity
+                                              }
+                                              return copy
+                                            })
+                                            setActiveDonItemQtyIdx(null)
+                                          }}
+                                          className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
+                                        >
+                                          {q}
+                                        </div>
+                                      ))}
+                                  </div>
+                                )}
+                              </div>
+                              {donErrors?.items?.[idx]?.quantity && (
+                                <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                  {donErrors.items[idx].quantity}
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Pieces per Unit (if Unit is already pack/box/bundle) */}
+                            {isAlreadyGrouped && (
+                              <div className="animate-fade-in">
                                 <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                  Pieces per Pack/Box/Bundle
+                                  Pieces per Unit <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                   type="text"
@@ -6742,89 +6957,155 @@ export default function AdminDashboard({ user, onLogout }) {
                                   onChange={(e) => {
                                     if (/^\d*$/.test(e.target.value)) {
                                       handleDonItemChange(idx, 'piecesPerUnit', e.target.value)
+                                      setDonErrors((prev) => {
+                                        const copy = { ...prev }
+                                        if (copy.items && copy.items[idx]) {
+                                          copy.items = [...copy.items]
+                                          copy.items[idx] = { ...copy.items[idx] }
+                                          delete copy.items[idx].piecesPerUnit
+                                        }
+                                        return copy
+                                      })
                                     }
                                   }}
                                   placeholder="e.g. 12"
-                                  className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                                  className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${donErrors?.items?.[idx]?.piecesPerUnit ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
                                   style={{ height: '40px' }}
                                 />
+                                {donErrors?.items?.[idx]?.piecesPerUnit && (
+                                  <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                    {donErrors.items[idx].piecesPerUnit}
+                                  </p>
+                                )}
                               </div>
+                            )}
+
+                            {/* Group Stock Option (only if Quantity >= 12 and Unit is not pack/box/bundle) */}
+                            {!isNaN(parsedQty) && parsedQty >= 12 && !isAlreadyGrouped && (
                               <div>
                                 <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                  Remaining Pieces
+                                  Group stock into (Optional)
                                 </label>
-                                <input
-                                  type="text"
-                                  readOnly
-                                  value={getRemainingPiecesText(
-                                    item.quantity,
-                                    item.piecesPerUnit || '12',
-                                    item.groupUnit
-                                  )}
-                                  className="w-full p-2.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none font-bold text-navy-blue"
+                                <select
+                                  value={item.groupUnit}
+                                  onChange={(e) => {
+                                    const list = [...donItems]
+                                    list[idx].groupUnit = e.target.value
+                                    if (e.target.value === 'none') {
+                                      list[idx].piecesPerUnit = ''
+                                    } else if (!list[idx].piecesPerUnit) {
+                                      list[idx].piecesPerUnit = '12'
+                                    }
+                                    setDonItems(list)
+                                  }}
+                                  className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue cursor-pointer"
                                   style={{ height: '40px' }}
+                                >
+                                  <option value="none">Do not group (Individual pieces)</option>
+                                  <option value="pack">Packs</option>
+                                  <option value="box">Boxes</option>
+                                  <option value="bundle">Bundles</option>
+                                </select>
+                              </div>
+                            )}
+
+                            {/* Pieces per pack/box/bundle input and remaining pieces display */}
+                            {!isAlreadyGrouped && item.groupUnit && item.groupUnit !== 'none' && (
+                              <>
+                                <div>
+                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                    Pieces per Pack/Box/Bundle
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={item.piecesPerUnit}
+                                    onChange={(e) => {
+                                      if (/^\d*$/.test(e.target.value)) {
+                                        handleDonItemChange(idx, 'piecesPerUnit', e.target.value)
+                                      }
+                                    }}
+                                    placeholder="e.g. 12"
+                                    className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                                    style={{ height: '40px' }}
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                    Remaining Pieces
+                                  </label>
+                                  <input
+                                    type="text"
+                                    readOnly
+                                    value={getRemainingPiecesText(
+                                      item.quantity,
+                                      item.piecesPerUnit || '12',
+                                      item.groupUnit
+                                    )}
+                                    className="w-full p-2.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none font-bold text-navy-blue"
+                                    style={{ height: '40px' }}
+                                  />
+                                </div>
+                              </>
+                            )}
+
+                            {/* Expiration Date */}
+                            <div>
+                              <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                Expiration Date{' '}
+                                {!isSchoolSupplies && <span className="text-red-500">*</span>}
+                              </label>
+                              <div
+                                className={
+                                  donErrors?.items?.[idx]?.expiryDate
+                                    ? 'border border-red-500 rounded-xl p-0.5 ring-2 ring-red-500/10'
+                                    : ''
+                                }
+                              >
+                                <GlassDatePicker
+                                  value={item.expiryDate ? item.expiryDate.split('T')[0] : ''}
+                                  disabled={isSchoolSupplies}
+                                  onChange={(val) => {
+                                    handleDonItemChange(idx, 'expiryDate', val)
+                                    setDonErrors((prev) => {
+                                      const copy = { ...prev }
+                                      if (copy.items && copy.items[idx]) {
+                                        copy.items = [...copy.items]
+                                        copy.items[idx] = { ...copy.items[idx] }
+                                        delete copy.items[idx].expiryDate
+                                      }
+                                      return copy
+                                    })
+                                  }}
+                                  showTime={false}
+                                  placeholder="dd/mm/yyyy"
                                 />
                               </div>
-                            </>
-                          )}
-
-                          {/* Expiration Date */}
-                          <div>
-                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                              Expiration Date{' '}
-                              {!isSchoolSupplies && <span className="text-red-500">*</span>}
-                            </label>
-                            <div
-                              className={
-                                donErrors?.items?.[idx]?.expiryDate
-                                  ? 'border border-red-500 rounded-xl p-0.5 ring-2 ring-red-500/10'
-                                  : ''
-                              }
-                            >
-                              <GlassDatePicker
-                                value={item.expiryDate ? item.expiryDate.split('T')[0] : ''}
-                                disabled={isSchoolSupplies}
-                                onChange={(val) => {
-                                  handleDonItemChange(idx, 'expiryDate', val)
-                                  setDonErrors((prev) => {
-                                    const copy = { ...prev }
-                                    if (copy.items && copy.items[idx]) {
-                                      copy.items = [...copy.items]
-                                      copy.items[idx] = { ...copy.items[idx] }
-                                      delete copy.items[idx].expiryDate
-                                    }
-                                    return copy
-                                  })
-                                }}
-                                showTime={false}
-                                placeholder="dd/mm/yyyy"
-                              />
+                              {donErrors?.items?.[idx]?.expiryDate && (
+                                <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                  {donErrors.items[idx].expiryDate}
+                                </p>
+                              )}
                             </div>
-                            {donErrors?.items?.[idx]?.expiryDate && (
-                              <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                {donErrors.items[idx].expiryDate}
-                              </p>
-                            )}
                           </div>
                         </div>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center justify-center cursor-pointer"
-                style={{ height: '42px' }}
-              >
-                {loading ? 'Registering Batch...' : 'Register Donation Batch'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center justify-center cursor-pointer"
+                  style={{ height: '42px' }}
+                >
+                  {loading ? 'Registering Batch...' : 'Register Donation Batch'}
+                </button>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
 
       {/* Centered Glassmorphic Add / Edit User Modal */}
       <AnimatedModal
@@ -7004,14 +7285,14 @@ export default function AdminDashboard({ user, onLogout }) {
             <button
               type="button"
               onClick={handleCloseUserModal}
-              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2.5 rounded-xl text-xs transition cursor-pointer"
+              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2.5 rounded-xl text-xs transition-all duration-150 cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 bg-navy-blue hover:bg-navy-blue-600 text-white font-extrabold py-2.5 rounded-xl text-xs shadow-glass-sm transition cursor-pointer border border-white/20"
+              className="flex-1 bg-navy-blue hover:bg-navy-blue-600 text-white font-extrabold py-2.5 rounded-xl text-xs shadow-glass-sm transition-all duration-150 cursor-pointer border border-white/20"
             >
               {editingUser ? 'Save Changes' : 'Create Account'}
             </button>
@@ -7057,7 +7338,7 @@ export default function AdminDashboard({ user, onLogout }) {
             setActionError('')
             setValidationError(null)
           }}
-          className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer"
+          className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition-all duration-150 cursor-pointer"
         >
           OK
         </button>
@@ -7085,7 +7366,7 @@ export default function AdminDashboard({ user, onLogout }) {
               <button
                 type="button"
                 onClick={() => setConfirmDialog(null)}
-                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-full text-xs py-2.5 transition cursor-pointer"
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-full text-xs py-2.5 transition-all duration-150 cursor-pointer"
               >
                 Cancel
               </button>
@@ -7097,7 +7378,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   confirmDialog.onConfirm()
                   setConfirmDialog(null)
                 }}
-                className="flex-1 bg-navy-blue hover:bg-navy-blue-600 text-white font-bold rounded-full text-xs py-2.5 shadow-md transition cursor-pointer"
+                className="flex-1 bg-navy-blue hover:bg-navy-blue-600 text-white font-bold rounded-full text-xs py-2.5 shadow-md transition-all duration-150 cursor-pointer"
               >
                 Confirm
               </button>
@@ -7123,7 +7404,7 @@ export default function AdminDashboard({ user, onLogout }) {
           onClick={() => {
             setActionSuccess('')
           }}
-          className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition cursor-pointer"
+          className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition-all duration-150 cursor-pointer"
         >
           OK
         </button>

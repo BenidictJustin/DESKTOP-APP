@@ -31,6 +31,60 @@ import {
   firebaseConfig
 } from '../firebase'
 
+export function getLevenshteinDistance(str1, str2) {
+  const s1 = (str1 || '').toLowerCase().trim()
+  const s2 = (str2 || '').toLowerCase().trim()
+  if (s1 === s2) return 0
+  if (s1.length === 0) return s2.length
+  if (s2.length === 0) return s1.length
+
+  const matrix = []
+  for (let i = 0; i <= s2.length; i++) {
+    matrix[i] = [i]
+  }
+  for (let j = 0; j <= s1.length; j++) {
+    matrix[0][j] = j
+  }
+
+  for (let i = 1; i <= s2.length; i++) {
+    for (let j = 1; j <= s1.length; j++) {
+      if (s2[i - 1] === s1[j - 1]) {
+        matrix[i][j] = matrix[i - 1][j - 1]
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1)
+        )
+      }
+    }
+  }
+  return matrix[s2.length][s1.length]
+}
+
+export function areNamesSimilar(n1, n2) {
+  const s1 = (n1 || '').toLowerCase().trim()
+  const s2 = (n2 || '').toLowerCase().trim()
+  if (s1 === s2) return true
+
+  const singularize = (str) => {
+    if (str.endsWith('ies') && str.length > 3) return str.slice(0, -3) + 'y'
+    if (str.endsWith('es') && str.length > 2) return str.slice(0, -2)
+    if (str.endsWith('s') && str.length > 1) return str.slice(0, -1)
+    return str
+  }
+  if (singularize(s1) === singularize(s2)) return true
+
+  const dist = getLevenshteinDistance(s1, s2)
+  const maxLen = Math.max(s1.length, s2.length)
+  if (maxLen <= 4) {
+    return dist === 0
+  } else if (maxLen <= 8) {
+    return dist <= 1
+  } else {
+    return dist <= 2
+  }
+}
+
 // ==========================================
 // 1. DEMO MODE DATA STORAGE (LOCAL STORAGE)
 // ==========================================
@@ -998,7 +1052,7 @@ export const deleteUser = async (uid, email = null, password = null) => {
           deletedAuth = true
           console.log(`Successfully deleted Firebase Auth user for ${targetEmail}`)
           break
-        } catch (err) {
+        } catch {
           // Continue attempting remaining fallback passwords
         }
       }
@@ -1294,7 +1348,7 @@ export const addInventoryItem = async (item, userId) => {
         ? new Date(i.expiryDate).toISOString().split('T')[0]
         : null
       return (
-        existingName === cleanName &&
+        areNamesSimilar(existingName, cleanName) &&
         existingCategory === cleanCategory &&
         existingUnit === cleanUnit &&
         existingExpiry === cleanExpiry
@@ -1335,7 +1389,7 @@ export const addInventoryItem = async (item, userId) => {
       const existingUnit = (d.unit || '').toLowerCase().trim()
       const existingExpiry = d.expiryDate ? d.expiryDate.toDate().toISOString().split('T')[0] : null
       if (
-        existingName === cleanName &&
+        areNamesSimilar(existingName, cleanName) &&
         existingCategory === cleanCategory &&
         existingUnit === cleanUnit &&
         existingExpiry === cleanExpiry
@@ -1603,7 +1657,7 @@ export const addDonation = async (donation, userId) => {
       // Find matching item in inventory by name and expiryDate (batch matching)
       const existing = inventory.find(
         (i) =>
-          i.name.toLowerCase() === dItem.name.toLowerCase() &&
+          areNamesSimilar(i.name, dItem.name) &&
           (i.expiryDate ? new Date(i.expiryDate).getTime() : 0) ===
             (dItem.expiryDate ? new Date(dItem.expiryDate).getTime() : 0)
       )
@@ -1661,16 +1715,18 @@ export const addDonation = async (donation, userId) => {
     const donationId = docRef.id
 
     // Cloud Mode Inventory Aggregation
+    const qSnap = await getDocs(collection(fdb, 'inventory'))
     for (const dItem of donation.items) {
-      const q = query(collection(fdb, 'inventory'), where('name', '==', dItem.name))
-      const snap = await getDocs(q)
       let match = null
 
-      snap.docs.forEach((docSnap) => {
+      qSnap.docs.forEach((docSnap) => {
         const invD = docSnap.data()
-        const invExp = invD.expiryDate ? invD.expiryDate.toDate().toISOString() : null
-        const targetExp = dItem.expiryDate ? new Date(dItem.expiryDate).toISOString() : null
-        if (invExp === targetExp) {
+        const existingName = invD.name.toLowerCase().trim()
+        const invExp = invD.expiryDate ? invD.expiryDate.toDate().toISOString().split('T')[0] : null
+        const targetExp = dItem.expiryDate
+          ? new Date(dItem.expiryDate).toISOString().split('T')[0]
+          : null
+        if (areNamesSimilar(existingName, dItem.name) && invExp === targetExp) {
           match = docSnap
         }
       })
@@ -1762,7 +1818,7 @@ export const getEvents = async () => {
     return qSnap.docs.map((d) => ({
       ...d.data(),
       id: d.id,
-      scheduleDate: d.data().scheduleDate
+      scheduleDate: d.data().scheduleDate?.toDate
         ? d.data().scheduleDate.toDate().toISOString()
         : d.data().scheduleDate
     }))
@@ -2149,5 +2205,170 @@ export const deleteOrganization = async (orgId) => {
   } else {
     await deleteDoc(doc(fdb, 'organizations', orgId))
     return true
+  }
+}
+
+export const runInventoryDeduplicationMigration = async () => {
+  if (isDemoMode) {
+    const inventory = getLocalData(LOCAL_STORAGE_KEYS.INVENTORY) || []
+    if (inventory.length === 0) return
+
+    const merged = []
+    const toDeleteIds = []
+    const nameReplacements = {}
+
+    inventory.forEach((item) => {
+      const cleanName = item.name.toLowerCase().trim()
+      const cleanCategory = (item.category || '').toLowerCase().trim()
+      const cleanUnit = (item.unit || '').toLowerCase().trim()
+      const cleanExpiry = item.expiryDate
+        ? new Date(item.expiryDate).toISOString().split('T')[0]
+        : null
+
+      const master = merged.find((m) => {
+        const mName = m.name.toLowerCase().trim()
+        const mCategory = (m.category || '').toLowerCase().trim()
+        const mUnit = (m.unit || '').toLowerCase().trim()
+        const mExpiry = m.expiryDate ? new Date(m.expiryDate).toISOString().split('T')[0] : null
+        return (
+          areNamesSimilar(mName, cleanName) &&
+          mCategory === cleanCategory &&
+          mUnit === cleanUnit &&
+          mExpiry === cleanExpiry
+        )
+      })
+
+      if (master) {
+        master.quantity += item.quantity
+        master.status = computeInventoryStatus(master.quantity, master.expiryDate)
+        master.updatedAt = new Date().toISOString()
+
+        toDeleteIds.push(item.id)
+        if (item.name !== master.name) {
+          nameReplacements[item.name] = master.name
+        }
+      } else {
+        merged.push({ ...item })
+      }
+    })
+
+    if (toDeleteIds.length > 0) {
+      saveLocalData(LOCAL_STORAGE_KEYS.INVENTORY, merged)
+
+      const transactions = getLocalData('dommunity_inventory_transactions') || []
+      let txUpdated = false
+      transactions.forEach((tx) => {
+        if (nameReplacements[tx.itemName]) {
+          tx.itemName = nameReplacements[tx.itemName]
+          txUpdated = true
+        }
+      })
+      if (txUpdated) {
+        saveLocalData('dommunity_inventory_transactions', transactions)
+      }
+      console.log(`Deduplication migration ran successfully. Merged ${toDeleteIds.length} items.`)
+    }
+  } else {
+    try {
+      const qSnap = await getDocs(collection(fdb, 'inventory'))
+      const inventory = []
+      qSnap.forEach((docSnap) => {
+        inventory.push({ id: docSnap.id, ...docSnap.data() })
+      })
+
+      if (inventory.length === 0) return
+
+      const merged = []
+      const duplicateUpdates = []
+      const toDeleteIds = []
+      const nameReplacements = {}
+
+      inventory.forEach((item) => {
+        const cleanName = item.name.toLowerCase().trim()
+        const cleanCategory = (item.category || '').toLowerCase().trim()
+        const cleanUnit = (item.unit || '').toLowerCase().trim()
+        const cleanExpiry = item.expiryDate
+          ? (item.expiryDate instanceof Timestamp
+              ? item.expiryDate.toDate()
+              : new Date(item.expiryDate)
+            )
+              .toISOString()
+              .split('T')[0]
+          : null
+
+        const master = merged.find((m) => {
+          const mName = m.name.toLowerCase().trim()
+          const mCategory = (m.category || '').toLowerCase().trim()
+          const mUnit = (m.unit || '').toLowerCase().trim()
+          const mExpiry = m.expiryDate
+            ? (m.expiryDate instanceof Timestamp ? m.expiryDate.toDate() : new Date(m.expiryDate))
+                .toISOString()
+                .split('T')[0]
+            : null
+          return (
+            areNamesSimilar(mName, cleanName) &&
+            mCategory === cleanCategory &&
+            mUnit === cleanUnit &&
+            mExpiry === cleanExpiry
+          )
+        })
+
+        if (master) {
+          master.quantity += item.quantity
+          master.status = computeInventoryStatus(master.quantity, master.expiryDate)
+
+          const existingUpdate = duplicateUpdates.find((u) => u.id === master.id)
+          if (existingUpdate) {
+            existingUpdate.quantity = master.quantity
+            existingUpdate.status = master.status
+          } else {
+            duplicateUpdates.push({
+              id: master.id,
+              quantity: master.quantity,
+              status: master.status
+            })
+          }
+
+          toDeleteIds.push(item.id)
+          if (item.name !== master.name) {
+            nameReplacements[item.name] = master.name
+          }
+        } else {
+          merged.push({ ...item })
+        }
+      })
+
+      for (const update of duplicateUpdates) {
+        await updateDoc(doc(fdb, 'inventory', update.id), {
+          quantity: update.quantity,
+          status: update.status,
+          updatedAt: Timestamp.now()
+        })
+      }
+
+      for (const id of toDeleteIds) {
+        await deleteDoc(doc(fdb, 'inventory', id))
+      }
+
+      if (Object.keys(nameReplacements).length > 0) {
+        const txSnap = await getDocs(collection(fdb, 'inventory_transactions'))
+        for (const txDoc of txSnap.docs) {
+          const txData = txDoc.data()
+          if (nameReplacements[txData.itemName]) {
+            await updateDoc(doc(fdb, 'inventory_transactions', txDoc.id), {
+              itemName: nameReplacements[txData.itemName]
+            })
+          }
+        }
+      }
+
+      if (toDeleteIds.length > 0) {
+        console.log(
+          `Firestore deduplication migration ran successfully. Merged ${toDeleteIds.length} items.`
+        )
+      }
+    } catch (e) {
+      console.error('Failed executing Firestore inventory deduplication migration:', e)
+    }
   }
 }
