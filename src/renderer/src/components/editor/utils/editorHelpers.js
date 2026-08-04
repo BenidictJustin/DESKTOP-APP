@@ -287,7 +287,7 @@ export function sanitizeOklchInDocument(doc) {
       if (!tempDiv) {
         tempDiv = doc.createElement('div')
         tempDiv.style.display = 'none'
-        ;(doc.body || doc.documentElement).appendChild(tempDiv)
+          ; (doc.body || doc.documentElement).appendChild(tempDiv)
       }
       tempDiv.style.color = match
       const computed = doc.defaultView ? doc.defaultView.getComputedStyle(tempDiv).color : ''
@@ -329,33 +329,54 @@ export const parseNarrativePages = (htmlString) => {
   if (!htmlString) return []
   const tempDiv = document.createElement('div')
   tempDiv.innerHTML = htmlString
-  const children = Array.from(tempDiv.children)
 
-  if (children.length === 0) {
+  let blockElements = Array.from(
+    tempDiv.querySelectorAll(
+      'p, h1, h2, h3, h4, h5, table, ul, ol, blockquote, hr, .page-break-widget'
+    )
+  )
+
+  if (blockElements.length === 0) {
+    blockElements = Array.from(tempDiv.children)
+  }
+
+  if (blockElements.length === 0) {
     return [htmlString]
   }
 
   const pages = []
   let currentPageHtml = ''
   let currentPageTextLength = 0
-  let maxChars = 1000
+  let maxChars = 900
 
-  children.forEach((child) => {
+  blockElements.forEach((child) => {
+    const isPageBreak =
+      child.classList.contains('page-break-widget') || child.classList.contains('page-break')
     const childText = child.textContent || child.innerText || ''
     const childHtml = child.outerHTML
 
-    if (currentPageTextLength + childText.length > maxChars && currentPageHtml) {
+    if (isPageBreak) {
+      if (currentPageHtml.trim().length > 0) {
+        pages.push(currentPageHtml)
+        currentPageHtml = ''
+        currentPageTextLength = 0
+        maxChars = 1400
+      }
+    } else if (
+      currentPageTextLength + childText.length > maxChars &&
+      currentPageHtml.trim().length > 0
+    ) {
       pages.push(currentPageHtml)
       currentPageHtml = childHtml
       currentPageTextLength = childText.length
-      maxChars = 1600
+      maxChars = 1400
     } else {
       currentPageHtml += childHtml
       currentPageTextLength += childText.length
     }
   })
 
-  if (currentPageHtml) {
+  if (currentPageHtml.trim().length > 0) {
     pages.push(currentPageHtml)
   }
 
@@ -398,28 +419,13 @@ export async function urlToBase64(url) {
   }
 }
 
-export async function exportElementToPDF(element, title, options = {}) {
-  if (!element) return
+export async function preparePrintHtmlPayload(element, title, options = {}) {
+  if (!element) return null
 
-  // 1. Scrape all active document stylesheets
-  let appStyles = ''
-  for (const sheet of document.styleSheets) {
-    try {
-      const rules = sheet.cssRules || sheet.rules
-      if (rules) {
-        for (const rule of rules) {
-          appStyles += rule.cssText + '\n'
-        }
-      }
-    } catch (e) {
-      // Ignored cross-origin stylesheet rules
-    }
-  }
-
-  // 2. Clone DOM element for preprocessing
+  // 1. Clone DOM element for preprocessing
   const cloned = element.cloneNode(true)
 
-  // Replace <select> tags with their current text values for styling correctness in PDF
+  // Replace <select> tags with their current text values for styling correctness
   const originalSelects = element.querySelectorAll('select')
   const clonedSelects = cloned.querySelectorAll('select')
   originalSelects.forEach((origSelect, idx) => {
@@ -433,20 +439,16 @@ export async function exportElementToPDF(element, title, options = {}) {
     }
   })
 
-  // Convert local/relative images to base64 data URLs to solve broken image icons in Electron printWindow
+  // 3. Convert all images in cloned DOM to base64 Data URLs for offline printing
   const imgs = Array.from(cloned.querySelectorAll('img'))
   for (const img of imgs) {
-    const src = img.getAttribute('src')
-    if (
-      src &&
-      !src.startsWith('data:') &&
-      (!src.startsWith('http://') || src.startsWith('http://localhost')) &&
-      !src.startsWith('https://')
-    ) {
+    const src = img.src || img.getAttribute('src')
+    if (src && !src.startsWith('data:')) {
       try {
         const base64 = await urlToBase64(src)
         if (base64 && base64.startsWith('data:')) {
           img.setAttribute('src', base64)
+          img.src = base64
         }
       } catch (err) {
         console.warn('Failed to convert image to base64:', src, err)
@@ -455,223 +457,423 @@ export async function exportElementToPDF(element, title, options = {}) {
   }
 
   const isDocument = options.isDocument !== false
+  const isSimpleTest = options.isSimpleTest === true
+  const now = new Date()
+  const exportStamp = now.toLocaleTimeString('en-US', { hour12: false }) + '.' + String(now.getMilliseconds()).padStart(3, '0')
+  const timestampStr = now.toISOString().replace(/[-:T.]/g, '').substring(0, 14)
 
-  if (isDocument) {
-    // Strip layout/scroll containers styles from the cloned root element
-    cloned.className = 'print-document-container'
-    cloned.style.cssText =
-      'width: 100%; height: auto; background: transparent; padding: 0; margin: 0; display: block;'
+  let pagesHtml = ''
 
-    // Restructure the cloned DOM into individual page containers for clean printing
-    const bgSheets = Array.from(cloned.querySelectorAll('.bg-white.shadow-xl.border'))
-    const proseMirror = cloned.querySelector('.ProseMirror')
-    const docPage = cloned.querySelector('.doc-page')
+  if (isSimpleTest) {
+    const docW = options.paperW || 816
+    const docH = options.paperH || 1248
+    for (let i = 0; i < 4; i++) {
+      pagesHtml += `
+        <div class="pdf-page-card" style="display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; width: ${docW}px; height: ${docH}px; box-sizing: border-box; overflow: hidden; page-break-after: always; break-after: page; background: white; margin: 0 auto; border: 4px solid #ef4444;">
+          <h1 style="font-size: 48px; color: #dc2626; font-family: sans-serif; font-weight: 800; margin-bottom: 16px;">SIMPLE TEST - PAGE ${i + 1} OF 4</h1>
+          <p style="font-size: 18px; color: #4b5563; font-family: sans-serif;">Generated at: ${exportStamp}</p>
+          <div class="pdf-export-stamp" style="position: absolute !important; bottom: 12px !important; right: 16px !important; font-size: 11px !important; color: #1f2937 !important; font-family: monospace !important; z-index: 999999 !important; background: #f3f4f6; padding: 4px 8px; border: 1px solid #9ca3af; border-radius: 4px;">
+            [STAMP: ${exportStamp}] Page ${i + 1}/4
+          </div>
+        </div>
+      `
+    }
+  } else if (isDocument) {
+    const docW = options.paperW || 816
+    const docH = options.paperH || 1248
+    const gapH = options.gapH || 36
+    const printCanvas = cloned.querySelector('.print-canvas')
 
-    if (bgSheets.length > 0) {
-      const docW = bgSheets[0].style.width || '794px'
-      const docH = bgSheets[0].style.height || '1122px'
+    if (printCanvas) {
+      const sheets = Array.from(printCanvas.querySelectorAll('[id^="doc-viewer-page-"]'))
+      const docPage = printCanvas.querySelector('.doc-page')
 
-      const padTop = docPage ? docPage.style.paddingTop || '96px' : '96px'
-      const padTopActual = docPage ? docPage.style.paddingTop || '170px' : '170px'
-      const padBottom = docPage ? docPage.style.paddingBottom || '96px' : '96px'
-      const padLeft = docPage ? docPage.style.paddingLeft || '144px' : '144px'
-      const padRight = docPage ? docPage.style.paddingRight || '96px' : '96px'
-
-      // Group elements by page break widgets
-      let pagesData = []
-      if (proseMirror) {
-        let currentPageNodes = []
-        Array.from(proseMirror.childNodes).forEach((node) => {
-          if (node.nodeType === 1 && node.classList.contains('page-break-widget')) {
-            pagesData.push(currentPageNodes)
-            currentPageNodes = []
-          } else {
-            currentPageNodes.push(node.cloneNode(true))
+      if (sheets.length > 0 && docPage) {
+        // Remove any zoom scale transforms
+        const allElements = printCanvas.querySelectorAll('*')
+        allElements.forEach((el) => {
+          if (el.style && el.style.transform) {
+            el.style.transform = 'none'
           }
         })
-        pagesData.push(currentPageNodes)
+
+        sheets.forEach((sheet, idx) => {
+          const header = sheet.querySelector('.absolute.z-50') || sheet.children[0]
+          const footer = sheet.querySelectorAll('.absolute.z-50')[1] || sheet.children[1]
+
+          // 1. Header (Fixed at top of page card)
+          let headerHtml = ''
+          if (header) {
+            const hClone = header.cloneNode(true)
+            hClone.style.cssText = 'position: absolute !important; top: 48px !important; left: 0 !important; right: 0 !important; z-index: 50 !important; padding-left: 96px !important; padding-right: 96px !important; box-sizing: border-box !important; pointer-events: none !important;'
+            headerHtml = hClone.outerHTML
+          }
+
+          // 2. Footer (Fixed at bottom of page card)
+          let footerHtml = ''
+          if (footer) {
+            const fClone = footer.cloneNode(true)
+            fClone.style.cssText = 'position: absolute !important; bottom: 0px !important; left: 0 !important; right: 0 !important; z-index: 50 !important; padding-left: 96px !important; padding-right: 96px !important; padding-bottom: 24px !important; box-sizing: border-box !important; pointer-events: none !important;'
+            footerHtml = fClone.outerHTML
+          }
+
+          // 3. Body Overlay Layer (.doc-page segment for page idx)
+          const offsetY = idx * (docH + gapH)
+          const docPageOverlayHtml = `
+            <div style="position: absolute !important; top: -${offsetY}px !important; left: 0 !important; width: ${docW}px !important; pointer-events: none !important; z-index: 10 !important;">
+              ${docPage.outerHTML}
+            </div>
+          `
+
+          pagesHtml += `
+            <div class="pdf-page-card" style="display: block !important; position: relative !important; width: ${docW}px !important; height: ${docH}px !important; box-sizing: border-box !important; overflow: hidden !important; page-break-after: always !important; break-after: page !important; background: white !important; margin: 0 auto !important; padding: 0 !important;">
+              ${headerHtml}
+              ${docPageOverlayHtml}
+              ${footerHtml}
+            </div>
+          `
+        })
+      } else {
+        pagesHtml += `
+          <div class="pdf-page-card" style="display: block; position: relative; width: ${docW}px; height: ${docH}px; box-sizing: border-box; overflow: hidden; page-break-after: always; break-after: page; background: white; margin: 0 auto;">
+            ${cloned.innerHTML}
+          </div>
+        `
       }
-
-      let pagesHtml = ''
-
-      // 1. Render narrative content pages
-      pagesData.forEach((nodes, pageIdx) => {
-        const bgSheet = bgSheets[pageIdx] || bgSheets[bgSheets.length - 1]
-        let headerHtml = ''
-        let footerHtml = ''
-        if (bgSheet) {
-          const headerDiv = bgSheet.querySelector('div[style*="top"]')
-          if (headerDiv) headerHtml = headerDiv.innerHTML
-          const footerDiv =
-            bgSheet.querySelector('div[style*="bottom"]') || bgSheet.querySelector('footer')
-          if (footerDiv) footerHtml = footerDiv.innerHTML
-        }
-
-        pagesHtml += `
-          <div class="pdf-page" style="position: relative; width: ${docW}; height: ${docH}; box-sizing: border-box; overflow: hidden; page-break-after: always; background: white; margin: 0 auto;">
-            <!-- Background Sheet Header/Footer -->
-            <div style="position: absolute; inset: 0; pointer-events: none; border: none; box-shadow: none; background: white;">
-              ${headerHtml ? `<div style="position: absolute; left: 0; right: 0; top: 48px; padding-left: 96px; padding-right: 96px; box-sizing: border-box;">${headerHtml}</div>` : ''}
-              ${footerHtml ? `<div style="position: absolute; left: 0; right: 0; bottom: 0px; padding-left: 96px; padding-right: 96px; padding-bottom: 24px; box-sizing: border-box;">${footerHtml}</div>` : ''}
-            </div>
-            
-            <!-- Content Area -->
-            <div class="ProseMirror" style="position: relative; z-index: 10; box-sizing: border-box; padding-top: ${padTopActual}; padding-bottom: ${padBottom}; padding-left: ${padLeft}; padding-right: ${padRight}; width: ${docW}; height: ${docH}; overflow: hidden; background: transparent; font-family: 'Calibri', sans-serif; font-size: 13px; line-height: 1.5; color: #1f2937;">
-              ${nodes.map((n) => (n.nodeType === 3 ? n.textContent : n.outerHTML)).join('')}
-            </div>
-          </div>
-        `
-      })
-
-      // 2. Render photo pages (if present)
-      const photoPageDivs = Array.from(cloned.querySelectorAll('div')).filter((el) => {
-        return (
-          el.id &&
-          el.id.includes('doc-viewer-page-') &&
-          (el.querySelector('img[alt*="evidence"]') ||
-            el.querySelector('img[alt*="outreach evidence"]'))
-        )
-      })
-
-      photoPageDivs.forEach((photoPage) => {
-        const innerCard = photoPage.querySelector('.bg-white.shadow-xl.border') || photoPage
-        const padT = innerCard.style.paddingTop || padTop
-        const padB = innerCard.style.paddingBottom || padBottom
-        const padL = innerCard.style.paddingLeft || padLeft
-        const padR = innerCard.style.paddingRight || padRight
-
-        pagesHtml += `
-          <div class="pdf-page" style="position: relative; width: ${docW}; height: ${docH}; box-sizing: border-box; overflow: hidden; page-break-after: always; background: white; margin: 0 auto; padding-top: ${padT}; padding-bottom: ${padB}; padding-left: ${padL}; padding-right: ${padR};">
-            ${innerCard.innerHTML}
-          </div>
-        `
-      })
-
-      cloned.innerHTML = pagesHtml
+    } else {
+      pagesHtml += `
+        <div class="pdf-page-card" style="display: block; position: relative; width: ${docW}px; height: ${docH}px; box-sizing: border-box; overflow: hidden; page-break-after: always; break-after: page; background: white; margin: 0 auto;">
+          ${cloned.innerHTML}
+        </div>
+      `
     }
+
+    // Append photographic evidence pages if any
+    const photoPageContainers = Array.from(cloned.querySelectorAll('div')).filter((el) => {
+      return (
+        el.id &&
+        el.id.includes('doc-viewer-page-') &&
+        (el.querySelector('img[alt*="evidence"]') ||
+          el.querySelector('img[alt*="outreach evidence"]'))
+      )
+    })
+
+    photoPageContainers.forEach((photoPage) => {
+      const clonedPhotoPage = photoPage.cloneNode(true)
+      clonedPhotoPage.className = 'pdf-page-card'
+      clonedPhotoPage.style.cssText = `display: block; position: relative; width: ${docW}px; height: ${docH}px; box-sizing: border-box; overflow: hidden; page-break-after: always; break-after: page; background: white; margin: 0 auto; box-shadow: none; border: none;`
+      pagesHtml += clonedPhotoPage.outerHTML
+    })
   }
 
-  // 3. Construct self-contained print payload
+  // Determine valid CSS @page size string with physical length units (in)
+  const getCssPageSize = () => {
+    const paperInchesMap = {
+      Letter: { w: 8.5, h: 11 },
+      Folio: { w: 8.5, h: 13 },
+      Legal: { w: 8.5, h: 14 },
+      A4: { w: 8.27, h: 11.69 }
+    }
+
+    let w = 8.5
+    let h = 13 // Default to Folio height (13in = 1248px) for Narrative Reports
+
+    const key = options.pageSize || options.paperKey
+    if (key && paperInchesMap[key]) {
+      w = paperInchesMap[key].w
+      h = paperInchesMap[key].h
+    } else if (options.paperW && options.paperH) {
+      w = (parseFloat(options.paperW) / 96).toFixed(2)
+      h = (parseFloat(options.paperH) / 96).toFixed(2)
+    }
+
+    if (options.landscape) {
+      return `${h}in ${w}in`
+    }
+    return `${w}in ${h}in`
+  }
+
+  const pageCssSize = getCssPageSize()
+  const bodyContent = isDocument ? pagesHtml : `<div class="print-target">${cloned.outerHTML}</div>`
+
+  // Extract and filter style rules to preserve Tailwind grids/utilities but avoid global body/layout overrides
+  let activeStyles = ''
+  try {
+    for (const sheet of document.styleSheets) {
+      try {
+        const rules = Array.from(sheet.cssRules || [])
+        for (const rule of rules) {
+          const selector = rule.selectorText ? rule.selectorText.trim().toLowerCase() : ''
+          // Skip global layout overrides that break printing
+          if (
+            selector === 'html' ||
+            selector === 'body' ||
+            selector.startsWith('html ') ||
+            selector.startsWith('body ') ||
+            selector.includes('#root') ||
+            selector.includes('overflow')
+          ) {
+            continue
+          }
+          activeStyles += rule.cssText + '\n'
+        }
+      } catch (e) {
+        if (sheet.href) {
+          activeStyles += `@import url("${sheet.href}");\n`
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Styles extraction failed:', err)
+  }
+
   const htmlContent = `
     <!DOCTYPE html>
     <html>
       <head>
         <meta charset="utf-8">
-        <title>${title || 'Document'}</title>
         <style>
-          ${appStyles}
-          
-          /* Native PDF Export Style Overrides */
-          @media print {
-            @page {
-              size: ${options.pageSize || 'A4'} ${options.landscape ? 'landscape' : 'portrait'};
-              margin: 0;
-            }
-            html, body {
-              margin: 0 !important;
-              padding: 0 !important;
-              background: white !important;
-              background-image: none !important;
-              background-color: white !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            
-            /* Ensure the export container handles full-bleed scaling */
-            #report-pdf-target,
-            #inventory-table-container,
-            #inventory-history-pdf-target,
-            .print-canvas,
-            .print-target {
-              width: 100% !important;
-              max-width: 100% !important;
-              min-width: 100% !important;
-              position: static !important;
-              left: 0 !important;
-              top: 0 !important;
-              transform: none !important;
-              box-shadow: none !important;
-              border: none !important;
-              margin: 0 !important;
-              background: transparent !important;
-            }
+          ${activeStyles}
+        </style>
+        <style>
+          /* ProseMirror Typography & Element Formatting Styles */
+          .ProseMirror {
+            min-height: 100% !important;
+            outline: none !important;
+            box-sizing: border-box !important;
+            white-space: pre-wrap !important;
+            word-wrap: break-word !important;
+            padding: 0 !important;
+            background-color: transparent !important;
+            background-image: none !important;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #1f2937;
+            font-family: 'Calibri', sans-serif;
+            overflow: visible !important;
+          }
+          .ProseMirror p { margin-bottom: 8px; }
+          .ProseMirror h1 { font-size: 24px; font-weight: 700; margin-bottom: 12px; color: #111827; }
+          .ProseMirror h2 { font-size: 18px; font-weight: 700; margin-bottom: 10px; color: #1f2937; }
+          .ProseMirror h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; color: #374151; }
+          .ProseMirror h4 { font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #374151; }
+          .ProseMirror h5 { font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #4b5563; }
+          .ProseMirror ul { list-style: disc; padding-left: 22px; margin-bottom: 8px; }
+          .ProseMirror ol { list-style: decimal; padding-left: 22px; margin-bottom: 8px; }
+          .ProseMirror li p { margin-bottom: 2px; }
+          .ProseMirror ul[data-type="taskList"] { list-style: none; padding-left: 4px; }
+          .ProseMirror ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 6px; }
+          .ProseMirror ul[data-type="taskList"] li > label { margin-top: 2px; }
+          .ProseMirror blockquote {
+            border-left: 3px solid #d1d5db; padding-left: 14px;
+            margin: 0 0 8px; color: #6b7280; font-style: italic;
+          }
+          .ProseMirror img {
+            max-width: 100%; height: auto;
+          }
+          .ProseMirror table { border-collapse: collapse; width: 100%; margin: 6px 0; table-layout: auto; }
+          .ProseMirror th, .ProseMirror td { border: 1px solid #c0c0c0; padding: 4px 8px; font-size: 11px; line-height: 1.35; text-align: left; position: relative; }
+          .ProseMirror th { background: #f3f4f6; font-weight: 600; }
+          .ProseMirror tr:nth-child(even) td { background: #fafafa; }
+          .ProseMirror hr { border: none; border-top: 1px solid #d1d5db; margin: 14px 0; }
+          .ProseMirror mark { padding: 1px 2px; border-radius: 2px; }
+          .ProseMirror a { color: #2563eb; text-decoration: underline; }
+          .ProseMirror sub { font-size: 0.75em; }
+          .ProseMirror sup { font-size: 0.75em; }
 
-            /* Pagination overrides for document canvas pages */
-            ${
-              isDocument
-                ? `
-              .pdf-page {
-                page-break-after: always !important;
-                page-break-inside: avoid !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                border: none !important;
-                box-shadow: none !important;
-                background: white !important;
-                position: relative !important;
-                box-sizing: border-box !important;
-              }
-            `
-                : `
-              /* Normal content target (e.g. lists/tables) needs print margins */
-              .print-target {
-                padding: 15mm !important;
-                box-sizing: border-box !important;
-              }
-            `
-            }
-            
-            /* Table formatting */
-            table {
-              width: 100% !important;
-              border-collapse: collapse !important;
-              page-break-inside: auto !important;
-            }
-            tr {
-              page-break-inside: avoid !important;
-            }
-            thead {
-              display: table-header-group !important;
-            }
-            img {
-              max-width: 100% !important;
-              height: auto !important;
-              page-break-inside: avoid !important;
-            }
-            
-            /* Remove screen-only interactives */
-            .no-print, button, input[type="button"], select {
-              display: none !important;
-            }
+          /* doc-page-content Styling */
+          .doc-page-content p { margin-bottom: 8px; }
+          .doc-page-content h1 { font-size: 24px; font-weight: 700; margin-bottom: 12px; color: #111827; }
+          .doc-page-content h2 { font-size: 18px; font-weight: 700; margin-bottom: 10px; color: #1f2937; }
+          .doc-page-content h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; color: #374151; }
+          .doc-page-content h4 { font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #374151; }
+          .doc-page-content h5 { font-size: 12px; font-weight: 600; margin-bottom: 4px; color: #4b5563; }
+          .doc-page-content ul { list-style: disc; padding-left: 22px; margin-bottom: 8px; }
+          .doc-page-content ol { list-style: decimal; padding-left: 22px; margin-bottom: 8px; }
+          .doc-page-content li p { margin-bottom: 2px; }
+          .doc-page-content blockquote { border-left: 3px solid #d1d5db; padding-left: 14px; margin: 0 0 8px; color: #6b7280; font-style: italic; }
+          .doc-page-content img { max-width: 100%; height: auto; }
+          .doc-page-content table { border-collapse: collapse; width: 100%; margin: 6px 0; table-layout: auto; }
+          .doc-page-content th, .doc-page-content td { border: 1px solid #c0c0c0; padding: 4px 8px; font-size: 11px; line-height: 1.35; text-align: left; position: relative; }
+          .doc-page-content th { background: #f3f4f6; font-weight: 600; }
+          .doc-page-content tr:nth-child(even) td { background: #fafafa; }
+          .doc-page-content hr { border: none; border-top: 1px solid #d1d5db; margin: 14px 0; }
+          .doc-page-content a { color: #2563eb; text-decoration: underline; }
+
+          /* Native Print Page Styling */
+          @page {
+            size: ${pageCssSize};
+            margin: 0;
+          }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+            background-image: none !important;
+            background-color: white !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            overflow: visible !important;
+            display: block !important;
+          }
+
+          .pdf-page-card {
+            width: ${options.paperW || 816}px !important;
+            height: ${options.paperH || 1248}px !important;
+            page-break-after: always !important;
+            page-break-before: avoid !important;
+            page-break-inside: avoid !important;
+            break-after: page !important;
+            break-inside: avoid !important;
+            margin: 0 auto !important;
+            box-shadow: none !important;
+            border: none !important;
+            background: white !important;
+            position: relative !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+          }
+
+          /* Cloned Document Viewer canvas styles */
+          .print-canvas {
+            position: relative !important;
+            overflow: visible !important;
+          }
+
+          .print-canvas .absolute { position: absolute !important; }
+          .print-canvas .relative { position: relative !important; }
+          .print-canvas .inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
+          .print-canvas .pointer-events-none { pointer-events: none; }
+          .print-canvas .select-none { user-select: none; }
+          .print-canvas .bg-white { background: white !important; }
+          .print-canvas .shadow-xl { box-shadow: none !important; }
+          .print-canvas .border { border: none !important; }
+          .print-canvas .shrink-0 { flex-shrink: 0; }
+          .print-canvas .flex { display: flex; }
+          .print-canvas .flex-col { flex-direction: column; }
+          .print-canvas .items-center { align-items: center; }
+          .print-canvas .z-50 { z-index: 50; }
+          .print-canvas .rounded-xs { border-radius: 0 !important; }
+          .print-canvas .border-gray-300\\/70 { border: none !important; }
+
+          .doc-page {
+            position: relative !important;
+            background: transparent !important;
+            cursor: default !important;
+          }
+          .select-text { user-select: text; }
+
+          .page-break-widget {
+            display: block !important;
+            position: relative !important;
+            pointer-events: none !important;
+            user-select: none !important;
+            background: transparent !important;
+          }
+
+          .page-break {
+            display: none !important;
+          }
+
+          .no-print, button, input[type="button"], select, aside, header, .doc-viewer-modal {
+            display: none !important;
+          }
+
+          [style*="transform: scale"] {
+            transform: none !important;
           }
         </style>
       </head>
       <body>
-        <div class="print-target">
-          ${cloned.outerHTML}
-        </div>
+        ${bodyContent}
       </body>
     </html>
   `
 
-  // 4. Fire print-to-pdf event on Electron IPC channel
+  const getElectronIpcPageSize = (sizeKey) => {
+    const validStrings = ['A3', 'A4', 'A5', 'Legal', 'Letter', 'Tabloid']
+    if (validStrings.includes(sizeKey)) {
+      return sizeKey
+    }
+    if (sizeKey === 'Folio') {
+      return 'Legal'
+    }
+    return 'A4'
+  }
+
+  const formattedTitle = title ? `${title}_${timestampStr}` : `Document_${timestampStr}`
+  const ipcPageSize = getElectronIpcPageSize(options.pageSize || options.paperKey)
+
+  return { htmlContent, formattedTitle, ipcPageSize, exportStamp }
+}
+
+export async function exportElementToPDF(element, title, options = {}) {
+  if (!element) return
+
   try {
     if (!window.electron?.ipcRenderer) {
       throw new Error('Electron ipcRenderer is not available in this context.')
     }
+    const payload = await preparePrintHtmlPayload(element, title, options)
+    if (!payload) return
+
+    const { htmlContent, formattedTitle, ipcPageSize, exportStamp } = payload
     const result = await window.electron.ipcRenderer.invoke('print-to-pdf', {
       html: htmlContent,
-      title: title || 'Document',
+      title: formattedTitle,
       options: {
         landscape: options.landscape || false,
-        pageSize: options.pageSize || 'A4',
+        pageSize: ipcPageSize,
+        preferCSSPageSize: true,
+        exportStamp,
         margins: options.margins || { marginType: 'none' }
       }
     })
     return result
   } catch (error) {
     console.error('print-to-pdf IPC failed:', error)
-    alert('PDF generation failed: ' + (error.message || error))
+    throw error
+  }
+}
+
+/** Print the document directly via Electron native OS print dialog. */
+export async function printElementNative(element, title, options = {}) {
+  const traceId = options.traceId || `PRINT-${Date.now()}`
+  if (!element) return
+
+  try {
+    if (!window.electron?.ipcRenderer) {
+      console.log(`%c[${traceId}] STEP 2: No Electron IPC — falling back to window.print()`, 'color: #dc2626; font-weight: bold;')
+      window.print()
+      return
+    }
+    console.log(`%c[${traceId}] STEP 2: printElementNative() entered. Scraping live DOM...`, 'color: #2563eb; font-weight: bold;')
+    const payload = await preparePrintHtmlPayload(element, title, options)
+    if (!payload) {
+      console.log(`%c[${traceId}] STEP 2 ABORT: preparePrintHtmlPayload returned null`, 'color: #dc2626; font-weight: bold;')
+      return
+    }
+
+    const { htmlContent, formattedTitle, ipcPageSize, exportStamp } = payload
+    console.log(`%c[${traceId}] STEP 3: DOM scraped. Sending IPC 'print-document' to main process...`, 'color: #059669; font-weight: bold;')
+    console.log(`%c[${traceId}]   IPC Channel: 'print-document' (NOT 'print-to-pdf')`, 'color: #059669;')
+    console.log(`%c[${traceId}]   HTML size: ${htmlContent.length} bytes`, 'color: #059669;')
+    
+    const result = await window.electron.ipcRenderer.invoke('print-document', {
+      html: htmlContent,
+      title: formattedTitle,
+      options: {
+        landscape: options.landscape || false,
+        pageSize: ipcPageSize,
+        exportStamp,
+        margins: options.margins || { marginType: 'none' },
+        traceId
+      }
+    })
+    console.log(`%c[${traceId}] STEP 6: IPC 'print-document' returned result:`, 'color: #059669; font-weight: bold;', result)
+    return result
+  } catch (error) {
+    console.error(`[${traceId}] print-document IPC FAILED:`, error)
     throw error
   }
 }
@@ -685,6 +887,17 @@ export async function handleExportPDF(canvasRef, title) {
     console.error('Native PDF export failed:', err)
   }
 }
+
+/** Print the editor content natively using Electron webContents.print. */
+export async function handlePrintNative(canvasRef, title) {
+  if (!canvasRef?.current) return
+  try {
+    await printElementNative(canvasRef.current, title, { isDocument: true })
+  } catch (err) {
+    console.error('Native print failed:', err)
+  }
+}
+
 
 /** Handle find text in editor. */
 export function handleFind(editor, findText) {

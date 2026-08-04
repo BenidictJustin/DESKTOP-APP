@@ -33,6 +33,7 @@ import logo2Img from '../assets/logo2.png'
 import {
   sanitizeOklchInDocument,
   exportElementToPDF,
+  printElementNative,
   resolveHeaderHtml,
   parseNarrativePages
 } from './editor/utils/editorHelpers'
@@ -96,7 +97,9 @@ export default function DocumentViewer({
   const [currentPageNum, setCurrentPageNum] = useState(1)
   const [zoomScale, setZoomScale] = useState(1.0)
   const [viewMode, setViewMode] = useState('select') // 'select' or 'pan'
-  const [narrativeTotalPages, setNarrativeTotalPages] = useState(1)
+  
+  const initialNarrativeCount = Math.max(1, parseNarrativePages(report?.narrative || '').length)
+  const [narrativeTotalPages, setNarrativeTotalPages] = useState(initialNarrativeCount)
 
   // Panning State
   const [isPanning, setIsPanning] = useState(false)
@@ -218,17 +221,22 @@ export default function DocumentViewer({
   useEffect(() => {
     if (editor && report.narrative) {
       editor.commands.setContent(report.narrative)
+      const parsedCount = parseNarrativePages(report.narrative).length
+      if (parsedCount > 0) {
+        setNarrativeTotalPages((prev) => Math.max(prev, parsedCount))
+      }
     }
   }, [editor, report.narrative])
 
   // Pre-generate pages for indexing and sidebar
   const pages = []
   const narrativePages = parseNarrativePages(report.narrative || '')
+  const effectiveNarrativePages = narrativePages.length > 0 ? narrativePages : [report.narrative || '<p></p>']
 
-  for (let i = 1; i <= narrativeTotalPages; i++) {
+  for (let i = 1; i <= Math.max(narrativeTotalPages, effectiveNarrativePages.length); i++) {
     pages.push({
       type: 'narrative',
-      content: narrativePages[i - 1] || '',
+      content: effectiveNarrativePages[i - 1] || '',
       pageNum: i
     })
   }
@@ -360,7 +368,7 @@ export default function DocumentViewer({
       await exportElementToPDF(
         viewportRef.current,
         `CES_Narrative_Report_${report.academicYear || 'AY'}_${(report.id || 'doc').substring(0, 6)}`,
-        { isDocument: true }
+        { isDocument: true, paperKey, orientation, marginKey, paperW: docW, paperH: docH }
       )
     } catch (err) {
       console.error('DocumentViewer PDF export failed:', err)
@@ -384,110 +392,32 @@ export default function DocumentViewer({
     }
   }, [isExportOnly, editor, narrativeTotalPages])
 
-  // Custom Printable Content using sandbox iframe
-  const handlePrint = () => {
-    const iframe = document.createElement('iframe')
-    iframe.style.position = 'fixed'
-    iframe.style.right = '0'
-    iframe.style.bottom = '0'
-    iframe.style.width = '0'
-    iframe.style.height = '0'
-    iframe.style.border = '0'
-    document.body.appendChild(iframe)
+  // Native Printable Content using Electron print-document IPC
+  const handlePrint = async () => {
+    const traceId = `PRINT-${Date.now()}`
+    console.log(`%c══════════════════════════════════════`, 'color: #7c3aed; font-weight: bold; font-size: 16px;')
+    console.log(`%c[${traceId}] STEP 0: PRINT BUTTON CLICKED`, 'color: #7c3aed; font-weight: bold; font-size: 16px;')
+    console.log(`%c[${traceId}] handlePrint() entered (NOT handleDownloadPDF)`, 'color: #7c3aed; font-weight: bold; font-size: 14px;')
+    console.log(`%c[${traceId}] This function calls printElementNative → ipcRenderer.invoke('print-document') → webContents.print()`, 'color: #7c3aed; font-size: 12px;')
+    console.log(`%c[${traceId}] exportElementToPDF is NOT called. No PDF file will be created.`, 'color: #dc2626; font-weight: bold; font-size: 14px;')
+    console.log(`%c══════════════════════════════════════`, 'color: #7c3aed; font-weight: bold; font-size: 16px;')
 
-    const doc = iframe.contentWindow.document
-    doc.write('<html><head><title>CES Outreach Report</title>')
-    doc.write('<style>')
-    doc.write(`
-      @page { size: A4; margin: 10mm; }
-      body { font-family: 'Poppins', sans-serif; color: #1e293b; background: white; margin: 0; padding: 0; }
-      .page-print { width: 190mm; min-height: 277mm; box-sizing: border-box; page-break-after: always; padding: 10mm 5mm; background: white; position: relative; }
-      .header-print { text-align: center; border-bottom: 2px solid #80cc2a; padding-bottom: 12px; margin-bottom: 20px; }
-      .title-print { font-size: 18px; font-weight: bold; color: #030e69; margin: 0; }
-      .subtitle-print { font-size: 12px; font-weight: 600; color: #475569; margin: 4px 0 0 0; }
-      .subtext-print { font-size: 9px; color: #94a3b8; margin: 2px 0 0 0; }
-      .metadata-print { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; font-size: 11px; padding: 12px; border: 1px solid #f1f5f9; border-radius: 8px; background: #fafafa; }
-      .metadata-item { margin-bottom: 4px; }
-      .metadata-label { font-weight: bold; color: #030e69; }
-      .prose { font-size: 12px; line-height: 1.6; }
-      .prose p { margin-bottom: 12px; }
-      .photo-grid-print { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
-      .photo-card-print { border: 1px solid #e2e8f0; padding: 8px; border-radius: 12px; background: #fafafa; text-align: center; }
-      .photo-card-print img { width: 100%; height: 95mm; object-fit: cover; border-radius: 8px; }
-      .photo-caption-print { font-size: 9px; color: #64748b; margin-top: 6px; font-weight: bold; }
-      .page-footer-print { position: absolute; bottom: 5mm; left: 5mm; right: 5mm; font-size: 9px; color: #94a3b8; text-align: center; border-top: 1px solid #f1f5f9; padding-top: 6px; }
-    `)
-    doc.write('</style></head><body>')
-
-    let pagesHtml = ''
-    pages.forEach((page, idx) => {
-      pagesHtml += `<div class="page-print">`
-
-      if (page.type === 'narrative') {
-        if (idx === 0) {
-          pagesHtml += `
-            <div class="header-print">
-              <h2 class="title-print">DOMINICAN COLLEGE OF TARLAC, INC.</h2>
-              <h3 class="subtitle-print">Community Extension & Services (CES) Office</h3>
-              <p class="subtext-print">Tarlac, Philippines · Official Document Archive</p>
-            </div>
-            <div class="metadata-print">
-              <div class="metadata-item"><span class="metadata-label">Extension Outreach Program:</span> <span>${event ? event.name : report.activityTitle || 'Outreach'}</span></div>
-              <div class="metadata-item"><span class="metadata-label">Department / Organization:</span> <span>${org ? org.name : report.organizationId ? 'Unknown' : 'CES Office'}</span></div>
-              <div class="metadata-item"><span class="metadata-label">Activity Details:</span> <span>${report.activityDate ? new Date(report.activityDate).toLocaleDateString() : ''} ${report.location ? ' @ ' + report.location : ''}</span></div>
-              <div class="metadata-item"><span class="metadata-label">Target Beneficiaries:</span> <span>${report.beneficiaries || 'N/A'}</span></div>
-              <div class="metadata-item"><span class="metadata-label">Category:</span> <span style="text-transform: capitalize;">${(report.type || 'outreach').replace('_', ' ')}</span></div>
-            </div>
-            <h4 style="font-size: 13px; font-weight: bold; color: #030e69; margin: 0 0 12px 0; border-bottom: 1px solid #f1f5f9; padding-bottom: 6px;">Activity Description Narrative</h4>
-          `
-        } else {
-          pagesHtml += `
-            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding-bottom: 6px; margin-bottom: 16px; font-size: 9px; color: #94a3b8;">
-              <span>CES Narrative Report - Continuation</span>
-              <span>Page ${page.pageNum}</span>
-            </div>
-          `
-        }
-        pagesHtml += `<div class="prose">${page.content}</div>`
-      } else if (page.type === 'photos') {
-        pagesHtml += `
-          <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #f1f5f9; padding-bottom: 6px; margin-bottom: 16px; font-size: 9px; color: #94a3b8;">
-            <span>CES Narrative Report - Photographic Evidence</span>
-            <span>Page ${page.pageNum}</span>
-          </div>
-          <h4 style="font-size: 13px; font-weight: bold; color: #030e69; margin: 0 0 12px 0;">Photographic Documentation</h4>
-          <div class="photo-grid-print">
-        `
-        page.photos.forEach((photo, pIdx) => {
-          pagesHtml += `
-            <div class="photo-card-print">
-              <img src="${photo.url}" alt="evidence" />
-              <div class="photo-caption-print">Photo Documentation Item ${page.pageNum * 4 + pIdx + 1}</div>
-            </div>
-          `
-        })
-        pagesHtml += `</div>`
-      }
-
-      pagesHtml += `
-        <div class="page-footer-print">
-          Dominican College of Tarlac - Narrative Archival · Page ${page.pageNum} of ${pages.length}
-        </div>
-      `
-      pagesHtml += `</div>`
-    })
-
-    doc.write(pagesHtml)
-    doc.write('</body></html>')
-    doc.close()
-
-    setTimeout(() => {
-      iframe.contentWindow.focus()
-      iframe.contentWindow.print()
-      setTimeout(() => {
-        document.body.removeChild(iframe)
-      }, 500)
-    }, 500)
+    if (!viewportRef?.current) {
+      alert('Report viewport not available.')
+      return
+    }
+    try {
+      console.log(`%c[${traceId}] STEP 1: Calling printElementNative()...`, 'color: #2563eb; font-weight: bold;')
+      await printElementNative(
+        viewportRef.current,
+        `CES_Narrative_Report_${report.academicYear || 'AY'}_${(report.id || 'doc').substring(0, 6)}`,
+        { isDocument: true, paperKey, orientation, marginKey, paperW: docW, paperH: docH, traceId }
+      )
+      console.log(`%c[${traceId}] STEP FINAL: printElementNative() returned. Print flow complete.`, 'color: #059669; font-weight: bold; font-size: 14px;')
+    } catch (err) {
+      console.error(`[${traceId}] DocumentViewer print FAILED:`, err)
+      alert('Failed to print document: ' + (err.message || err))
+    }
   }
 
   if (isExportOnly) {
@@ -577,13 +507,13 @@ export default function DocumentViewer({
             max-width: 100%; height: auto;
           }
           .ProseMirror table {
-            border-collapse: collapse; width: 100%; margin: 12px 0;
+            border-collapse: collapse; width: 100%; margin: 6px 0;
             table-layout: auto;
           }
           .ProseMirror th,
           .ProseMirror td {
-            border: 1px solid #c0c0c0; padding: 6px 10px;
-            font-size: 12px; text-align: left; position: relative;
+            border: 1px solid #c0c0c0; padding: 4px 8px;
+            font-size: 11px; line-height: 1.35; text-align: left; position: relative;
           }
           .ProseMirror th { background: #f3f4f6; font-weight: 600; }
           .ProseMirror tr:nth-child(even) td { background: #fafafa; }

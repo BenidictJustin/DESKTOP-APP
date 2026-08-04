@@ -1,5 +1,5 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
-import { join } from 'path'
+import { join, basename } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import fs from 'fs'
@@ -94,9 +94,7 @@ ipcMain.handle('restart-and-install', () => {
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
-  // Set app user model id for windows
   electronApp.setAppUserModelId('com.dommunity.app')
 
   // Default open or close DevTools by F12 in development
@@ -122,41 +120,184 @@ app.whenReady().then(() => {
     const tempPath = join(app.getPath('temp'), `print-${Date.now()}.html`)
 
     try {
+      const rawHtmlCardCount = (html.match(/class="pdf-page-card"/g) || []).length
+      const rawHtmlIdCount = (html.match(/id="doc-viewer-page-/g) || []).length
+
+      console.log('========================================')
+      console.log('[STAGE 3: HIDDEN PRINT WINDOW RENDER]')
+      console.log(`  - Temp HTML File Saved: ${tempPath}`)
+      console.log(`  - Raw HTML .pdf-page-card Count: ${rawHtmlCardCount}`)
+      console.log(`  - Raw HTML doc-viewer-page-* Count: ${rawHtmlIdCount}`)
+      console.log(`  - Export Stamp: ${options?.exportStamp || 'none'}`)
+
       fs.writeFileSync(tempPath, html, 'utf8')
       await printWindow.loadURL(`file://${tempPath}`)
 
-      // Wait for fonts and layouts to finish rendering
-      await new Promise((resolve) => setTimeout(resolve, 800))
+      // Wait for fonts, base64 images, and layouts to finish rendering
+      await new Promise((resolve) => setTimeout(resolve, 1200))
+
+      // Inspect DOM rendering state inside hidden print window
+      const windowDomStats = await printWindow.webContents.executeJavaScript(`
+        (() => {
+          const cards = Array.from(document.querySelectorAll('.pdf-page-card'));
+          const stamps = Array.from(document.querySelectorAll('.pdf-export-stamp')).map(el => el.innerText.trim());
+          const cardSnippets = cards.map((c, idx) => {
+            const text = (c.innerText || '').replace(/\\s+/g, ' ').trim();
+            return {
+              page: idx + 1,
+              width: c.offsetWidth,
+              height: c.offsetHeight,
+              snippet: text.substring(0, 80) + '...'
+            };
+          });
+
+          return {
+            pageCardCount: cards.length,
+            idPageCount: document.querySelectorAll('[id^="doc-viewer-page-"]').length,
+            stampsCount: stamps.length,
+            stampsList: stamps,
+            bodyHeight: document.body ? document.body.offsetHeight : 0,
+            cardSnippets: cardSnippets
+          };
+        })()
+      `)
+
+      console.log('  - PrintWindow Rendered DOM Stats:')
+      console.log(`    * Rendered .pdf-page-card Count: ${windowDomStats.pageCardCount}`)
+      console.log(`    * Rendered Stamps List: ${JSON.stringify(windowDomStats.stampsList)}`)
+      console.log(`    * Body Rendered Height: ${windowDomStats.bodyHeight}px`)
+      console.log(`    * Card Snippets: ${JSON.stringify(windowDomStats.cardSnippets, null, 2)}`)
+
+      console.log('========================================')
+      console.log('[STAGE 4: ELECTRON printToPDF GENERATION]')
 
       const pdfBuffer = await printWindow.webContents.printToPDF({
         printBackground: true,
-        pageSize: options?.pageSize || 'A4',
+        preferCSSPageSize: true,
         landscape: options?.landscape || false,
         margins: options?.margins || { marginType: 'none' }
       })
 
+      const physicalPageCount = (pdfBuffer.toString('binary').match(/\/Type\s*\/Page\b/g) || []).length
+      console.log(`  - Generated PDF Buffer Size: ${pdfBuffer.length} bytes`)
+      console.log(`  - PHYSICAL PDF PAGE COUNT GENERATED (/Type /Page) = ${physicalPageCount}`)
+
+      console.log('========================================')
+      console.log('[STAGE 5: FILE SAVE PROMPT]')
+
+      const defaultName = `${title || 'Document'}.pdf`
       const { filePath } = await dialog.showSaveDialog({
         title: 'Save PDF',
-        defaultPath: join(app.getPath('downloads'), `${title || 'document'}.pdf`),
+        defaultPath: join(app.getPath('downloads'), defaultName),
         filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
       })
 
       if (filePath) {
-        fs.writeFileSync(filePath, pdfBuffer)
-        return { success: true, filePath }
+        try {
+          fs.writeFileSync(filePath, pdfBuffer)
+          const fileStat = fs.statSync(filePath)
+          console.log(`[STAGE 5: FILE SAVE SUCCESS]`)
+          console.log(`  - Saved File Path: ${filePath}`)
+          console.log(`  - Saved File Size on Disk: ${fileStat.size} bytes`)
+          console.log(`  - File Last Modified: ${fileStat.mtime.toISOString()}`)
+          console.log('========================================')
+          return { success: true, filePath }
+        } catch (writeError) {
+          if (writeError.code === 'EBUSY' || writeError.code === 'EPERM') {
+            console.error(`[STAGE 5: FILE SAVE ERROR] File is locked by another process: ${filePath}`)
+            dialog.showErrorBox(
+              'File is Locked',
+              `The file "${basename(filePath)}" is currently open in another application (like WPS Office or Adobe Reader). Please close the document in that application and try exporting again.`
+            )
+            return { success: false, error: 'File is locked by another process' }
+          }
+          throw writeError
+        }
       } else {
+        console.log('[STAGE 5: FILE SAVE CANCELLED BY USER]')
         return { success: false, cancelled: true }
       }
     } catch (error) {
       console.error('Failed to print to PDF:', error)
       throw error
     } finally {
-      if (fs.existsSync(tempPath)) {
-        fs.unlinkSync(tempPath)
-      }
       printWindow.destroy()
     }
   })
+
+  // Native document printing IPC handler directly from Document Viewer HTML
+  ipcMain.handle('print-document', async (event, { html, title, options }) => {
+    const traceId = options?.traceId || `MAIN-PRINT-${Date.now()}`
+    console.log('════════════════════════════════════════════════════')
+    console.log(`[${traceId}] STEP 4: MAIN PROCESS 'print-document' handler entered`)
+    console.log(`[${traceId}]   This handler calls webContents.print() ONLY`)
+    console.log(`[${traceId}]   NO printToPDF, NO shell.openPath, NO save dialog`)
+    console.log('════════════════════════════════════════════════════')
+
+    const printWindow = new BrowserWindow({
+      show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true
+      }
+    })
+
+    const tempPath = join(app.getPath('temp'), `print-${Date.now()}.html`)
+
+    try {
+      console.log(`[${traceId}] STEP 4a: Writing temp HTML (${html.length} bytes) to ${tempPath}`)
+      fs.writeFileSync(tempPath, html, 'utf8')
+      
+      console.log(`[${traceId}] STEP 4b: Loading temp HTML into hidden BrowserWindow...`)
+      await printWindow.loadURL(`file://${tempPath}`)
+
+      console.log(`[${traceId}] STEP 4c: Waiting 1000ms for fonts/images to render...`)
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+
+      console.log(`[${traceId}] STEP 5: CALLING webContents.print() NOW (silent: false)`)
+      console.log(`[${traceId}]   After this line, the OS print dialog should appear.`)
+      console.log(`[${traceId}]   Nothing else happens until user interacts with the dialog.`)
+      
+      const printResult = await new Promise((resolve) => {
+        printWindow.webContents.print(
+          {
+            silent: false,
+            printBackground: true,
+            deviceName: '',
+            color: true,
+            margins: options?.margins || { marginType: 'none' },
+            landscape: options?.landscape || false,
+            pageSize: options?.pageSize || 'A4',
+            useSystemDialog: true
+          },
+          (success, failureReason) => {
+            console.log(`[${traceId}] STEP 5 CALLBACK: webContents.print() finished`)
+            console.log(`[${traceId}]   success: ${success}`)
+            console.log(`[${traceId}]   failureReason: ${failureReason}`)
+            resolve({ success, failureReason })
+          }
+        )
+      })
+
+      console.log(`[${traceId}] STEP 5 DONE: Print dialog closed. Result:`, printResult)
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      return printResult
+    } catch (error) {
+      console.error(`[${traceId}] FAILED:`, error)
+      throw error
+    } finally {
+      console.log(`[${traceId}] CLEANUP: Destroying printWindow and deleting temp file`)
+      if (!printWindow.isDestroyed()) {
+        printWindow.destroy()
+      }
+      try {
+        if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath)
+      } catch (e) {
+        // ignore temp file cleanup error
+      }
+    }
+  })
+
 
   createWindow()
 

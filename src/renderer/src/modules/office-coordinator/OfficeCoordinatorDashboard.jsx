@@ -719,7 +719,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
             {/* ── COMPILED REPORTS ── */}
             {activeTab === 'reports' && (
-              <div className="flex-1 overflow-y-auto p-8 bg-surface-soft">
+              <div className="flex-1 overflow-y-auto p-8">
                 <div className="max-w-4xl mx-auto space-y-4">
                   <div className="flex items-center justify-between mb-2">
                     <h1 className="text-lg font-bold text-navy-blue">Compiled Reports</h1>
@@ -808,7 +808,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
             )}
             {/* ── ABOUT MODULE ── */}
             {activeTab === 'about' && (
-              <div className="flex-1 overflow-y-auto p-8 bg-[#F1EFEC] text-left">
+              <div className="flex-1 overflow-y-auto p-8 text-left">
                 <div className="max-w-5xl mx-auto space-y-6">
                   {/* Header section */}
                   <h1 className="text-xl font-extrabold text-navy-blue tracking-tight pb-1">
@@ -971,7 +971,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       )}
 
       {exportingReport && (
-        <div className="absolute top-[-9999px] left-[-9999px] pointer-events-none select-none opacity-0">
+        <div className="fixed top-0 left-0 w-[816px] h-screen pointer-events-none select-none opacity-0 z-[-9999] overflow-hidden">
           <DocumentViewer
             report={exportingReport}
             onClose={() => setExportingReport(null)}

@@ -638,7 +638,7 @@ const ToolbarButton = ({ onClick, isActive, icon: Icon }) => {
   )
 }
 
-export const Toolbar = () => {
+export const Toolbar = ({ onPrint }) => {
   const { editor } = useEditorStore()
   const [, setUpdateTrigger] = useState(0)
 
@@ -670,7 +670,7 @@ export const Toolbar = () => {
       {
         label: 'Print',
         icon: Printer,
-        onClick: () => window.print()
+        onClick: () => (onPrint ? onPrint() : window.print())
       },
       {
         label: 'Spell Check',

@@ -5632,20 +5632,18 @@ export default function AdminDashboard({ user, onLogout }) {
                         <table className="w-full text-left border-collapse">
                           <thead>
                             <tr className="border-b border-gray-200/60 bg-gray-50/80 text-[10px] uppercase font-bold text-gray-500">
-                              <th className="py-3 px-3">Full Name</th>
-                              <th className="py-3 px-2">Role</th>
-                              <th className="py-3 px-2">Assigned Org</th>
-                              <th className="py-3 px-2">Status</th>
-                              <th className="py-3 px-3 text-right">Actions</th>
+                              <th className="py-3 px-4">Full Name</th>
+                              <th className="py-3 px-3">Role</th>
+                              <th className="py-3 px-3">Status</th>
+                              <th className="py-3 px-4 text-right">Actions</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-100 text-xs">
                             {usersList.map((u) => {
-                              const org = orgsList.find((o) => o.id === u.organizationId)
                               const isSelf = u.uid === user.uid
                               return (
                                 <tr key={u.uid} className="hover:bg-gray-50/60 transition">
-                                  <td className="py-3.5 px-3 font-semibold text-navy-blue">
+                                  <td className="py-3.5 px-4 font-semibold text-navy-blue">
                                     <div>
                                       {u.name}{' '}
                                       {isSelf && (
@@ -5658,19 +5656,10 @@ export default function AdminDashboard({ user, onLogout }) {
                                       {u.email}
                                     </span>
                                   </td>
-                                  <td className="py-3.5 px-2 text-gray-600 font-medium capitalize">
+                                  <td className="py-3.5 px-3 text-gray-600 font-medium capitalize">
                                     {u.role.replace('_', ' ')}
                                   </td>
-                                  <td className="py-3.5 px-2 font-medium">
-                                    {org
-                                      ? org.abbreviation
-                                      : u.organizationId
-                                        ? u.organizationId
-                                        : u.role === 'admin'
-                                          ? 'System Admin'
-                                          : 'CES Office'}
-                                  </td>
-                                  <td className="py-3.5 px-2">
+                                  <td className="py-3.5 px-3">
                                     <span
                                       className={`inline-block text-[9px] font-bold px-2.5 py-0.5 rounded-full uppercase ${u.status === 'inactive'
                                         ? 'bg-red-50 text-red-700 border border-red-200'
@@ -5680,7 +5669,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                       {u.status || 'active'}
                                     </span>
                                   </td>
-                                  <td className="py-3.5 px-3 text-right space-x-1.5 shrink-0">
+                                  <td className="py-3.5 px-4 text-right space-x-1.5 shrink-0">
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -5923,7 +5912,7 @@ export default function AdminDashboard({ user, onLogout }) {
         {/* HIDDEN CES OFFICIAL PDF TEMPLATE CONVERTER */}
         {/* ==================================================== */}
         {exportingReport && (
-          <div className="absolute top-[-9999px] left-[-9999px] pointer-events-none select-none opacity-0">
+          <div className="fixed top-0 left-0 w-[816px] h-screen pointer-events-none select-none opacity-0 z-[-9999] overflow-hidden">
             <DocumentViewer
               report={exportingReport}
               onClose={() => setExportingReport(null)}

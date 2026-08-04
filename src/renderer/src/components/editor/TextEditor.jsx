@@ -912,6 +912,7 @@ import {
   handleExportPDF,
   handleExportDOCX,
   handleExportTXT,
+  handlePrintNative,
   docxToHtml,
   parseDocxLayout,
   loadInitialContentAndResetHistory,
@@ -2100,7 +2101,7 @@ export default function TextEditor({
           handleSave('draft')
         } else if (e.key === 'p' || e.key === 'P') {
           e.preventDefault()
-          window.print()
+          handlePrintNative(canvasRef, workspaceReportTitle || 'Report')
         }
       }
     }
@@ -2258,7 +2259,11 @@ export default function TextEditor({
     { icon: Save, l: 'Save Draft (Ctrl+S)', fn: () => handleSave('draft') },
     { icon: Send, l: 'Submit to Admin', fn: () => handleSave('submitted') },
     null,
-    { icon: Printer, l: 'Print (Ctrl+P)', fn: () => window.print() },
+    {
+      icon: Printer,
+      l: 'Print (Ctrl+P)',
+      fn: () => handlePrintNative(canvasRef, workspaceReportTitle || 'Report')
+    },
     {
       icon: FileDown,
       l: 'Export as PDF',
@@ -2407,7 +2412,7 @@ export default function TextEditor({
 
       {/* ── Formatting Toolbar ── */}
       <div className="bg-white border-b border-neutral-200 px-4 py-1.5 shrink-0 print:hidden">
-        <Toolbar />
+        <Toolbar onPrint={() => handlePrintNative(canvasRef, workspaceReportTitle || 'Report')} />
       </div>
 
       {/* ── Document Workspace Area ── */}
