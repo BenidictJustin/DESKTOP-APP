@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { listenToAuthChanges, logout } from './services/db'
 import Login from './components/Login'
@@ -9,7 +9,6 @@ import UpdateNotification from './components/UpdateNotification'
 import { authTransitionVariants, authTransition } from './components/motion/motionConfig'
 
 function App() {
-  const [user, setUser] = useState(null)
   const [activeUser, setActiveUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showSplash, setShowSplash] = useState(true)
@@ -26,22 +25,28 @@ function App() {
   useEffect(() => {
     // Listen to changes in auth context (either Firebase auth or LocalStorage simulation)
     const unsubscribe = listenToAuthChanges((currentUser) => {
-      setUser(currentUser)
-      if (loading) {
-        setActiveUser(currentUser)
-        setLoading(false)
-      } else if (!currentUser) {
-        setActiveUser(null)
-      }
+      // Use functional state updates to avoid stale closure issues with the loading state.
+      // This allows the effect dependency array to remain empty ([]) and prevent duplicate registrations.
+      setLoading((prevLoading) => {
+        if (prevLoading) {
+          // On initial startup: restore session (currentUser will be user data or null)
+          setActiveUser(currentUser)
+          return false
+        } else if (!currentUser) {
+          // If already loaded and user is logged out: clear active user.
+          // Login handles setting activeUser via handleLoginSuccess to allow login animation to complete.
+          setActiveUser(null)
+        }
+        return prevLoading
+      })
     })
 
     return () => unsubscribe()
-  }, [loading])
+  }, [])
 
   const handleLogout = async () => {
     try {
       await logout()
-      setUser(null)
       setActiveUser(null)
       if (typeof document !== 'undefined') {
         document.body.style.overflow = ''
@@ -55,7 +60,6 @@ function App() {
   }
 
   const handleLoginSuccess = (authenticatedUser) => {
-    setUser(authenticatedUser)
     setActiveUser(authenticatedUser)
   }
 
@@ -129,8 +133,8 @@ function App() {
                   Access Restrict Alert
                 </h2>
                 <p className="text-sm text-gray-600 font-medium mb-6">
-                  Your account role "{activeUser.role}" does not have access permissions to view
-                  this terminal panel.
+                  Your account role &quot;{activeUser.role}&quot; does not have access permissions
+                  to view this terminal panel.
                 </p>
                 <button
                   onClick={handleLogout}

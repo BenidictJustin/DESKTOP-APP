@@ -11,6 +11,9 @@ autoUpdater.logger = console
 autoUpdater.autoDownload = true
 autoUpdater.autoInstallOnAppQuit = true
 
+// Disable Chromium's print preview feature to force classic Windows native print dialog
+app.commandLine.appendSwitch('disable-print-preview')
+
 let mainWindow = null
 
 function createWindow() {
@@ -234,8 +237,26 @@ app.whenReady().then(() => {
     console.log(`[${traceId}]   NO printToPDF, NO shell.openPath, NO save dialog`)
     console.log('════════════════════════════════════════════════════')
 
+    const senderWindow = BrowserWindow.fromWebContents(event.sender)
+    
+    // Position the 1x1 window at the center of the sender window to anchor the dialog correctly
+    let x, y
+    if (senderWindow) {
+      const bounds = senderWindow.getBounds()
+      x = Math.round(bounds.x + (bounds.width - 1) / 2)
+      y = Math.round(bounds.y + (bounds.height - 1) / 2)
+    }
+
     const printWindow = new BrowserWindow({
-      show: false,
+      width: 1,
+      height: 1,
+      x,
+      y,
+      show: true, // Must be true so the OS registers it as an active onscreen window
+      frame: false,
+      transparent: true,
+      opacity: 0.0,
+      parent: senderWindow || undefined,
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true
@@ -247,6 +268,15 @@ app.whenReady().then(() => {
     try {
       console.log(`[${traceId}] STEP 4a: Writing temp HTML (${html.length} bytes) to ${tempPath}`)
       fs.writeFileSync(tempPath, html, 'utf8')
+
+      // Save a copy to the workspace directory for debugging layout differences
+      try {
+        const debugPath = 'c:\\Users\\JOHN HAROLD SANTOS\\OneDrive\\Desktop\\CAPSTONE 2 - DOMMUNITY CODE\\DOMMUNITY-main\\debug-print.html'
+        fs.writeFileSync(debugPath, html, 'utf8')
+        console.log(`[${traceId}] Saved debug copy to ${debugPath}`)
+      } catch (e) {
+        console.error('Failed to write debug copy:', e)
+      }
       
       console.log(`[${traceId}] STEP 4b: Loading temp HTML into hidden BrowserWindow...`)
       await printWindow.loadURL(`file://${tempPath}`)
@@ -287,6 +317,10 @@ app.whenReady().then(() => {
       throw error
     } finally {
       console.log(`[${traceId}] CLEANUP: Destroying printWindow and deleting temp file`)
+      if (senderWindow && !senderWindow.isDestroyed()) {
+        senderWindow.show()
+        senderWindow.focus()
+      }
       if (!printWindow.isDestroyed()) {
         printWindow.destroy()
       }

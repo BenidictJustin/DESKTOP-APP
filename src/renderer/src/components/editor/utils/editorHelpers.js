@@ -422,6 +422,32 @@ export async function urlToBase64(url) {
 export async function preparePrintHtmlPayload(element, title, options = {}) {
   if (!element) return null
 
+  const traceId = options.traceId || `PRINT-${Date.now()}`
+
+  // DOM Diagnostic Helper
+  const getDomSummary = (el) => {
+    const traverse = (node, depth = 0) => {
+      if (!node || node.nodeType !== 1) return ''
+      let desc = '  '.repeat(depth) + `<${node.tagName.toLowerCase()}`
+      if (node.id) desc += ` id="${node.id}"`
+      if (node.className) {
+        const classes = node.className.split(/\s+/).filter(Boolean).slice(0, 3).join(' ')
+        desc += ` class="${classes}"`
+      }
+      desc += '>\n'
+      for (const child of node.children) {
+        desc += traverse(child, depth + 1)
+      }
+      return desc
+    }
+    return traverse(el)
+  }
+
+  console.log(`%c[${traceId}] ══════════════════════════════════════`, 'color: #3b82f6; font-weight: bold;')
+  console.log(`%c[${traceId}] ORIGINAL DOCUMENT VIEWER DOM TREE:`, 'color: #3b82f6; font-weight: bold;')
+  console.log(getDomSummary(element))
+  console.log(`%c[${traceId}] ══════════════════════════════════════`, 'color: #3b82f6; font-weight: bold;')
+
   // 1. Clone DOM element for preprocessing
   const cloned = element.cloneNode(true)
 
@@ -803,6 +829,18 @@ export async function preparePrintHtmlPayload(element, title, options = {}) {
 
   const formattedTitle = title ? `${title}_${timestampStr}` : `Document_${timestampStr}`
   const ipcPageSize = getElectronIpcPageSize(options.pageSize || options.paperKey)
+
+  // Log Generated DOM Tree summary for developer comparison
+  try {
+    const tempDiv = document.createElement('div')
+    tempDiv.innerHTML = bodyContent
+    console.log(`%c[${traceId}] ══════════════════════════════════════`, 'color: #10b981; font-weight: bold;')
+    console.log(`%c[${traceId}] GENERATED PRINT PAYLOAD DOM TREE:`, 'color: #10b981; font-weight: bold;')
+    console.log(getDomSummary(tempDiv))
+    console.log(`%c[${traceId}] ══════════════════════════════════════`, 'color: #10b981; font-weight: bold;')
+  } catch (err) {
+    console.error(`[${traceId}] Failed to log generated DOM summary:`, err)
+  }
 
   return { htmlContent, formattedTitle, ipcPageSize, exportStamp }
 }
