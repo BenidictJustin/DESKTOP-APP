@@ -5,8 +5,14 @@ import {
   AlignJustify,
   AlignLeft,
   AlignRight,
+  ArrowDown,
+  ArrowUp,
   Bold,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Grid,
   Highlighter,
   Image as ImageIcon,
   Italic,
@@ -15,16 +21,21 @@ import {
   List,
   ListOrdered,
   ListTodo,
+  Merge,
   Minus,
   Plus,
-  Printer,
   Redo2,
   RemoveFormatting,
   Search,
   SpellCheck,
+  Split,
+  Table,
+  Trash,
+  Trash2,
   Underline,
   Undo2,
-  Upload
+  Upload,
+  Wrench
 } from 'lucide-react'
 
 import { cn } from '../utils/cn'
@@ -79,30 +90,60 @@ const LineHeightButton = () => {
 const FontSizeButton = () => {
   const { editor } = useEditorStore()
 
+  const getFontSizeFromNodeOrDOM = (pos, node) => {
+    if (!editor) return '16'
+
+    if (node && node.marks) {
+      const textStyleMark = node.marks.find((m) => m.type.name === 'textStyle')
+      if (textStyleMark && textStyleMark.attrs?.fontSize) {
+        return textStyleMark.attrs.fontSize.replace('px', '').replace('pt', '')
+      }
+    }
+
+    if (editor.view && editor.view.dom) {
+      try {
+        const domResult = editor.view.domAtPos(pos)
+        const targetEl =
+          domResult.node?.nodeType === 1
+            ? domResult.node
+            : domResult.node?.parentElement
+        if (targetEl && editor.view.dom.contains(targetEl)) {
+          const px = parseFloat(window.getComputedStyle(targetEl).fontSize)
+          if (!isNaN(px) && px > 0) {
+            const pt = Math.round(px * 0.75)
+            return pt.toString()
+          }
+        }
+      } catch (e) {
+        // ignore fallback errors
+      }
+    }
+
+    return '16'
+  }
+
   const getSelectionFontSize = () => {
     if (!editor) return '16'
     const { from, to, doc } = editor.state
 
     if (from === to) {
-      const sizePx = editor.getAttributes('textStyle').fontSize || '16pt'
-      return sizePx.replace('px', '').replace('pt', '')
+      const markSize = editor.getAttributes('textStyle').fontSize
+      if (markSize) return markSize.replace('px', '').replace('pt', '')
+      return getFontSizeFromNodeOrDOM(from, null)
     }
 
     const sizes = new Set()
-    doc.nodesBetween(from, to, (node) => {
+    doc.nodesBetween(from, to, (node, pos) => {
       if (node.isText) {
-        const textStyleMark = node.marks.find((m) => m.type.name === 'textStyle')
-        if (textStyleMark && textStyleMark.attrs.fontSize) {
-          sizes.add(textStyleMark.attrs.fontSize.replace('px', '').replace('pt', ''))
-        } else {
-          sizes.add('16')
-        }
+        const size = getFontSizeFromNodeOrDOM(pos, node)
+        sizes.add(size)
       }
     })
 
     if (sizes.size === 0) {
-      const sizePx = editor.getAttributes('textStyle').fontSize || '16pt'
-      return sizePx.replace('px', '').replace('pt', '')
+      const markSize = editor.getAttributes('textStyle').fontSize
+      if (markSize) return markSize.replace('px', '').replace('pt', '')
+      return getFontSizeFromNodeOrDOM(from, null)
     }
 
     if (sizes.size > 1) {
@@ -155,15 +196,15 @@ const FontSizeButton = () => {
       let modified = false
       editor.state.doc.nodesBetween(from, to, (node, pos) => {
         if (node.isText) {
-          const textStyleMark = node.marks.find((m) => m.type.name === 'textStyle')
-          const currentSizePx = textStyleMark?.attrs?.fontSize || '16pt'
-          const currentSize = parseFloat(currentSizePx.replace('px', '').replace('pt', '')) || 16
+          const currentSizeStr = getFontSizeFromNodeOrDOM(pos, node)
+          const currentSize = parseFloat(currentSizeStr) || 16
           const newSize = currentSize + 1
 
           const startPos = Math.max(from, pos)
           const endPos = Math.min(to, pos + node.nodeSize)
 
           const textStyleType = editor.state.schema.marks.textStyle
+          const textStyleMark = node.marks.find((m) => m.type.name === 'textStyle')
           const newAttrs = { ...textStyleMark?.attrs, fontSize: `${newSize}pt` }
           tr.addMark(startPos, endPos, textStyleType.create(newAttrs))
           modified = true
@@ -192,15 +233,15 @@ const FontSizeButton = () => {
       let modified = false
       editor.state.doc.nodesBetween(from, to, (node, pos) => {
         if (node.isText) {
-          const textStyleMark = node.marks.find((m) => m.type.name === 'textStyle')
-          const currentSizePx = textStyleMark?.attrs?.fontSize || '16pt'
-          const currentSize = parseFloat(currentSizePx.replace('px', '').replace('pt', '')) || 16
+          const currentSizeStr = getFontSizeFromNodeOrDOM(pos, node)
+          const currentSize = parseFloat(currentSizeStr) || 16
           const newSize = Math.max(1, currentSize - 1)
 
           const startPos = Math.max(from, pos)
           const endPos = Math.min(to, pos + node.nodeSize)
 
           const textStyleType = editor.state.schema.marks.textStyle
+          const textStyleMark = node.marks.find((m) => m.type.name === 'textStyle')
           const newAttrs = { ...textStyleMark?.attrs, fontSize: `${newSize}pt` }
           tr.addMark(startPos, endPos, textStyleType.create(newAttrs))
           modified = true
@@ -595,12 +636,43 @@ const FontFamilyButton = () => {
     { label: 'Verdana', value: 'Verdana' }
   ]
 
+  const getCurrentFontFamily = () => {
+    if (!editor) return 'Arial'
+
+    const markFont = editor.getAttributes('textStyle').fontFamily
+    if (markFont) return markFont.replace(/['"]/g, '')
+
+    if (editor.view && editor.view.dom) {
+      try {
+        const { from } = editor.state
+        const domResult = editor.view.domAtPos(from)
+        const targetEl =
+          domResult.node?.nodeType === 1
+            ? domResult.node
+            : domResult.node?.parentElement
+        if (targetEl && editor.view.dom.contains(targetEl)) {
+          const compFont = window.getComputedStyle(targetEl).fontFamily
+          if (compFont) {
+            const primary = compFont.split(',')[0].replace(/['"]/g, '').trim()
+            if (primary) return primary
+          }
+        }
+      } catch (e) {
+        // ignore fallback errors
+      }
+    }
+
+    return 'Arial'
+  }
+
+  const currentFont = getCurrentFontFamily()
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button className="h-7 w-[120px] shrink-0 flex items-center justify-between rounded-sm hover:bg-neutral-200/80 px-1.5 overflow-hidden text-sm cursor-pointer">
           <span className="truncate">
-            {editor?.getAttributes('textStyle').fontFamily || 'Arial'}
+            {currentFont}
           </span>
           <ChevronDown className="ml-2 size-4 shrink-0" />
         </button>
@@ -612,13 +684,197 @@ const FontFamilyButton = () => {
             key={value}
             className={cn(
               'flex items-center gap-x-2 px-2 py-1 rounded-sm hover:bg-neutral-200/80 w-full text-left cursor-pointer',
-              editor?.getAttributes('textStyle').fontFamily === value && 'bg-neutral-200/80'
+              currentFont === value && 'bg-neutral-200/80'
             )}
             style={{ fontFamily: value }}
           >
             <span className="text-sm">{label}</span>
           </button>
         ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+const TableMenuItem = ({ label, icon: Icon, enabled, onClick }) => {
+  return (
+    <button
+      disabled={!enabled}
+      onClick={onClick}
+      className={cn(
+        'flex items-center gap-x-2 px-2 py-1.5 rounded text-xs font-medium cursor-pointer transition-colors w-full text-left',
+        enabled
+          ? 'text-neutral-700 hover:bg-neutral-100 hover:text-neutral-900 active:bg-neutral-200'
+          : 'text-neutral-300 opacity-40 cursor-not-allowed'
+      )}
+    >
+      <Icon className="size-4 shrink-0 text-neutral-600" />
+      <span className="truncate">{label}</span>
+    </button>
+  )
+}
+
+const TableDropdown = () => {
+  const { editor } = useEditorStore()
+
+  if (!editor) return null
+
+  const isTableActive = Boolean(editor.isActive('table'))
+
+  const col1 = [
+    {
+      label: 'Insert table',
+      icon: Table,
+      enabled: Boolean(editor.can().insertTable?.({ rows: 3, cols: 3, withHeaderRow: true }) ?? true),
+      onClick: () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+    },
+    {
+      label: 'Add row after',
+      icon: ChevronDown,
+      enabled: Boolean(editor.can().addRowAfter?.()),
+      onClick: () => editor.chain().focus().addRowAfter().run()
+    },
+    {
+      label: 'Merge cells',
+      icon: Merge,
+      enabled: Boolean(editor.can().mergeCells?.()),
+      onClick: () => editor.chain().focus().mergeCells().run()
+    },
+    {
+      label: 'Merge or split',
+      icon: Grid,
+      enabled: Boolean(editor.can().mergeOrSplit?.()),
+      onClick: () => editor.chain().focus().mergeOrSplit().run()
+    },
+    {
+      label: 'Go to next cell',
+      icon: ArrowDown,
+      enabled: Boolean(editor.can().goToNextCell?.()),
+      onClick: () => editor.chain().focus().goToNextCell().run()
+    },
+    {
+      label: 'Add column before',
+      icon: ChevronLeft,
+      enabled: Boolean(editor.can().addColumnBefore?.()),
+      onClick: () => editor.chain().focus().addColumnBefore().run()
+    },
+    {
+      label: 'Delete row',
+      icon: Trash2,
+      enabled: Boolean(editor.can().deleteRow?.()),
+      onClick: () => editor.chain().focus().deleteRow().run()
+    }
+  ]
+
+  const col2 = [
+    {
+      label: 'Toggle header row',
+      icon: Table,
+      enabled: Boolean(editor.can().toggleHeaderRow?.()),
+      onClick: () => editor.chain().focus().toggleHeaderRow().run()
+    },
+    {
+      label: 'Go to previous cell',
+      icon: ArrowUp,
+      enabled: Boolean(editor.can().goToPreviousCell?.()),
+      onClick: () => editor.chain().focus().goToPreviousCell().run()
+    },
+    {
+      label: 'Add column after',
+      icon: ChevronRight,
+      enabled: Boolean(editor.can().addColumnAfter?.()),
+      onClick: () => editor.chain().focus().addColumnAfter().run()
+    },
+    {
+      label: 'Delete table',
+      icon: Trash,
+      enabled: Boolean(editor.can().deleteTable?.()),
+      onClick: () => editor.chain().focus().deleteTable().run()
+    },
+    {
+      label: 'Toggle header cell',
+      icon: Table,
+      enabled: Boolean(editor.can().toggleHeaderCell?.()),
+      onClick: () => editor.chain().focus().toggleHeaderCell().run()
+    },
+    {
+      label: 'Delete column',
+      icon: Trash2,
+      enabled: Boolean(editor.can().deleteColumn?.()),
+      onClick: () => editor.chain().focus().deleteColumn().run()
+    },
+    {
+      label: 'Split cell',
+      icon: Split,
+      enabled: Boolean(editor.can().splitCell?.()),
+      onClick: () => editor.chain().focus().splitCell().run()
+    }
+  ]
+
+  const col3 = [
+    {
+      label: 'Set cell attribute',
+      icon: Wrench,
+      enabled: isTableActive,
+      onClick: () => {
+        const attr = window.prompt('Enter cell attribute name:', 'style')
+        if (attr) {
+          const val = window.prompt(`Enter value for ${attr}:`, 'background-color: #f3f4f6')
+          if (val !== null) {
+            editor.chain().focus().setCellAttribute(attr, val).run()
+          }
+        }
+      }
+    },
+    {
+      label: 'Add row before',
+      icon: ChevronUp,
+      enabled: Boolean(editor.can().addRowBefore?.()),
+      onClick: () => editor.chain().focus().addRowBefore().run()
+    },
+    {
+      label: 'Toggle header column',
+      icon: Table,
+      enabled: Boolean(editor.can().toggleHeaderColumn?.()),
+      onClick: () => editor.chain().focus().toggleHeaderColumn().run()
+    },
+    {
+      label: 'Fix tables',
+      icon: Wrench,
+      enabled: Boolean(editor.can().fixTables?.() ?? true),
+      onClick: () => editor.chain().focus().fixTables().run()
+    }
+  ]
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          title="Table options"
+          className="h-7 shrink-0 flex items-center justify-center gap-x-1 rounded-sm hover:bg-neutral-200/80 px-1.5 text-sm cursor-pointer"
+        >
+          <Table className="size-4" />
+          <ChevronDown className="size-3" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="p-3 bg-white border border-neutral-200 shadow-xl rounded-xl w-auto min-w-[580px] max-w-[90vw]">
+        <div className="grid grid-cols-3 gap-x-3 divide-x divide-neutral-100">
+          <div className="flex flex-col gap-y-0.5 pr-1">
+            {col1.map((item) => (
+              <TableMenuItem key={item.label} {...item} />
+            ))}
+          </div>
+          <div className="flex flex-col gap-y-0.5 px-2">
+            {col2.map((item) => (
+              <TableMenuItem key={item.label} {...item} />
+            ))}
+          </div>
+          <div className="flex flex-col gap-y-0.5 pl-2">
+            {col3.map((item) => (
+              <TableMenuItem key={item.label} {...item} />
+            ))}
+          </div>
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -666,11 +922,6 @@ export const Toolbar = ({ onPrint }) => {
         label: 'Redo',
         icon: Redo2,
         onClick: () => editor?.chain().focus().redo().run()
-      },
-      {
-        label: 'Print',
-        icon: Printer,
-        onClick: () => (onPrint ? onPrint() : window.print())
       },
       {
         label: 'Spell Check',
@@ -721,6 +972,7 @@ export const Toolbar = ({ onPrint }) => {
       {sections[0].map((item) => (
         <ToolbarButton key={item.label} {...item} />
       ))}
+      <TableDropdown />
       <Separator orientation="vertical" className="h-6 bg-neutral-300 mx-1" />
       <FontFamilyButton />
       <Separator orientation="vertical" className="h-6 bg-neutral-300 mx-1" />

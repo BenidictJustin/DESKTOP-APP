@@ -42,7 +42,7 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import { Image } from '@tiptap/extension-image'
-import { Table } from '@tiptap/extension-table'
+import MovableTable from './editor/extensions/MovableTable'
 import { TableCell } from '@tiptap/extension-table-cell'
 import { TableHeader } from '@tiptap/extension-table-header'
 import { TableRow } from '@tiptap/extension-table-row'
@@ -174,7 +174,7 @@ export default function DocumentViewer({
       Highlight.configure({ multicolor: true }),
       FloatingImage,
       FloatingTextBox,
-      Table.configure({ resizable: false }),
+      MovableTable.configure({ resizable: false }),
       TableCell,
       TableHeader,
       TableRow,
@@ -517,6 +517,29 @@ export default function DocumentViewer({
           }
           .ProseMirror th { background: #f3f4f6; font-weight: 600; }
           .ProseMirror tr:nth-child(even) td { background: #fafafa; }
+          .ProseMirror table.movable-table {
+            border-collapse: collapse;
+            margin: 12px 0;
+            table-layout: fixed;
+          }
+          .ProseMirror table.movable-table th,
+          .ProseMirror table.movable-table td {
+            border: 1px solid #c0c0c0;
+            padding: 6px 10px;
+            font-size: 12px;
+            text-align: left;
+            position: relative;
+            word-break: break-word;
+            overflow-wrap: break-word;
+            box-sizing: border-box;
+          }
+          .ProseMirror table.movable-table th {
+            background: #f3f4f6;
+            font-weight: 600;
+          }
+          .ProseMirror table.movable-table tr:nth-child(even) td {
+            background: #fafafa;
+          }
           .ProseMirror hr { border: none; border-top: 1px solid #d1d5db; margin: 14px 0; }
           .ProseMirror mark { padding: 1px 2px; border-radius: 2px; }
           .ProseMirror a { color: #2563eb; text-decoration: underline; }
@@ -1003,6 +1026,29 @@ export default function DocumentViewer({
               }
               .ProseMirror th { background: #f3f4f6; font-weight: 600; }
               .ProseMirror tr:nth-child(even) td { background: #fafafa; }
+              .ProseMirror table.movable-table {
+                border-collapse: collapse;
+                margin: 12px 0;
+                table-layout: fixed;
+              }
+              .ProseMirror table.movable-table th,
+              .ProseMirror table.movable-table td {
+                border: 1px solid #c0c0c0;
+                padding: 6px 10px;
+                font-size: 12px;
+                text-align: left;
+                position: relative;
+                word-break: break-word;
+                overflow-wrap: break-word;
+                box-sizing: border-box;
+              }
+              .ProseMirror table.movable-table th {
+                background: #f3f4f6;
+                font-weight: 600;
+              }
+              .ProseMirror table.movable-table tr:nth-child(even) td {
+                background: #fafafa;
+              }
               .ProseMirror hr { border: none; border-top: 1px solid #d1d5db; margin: 14px 0; }
               .ProseMirror mark { padding: 1px 2px; border-radius: 2px; }
               .ProseMirror a { color: #2563eb; text-decoration: underline; }

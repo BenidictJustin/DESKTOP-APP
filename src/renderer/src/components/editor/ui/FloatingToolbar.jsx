@@ -112,16 +112,44 @@ export default function FloatingToolbar({ editor }) {
       return
     }
 
+    const getFontSizeFromNodeOrDOM = (pos, node) => {
+      if (!editor) return '16'
+
+      if (node && node.marks) {
+        const textStyleMark = node.marks.find((m) => m.type.name === 'textStyle')
+        if (textStyleMark && textStyleMark.attrs?.fontSize) {
+          return textStyleMark.attrs.fontSize.replace('px', '').replace('pt', '')
+        }
+      }
+
+      if (editor.view && editor.view.dom) {
+        try {
+          const domResult = editor.view.domAtPos(pos)
+          const targetEl =
+            domResult.node?.nodeType === 1
+              ? domResult.node
+              : domResult.node?.parentElement
+          if (targetEl && editor.view.dom.contains(targetEl)) {
+            const px = parseFloat(window.getComputedStyle(targetEl).fontSize)
+            if (!isNaN(px) && px > 0) {
+              const pt = Math.round(px * 0.75)
+              return pt.toString()
+            }
+          }
+        } catch (e) {
+          // ignore fallback errors
+        }
+      }
+
+      return '16'
+    }
+
     // Calculate selection font size dynamically across the selection range
     const sizes = new Set()
-    state.doc.nodesBetween(from, to, (node) => {
+    state.doc.nodesBetween(from, to, (node, pos) => {
       if (node.isText) {
-        const textStyleMark = node.marks.find((m) => m.type.name === 'textStyle')
-        if (textStyleMark && textStyleMark.attrs.fontSize) {
-          sizes.add(textStyleMark.attrs.fontSize.replace('px', '').replace('pt', ''))
-        } else {
-          sizes.add('16')
-        }
+        const size = getFontSizeFromNodeOrDOM(pos, node)
+        sizes.add(size)
       }
     })
 
@@ -133,8 +161,8 @@ export default function FloatingToolbar({ editor }) {
     } else if (sizes.size === 1) {
       val = Array.from(sizes)[0]
     } else {
-      const sizePx = editor.getAttributes('textStyle').fontSize || '16pt'
-      val = sizePx.replace('px', '').replace('pt', '')
+      const markSize = editor.getAttributes('textStyle').fontSize
+      val = markSize ? markSize.replace('px', '').replace('pt', '') : getFontSizeFromNodeOrDOM(from, null)
     }
 
     setFontSizeInfo({ value: val, isMixed: mixed })

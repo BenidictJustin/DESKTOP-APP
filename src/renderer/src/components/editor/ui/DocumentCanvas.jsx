@@ -581,22 +581,42 @@ export default function DocumentCanvas({
                    pointer-events: auto; z-index: 20;
                  }
                  .ProseMirror table.movable-table {
-                   position: relative !important;
-                   overflow: visible !important;
-                   transition: outline 0.15s ease-in-out;
-                 }
-                 .ProseMirror table.movable-table:hover {
-                   outline: 1px dashed #9ca3af;
-                 }
-                 .ProseMirror table.movable-table .table-move-handle,
-                 .ProseMirror table.movable-table .table-resize-handle {
-                   opacity: 0;
-                   transition: opacity 0.15s ease-in-out;
-                 }
-                 .ProseMirror table.movable-table:hover .table-move-handle,
-                 .ProseMirror table.movable-table:hover .table-resize-handle {
-                   opacity: 1;
-                 }
+                    border-collapse: collapse;
+                    margin: 12px 0;
+                    table-layout: fixed;
+                  }
+                  .ProseMirror table.movable-table th,
+                  .ProseMirror table.movable-table td {
+                    border: 1px solid #c0c0c0;
+                    padding: 6px 10px;
+                    font-size: 12px;
+                    text-align: left;
+                    position: relative;
+                    word-break: break-word;
+                    overflow-wrap: break-word;
+                    box-sizing: border-box;
+                  }
+                  .ProseMirror table.movable-table th {
+                    background: #f3f4f6;
+                    font-weight: 600;
+                  }
+                  .ProseMirror table.movable-table tr:nth-child(even) td {
+                    background: #fafafa;
+                  }
+                  .ProseMirror .movable-table-wrapper:hover {
+                    outline: 1px dashed #3b82f6;
+                  }
+                  .ProseMirror .movable-table-wrapper .table-move-handle,
+                  .ProseMirror .movable-table-wrapper .table-resize-handle {
+                    opacity: 0;
+                    transition: opacity 0.15s ease-in-out;
+                  }
+                  .ProseMirror .movable-table-wrapper:hover .table-move-handle,
+                  .ProseMirror .movable-table-wrapper:hover .table-resize-handle,
+                  .ProseMirror .movable-table-wrapper:focus-within .table-move-handle,
+                  .ProseMirror .movable-table-wrapper:focus-within .table-resize-handle {
+                    opacity: 1;
+                  }
                  .ProseMirror hr { border: none; border-top: 1px solid #d1d5db; margin: 14px 0; }
                  .ProseMirror mark { padding: 1px 2px; border-radius: 2px; }
                  .ProseMirror a.doc-link { color: #2563eb; text-decoration: underline; cursor: pointer; }
