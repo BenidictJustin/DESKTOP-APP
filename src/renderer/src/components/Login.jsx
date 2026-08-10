@@ -169,8 +169,13 @@ export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
         <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
           <img
             src={logo3}
+            alt="Background Blur"
+            className="absolute inset-0 w-full h-full object-cover opacity-50 filter blur-xl scale-110 pointer-events-none"
+          />
+          <img
+            src={logo3}
             alt="Background Banner"
-            className="w-full h-full object-contain object-center opacity-85 filter brightness-105 contrast-105 pointer-events-none"
+            className="absolute inset-0 w-full h-full object-cover object-center opacity-85 filter brightness-105 contrast-105 pointer-events-none"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-[#020519]/40 via-[#030E69]/30 to-[#02061f]/55 backdrop-blur-[1px]" />
         </div>
@@ -218,7 +223,7 @@ export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
         <img
           src={logo3}
           alt="Background Banner"
-          className="absolute inset-0 w-full h-full object-contain object-center opacity-85 filter brightness-105 contrast-105 pointer-events-none"
+          className="absolute inset-0 w-full h-full object-cover object-center opacity-85 filter brightness-105 contrast-105 pointer-events-none"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-[#020519]/40 via-[#030E69]/30 to-[#02061f]/55 backdrop-blur-[1px]" />
       </div>
@@ -446,11 +451,11 @@ export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
               transition={{ duration: duration.normal, ease: easing.easeOut }}
             >
               <h3 className="text-xl font-bold text-navy-blue mb-2 font-poppins text-left tracking-tight">
-                Forget password
+                Forgot Password
               </h3>
               <p className="text-gray-600 text-[13px] mb-6 font-poppins text-left leading-relaxed font-medium">
                 {
-                  'This feature is restricted to Admin accounts only. If you are a Coordinator, please contact the CES Admin to request a password reset.'
+                  'This feature is restricted to Admin accounts only. If you are a Coordinator, please contact the Admin to reset your password.'
                 }
               </p>
 

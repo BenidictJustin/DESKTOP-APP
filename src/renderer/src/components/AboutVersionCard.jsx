@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { RefreshCw, Download, CheckCircle2, AlertCircle, Sparkles, ShieldCheck, Loader2 } from 'lucide-react'
 
 export default function AboutVersionCard() {
-  const [currentVersion, setCurrentVersion] = useState('1.0.2')
+  const [currentVersion, setCurrentVersion] = useState('1.0.3')
   const [status, setStatus] = useState('idle') // 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'up-to-date' | 'error'
   const [updateInfo, setUpdateInfo] = useState(null)
   const [progress, setProgress] = useState(0)

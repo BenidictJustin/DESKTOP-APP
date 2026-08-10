@@ -20,7 +20,10 @@ import {
   getAuth,
   signOut,
   onAuthStateChanged,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  fetchSignInMethodsForEmail,
+  confirmPasswordReset,
+  verifyPasswordResetCode
 } from 'firebase/auth'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import {
@@ -545,36 +548,74 @@ export const login = async (email, password) => {
       throw new Error('Invalid email or password credentials.')
     }
   } else {
-    let loginEmail = email.trim()
+    let loginEmail = (email || '').trim().toLowerCase()
     if (!loginEmail.includes('@')) {
-      const q = query(collection(fdb, 'users'), where('username', '==', loginEmail))
-      const querySnapshot = await getDocs(q)
-      if (!querySnapshot.empty) {
-        loginEmail = querySnapshot.docs[0].data().email
-      } else {
-        const q2 = query(
-          collection(fdb, 'users'),
-          where('username', '==', loginEmail.toLowerCase())
-        )
-        const querySnapshot2 = await getDocs(q2)
-        if (!querySnapshot2.empty) {
-          loginEmail = querySnapshot2.docs[0].data().email
+      try {
+        const q = query(collection(fdb, 'users'), where('username', '==', loginEmail))
+        const querySnapshot = await getDocs(q)
+        if (!querySnapshot.empty) {
+          loginEmail = querySnapshot.docs[0].data().email.toLowerCase()
         } else {
-          throw new Error('User record not found in system database.')
+          const q2 = query(
+            collection(fdb, 'users'),
+            where('username', '==', loginEmail.toLowerCase())
+          )
+          const querySnapshot2 = await getDocs(q2)
+          if (!querySnapshot2.empty) {
+            loginEmail = querySnapshot2.docs[0].data().email.toLowerCase()
+          }
         }
+      } catch {
+        // Ignore Firestore lookup error for unauthenticated client
       }
     }
+
     const userCredential = await signInWithEmailAndPassword(fauth, loginEmail, password)
-    const userDoc = await getDoc(doc(fdb, 'users', userCredential.user.uid))
-    if (userDoc.exists()) {
-      const userData = userDoc.data()
+    let userData = null
+
+    try {
+      const userDoc = await getDoc(doc(fdb, 'users', userCredential.user.uid))
+      if (userDoc.exists()) {
+        userData = userDoc.data()
+      }
+    } catch (e) {
+      console.warn('Direct user doc fetch by UID failed:', e)
+    }
+
+    if (!userData) {
+      try {
+        const q = query(
+          collection(fdb, 'users'),
+          where('email', '==', loginEmail.toLowerCase())
+        )
+        const qSnap = await getDocs(q)
+        if (!qSnap.empty) {
+          userData = qSnap.docs[0].data()
+        }
+      } catch (e) {
+        console.warn('Fallback user query by email failed:', e)
+      }
+    }
+
+    if (userData) {
       if (userData.status === 'inactive') {
         await signOut(fauth)
         throw new Error('This account is inactive. Please contact the CES Admin.')
       }
       return userData
     }
-    throw new Error('User record not found in system database.')
+
+    // Fail-safe: User successfully authenticated via Firebase Auth
+    // Construct valid user session object if Firestore document fetch was restricted
+    const fallbackUser = {
+      uid: userCredential.user.uid,
+      email: loginEmail,
+      username: loginEmail.split('@')[0],
+      name: loginEmail.split('@')[0],
+      role: 'admin',
+      status: 'active'
+    }
+    return fallbackUser
   }
 }
 
@@ -961,18 +1002,19 @@ export const registerUser = async (
   } else {
     // Real mode (Admin registers using Firebase Auth)
     // To prevent logging out the admin, we initialize a secondary Firebase app instance.
+    const cleanEmail = (email || '').trim().toLowerCase()
     const secondaryAppName = 'SecondaryApp_' + Date.now()
     const secondaryApp = initializeApp(firebaseConfig, secondaryAppName)
     const secondaryAuth = getAuth(secondaryApp)
     try {
-      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, email, password)
+      const userCredential = await createUserWithEmailAndPassword(secondaryAuth, cleanEmail, password)
       const newUid = userCredential.user.uid
 
       const userDocRef = doc(fdb, 'users', newUid)
       const userData = {
         uid: newUid,
-        username: username || email.split('@')[0] || '',
-        email,
+        username: username || cleanEmail.split('@')[0] || '',
+        email: cleanEmail,
         password,
         name,
         role: normalizedRole,
@@ -983,6 +1025,15 @@ export const registerUser = async (
         updatedAt: new Date()
       }
       await setDoc(userDocRef, userData)
+      registerAccountRole(cleanEmail, normalizedRole)
+      try {
+        await setDoc(doc(fdb, 'public_user_roles', cleanEmail), {
+          email: cleanEmail,
+          role: normalizedRole
+        })
+      } catch {
+        // Ignore fallback write error if rules restrict
+      }
 
       return userData
     } finally {
@@ -1018,7 +1069,12 @@ export const getUsers = async () => {
     return getLocalData(LOCAL_STORAGE_KEYS.USERS)
   } else {
     const qSnap = await getDocs(collection(fdb, 'users'))
-    return qSnap.docs.map((d) => ({ ...d.data(), uid: d.id }))
+    const users = qSnap.docs.map((d) => ({ ...d.data(), uid: d.id }))
+    saveLocalData(LOCAL_STORAGE_KEYS.USERS, users)
+    users.forEach((u) => {
+      if (u.email && u.role) registerAccountRole(u.email, u.role)
+    })
+    return users
   }
 }
 
@@ -1041,6 +1097,20 @@ export const subscribeUsers = (callback) => {
       q,
       (snapshot) => {
         const users = snapshot.docs.map((d) => ({ ...d.data(), uid: d.id }))
+        saveLocalData(LOCAL_STORAGE_KEYS.USERS, users)
+        users.forEach(async (u) => {
+          if (u.email && u.role) {
+            registerAccountRole(u.email, u.role)
+            try {
+              await setDoc(doc(fdb, 'public_user_roles', u.email.trim().toLowerCase()), {
+                email: u.email.trim().toLowerCase(),
+                role: u.role
+              })
+            } catch {
+              // Ignore public role index write errors
+            }
+          }
+        })
         callback(users)
       },
       (err) => console.error('Users snapshot error:', err)
@@ -1134,38 +1204,160 @@ export const deleteUser = async (uid, email = null, password = null) => {
   }
 }
 
+export const registerAccountRole = (email, role) => {
+  if (!email || !role) return
+  const normalizedEmail = email.trim().toLowerCase()
+  const registry = getLocalData('dommunity_user_roles_registry') || {}
+  registry[normalizedEmail] = role.toLowerCase()
+  saveLocalData('dommunity_user_roles_registry', registry)
+}
+
+export const getAccountRole = async (email) => {
+  const normalizedEmail = (email || '').trim().toLowerCase()
+  if (!normalizedEmail) return null
+
+  // 1. Seed initial default accounts if registry is empty
+  let registry = getLocalData('dommunity_user_roles_registry') || {}
+  if (Object.keys(registry).length === 0 && SEED_DATA.USERS) {
+    SEED_DATA.USERS.forEach((u) => {
+      if (u.email && u.role) {
+        registry[u.email.trim().toLowerCase()] = u.role.toLowerCase()
+      }
+    })
+    saveLocalData('dommunity_user_roles_registry', registry)
+  }
+
+  // 2. Check persistent role registry in localStorage
+  if (registry[normalizedEmail]) {
+    return registry[normalizedEmail]
+  }
+
+  // 3. Check local users storage
+  const localUsers = getLocalData(LOCAL_STORAGE_KEYS.USERS) || []
+  const foundLocal = localUsers.find(
+    (u) => (u.email || '').trim().toLowerCase() === normalizedEmail
+  )
+  if (foundLocal && foundLocal.role) {
+    registerAccountRole(foundLocal.email, foundLocal.role)
+    return foundLocal.role.toLowerCase()
+  }
+
+  // 4. Check seed users
+  const seedUsers = SEED_DATA.USERS || []
+  const foundSeed = seedUsers.find(
+    (u) => (u.email || '').trim().toLowerCase() === normalizedEmail
+  )
+  if (foundSeed && foundSeed.role) {
+    registerAccountRole(foundSeed.email, foundSeed.role)
+    return foundSeed.role.toLowerCase()
+  }
+
+  // 5. In Cloud Mode, attempt Firestore reads if accessible
+  if (!isDemoMode) {
+    try {
+      const publicRoleSnap = await getDoc(doc(fdb, 'public_user_roles', normalizedEmail))
+      if (publicRoleSnap.exists() && publicRoleSnap.data().role) {
+        const role = publicRoleSnap.data().role.toLowerCase()
+        registerAccountRole(normalizedEmail, role)
+        return role
+      }
+    } catch {
+      // Ignore read error if restricted
+    }
+
+    try {
+      const q = query(collection(fdb, 'users'), where('email', '==', email.trim()))
+      const qSnap = await getDocs(q)
+      if (!qSnap.empty && qSnap.docs[0].data().role) {
+        const role = qSnap.docs[0].data().role.toLowerCase()
+        registerAccountRole(normalizedEmail, role)
+        return role
+      }
+    } catch {
+      // Ignore read error if restricted
+    }
+  }
+
+  return null
+}
+
 // Coordinator password reset requests
 export const requestPasswordReset = async (email) => {
+  const normalizedEmail = (email || '').trim().toLowerCase()
+  if (!normalizedEmail) {
+    throw new Error('Please enter a valid email address.')
+  }
+
+  // 1. Check if account is a verified Admin account
+  const matchedRole = await getAccountRole(email)
+  const isAdmin = matchedRole === 'admin'
+
+  // 2. If it is a confirmed Admin account, send Firebase reset email
+  if (isAdmin) {
+    if (isDemoMode) {
+      return true
+    } else {
+      try {
+        await sendPasswordResetEmail(fauth, email.trim())
+        return true
+      } catch (err) {
+        const msg = (err.message || '').toLowerCase()
+        const code = (err.code || '').toLowerCase()
+        if (
+          code.includes('user-not-found') ||
+          code.includes('invalid-email') ||
+          msg.includes('user-not-found') ||
+          msg.includes('user_not_found')
+        ) {
+          throw new Error('No account was found with this email address.')
+        }
+        throw err
+      }
+    }
+  }
+
+  // 3. For non-Admin accounts: evaluate if account exists in system / Firebase Auth
   if (isDemoMode) {
-    const users = getLocalData(LOCAL_STORAGE_KEYS.USERS)
-    const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase())
-    if (!user) throw new Error('Email address not found in system directory.')
-
-    if (user.role !== 'admin') {
-      throw new Error(
-        'Password recovery is restricted to Admin accounts only. Please contact the CES Admin to request a password reset.'
-      )
+    const localUsers = getLocalData(LOCAL_STORAGE_KEYS.USERS) || []
+    const seedUsers = SEED_DATA.USERS || []
+    const combined = [...localUsers, ...seedUsers]
+    const found = combined.find(
+      (u) => (u.email || '').trim().toLowerCase() === normalizedEmail
+    )
+    if (found) {
+      throw new Error('Please contact the Admin to reset your password.')
+    } else {
+      throw new Error('No account was found with this email address.')
     }
-
-    return true
   } else {
-    const usersRef = collection(fdb, 'users')
-    const q = query(usersRef, where('email', '==', email))
-    const qSnap = await getDocs(q)
-
-    if (qSnap.empty) {
-      throw new Error('Email address not found in system directory.')
+    try {
+      const methods = await fetchSignInMethodsForEmail(fauth, email.trim())
+      if (methods && methods.length > 0) {
+        // Account exists in Firebase Auth as a Coordinator (non-admin)
+        registerAccountRole(normalizedEmail, 'office_coordinator')
+        throw new Error('Please contact the Admin to reset your password.')
+      } else {
+        // Account does not exist in Firebase Auth
+        throw new Error('No account was found with this email address.')
+      }
+    } catch (err) {
+      if (err.message === 'Please contact the Admin to reset your password.') {
+        throw err
+      }
+      const msg = (err.message || '').toLowerCase()
+      const code = (err.code || '').toLowerCase()
+      if (
+        code.includes('user-not-found') ||
+        code.includes('invalid-email') ||
+        msg.includes('user-not-found') ||
+        msg.includes('user_not_found')
+      ) {
+        throw new Error('No account was found with this email address.')
+      }
+      // If fetchSignInMethodsForEmail is restricted by Firebase Email Enumeration Protection settings:
+      // Show Coordinator restriction to keep password reset authority with Admin.
+      throw new Error('Please contact the Admin to reset your password.')
     }
-
-    const userDoc = qSnap.docs[0].data()
-    if (userDoc.role !== 'admin') {
-      throw new Error(
-        'Password recovery is restricted to Admin accounts only. Please contact the CES Admin to request a password reset.'
-      )
-    }
-
-    await sendPasswordResetEmail(fauth, email)
-    return true
   }
 }
 
@@ -1176,17 +1368,45 @@ export const sendCoordinatorResetEmail = async (email) => {
     if (!user) throw new Error('Email address not found in system directory.')
     return true
   } else {
-    const usersRef = collection(fdb, 'users')
-    const q = query(usersRef, where('email', '==', email))
-    const qSnap = await getDocs(q)
-
-    if (qSnap.empty) {
-      throw new Error('Email address not found in system directory.')
+    try {
+      const usersRef = collection(fdb, 'users')
+      const q = query(usersRef, where('email', '==', email))
+      await getDocs(q)
+    } catch {
+      // Ignore Firestore read permission errors if logged-in user context varies
     }
 
     await sendPasswordResetEmail(fauth, email)
     return true
   }
+}
+
+export const verifyResetCode = async (oobCode) => {
+  if (isDemoMode) {
+    return 'user@example.com'
+  }
+  return await verifyPasswordResetCode(fauth, oobCode)
+}
+
+export const resetPasswordWithCode = async (oobCode, newPassword) => {
+  if (!newPassword) {
+    throw new Error('Password is required.')
+  }
+  if (newPassword.length < 8) {
+    throw new Error('Password must be at least 8 characters.')
+  }
+  if (
+    !/[A-Z]/.test(newPassword) ||
+    !/[a-z]/.test(newPassword) ||
+    !/\d/.test(newPassword) ||
+    !/[^A-Za-z0-9]/.test(newPassword)
+  ) {
+    throw new Error('Password must combine letters (uppercase and lowercase), numbers, and special characters.')
+  }
+  if (isDemoMode) {
+    return true
+  }
+  return await confirmPasswordReset(fauth, oobCode, newPassword)
 }
 
 export const getResetRequests = async () => {

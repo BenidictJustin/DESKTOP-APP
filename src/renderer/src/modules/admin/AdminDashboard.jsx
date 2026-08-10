@@ -90,6 +90,7 @@ import {
   FolderOpen,
   MapPin,
   Eye,
+  EyeOff,
   FileSymlink,
   ChevronRight,
   AlertTriangle,
@@ -265,6 +266,8 @@ export default function AdminDashboard({ user, onLogout }) {
   const [coordUsername, setCoordUsername] = useState('')
   const [coordPassword, setCoordPassword] = useState('')
   const [coordConfirmPassword, setCoordConfirmPassword] = useState('')
+  const [showAddUserPassword, setShowAddUserPassword] = useState(false)
+  const [showAddUserConfirmPassword, setShowAddUserConfirmPassword] = useState(false)
   const [coordOrgId, setCoordOrgId] = useState('')
   const [isDeptSearchOpen, setIsDeptSearchOpen] = useState(false)
   const [deptSearchVal, setDeptSearchVal] = useState('')
@@ -759,8 +762,14 @@ export default function AdminDashboard({ user, onLogout }) {
         errors.coordPassword = 'Password is required.'
       } else if (coordPassword.length < 8) {
         errors.coordPassword = 'Password must be at least 8 characters.'
-      } else if (!/[A-Za-z]/.test(coordPassword) || !/\d/.test(coordPassword)) {
-        errors.coordPassword = 'Password must be alphanumeric (contain both letters and numbers).'
+      } else if (
+        !/[A-Z]/.test(coordPassword) ||
+        !/[a-z]/.test(coordPassword) ||
+        !/\d/.test(coordPassword) ||
+        !/[^A-Za-z0-9]/.test(coordPassword)
+      ) {
+        errors.coordPassword =
+          'Password must combine letters (uppercase and lowercase), numbers, and special characters.'
       }
       if (!coordConfirmPassword) {
         errors.coordConfirmPassword = 'Confirm password is required.'
@@ -805,6 +814,8 @@ export default function AdminDashboard({ user, onLogout }) {
       setCoordUsername('')
       setCoordPassword('')
       setCoordConfirmPassword('')
+      setShowAddUserPassword(false)
+      setShowAddUserConfirmPassword(false)
       setCoordOrgId('')
       setDeptSearchVal('')
       setIsDeptSearchOpen(false)
@@ -829,6 +840,8 @@ export default function AdminDashboard({ user, onLogout }) {
     setCoordUsername('')
     setCoordPassword('')
     setCoordConfirmPassword('')
+    setShowAddUserPassword(false)
+    setShowAddUserConfirmPassword(false)
     setCoordOrgId('')
     setDeptSearchVal('')
     setIsDeptSearchOpen(false)
@@ -7478,22 +7491,35 @@ export default function AdminDashboard({ user, onLogout }) {
             <>
               <div>
                 <label className="block text-navy-blue text-xs font-semibold mb-1">Password</label>
-                <input
-                  type="password"
-                  value={coordPassword}
-                  onChange={(e) => {
-                    setCoordPassword(e.target.value)
-                    if (coordErrors.coordPassword) {
-                      setCoordErrors((prev) => {
-                        const copy = { ...prev }
-                        delete copy.coordPassword
-                        return copy
-                      })
-                    }
-                  }}
-                  placeholder="Enter Password"
-                  className={`w-full p-2.5 text-xs glass-input rounded-xl focus:outline-none font-semibold text-navy-blue ${coordErrors.coordPassword ? 'border-red-500 ring-2 ring-red-500/10' : ''}`}
-                />
+                <div className="relative">
+                  <input
+                    type={showAddUserPassword ? 'text' : 'password'}
+                    value={coordPassword}
+                    onChange={(e) => {
+                      setCoordPassword(e.target.value)
+                      if (coordErrors.coordPassword) {
+                        setCoordErrors((prev) => {
+                          const copy = { ...prev }
+                          delete copy.coordPassword
+                          return copy
+                        })
+                      }
+                    }}
+                    placeholder="Enter Password"
+                    className={`w-full p-2.5 pr-10 text-xs glass-input rounded-xl focus:outline-none font-semibold text-navy-blue ${coordErrors.coordPassword ? 'border-red-500 ring-2 ring-red-500/10' : ''}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAddUserPassword(!showAddUserPassword)}
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-navy-blue focus:outline-none transition-colors duration-150 cursor-pointer"
+                  >
+                    {showAddUserPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
                 {coordErrors.coordPassword && (
                   <p className="text-red-500 text-[10px] mt-1 font-semibold">
                     {coordErrors.coordPassword}
@@ -7504,22 +7530,35 @@ export default function AdminDashboard({ user, onLogout }) {
                 <label className="block text-navy-blue text-xs font-semibold mb-1">
                   Confirm Password
                 </label>
-                <input
-                  type="password"
-                  value={coordConfirmPassword}
-                  onChange={(e) => {
-                    setCoordConfirmPassword(e.target.value)
-                    if (coordErrors.coordConfirmPassword) {
-                      setCoordErrors((prev) => {
-                        const copy = { ...prev }
-                        delete copy.coordConfirmPassword
-                        return copy
-                      })
-                    }
-                  }}
-                  placeholder="Confirm Password"
-                  className={`w-full p-2.5 text-xs glass-input rounded-xl focus:outline-none font-semibold text-navy-blue ${coordErrors.coordConfirmPassword ? 'border-red-500 ring-2 ring-red-500/10' : ''}`}
-                />
+                <div className="relative">
+                  <input
+                    type={showAddUserConfirmPassword ? 'text' : 'password'}
+                    value={coordConfirmPassword}
+                    onChange={(e) => {
+                      setCoordConfirmPassword(e.target.value)
+                      if (coordErrors.coordConfirmPassword) {
+                        setCoordErrors((prev) => {
+                          const copy = { ...prev }
+                          delete copy.coordConfirmPassword
+                          return copy
+                        })
+                      }
+                    }}
+                    placeholder="Confirm Password"
+                    className={`w-full p-2.5 pr-10 text-xs glass-input rounded-xl focus:outline-none font-semibold text-navy-blue ${coordErrors.coordConfirmPassword ? 'border-red-500 ring-2 ring-red-500/10' : ''}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAddUserConfirmPassword(!showAddUserConfirmPassword)}
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-navy-blue focus:outline-none transition-colors duration-150 cursor-pointer"
+                  >
+                    {showAddUserConfirmPassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
                 {coordErrors.coordConfirmPassword && (
                   <p className="text-red-500 text-[10px] mt-1 font-semibold">
                     {coordErrors.coordConfirmPassword}

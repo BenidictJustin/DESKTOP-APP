@@ -44,7 +44,7 @@ export default function SplashScreen({ onComplete }) {
         <img
           src={logo3}
           alt="Background Banner"
-          className="absolute inset-0 w-full h-full object-contain object-center opacity-85 filter brightness-105 contrast-105 pointer-events-none"
+          className="absolute inset-0 w-full h-full object-cover object-center opacity-85 filter brightness-105 contrast-105 pointer-events-none"
         />
         {/* Subtle Dark Vignette & Gradient Overlay for Contrast */}
         <div className="absolute inset-0 bg-gradient-to-b from-[#020519]/40 via-[#030E69]/30 to-[#02061f]/55 backdrop-blur-[1px]" />

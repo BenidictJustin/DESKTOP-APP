@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { listenToAuthChanges, logout } from './services/db'
 import Login from './components/Login'
+import ResetPassword from './components/ResetPassword'
 import AdminDashboard from './modules/admin/AdminDashboard'
 import OfficeCoordinatorDashboard from './modules/office-coordinator/OfficeCoordinatorDashboard'
 import SplashScreen from './components/SplashScreen'
@@ -14,6 +15,11 @@ function App() {
   const [showSplash, setShowSplash] = useState(true)
 
   const [deactivationNotice, setDeactivationNotice] = useState('')
+
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search || (window.location.hash.includes('?') ? window.location.hash.split('?')[1] : '')) : new URLSearchParams()
+  const oobCode = searchParams.get('oobCode')
+  const mode = searchParams.get('mode')
+  const isResetMode = mode === 'resetPassword' && !!oobCode
 
   useEffect(() => {
     if (!activeUser && typeof document !== 'undefined') {
@@ -90,6 +96,13 @@ function App() {
               animate="animate"
               exit="exit"
               transition={authTransition}
+            />
+          ) : isResetMode ? (
+            <ResetPassword
+              oobCode={oobCode}
+              onComplete={() => {
+                window.location.href = window.location.origin + window.location.pathname
+              }}
             />
           ) : !activeUser ? (
             <motion.div
