@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { RefreshCw, Download, CheckCircle2, AlertCircle, Sparkles, ShieldCheck, Loader2 } from 'lucide-react'
+import { RefreshCw, Download, CheckCircle2, AlertCircle, ArrowUpCircle, ShieldCheck, Loader2 } from 'lucide-react'
 
 export default function AboutVersionCard() {
-  const [currentVersion, setCurrentVersion] = useState('1.0.3')
+  const [currentVersion, setCurrentVersion] = useState('1.0.4')
   const [status, setStatus] = useState('idle') // 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'up-to-date' | 'error'
   const [updateInfo, setUpdateInfo] = useState(null)
   const [progress, setProgress] = useState(0)
@@ -159,7 +159,7 @@ export default function AboutVersionCard() {
             {status === 'up-to-date' ? (
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             ) : status === 'available' || status === 'downloading' || status === 'downloaded' ? (
-              <Sparkles className="w-4 h-4 text-amber-600 animate-pulse" />
+              <ArrowUpCircle className="w-4 h-4 text-amber-600 animate-pulse" />
             ) : status === 'checking' ? (
               <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
             ) : (

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { Download, RefreshCw, CheckCircle2, X, Sparkles, AlertCircle } from 'lucide-react'
+import { Download, RefreshCw, CheckCircle2, X, AlertCircle } from 'lucide-react'
+import logo3 from '../assets/logo3.png'
 
 export default function UpdateNotification() {
   const [updateInfo, setUpdateInfo] = useState(null)
@@ -61,14 +62,17 @@ export default function UpdateNotification() {
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-400/20 to-amber-600/20 border border-amber-400/30 text-amber-300">
+            <div className="relative w-10 h-10 rounded-xl bg-white/10 p-1.5 flex items-center justify-center border border-white/20 flex-shrink-0 shadow-inner">
+              <img src={logo3} alt="DommUnity" className="w-full h-full object-contain" />
               {isDownloaded ? (
-                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                <div className="absolute -bottom-1 -right-1 bg-emerald-500 rounded-full p-0.5 border border-[#020516]">
+                  <CheckCircle2 className="w-3 h-3 text-white" />
+                </div>
               ) : errorMsg ? (
-                <AlertCircle className="w-5 h-5 text-rose-400" />
-              ) : (
-                <Sparkles className="w-5 h-5 text-amber-300 animate-pulse" />
-              )}
+                <div className="absolute -bottom-1 -right-1 bg-rose-500 rounded-full p-0.5 border border-[#020516]">
+                  <AlertCircle className="w-3 h-3 text-white" />
+                </div>
+              ) : null}
             </div>
             <div>
               <h4 className="text-sm font-semibold text-white tracking-tight">
