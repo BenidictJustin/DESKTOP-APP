@@ -823,42 +823,101 @@ export const migrateLocalDataToFirebase = async () => {
 
 export const listenToAuthChanges = (callback) => {
   if (isDemoMode) {
-    try {
-      const user = getLocalData(LOCAL_STORAGE_KEYS.LOGGED_IN_USER)
-      callback(user)
-    } catch (e) {
-      console.error('Auth change listener failed in Demo Mode:', e)
-      callback(null)
+    const checkAndCallback = () => {
+      try {
+        const loggedUser = getLocalData(LOCAL_STORAGE_KEYS.LOGGED_IN_USER)
+        if (!loggedUser) {
+          callback(null)
+          return
+        }
+        const users = getLocalData(LOCAL_STORAGE_KEYS.USERS) || []
+        const currentInDb = users.find((u) => u.uid === loggedUser.uid)
+        if (!currentInDb || currentInDb.status === 'inactive') {
+          localStorage.removeItem(LOCAL_STORAGE_KEYS.LOGGED_IN_USER)
+          callback(null, { deactivated: true })
+        } else {
+          callback(currentInDb)
+        }
+      } catch (e) {
+        console.error('Auth change listener failed in Demo Mode:', e)
+        callback(null)
+      }
     }
-    return () => {}
+
+    checkAndCallback()
+
+    const handleUserUpdate = (e) => {
+      if (!e || e.key === LOCAL_STORAGE_KEYS.LOGGED_IN_USER || e.key === LOCAL_STORAGE_KEYS.USERS) {
+        checkAndCallback()
+      }
+    }
+
+    window.addEventListener('storage', handleUserUpdate)
+    window.addEventListener('dommunity_users_updated', handleUserUpdate)
+
+    return () => {
+      window.removeEventListener('storage', handleUserUpdate)
+      window.removeEventListener('dommunity_users_updated', handleUserUpdate)
+    }
   } else {
     try {
-      // Trigger migration check/run in Cloud Mode
       migrateLocalDataToFirebase().catch((err) => console.error('Migration error:', err))
 
-      return onAuthStateChanged(fauth, async (firebaseUser) => {
-        try {
-          if (firebaseUser) {
-            const userDoc = await getDoc(doc(fdb, 'users', firebaseUser.uid))
-            if (userDoc.exists()) {
-              const userData = userDoc.data()
-              if (userData.status === 'inactive') {
-                await signOut(fauth)
+      let unsubscribeUserSnapshot = null
+
+      const unsubscribeAuth = onAuthStateChanged(fauth, (firebaseUser) => {
+        if (unsubscribeUserSnapshot) {
+          unsubscribeUserSnapshot()
+          unsubscribeUserSnapshot = null
+        }
+
+        if (firebaseUser) {
+          const userDocRef = doc(fdb, 'users', firebaseUser.uid)
+          unsubscribeUserSnapshot = onSnapshot(
+            userDocRef,
+            async (snapshot) => {
+              try {
+                if (snapshot.exists()) {
+                  const userData = snapshot.data()
+                  if (userData.status === 'inactive') {
+                    if (unsubscribeUserSnapshot) {
+                      unsubscribeUserSnapshot()
+                      unsubscribeUserSnapshot = null
+                    }
+                    await signOut(fauth)
+                    callback(null, { deactivated: true })
+                  } else {
+                    callback(userData)
+                  }
+                } else {
+                  if (unsubscribeUserSnapshot) {
+                    unsubscribeUserSnapshot()
+                    unsubscribeUserSnapshot = null
+                  }
+                  await signOut(fauth)
+                  callback(null, { deactivated: true })
+                }
+              } catch (err) {
+                console.error('Firestore user snapshot handling error:', err)
                 callback(null)
-              } else {
-                callback(userData)
               }
-            } else {
+            },
+            (err) => {
+              console.error('Firestore user snapshot listener error:', err)
               callback(null)
             }
-          } else {
-            callback(null)
-          }
-        } catch (err) {
-          console.error('Firestore user fetch failed in auth listener:', err)
+          )
+        } else {
           callback(null)
         }
       })
+
+      return () => {
+        if (unsubscribeUserSnapshot) {
+          unsubscribeUserSnapshot()
+        }
+        unsubscribeAuth()
+      }
     } catch (e) {
       console.error('Auth listener registration failed:', e)
       callback(null)
@@ -940,6 +999,9 @@ export const updateCoordinatorStatus = async (uid, status) => {
       users[userIdx].status = status
       users[userIdx].updatedAt = new Date().toISOString()
       saveLocalData(LOCAL_STORAGE_KEYS.USERS, users)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('dommunity_users_updated'))
+      }
       return users[userIdx]
     }
     throw new Error('Coordinator account not found.')

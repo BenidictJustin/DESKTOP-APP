@@ -79,6 +79,10 @@ autoUpdater.on('error', (err) => {
 })
 
 // IPC AutoUpdate Handlers
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion()
+})
+
 ipcMain.handle('check-for-updates', async () => {
   if (is.dev) {
     return { isDev: true, message: 'Auto-updates are disabled in Development mode.' }

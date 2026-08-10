@@ -1,9 +1,19 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion } from 'motion/react'
 import { AnimatedList, AnimatedListItem } from './motion/AnimatedList'
 import { Award, Compass, Shield, Users, Code } from 'lucide-react'
 
 export default function InfoModule() {
+  const [appVer, setAppVer] = useState('1.0.2')
+
+  useEffect(() => {
+    if (window.api?.getAppVersion) {
+      window.api.getAppVersion().then((v) => {
+        if (v) setAppVer(v)
+      }).catch(() => {})
+    }
+  }, [])
+
   const developers = [
     {
       name: 'Angel',
@@ -197,7 +207,7 @@ export default function InfoModule() {
             </div>
 
             <div className="mt-5 p-3 bg-sig-green/5 border border-sig-green/20 rounded-xl text-center text-[10px] text-navy-blue font-medium">
-              DommUnity Desktop v1.0.0 © 2026
+              DommUnity Desktop v{appVer} © 2026
             </div>
           </div>
         </div>

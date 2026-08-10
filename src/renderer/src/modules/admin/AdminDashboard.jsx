@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'motion/react'
+import AboutVersionCard from '../../components/AboutVersionCard'
 import AnimatedModal from '../../components/motion/AnimatedModal'
 import AnimatedPage from '../../components/motion/AnimatedPage'
 import {
@@ -76,6 +77,7 @@ import {
   Edit2,
   Trash2,
   Check,
+  CheckCircle,
   X,
   ShieldAlert,
   Download,
@@ -208,13 +210,17 @@ export default function AdminDashboard({ user, onLogout }) {
     }
   })
 
-  const defaultCategories = ['school supplies', 'food packs', 'hygiene kits']
-  const allCategories = [
-    ...new Set([
-      ...defaultCategories,
-      ...inventoryList.map((i) => (i.category || '').trim().toLowerCase())
-    ])
-  ].filter(Boolean)
+  const defaultCategories = ['School Supplies', 'Food Packs', 'Hygiene Kits']
+  const rawCategories = [
+    ...defaultCategories,
+    ...inventoryList.map((i) => (i.category || '').trim()).filter(Boolean)
+  ]
+  const allCategories = rawCategories.reduce((acc, cat) => {
+    if (!acc.some((c) => c.toLowerCase() === cat.toLowerCase())) {
+      acc.push(cat)
+    }
+    return acc
+  }, [])
   const activeCategories = allCategories.filter(
     (cat) => !deletedCategories.includes(cat.toLowerCase().trim())
   )
@@ -237,10 +243,17 @@ export default function AdminDashboard({ user, onLogout }) {
     }
   })
 
-  const defaultUnits = ['pieces', 'cans', 'packs', 'boxes', 'bundles', 'bars']
-  const allUnits = [
-    ...new Set([...defaultUnits, ...inventoryList.map((i) => (i.unit || '').trim().toLowerCase())])
-  ].filter(Boolean)
+  const defaultUnits = ['Pieces', 'Cans', 'Packs', 'Boxes', 'Bundles', 'Bars']
+  const rawUnits = [
+    ...defaultUnits,
+    ...inventoryList.map((i) => (i.unit || '').trim()).filter(Boolean)
+  ]
+  const allUnits = rawUnits.reduce((acc, u) => {
+    if (!acc.some((existing) => existing.toLowerCase() === u.toLowerCase())) {
+      acc.push(u)
+    }
+    return acc
+  }, [])
   const activeUnits = allUnits.filter((u) => !deletedUnits.includes(u.toLowerCase().trim()))
 
   // Form inputs
@@ -308,6 +321,8 @@ export default function AdminDashboard({ user, onLogout }) {
   const [isDonationModalOpen, setIsDonationModalOpen] = useState(false)
   const [selectedReport, setSelectedReport] = useState(null)
   const [feedbackNote, setFeedbackNote] = useState('')
+  const [reportsSubTab, setReportsSubTab] = useState('pending') // 'pending' | 'approved'
+  const [approvedSearchQuery, setApprovedSearchQuery] = useState('')
   const [editingOrg, setEditingOrg] = useState(null) // null means registering, object means updating
   const [editingEvent, setEditingEvent] = useState(null)
 
@@ -1766,6 +1781,25 @@ export default function AdminDashboard({ user, onLogout }) {
     })
   }
 
+  const handleQuickCompleteEvent = (evt) => {
+    setConfirmDialog({
+      title: 'Mark Event as Completed',
+      message: `Are you sure you want to mark event "${evt.name}" as Completed? It will be moved to the assigned organization/department history.`,
+      onConfirm: async () => {
+        setLoading(true)
+        try {
+          await updateEvent(evt.id, { status: 'completed' })
+          triggerSuccess(`Event "${evt.name}" marked as completed and moved to organization history.`)
+          loadData()
+        } catch (err) {
+          triggerError(err.message || 'Failed to complete event.')
+        } finally {
+          setLoading(false)
+        }
+      }
+    })
+  }
+
   // Event schedule / update handler
   const handleCreateEvent = async (e) => {
     e.preventDefault()
@@ -1883,6 +1917,75 @@ export default function AdminDashboard({ user, onLogout }) {
   // Compile Approved Report to PDF (standard format)
   const compileReportPDF = (report) => {
     setExportingReport(report)
+  }
+
+  // Helper to get consistent submission timestamp for pending queue chronological sorting (oldest first)
+  const getPendingReportTimestamp = (rep) => {
+    if (!rep) return 0
+    if (rep.submittedAt) {
+      const t = new Date(rep.submittedAt).getTime()
+      if (!isNaN(t)) return t
+    }
+    if (Array.isArray(rep.history) && rep.history.length > 0) {
+      const actionEntry = [...rep.history]
+        .reverse()
+        .find((h) => h.status === 'submitted' || h.status === 'returned')
+      if (actionEntry?.timestamp) {
+        const t = new Date(actionEntry.timestamp).getTime()
+        if (!isNaN(t)) return t
+      }
+    }
+    if (rep.updatedAt) {
+      const t = new Date(rep.updatedAt).getTime()
+      if (!isNaN(t)) return t
+    }
+    if (rep.createdAt) {
+      const t = new Date(rep.createdAt).getTime()
+      if (!isNaN(t)) return t
+    }
+    return 0
+  }
+
+  // Helper to extract all metadata & content text for deep search on approved reports
+  const getReportSearchableText = (rep) => {
+    if (!rep) return ''
+    const event = eventsList.find((e) => e.id === rep.eventId)
+    const org = orgsList.find((o) => o.id === rep.organizationId)
+    const author = usersList.find((u) => u.uid === rep.authorId)
+
+    const rawNarrativeText = rep.narrative ? rep.narrative.replace(/<[^>]*>/g, ' ') : ''
+
+    const fields = [
+      rep.activityTitle,
+      rep.title,
+      rep.narrativeReportName,
+      event?.name,
+      event?.venue,
+      event?.description,
+      event?.department,
+      event?.program,
+      author?.name,
+      rep.submittedBy,
+      rep.authorName,
+      rep.venue,
+      rep.location,
+      rep.program,
+      rep.department,
+      org?.name,
+      org?.abbreviation,
+      rep.organizationName,
+      rep.beneficiaries,
+      rep.targetBeneficiaries,
+      rep.objectives,
+      rep.objective,
+      rep.summary,
+      rep.description,
+      rep.academicYear,
+      rep.semester,
+      rawNarrativeText
+    ]
+
+    return fields.filter(Boolean).join(' ').toLowerCase()
   }
 
   return (
@@ -2256,44 +2359,15 @@ export default function AdminDashboard({ user, onLogout }) {
                           Inventory Management
                         </h1>
                       </div>
-                      <div className="flex flex-col gap-2.5 mt-4 md:mt-0 items-start md:items-end">
-                        {/* Row 1 */}
-                        <div className="flex flex-wrap gap-2.5">
-                          <button
-                            type="button"
-                            onClick={() => setIsAddModalOpen(true)}
-                            className="flex items-center space-x-1.5 bg-navy-blue text-white border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green font-semibold py-2 px-4 rounded-full text-xs cursor-pointer transition"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Add Item</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setIsReleaseModalOpen(true)}
-                            className="flex items-center space-x-1.5 bg-navy-blue text-white border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green font-semibold py-2 px-4 rounded-full text-xs cursor-pointer transition"
-                          >
-                            <Share className="w-3.5 h-3.5 transform rotate-180" />
-                            <span>Release Item</span>
-                          </button>
-                        </div>
-                        {/* Row 2 */}
-                        <div className="flex flex-wrap gap-2.5">
-                          <button
-                            type="button"
-                            onClick={() => setIsReviewModalOpen(true)}
-                            className="flex items-center space-x-1.5 bg-navy-blue text-white border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green font-bold py-2 px-4 rounded-full text-xs cursor-pointer transition shadow-sm"
-                          >
-                            <ListFilter className="w-3.5 h-3.5" />
-                            <span>Release Review List ({pendingReleaseItems.length})</span>
-                          </button>
-                          <button
-                            onClick={handleOpenReportPreview}
-                            className="flex items-center space-x-2 bg-navy-blue text-white border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green font-semibold py-2 px-4 rounded-full text-xs cursor-pointer transition"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                            <span>Download Report PDF</span>
-                          </button>
-                        </div>
+                      <div>
+                        <button
+                          type="button"
+                          onClick={handleOpenReportPreview}
+                          className="flex items-center space-x-2 bg-navy-blue text-white border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green font-semibold py-2 px-4 rounded-full text-xs cursor-pointer transition shadow-xs"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>Download Report PDF</span>
+                        </button>
                       </div>
                     </div>
 
@@ -2303,7 +2377,6 @@ export default function AdminDashboard({ user, onLogout }) {
                         (item) =>
                           item.isRecommendedForRelease && item.expiryDate && item.quantity > 0
                       )
-                      if (recommendedItems.length === 0) return null
 
                       // Sort by nearest expiration date
                       const sortedItems = [...recommendedItems].sort(
@@ -2315,70 +2388,99 @@ export default function AdminDashboard({ user, onLogout }) {
 
                       return (
                         <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4 w-full animate-fade-in">
-                          <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3">
-                            Recommended Release Items
-                          </h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {displayedItems.map((item) => (
-                              <div
-                                key={item.id}
-                                className="border border-sig-green/20 bg-sig-green/5 rounded-2xl p-4 flex flex-col justify-between hover:border-sig-green/45 transition"
-                              >
-                                <div>
-                                  <div className="flex justify-between items-start">
-                                    <h4 className="font-bold text-navy-blue text-xs">
-                                      {item.name}
-                                    </h4>
-                                    <span className="text-[10px] bg-white border border-sig-green/35 text-navy-blue font-bold px-2 py-0.5 rounded-full capitalize">
-                                      {item.category}
-                                    </span>
-                                  </div>
-                                  <div className="text-[10px] text-gray-500 mt-2 space-y-0.5">
-                                    <div>
-                                      Stock Level:{' '}
-                                      <span className="font-bold text-navy-blue">
-                                        {displayStock(
-                                          item.quantity,
-                                          item.unit,
-                                          item.groupUnit,
-                                          item.piecesPerUnit
-                                        )}
-                                      </span>
-                                    </div>
-                                    <div className="text-red-500 font-semibold flex items-center">
-                                      <Clock className="w-3.5 h-3.5 mr-1" />
-                                      Exp: {new Date(item.expiryDate).toLocaleDateString()}
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="mt-3 flex justify-end">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setReleaseItemId(item.id)
-                                      const optionText = `${item.name} (${item.category}) - ${displayStock(item.quantity, item.unit, item.groupUnit, item.piecesPerUnit)} left ${item.expiryDate ? `(Exp: ${new Date(item.expiryDate).toLocaleDateString()})` : ''}`
-                                      setReleaseSearch(optionText)
-                                      setReleaseUnitType('base')
-                                      setIsReleaseModalOpen(true)
-                                    }}
-                                    className="px-3 py-1 bg-navy-blue text-white rounded-full text-[10px] font-semibold border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center space-x-1 cursor-pointer"
-                                  >
-                                    <span>Quick Release</span>
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                          {sortedItems.length > 3 && (
-                            <div className="flex justify-center pt-2">
+                          <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                            <h3 className="font-bold text-navy-blue text-sm">
+                              Recommended Release Items
+                            </h3>
+                            <div className="flex items-center space-x-2.5">
                               <button
                                 type="button"
-                                onClick={() => setShowAllRecommended(!showAllRecommended)}
-                                className="px-4 py-1.5 border border-navy-blue/15 text-navy-blue hover:bg-navy-blue/5 rounded-full text-xs font-semibold transition-all duration-150 cursor-pointer"
+                                onClick={() => setIsReleaseModalOpen(true)}
+                                className="flex items-center space-x-1.5 bg-navy-blue text-white border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green font-semibold py-2 px-4 rounded-full text-xs cursor-pointer transition shadow-xs"
                               >
-                                {showAllRecommended ? 'See Less' : 'See More'}
+                                <Share className="w-3.5 h-3.5 transform rotate-180" />
+                                <span>Release Item</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setIsReviewModalOpen(true)}
+                                className="flex items-center space-x-1.5 bg-navy-blue text-white border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green font-bold py-2 px-4 rounded-full text-xs cursor-pointer transition shadow-xs"
+                              >
+                                <ListFilter className="w-3.5 h-3.5" />
+                                <span>Release Review List ({pendingReleaseItems.length})</span>
                               </button>
                             </div>
+                          </div>
+
+                          {recommendedItems.length === 0 ? (
+                            <p className="text-center py-6 text-gray-400 text-xs font-medium">
+                              No items recommended for release.
+                            </p>
+                          ) : (
+                            <>
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {displayedItems.map((item) => (
+                                  <div
+                                    key={item.id}
+                                    className="border border-sig-green/20 bg-sig-green/5 rounded-2xl p-4 flex flex-col justify-between hover:border-sig-green/45 transition"
+                                  >
+                                    <div>
+                                      <div className="flex justify-between items-start">
+                                        <h4 className="font-bold text-navy-blue text-xs">
+                                          {item.name}
+                                        </h4>
+                                        <span className="text-[10px] bg-white border border-sig-green/35 text-navy-blue font-bold px-2 py-0.5 rounded-full capitalize">
+                                          {item.category}
+                                        </span>
+                                      </div>
+                                      <div className="text-[10px] text-gray-500 mt-2 space-y-0.5">
+                                        <div>
+                                          Stock Level:{' '}
+                                          <span className="font-bold text-navy-blue">
+                                            {displayStock(
+                                              item.quantity,
+                                              item.unit,
+                                              item.groupUnit,
+                                              item.piecesPerUnit
+                                            )}
+                                          </span>
+                                        </div>
+                                        <div className="text-red-500 font-semibold flex items-center">
+                                          <Clock className="w-3.5 h-3.5 mr-1" />
+                                          Exp: {new Date(item.expiryDate).toLocaleDateString()}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="mt-3 flex justify-end">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setReleaseItemId(item.id)
+                                          const optionText = `${item.name} (${item.category}) - ${displayStock(item.quantity, item.unit, item.groupUnit, item.piecesPerUnit)} left ${item.expiryDate ? `(Exp: ${new Date(item.expiryDate).toLocaleDateString()})` : ''}`
+                                          setReleaseSearch(optionText)
+                                          setReleaseUnitType('base')
+                                          setIsReleaseModalOpen(true)
+                                        }}
+                                        className="px-3 py-1 bg-navy-blue text-white rounded-full text-[10px] font-semibold border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center space-x-1 cursor-pointer"
+                                      >
+                                        <span>Quick Release</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                              {sortedItems.length > 3 && (
+                                <div className="flex justify-center pt-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowAllRecommended(!showAllRecommended)}
+                                    className="px-4 py-1.5 border border-navy-blue/15 text-navy-blue hover:bg-navy-blue/5 rounded-full text-xs font-semibold transition-all duration-150 cursor-pointer"
+                                  >
+                                    {showAllRecommended ? 'See Less' : 'See More'}
+                                  </button>
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
                       )
@@ -2387,9 +2489,19 @@ export default function AdminDashboard({ user, onLogout }) {
                     {/* Full-width Stock Table Card */}
                     <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between w-full">
                       <div id="inventory-table-container">
-                        <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3 mb-4">
-                          Current Inventory Stock
-                        </h3>
+                        <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
+                          <h3 className="font-bold text-navy-blue text-sm">
+                            Current Inventory Stock
+                          </h3>
+                          <button
+                            type="button"
+                            onClick={() => setIsAddModalOpen(true)}
+                            className="flex items-center space-x-1.5 bg-navy-blue text-white border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green font-semibold py-2 px-4 rounded-full text-xs cursor-pointer transition shadow-xs"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add Item</span>
+                          </button>
+                        </div>
 
                         <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
                           <table className="w-full text-left border-collapse">
@@ -2470,21 +2582,22 @@ export default function AdminDashboard({ user, onLogout }) {
                                     </td>
                                     <td className="py-3 px-2 font-bold text-navy-blue">
                                       <span>
-                                        {displayStock(
-                                          item.quantity,
-                                          item.unit,
-                                          item.groupUnit,
-                                          item.piecesPerUnit
-                                        )}
+                                        {item.quantity} {formatUnit(item.quantity, item.unit || 'pieces')}
                                       </span>
                                       {item.groupUnit &&
                                         item.groupUnit !== 'none' &&
                                         item.piecesPerUnit && (
                                           <div className="text-[9px] text-gray-400 font-normal mt-0.5">
-                                            {formatUnit(item.quantity, item.unit)} |{' '}
-                                            {item.piecesPerUnit}{' '}
-                                            {formatUnit(item.piecesPerUnit, item.unit)} per{' '}
-                                            {formatUnit(1, item.groupUnit)}
+                                            {(() => {
+                                              const pPerUnit = parseInt(item.piecesPerUnit, 10) || 12
+                                              const packs = Math.floor(item.quantity / pPerUnit)
+                                              const remainder = item.quantity % pPerUnit
+                                              const packLabel = formatUnit(packs, item.groupUnit)
+                                              const perPieceLabel = formatUnit(pPerUnit, item.unit || 'pieces')
+                                              const perPackLabel = formatUnit(1, item.groupUnit)
+                                              const remainderLabel = remainder > 0 ? ` + ${remainder} ${formatUnit(remainder, item.unit || 'pieces')}` : ''
+                                              return `${packs} ${packLabel} | ${pPerUnit} ${perPieceLabel} per ${perPackLabel}${remainderLabel}`
+                                            })()}
                                           </div>
                                         )}
                                     </td>
@@ -2746,7 +2859,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                                   return copy
                                                 })
                                               }}
-                                              className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
+                                              className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
                                             >
                                               <span className="truncate">{cat}</span>
                                               <button
@@ -2854,7 +2967,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                                   return copy
                                                 })
                                               }}
-                                              className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
+                                              className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
                                             >
                                               <span className="truncate">{u}</span>
                                               <button
@@ -3249,7 +3362,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                                   return copy
                                                 })
                                               }}
-                                              className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
+                                              className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
                                             >
                                               <span className="truncate">{cat}</span>
                                               <button
@@ -3357,7 +3470,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                                   return copy
                                                 })
                                               }}
-                                              className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
+                                              className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
                                             >
                                               <span className="truncate">{u}</span>
                                               <button
@@ -4193,6 +4306,9 @@ export default function AdminDashboard({ user, onLogout }) {
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {(() => {
                           const filtered = eventsList.filter((evt) => {
+                            const isCompleted = (evt.status || '').toLowerCase().trim() === 'completed'
+                            if (isCompleted) return false
+
                             const matchesSearch =
                               evt.name.toLowerCase().includes(eventSearchQuery.toLowerCase()) ||
                               (evt.description &&
@@ -4214,9 +4330,9 @@ export default function AdminDashboard({ user, onLogout }) {
                           if (filtered.length === 0) {
                             return (
                               <div className="col-span-3 text-center py-12 text-gray-400 text-xs font-semibold">
-                                {eventsList.length === 0
-                                  ? 'No scheduled events.'
-                                  : 'No events match your search or filter criteria.'}
+                                {eventsList.filter(e => (e.status || '').toLowerCase().trim() !== 'completed').length === 0
+                                  ? 'No scheduled active events.'
+                                  : 'No active events match your search or filter criteria.'}
                               </div>
                             )
                           }
@@ -4254,6 +4370,16 @@ export default function AdminDashboard({ user, onLogout }) {
                                             ? org.abbreviation
                                             : 'All'}
                                       </span>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleQuickCompleteEvent(evt)
+                                        }}
+                                        className="text-emerald-600 hover:text-emerald-700 transition p-1 rounded hover:bg-emerald-50 cursor-pointer"
+                                        title="Mark as Completed"
+                                      >
+                                        <CheckCircle className="w-3.5 h-3.5" />
+                                      </button>
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation()
@@ -5499,96 +5625,243 @@ export default function AdminDashboard({ user, onLogout }) {
                       </h1>
                     </div>
 
-                    {/* List panel */}
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-                      <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3 mb-4">
-                        Pending Review Queue
-                      </h3>
+                    {/* View Mode Switching Container with Motion Animation */}
+                    <AnimatePresence mode="wait">
+                      {reportsSubTab === 'pending' ? (
+                        <motion.div
+                          key="pending-queue"
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 10 }}
+                          transition={{ duration: 0.2, ease: 'easeInOut' }}
+                          className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4"
+                        >
+                          <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-2">
+                            <h3 className="font-bold text-navy-blue text-sm">
+                              Pending Review Queue
+                            </h3>
+                            <button
+                              onClick={() => setReportsSubTab('approved')}
+                              className="bg-navy-blue hover:bg-navy-blue/90 text-white font-semibold py-1.5 px-4 rounded-full text-xs transition-all duration-150 cursor-pointer flex items-center space-x-1.5 shadow-xs"
+                            >
+                              <span>Approved</span>
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
 
-                      <div className="space-y-3">
-                        {reportsList
-                          .filter(
-                            (r) =>
-                              r.status === 'submitted' ||
-                              r.status === 'approved' ||
-                              r.status === 'returned'
-                          )
-                          .map((rep) => {
-                            const event = eventsList.find((e) => e.id === rep.eventId)
-                            const org = orgsList.find((o) => o.id === rep.organizationId)
-                            const author = usersList.find((u) => u.uid === rep.authorId)
+                          <div className="space-y-3">
+                            {reportsList
+                              .filter(
+                                (r) => r.status === 'submitted' || r.status === 'returned'
+                              )
+                              .sort(
+                                (a, b) =>
+                                  getPendingReportTimestamp(a) - getPendingReportTimestamp(b)
+                              )
+                              .map((rep) => {
+                                const event = eventsList.find((e) => e.id === rep.eventId)
+                                const org = orgsList.find((o) => o.id === rep.organizationId)
+                                const author = usersList.find((u) => u.uid === rep.authorId)
 
-                            return (
-                              <div
-                                key={rep.id}
-                                className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-gray-50/50 hover:bg-white border border-gray-100 hover:border-sig-green/30 rounded-2xl transition duration-200"
-                              >
-                                <div className="space-y-1">
-                                  <div className="flex items-center space-x-2">
-                                    <span
-                                      className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${rep.status === 'approved'
-                                        ? 'bg-green-100 text-green-800'
-                                        : rep.status === 'submitted'
-                                          ? 'bg-amber-100 text-amber-800'
-                                          : 'bg-red-100 text-red-800'
-                                        }`}
-                                    >
-                                      {rep.status}
-                                    </span>
-                                    <span className="text-[10px] text-navy-blue font-bold">
-                                      {org
-                                        ? org.name
-                                        : rep.organizationId
-                                          ? 'Unknown Department'
-                                          : 'CES Office'}{' '}
-                                      ({org ? org.abbreviation : rep.organizationId ? '' : 'CES'})
-                                    </span>
-                                  </div>
-                                  <h4 className="font-bold text-navy-blue text-sm">
-                                    {event ? event.name : rep.activityTitle || 'Outreach Activity'}
-                                  </h4>
-                                  <div className="text-[10px] text-gray-400">
-                                    Submitted by {author ? author.name : 'Coordinator'} on{' '}
-                                    {new Date(rep.updatedAt).toLocaleDateString()}
-                                  </div>
-                                </div>
-
-                                <div className="flex items-center space-x-2 mt-4 md:mt-0">
-                                  <button
-                                    onClick={() => {
-                                      setSelectedReport(rep)
-                                      setFeedbackNote('')
-                                    }}
-                                    className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-1.5 px-3 rounded-full text-[11px] flex items-center space-x-1 cursor-pointer"
+                                return (
+                                  <div
+                                    key={rep.id}
+                                    className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-gray-50/50 hover:bg-white border border-gray-100 hover:border-sig-green/30 rounded-2xl transition duration-200"
                                   >
-                                    <Eye className="w-3.5 h-3.5" />
-                                    <span>Inspect Report</span>
-                                  </button>
-                                  {rep.status === 'approved' && (
-                                    <button
-                                      onClick={() => compileReportPDF(rep)}
-                                      className="bg-sig-green text-navy-blue font-semibold py-1.5 px-3 rounded-full text-[11px] flex items-center space-x-1 hover:bg-sig-green-600 transition-all duration-150 cursor-pointer"
-                                    >
-                                      <Download className="w-3.5 h-3.5" />
-                                      <span>Export PDF</span>
-                                    </button>
-                                  )}
-                                </div>
+                                    <div className="space-y-1">
+                                      <div className="flex items-center space-x-2">
+                                        <span
+                                          className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                                            rep.status === 'submitted'
+                                              ? 'bg-amber-100 text-amber-800'
+                                              : 'bg-red-100 text-red-800'
+                                          }`}
+                                        >
+                                          {rep.status}
+                                        </span>
+                                        <span className="text-[10px] text-navy-blue font-bold">
+                                          {org
+                                            ? org.name
+                                            : rep.organizationId
+                                              ? 'Unknown Department'
+                                              : 'CES Office'}{' '}
+                                          ({org ? org.abbreviation : rep.organizationId ? '' : 'CES'})
+                                          {(rep.semester || rep.academicYear) && (
+                                            <span className="text-gray-400 font-normal ml-1">
+                                              • {[rep.semester, rep.academicYear].filter(Boolean).join(' | ')}
+                                            </span>
+                                          )}
+                                        </span>
+                                      </div>
+                                      <h4 className="font-bold text-navy-blue text-sm">
+                                        {event ? event.name : rep.activityTitle || rep.title || 'Outreach Activity'}
+                                      </h4>
+                                      <div className="text-[10px] text-gray-400">
+                                        Submitted by {author ? author.name : rep.submittedBy || 'Coordinator'} on{' '}
+                                        {new Date(getPendingReportTimestamp(rep)).toLocaleDateString()}
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center space-x-2 mt-4 md:mt-0">
+                                      <button
+                                        onClick={() => {
+                                          setSelectedReport(rep)
+                                          setFeedbackNote('')
+                                        }}
+                                        className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-1.5 px-3 rounded-full text-[11px] flex items-center space-x-1 cursor-pointer"
+                                      >
+                                        <Eye className="w-3.5 h-3.5" />
+                                        <span>Inspect Report</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+
+                            {reportsList.filter(
+                              (r) => r.status === 'submitted' || r.status === 'returned'
+                            ).length === 0 && (
+                              <div className="text-center py-8 text-gray-400 text-xs">
+                                No reports pending review.
                               </div>
-                            )
-                          })}
-                        {reportsList.filter(
-                          (r) =>
-                            r.status === 'submitted' ||
-                            r.status === 'approved' ||
-                            r.status === 'returned'
-                        ).length === 0 && (
-                            <div className="text-center py-8 text-gray-400 text-xs">
-                              No reports submitted for review yet.
-                            </div>
-                          )}
-                      </div>
-                    </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="approved-queue"
+                          initial={{ opacity: 0, x: 10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -10 }}
+                          transition={{ duration: 0.2, ease: 'easeInOut' }}
+                          className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4"
+                        >
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-gray-100 pb-3 mb-2">
+                            <h3 className="font-bold text-navy-blue text-sm">
+                              Approved Reports
+                            </h3>
+                            <button
+                              onClick={() => setReportsSubTab('pending')}
+                              className="bg-gray-100 hover:bg-gray-200 text-navy-blue font-semibold py-1.5 px-3.5 rounded-full text-xs transition-all duration-150 cursor-pointer flex items-center space-x-1.5"
+                            >
+                              <ChevronLeft className="w-3.5 h-3.5" />
+                              <span>Pending Review Queue</span>
+                            </button>
+                          </div>
+
+                          {/* Search Input Field */}
+                          <div className="relative">
+                            <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                            <input
+                              type="text"
+                              value={approvedSearchQuery}
+                              onChange={(e) => setApprovedSearchQuery(e.target.value)}
+                              placeholder="Search approved reports by title, author, venue, program, department, beneficiaries, objectives..."
+                              className="w-full pl-9 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-navy-blue placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-navy-blue/20 focus:border-navy-blue transition duration-150"
+                            />
+                            {approvedSearchQuery && (
+                              <button
+                                onClick={() => setApprovedSearchQuery('')}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-navy-blue p-0.5 rounded-full"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="space-y-3 pt-1">
+                            {reportsList
+                              .filter((r) => r.status === 'approved')
+                              .filter((rep) => {
+                                if (!approvedSearchQuery.trim()) return true
+                                const query = approvedSearchQuery.toLowerCase().trim()
+                                const searchableText = getReportSearchableText(rep)
+                                return searchableText.includes(query)
+                              })
+                              .map((rep) => {
+                                const event = eventsList.find((e) => e.id === rep.eventId)
+                                const org = orgsList.find((o) => o.id === rep.organizationId)
+                                const author = usersList.find((u) => u.uid === rep.authorId)
+
+                                return (
+                                  <div
+                                    key={rep.id}
+                                    className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-gray-50/50 hover:bg-white border border-gray-100 hover:border-sig-green/30 rounded-2xl transition duration-200"
+                                  >
+                                    <div className="space-y-1">
+                                      <div className="flex items-center space-x-2">
+                                        <span className="inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full bg-green-100 text-green-800">
+                                          Approved
+                                        </span>
+                                        <span className="text-[10px] text-navy-blue font-bold">
+                                          {org
+                                            ? org.name
+                                            : rep.organizationId
+                                              ? 'Unknown Department'
+                                              : 'CES Office'}{' '}
+                                          ({org ? org.abbreviation : rep.organizationId ? '' : 'CES'})
+                                          {(rep.semester || rep.academicYear) && (
+                                            <span className="text-gray-400 font-normal ml-1">
+                                              • {[rep.semester, rep.academicYear].filter(Boolean).join(' | ')}
+                                            </span>
+                                          )}
+                                        </span>
+                                      </div>
+                                      <h4 className="font-bold text-navy-blue text-sm">
+                                        {event ? event.name : rep.activityTitle || rep.title || 'Outreach Activity'}
+                                      </h4>
+                                      <div className="text-[10px] text-gray-400">
+                                        Submitted by {author ? author.name : rep.submittedBy || 'Coordinator'} on{' '}
+                                        {new Date(rep.updatedAt || rep.createdAt).toLocaleDateString()}
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center space-x-2 mt-4 md:mt-0">
+                                      <button
+                                        onClick={() => {
+                                          setSelectedReport(rep)
+                                          setFeedbackNote('')
+                                        }}
+                                        className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-1.5 px-3 rounded-full text-[11px] flex items-center space-x-1 cursor-pointer"
+                                      >
+                                        <Eye className="w-3.5 h-3.5" />
+                                        <span>Inspect Report</span>
+                                      </button>
+                                      <button
+                                        onClick={() => compileReportPDF(rep)}
+                                        className="bg-sig-green text-navy-blue font-semibold py-1.5 px-3 rounded-full text-[11px] flex items-center space-x-1 hover:bg-sig-green-600 transition-all duration-150 cursor-pointer"
+                                      >
+                                        <Download className="w-3.5 h-3.5" />
+                                        <span>Export PDF</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+
+                            {reportsList.filter((r) => r.status === 'approved').length === 0 && (
+                              <div className="text-center py-8 text-gray-400 text-xs">
+                                No approved reports found.
+                              </div>
+                            )}
+
+                            {reportsList.filter((r) => r.status === 'approved').length > 0 &&
+                              reportsList
+                                .filter((r) => r.status === 'approved')
+                                .filter((rep) => {
+                                  if (!approvedSearchQuery.trim()) return true
+                                  const query = approvedSearchQuery.toLowerCase().trim()
+                                  const searchableText = getReportSearchableText(rep)
+                                  return searchableText.includes(query)
+                                }).length === 0 && (
+                                <div className="text-center py-8 text-gray-400 text-xs">
+                                  No approved reports match your search criteria &quot;{approvedSearchQuery}&quot;.
+                                </div>
+                              )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 )}
 
@@ -5766,29 +6039,15 @@ export default function AdminDashboard({ user, onLogout }) {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                       {/* Left Column - System and CES Details */}
                       <div className="lg:col-span-2 space-y-6">
+                        <AboutVersionCard />
+
                         <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
                           <h2 className="text-lg font-bold text-navy-blue border-b border-gray-100 pb-3">
-                            System Information
+                            System Description
                           </h2>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-                                System Name
-                              </span>
-                              <span className="text-sm font-semibold text-navy-blue">
-                                DommUnity
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-                                Version
-                              </span>
-                              <span className="text-sm font-semibold text-navy-blue">1.0.0</span>
-                            </div>
-                          </div>
                           <div>
                             <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-                              Project Description
+                              Project Overview
                             </span>
                             <p className="text-xs text-gray-600 mt-1 leading-relaxed">
                               DommUnity is a desktop-based management system developed for the

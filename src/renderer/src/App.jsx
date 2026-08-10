@@ -13,6 +13,8 @@ function App() {
   const [loading, setLoading] = useState(true)
   const [showSplash, setShowSplash] = useState(true)
 
+  const [deactivationNotice, setDeactivationNotice] = useState('')
+
   useEffect(() => {
     if (!activeUser && typeof document !== 'undefined') {
       document.body.style.overflow = ''
@@ -24,9 +26,14 @@ function App() {
 
   useEffect(() => {
     // Listen to changes in auth context (either Firebase auth or LocalStorage simulation)
-    const unsubscribe = listenToAuthChanges((currentUser) => {
-      // Use functional state updates to avoid stale closure issues with the loading state.
-      // This allows the effect dependency array to remain empty ([]) and prevent duplicate registrations.
+    const unsubscribe = listenToAuthChanges((currentUser, info) => {
+      if (info && info.deactivated) {
+        setDeactivationNotice('Your account has been deactivated. Please contact the Administrator.')
+        setActiveUser(null)
+        setLoading(false)
+        return
+      }
+
       setLoading((prevLoading) => {
         if (prevLoading) {
           // On initial startup: restore session (currentUser will be user data or null)
@@ -47,6 +54,7 @@ function App() {
   const handleLogout = async () => {
     try {
       await logout()
+      setDeactivationNotice('')
       setActiveUser(null)
       if (typeof document !== 'undefined') {
         document.body.style.overflow = ''
@@ -60,6 +68,7 @@ function App() {
   }
 
   const handleLoginSuccess = (authenticatedUser) => {
+    setDeactivationNotice('')
     setActiveUser(authenticatedUser)
   }
 
@@ -92,7 +101,7 @@ function App() {
               exit="exit"
               transition={authTransition}
             >
-              <Login onLoginSuccess={handleLoginSuccess} />
+              <Login onLoginSuccess={handleLoginSuccess} deactivationNotice={deactivationNotice} />
             </motion.div>
           ) : activeUser.role === 'admin' ? (
             <motion.div

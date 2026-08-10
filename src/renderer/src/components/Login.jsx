@@ -16,11 +16,11 @@ import {
 } from './motion/motionConfig'
 import AnimatedModal from './motion/AnimatedModal'
 
-export default function Login({ onLoginSuccess }) {
+export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState(deactivationNotice || '')
   const [loading, setLoading] = useState(false)
   const [showForgotModal, setShowForgotModal] = useState(false)
   const [forgotEmail, setForgotEmail] = useState('')
@@ -32,6 +32,12 @@ export default function Login({ onLoginSuccess }) {
   const [passwordError, setPasswordError] = useState('')
   const [isSuccessTransition, setIsSuccessTransition] = useState(false)
   const [showLoginSuccessModal, setShowLoginSuccessModal] = useState(false)
+
+  useEffect(() => {
+    if (deactivationNotice) {
+      setError(deactivationNotice)
+    }
+  }, [deactivationNotice])
 
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -333,7 +339,9 @@ export default function Login({ onLoginSuccess }) {
                   </label>
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
                       setForgotEmail('')
                       setForgotErr('')
                       setForgotMsg('')
@@ -341,7 +349,7 @@ export default function Login({ onLoginSuccess }) {
                       setForgotLoading(false)
                       setShowForgotModal(true)
                     }}
-                    className="text-[11px] text-gray-300 hover:text-sig-green font-semibold transition-colors duration-150 cursor-pointer"
+                    className="text-[11px] text-gray-300 hover:text-sig-green font-semibold transition-colors duration-150 cursor-pointer relative z-20 pointer-events-auto select-none"
                   >
                     Forgot password?
                   </button>
@@ -406,198 +414,178 @@ export default function Login({ onLoginSuccess }) {
       </motion.div>
 
       {/* Forgot Password Glass Modal */}
-      <AnimatePresence>
-        {showForgotModal &&
-          createPortal(
+      <AnimatedModal
+        isOpen={showForgotModal}
+        onClose={closeForgotModal}
+        overlayClassName="fixed inset-0 z-[99999] flex items-center justify-center p-4 glass-modal-overlay"
+        contentClassName="glass-modal rounded-2xl p-7 w-full max-w-md relative text-left"
+      >
+        {/* Top Close Button */}
+        <button
+          onClick={closeForgotModal}
+          className="absolute top-4 right-4 text-gray-400 hover:text-navy-blue transition-colors duration-150 cursor-pointer p-1 rounded-lg hover:bg-white/50"
+          aria-label="Close"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+
+        <AnimatePresence mode="wait">
+          {forgotStep === 'input' ? (
             <motion.div
-              key="forgot-overlay"
-              className="fixed inset-0 glass-modal-overlay flex items-center justify-center p-4 z-50"
-              variants={modalOverlayVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              transition={modalOverlayTransition}
+              key="forgot-input"
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 8 }}
+              transition={{ duration: duration.normal, ease: easing.easeOut }}
+            >
+              <h3 className="text-xl font-bold text-navy-blue mb-2 font-poppins text-left tracking-tight">
+                Forget password
+              </h3>
+              <p className="text-gray-600 text-[13px] mb-6 font-poppins text-left leading-relaxed font-medium">
+                {
+                  'This feature is restricted to Admin accounts only. If you are a Coordinator, please contact the CES Admin to request a password reset.'
+                }
+              </p>
+
+              <AnimatePresence>
+                {forgotErr && (
+                  <motion.div
+                    className="mb-4 p-3 bg-red-50/90 text-red-700 rounded-xl text-xs border border-red-200/80 flex items-start space-x-2"
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    transition={{ duration: duration.fast }}
+                  >
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-500" />
+                    <span>{forgotErr}</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <form onSubmit={handleForgotSubmit} className="space-y-4">
+                <div>
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 pointer-events-none">
+                      <Mail className="w-4.5 h-4.5" />
+                    </span>
+                    <input
+                      type="email"
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      placeholder="Enter email"
+                      className="w-full pl-11 pr-4 py-2.5 text-sm glass-input rounded-xl focus:outline-none placeholder:text-gray-400 text-navy-blue font-semibold"
+                    />
+                  </div>
+                </div>
+
+                <motion.button
+                  type="submit"
+                  disabled={forgotLoading}
+                  className="w-full bg-navy-blue hover:bg-navy-blue-600 text-white font-extrabold py-2.5 px-5 rounded-xl transition-colors duration-200 flex items-center justify-center space-x-2 text-sm mt-2 shadow-glass-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border border-white/20"
+                  whileHover={!forgotLoading ? { scale: 1.01, y: -1 } : {}}
+                  whileTap={!forgotLoading ? { scale: 0.98 } : {}}
+                  transition={{ duration: duration.fast }}
+                >
+                  {forgotLoading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <span>Submit</span>
+                  )}
+                </motion.button>
+              </form>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="forgot-success"
+              className="text-center pt-2"
+              initial={{ opacity: 0, x: 8 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -8 }}
+              transition={{ duration: duration.normal, ease: easing.easeOut }}
             >
               <motion.div
-                key="forgot-content"
-                className="glass-modal rounded-2xl p-7 w-full max-w-md relative"
-                variants={modalContentVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                transition={modalContentTransition}
-                onClick={(e) => e.stopPropagation()}
+                className="w-14 h-14 bg-sig-green/20 backdrop-blur-md rounded-full flex items-center justify-center mb-5 mx-auto border border-sig-green/40"
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.1, type: 'spring', stiffness: 300, damping: 20 }}
               >
-                {/* Top Close Button */}
-                <button
-                  onClick={closeForgotModal}
-                  className="absolute top-4 right-4 text-gray-400 hover:text-navy-blue transition-colors duration-150 cursor-pointer p-1 rounded-lg hover:bg-white/50"
-                  aria-label="Close"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-
-                <AnimatePresence mode="wait">
-                  {forgotStep === 'input' ? (
-                    <motion.div
-                      key="forgot-input"
-                      initial={{ opacity: 0, x: -8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 8 }}
-                      transition={{ duration: duration.normal, ease: easing.easeOut }}
-                    >
-                      <h3 className="text-xl font-bold text-navy-blue mb-2 font-poppins text-left tracking-tight">
-                        Forget password
-                      </h3>
-                      <p className="text-gray-600 text-[13px] mb-6 font-poppins text-left leading-relaxed font-medium">
-                        {
-                          'This feature is restricted to Admin accounts only. If you are a Coordinator, please contact the CES Admin to request a password reset.'
-                        }
-                      </p>
-
-                      <AnimatePresence>
-                        {forgotErr && (
-                          <motion.div
-                            className="mb-4 p-3 bg-red-50/90 text-red-700 rounded-xl text-xs border border-red-200/80 flex items-start space-x-2"
-                            initial={{ opacity: 0, y: -6 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -6 }}
-                            transition={{ duration: duration.fast }}
-                          >
-                            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-500" />
-                            <span>{forgotErr}</span>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-
-                      <form onSubmit={handleForgotSubmit} className="space-y-4">
-                        <div>
-                          <div className="relative">
-                            <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 pointer-events-none">
-                              <Mail className="w-4.5 h-4.5" />
-                            </span>
-                            <input
-                              type="email"
-                              value={forgotEmail}
-                              onChange={(e) => setForgotEmail(e.target.value)}
-                              placeholder="Enter email"
-                              className="w-full pl-11 pr-4 py-2.5 text-sm glass-input rounded-xl focus:outline-none placeholder:text-gray-400 text-navy-blue font-semibold"
-                            />
-                          </div>
-                        </div>
-
-                        <motion.button
-                          type="submit"
-                          disabled={forgotLoading}
-                          className="w-full bg-navy-blue hover:bg-navy-blue-600 text-white font-extrabold py-2.5 px-5 rounded-xl transition-colors duration-200 flex items-center justify-center space-x-2 text-sm mt-2 shadow-glass-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border border-white/20"
-                          whileHover={!forgotLoading ? { scale: 1.01, y: -1 } : {}}
-                          whileTap={!forgotLoading ? { scale: 0.98 } : {}}
-                          transition={{ duration: duration.fast }}
-                        >
-                          {forgotLoading ? (
-                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                          ) : (
-                            <span>Submit</span>
-                          )}
-                        </motion.button>
-                      </form>
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="forgot-success"
-                      className="text-center pt-2"
-                      initial={{ opacity: 0, x: 8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -8 }}
-                      transition={{ duration: duration.normal, ease: easing.easeOut }}
-                    >
-                      <motion.div
-                        className="w-14 h-14 bg-sig-green/20 backdrop-blur-md rounded-full flex items-center justify-center mb-5 mx-auto border border-sig-green/40"
-                        initial={{ scale: 0.8, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{ delay: 0.1, type: 'spring', stiffness: 300, damping: 20 }}
-                      >
-                        <CheckCircle2 className="w-7 h-7 text-sig-green-600" />
-                      </motion.div>
-
-                      <h3 className="text-lg font-bold text-navy-blue mb-1 font-poppins tracking-tight">
-                        Password Reset Email Sent
-                      </h3>
-
-                      <div className="text-navy-blue font-bold text-sm mb-4 break-all">
-                        {forgotEmail}
-                      </div>
-
-                      <p className="text-gray-600 text-[13px] mb-6 font-poppins leading-relaxed max-w-sm mx-auto font-medium">
-                        {
-                          "Your Account Security is Our Priority! We've Sent You a Secure Link to Safely Change Your Password and Keep Your Account Protected."
-                        }
-                      </p>
-
-                      <AnimatePresence>
-                        {forgotMsg && (
-                          <motion.div
-                            className="mb-4 p-3 bg-emerald-50/90 text-emerald-800 rounded-xl text-xs border border-emerald-200/80 text-center font-medium"
-                            initial={{ opacity: 0, y: -4 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -4 }}
-                            transition={{ duration: duration.fast }}
-                          >
-                            {forgotMsg}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-
-                      <AnimatePresence>
-                        {forgotErr && (
-                          <motion.div
-                            className="mb-4 p-3 bg-red-50/90 text-red-700 rounded-xl text-xs border border-red-200/80 text-center font-medium"
-                            initial={{ opacity: 0, y: -4 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -4 }}
-                            transition={{ duration: duration.fast }}
-                          >
-                            {forgotErr}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-
-                      <motion.button
-                        type="button"
-                        onClick={closeForgotModal}
-                        className="w-full bg-navy-blue hover:bg-navy-blue-600 text-white font-bold py-2.5 px-5 rounded-xl transition-colors duration-150 flex items-center justify-center text-sm shadow-glass-md hover:shadow-lg cursor-pointer mb-5 border border-white/20"
-                        whileHover={{ scale: 1.01, y: -1 }}
-                        whileTap={{ scale: 0.98 }}
-                        transition={{ duration: duration.fast }}
-                      >
-                        Done
-                      </motion.button>
-
-                      <div>
-                        <button
-                          type="button"
-                          disabled={forgotLoading}
-                          onClick={handleResendEmail}
-                          className="text-xs text-navy-blue hover:text-sig-green-600 font-bold transition-colors duration-150 cursor-pointer disabled:text-gray-400 disabled:cursor-not-allowed"
-                        >
-                          {forgotLoading ? 'Resending...' : 'Resend Email'}
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                <CheckCircle2 className="w-7 h-7 text-sig-green-600" />
               </motion.div>
-            </motion.div>,
-            document.body
+
+              <h3 className="text-lg font-bold text-navy-blue mb-1 font-poppins tracking-tight">
+                Password Reset Email Sent
+              </h3>
+
+              <div className="text-navy-blue font-bold text-sm mb-4 break-all">
+                {forgotEmail}
+              </div>
+
+              <p className="text-gray-600 text-[13px] mb-6 font-poppins leading-relaxed max-w-sm mx-auto font-medium">
+                {
+                  "Your Account Security is Our Priority! We've Sent You a Secure Link to Safely Change Your Password and Keep Your Account Protected."
+                }
+              </p>
+
+              <AnimatePresence>
+                {forgotMsg && (
+                  <motion.div
+                    className="mb-4 p-3 bg-emerald-50/90 text-emerald-800 rounded-xl text-xs border border-emerald-200/80 text-center font-medium"
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: duration.fast }}
+                  >
+                    {forgotMsg}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <AnimatePresence>
+                {forgotErr && (
+                  <motion.div
+                    className="mb-4 p-3 bg-red-50/90 text-red-700 rounded-xl text-xs border border-red-200/80 text-center font-medium"
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: duration.fast }}
+                  >
+                    {forgotErr}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <motion.button
+                type="button"
+                onClick={closeForgotModal}
+                className="w-full bg-navy-blue hover:bg-navy-blue-600 text-white font-bold py-2.5 px-5 rounded-xl transition-colors duration-150 flex items-center justify-center text-sm shadow-glass-md hover:shadow-lg cursor-pointer mb-5 border border-white/20"
+                whileHover={{ scale: 1.01, y: -1 }}
+                whileTap={{ scale: 0.98 }}
+                transition={{ duration: duration.fast }}
+              >
+                Done
+              </motion.button>
+
+              <div>
+                <button
+                  type="button"
+                  disabled={forgotLoading}
+                  onClick={handleResendEmail}
+                  className="text-xs text-navy-blue hover:text-sig-green-600 font-bold transition-colors duration-150 cursor-pointer disabled:text-gray-400 disabled:cursor-not-allowed"
+                >
+                  {forgotLoading ? 'Resending...' : 'Resend Email'}
+                </button>
+              </div>
+            </motion.div>
           )}
-      </AnimatePresence>
+        </AnimatePresence>
+      </AnimatedModal>
 
       {/* Centered Login Success Dialog */}
       <AnimatedModal

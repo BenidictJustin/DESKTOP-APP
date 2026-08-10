@@ -1,6 +1,7 @@
 /* eslint-disable */
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
+import AboutVersionCard from '../../components/AboutVersionCard'
 import AnimatedPage from '../../components/motion/AnimatedPage'
 import { staggerContainer, staggerItem } from '../../components/motion/motionConfig'
 import {
@@ -819,27 +820,15 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Left Column - System and CES Details */}
                     <div className="lg:col-span-2 space-y-6">
+                      <AboutVersionCard />
+
                       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
                         <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">
-                          System Information
+                          System Description
                         </h2>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div>
-                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-                              System Name
-                            </span>
-                            <span className="text-sm font-semibold text-navy-blue">DommUnity</span>
-                          </div>
-                          <div>
-                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-                              Version
-                            </span>
-                            <span className="text-sm font-semibold text-navy-blue">1.0.0</span>
-                          </div>
-                        </div>
                         <div>
                           <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-                            Project Description
+                            Project Overview
                           </span>
                           <p className="text-xs text-gray-600 mt-1 leading-relaxed">
                             DommUnity is a desktop-based management system developed for the
