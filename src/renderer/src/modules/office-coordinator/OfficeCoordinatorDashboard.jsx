@@ -95,6 +95,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   const [exportingReport, setExportingReport] = useState(null)
   const [selectedViewEvent, setSelectedViewEvent] = useState(null)
   const [isViewEventModalOpen, setIsViewEventModalOpen] = useState(false)
+  const [showAllCompleted, setShowAllCompleted] = useState(false)
 
   // ── Database ──
   const [reportsList, setReportsList] = useState([])
@@ -522,7 +523,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                   <div className="bg-white rounded-2xl border border-gray-100 shadow-xs p-5 space-y-4 text-left">
                     <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                       <div className="flex items-center space-x-2">
-                        <h3 className="text-xs font-bold text-navy-blue uppercase tracking-wide">
+                        <h3 className="text-xs font-extrabold text-navy-blue uppercase tracking-wider">
                           Completed Events
                         </h3>
                         <span className="bg-green-100 text-green-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-green-200/60">
@@ -536,76 +537,89 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                         No completed or successful events found.
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {completedEvents.map((evt) => {
-                          const org = orgsList.find((o) => o.id === evt.assignedOrganizationId)
-                          const orgDisplay =
-                            evt.eventType === 'organization'
-                              ? `${evt.organizationName || 'Organization'} (${org ? org.abbreviation : 'All'})`
-                              : org
-                                ? `${org.name} (${org.abbreviation})`
-                                : 'All'
-                          const eventDateDisplay = evt.scheduleDate
-                            ? new Date(evt.scheduleDate).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric'
-                            })
-                            : 'N/A'
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {(showAllCompleted ? completedEvents : completedEvents.slice(0, 3)).map((evt) => {
+                            const org = orgsList.find((o) => o.id === evt.assignedOrganizationId)
+                            const orgDisplay =
+                              evt.eventType === 'organization'
+                                ? `${evt.organizationName || 'Organization'} (${org ? org.abbreviation : 'All'})`
+                                : org
+                                  ? `${org.name} (${org.abbreviation})`
+                                  : 'All'
+                            const eventDateDisplay = evt.scheduleDate
+                              ? new Date(evt.scheduleDate).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              })
+                              : 'N/A'
 
-                          return (
-                            <div
-                              key={evt.id}
-                              onClick={() => {
-                                setSelectedViewEvent(evt)
-                                setIsViewEventModalOpen(true)
-                              }}
-                              className="bg-gray-50/60 hover:bg-white rounded-2xl p-4 border border-gray-200/80 hover:border-navy-blue/30 shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-3 group text-left"
-                            >
-                              <div className="space-y-2">
-                                <div className="flex items-start justify-between gap-2">
-                                  <h4 className="text-xs font-bold text-navy-blue group-hover:text-sig-green transition-colors leading-snug line-clamp-2">
-                                    {evt.name}
-                                  </h4>
-                                  <span className="inline-flex items-center text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-green-100 text-green-800 border border-green-200/60 shrink-0">
-                                    {evt.status}
-                                  </span>
-                                </div>
-
-                                <div className="space-y-1 text-[11px] text-gray-600 font-medium">
-                                  <div className="flex items-center space-x-1.5 truncate">
-                                    <Users className="w-3.5 h-3.5 text-navy-blue shrink-0" />
-                                    <span className="truncate">{orgDisplay}</span>
-                                  </div>
-                                  <div className="flex items-center space-x-1.5 truncate">
-                                    <MapPin className="w-3.5 h-3.5 text-sig-green shrink-0" />
-                                    <span className="truncate">
-                                      {evt.location || 'No location set'}
+                            return (
+                              <div
+                                key={evt.id}
+                                onClick={() => {
+                                  setSelectedViewEvent(evt)
+                                  setIsViewEventModalOpen(true)
+                                }}
+                                className="bg-gray-50/60 hover:bg-white rounded-2xl p-4 border border-gray-200/80 hover:border-navy-blue/30 shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-3 group text-left"
+                              >
+                                <div className="space-y-2">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <h4 className="text-xs font-bold text-navy-blue group-hover:text-sig-green transition-colors leading-snug line-clamp-2">
+                                      {evt.name}
+                                    </h4>
+                                    <span className="inline-flex items-center text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-green-100 text-green-800 border border-green-200/60 shrink-0">
+                                      {evt.status}
                                     </span>
                                   </div>
-                                </div>
-                              </div>
 
-                              <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[10px] text-gray-400 font-semibold">
-                                <div className="flex items-center space-x-1">
-                                  <Calendar className="w-3 h-3 text-navy-blue" />
-                                  <span>{eventDateDisplay}</span>
+                                  <div className="space-y-1 text-[11px] text-gray-600 font-medium">
+                                    <div className="flex items-center space-x-1.5 truncate">
+                                      <Users className="w-3.5 h-3.5 text-navy-blue shrink-0" />
+                                      <span className="truncate">{orgDisplay}</span>
+                                    </div>
+                                    <div className="flex items-center space-x-1.5 truncate">
+                                      <MapPin className="w-3.5 h-3.5 text-sig-green shrink-0" />
+                                      <span className="truncate">
+                                        {evt.location || 'No location set'}
+                                      </span>
+                                    </div>
+                                  </div>
                                 </div>
-                                <span className="text-navy-blue group-hover:text-sig-green font-bold flex items-center gap-0.5">
-                                  View Details &rarr;
-                                </span>
+
+                                <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[10px] text-gray-400 font-semibold">
+                                  <div className="flex items-center space-x-1">
+                                    <Calendar className="w-3 h-3 text-navy-blue" />
+                                    <span>{eventDateDisplay}</span>
+                                  </div>
+                                  <span className="text-navy-blue group-hover:text-sig-green font-bold flex items-center gap-0.5">
+                                    View Details &rarr;
+                                  </span>
+                                </div>
                               </div>
-                            </div>
-                          )
-                        })}
-                      </div>
+                            )
+                          })}
+                        </div>
+                        {completedEvents.length > 3 && (
+                          <div className="flex justify-center pt-2">
+                            <button
+                              type="button"
+                              onClick={() => setShowAllCompleted(!showAllCompleted)}
+                              className="px-4 py-1.5 border border-navy-blue/15 text-navy-blue hover:bg-navy-blue/5 rounded-full text-xs font-semibold transition-all duration-150 cursor-pointer"
+                            >
+                              {showAllCompleted ? 'See Less' : 'See More'}
+                            </button>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
 
                   {/* Recent reports */}
                   {myReports.length > 0 && (
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-xs p-5">
-                      <h3 className="text-xs font-bold text-navy-blue uppercase tracking-wide mb-4">
+                      <h3 className="text-xs font-extrabold text-navy-blue uppercase tracking-wider mb-4">
                         Recent Reports
                       </h3>
                       <div className="space-y-2.5">
@@ -723,7 +737,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
               <div className="flex-1 overflow-y-auto p-8">
                 <div className="max-w-4xl mx-auto space-y-4">
                   <div className="flex items-center justify-between mb-2">
-                    <h1 className="text-lg font-bold text-navy-blue">Compiled Reports</h1>
+                    <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">Compiled Reports</h1>
                     <button
                       onClick={() => {
                         resetForm()

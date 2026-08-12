@@ -11,7 +11,9 @@ export default function SearchableDropdown({
   placeholder = 'Select or search option...',
   className = '',
   style = {},
-  disabled = false
+  disabled = false,
+  allowCustom = false,
+  error = false
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchVal, setSearchVal] = useState('')
@@ -37,7 +39,7 @@ export default function SearchableDropdown({
     ? selectedOption.abbreviation
       ? `${selectedOption.name} (${selectedOption.abbreviation})`
       : selectedOption.name
-    : ''
+    : (allowCustom && value ? String(value) : '')
 
   // Synchronize search text input with selection when closed
   useEffect(() => {
@@ -90,7 +92,9 @@ export default function SearchableDropdown({
           value={isOpen ? searchVal : displayVal}
           onChange={(e) => {
             setSearchVal(e.target.value)
-            if (!e.target.value) {
+            if (allowCustom) {
+              onChange(e.target.value)
+            } else if (!e.target.value) {
               onChange('')
             }
           }}
@@ -101,7 +105,11 @@ export default function SearchableDropdown({
             }
           }}
           placeholder={placeholder}
-          className="w-full pl-3.5 pr-10 py-2.5 text-xs bg-white border border-gray-250 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/10 font-semibold text-navy-blue placeholder-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 shadow-2xs hover:border-gray-300"
+          className={`w-full pl-3.5 pr-10 py-2.5 text-xs bg-white border rounded-xl focus:outline-none font-semibold text-navy-blue placeholder-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 shadow-2xs ${
+            error
+              ? 'border-red-500 ring-2 ring-red-500/10'
+              : 'border-gray-250 hover:border-gray-300 focus:ring-2 focus:ring-navy-blue/10'
+          }`}
           style={{ height: '40px' }}
         />
         <span

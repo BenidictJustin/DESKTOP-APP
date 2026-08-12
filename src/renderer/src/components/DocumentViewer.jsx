@@ -97,7 +97,7 @@ export default function DocumentViewer({
   const [currentPageNum, setCurrentPageNum] = useState(1)
   const [zoomScale, setZoomScale] = useState(1.0)
   const [viewMode, setViewMode] = useState('select') // 'select' or 'pan'
-  
+
   const initialNarrativeCount = Math.max(1, parseNarrativePages(report?.narrative || '').length)
   const [narrativeTotalPages, setNarrativeTotalPages] = useState(initialNarrativeCount)
 
@@ -759,10 +759,10 @@ export default function DocumentViewer({
             </button>
             <div className="hidden md:flex flex-col text-left leading-tight">
               <span className="text-xs font-bold text-navy-blue truncate max-w-xs lg:max-w-md">
-                {event ? event.name : report.activityTitle || 'Outreach Report'}
+                Narrative Report
               </span>
               <span className="text-[10px] font-semibold text-sig-green uppercase tracking-wider">
-                Document Inspect Mode
+
               </span>
             </div>
           </div>
@@ -1278,13 +1278,12 @@ export default function DocumentViewer({
                       Workflow Status
                     </span>
                     <span
-                      className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full mt-1 ${
-                        report.status === 'approved'
-                          ? 'bg-green-100 text-green-800'
-                          : report.status === 'submitted'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-red-100 text-red-800'
-                      }`}
+                      className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full mt-1 ${report.status === 'approved'
+                        ? 'bg-green-100 text-green-800'
+                        : report.status === 'submitted'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-red-100 text-red-800'
+                        }`}
                     >
                       {report.status}
                     </span>
@@ -1324,7 +1323,7 @@ export default function DocumentViewer({
                         disabled={loading}
                         className="w-full bg-navy-blue text-white rounded-full font-bold text-xs py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition duration-200 cursor-pointer text-center disabled:opacity-50"
                       >
-                        {loading ? 'Processing...' : 'Approve & Lock'}
+                        {loading ? 'Processing...' : 'Approve'}
                       </button>
                     </div>
                   </>

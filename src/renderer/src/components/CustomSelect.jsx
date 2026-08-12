@@ -11,7 +11,8 @@ export default function CustomSelect({
   className = '',
   style = {},
   disabled = false,
-  id
+  id,
+  error = false
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [openUpward, setOpenUpward] = useState(false)
@@ -74,9 +75,11 @@ export default function CustomSelect({
         disabled={disabled}
         onClick={handleToggle}
         className={`w-full px-3 text-xs bg-white border rounded-xl focus:outline-none font-semibold text-navy-blue flex items-center justify-between cursor-pointer transition-all duration-150 shadow-2xs ${
-          isOpen
-            ? 'border-sig-green ring-2 ring-sig-green/20'
-            : 'border-gray-200 hover:border-gray-300'
+          error
+            ? 'border-red-500 ring-2 ring-red-500/10'
+            : isOpen
+              ? 'border-sig-green ring-2 ring-sig-green/20'
+              : 'border-gray-200 hover:border-gray-300'
         } ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-50' : ''}`}
         style={{ height: style.height || '40px' }}
       >

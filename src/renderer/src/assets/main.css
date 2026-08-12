@@ -475,3 +475,81 @@ select:focus {
 .animate-subtle-float {
   animation: subtleFloat 3.5s ease-in-out infinite;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   VISUAL HIERARCHY UTILITIES
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* Hierarchy Level 1: Main Page / Module Header */
+.vh-page-title {
+  font-size: 1.25rem; /* 20px */
+  font-weight: 800; /* ExtraBold */
+  color: #030e69; /* Navy Blue */
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+
+/* Hierarchy Level 2: Section Header / Card Block Title */
+.vh-section-title {
+  font-size: 0.875rem; /* 14px */
+  font-weight: 700; /* Bold */
+  color: #030e69; /* Navy Blue */
+  letter-spacing: -0.01em;
+}
+
+/* Hierarchy Level 3: Item Title / Card Subtitle */
+.vh-item-title {
+  font-size: 0.8125rem; /* 13px */
+  font-weight: 700;
+  color: #111827; /* Ink */
+}
+
+/* Hierarchy Level 4: Metric Value / Primary Key Highlight */
+.vh-metric-value {
+  font-size: 1.5rem; /* 24px */
+  font-weight: 900; /* Black */
+  color: #030e69;
+  line-height: 1;
+}
+
+/* Hierarchy Level 5: Label / Caption / Metadata */
+.vh-meta-label {
+  font-size: 0.6875rem; /* 11px */
+  font-weight: 600;
+  color: #6b7280; /* Muted Gray */
+}
+
+/* Primary CTA Button Polish */
+.vh-btn-primary {
+  background-color: #030e69 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 12px rgba(3, 14, 105, 0.2) !important;
+}
+.vh-btn-primary:hover {
+  background-color: #020b54 !important;
+  box-shadow: 0 6px 16px rgba(3, 14, 105, 0.3) !important;
+}
+
+/* Secondary CTA Button Polish */
+.vh-btn-secondary {
+  background-color: #ffffff !important;
+  color: #030e69 !important;
+  border: 1px solid rgba(3, 14, 105, 0.2) !important;
+  font-weight: 600 !important;
+}
+.vh-btn-secondary:hover {
+  background-color: rgba(3, 14, 105, 0.05) !important;
+  border-color: rgba(3, 14, 105, 0.35) !important;
+}
+
+/* Status Badge Prominence */
+.vh-badge-status {
+  font-size: 0.625rem; /* 10px */
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+}
+

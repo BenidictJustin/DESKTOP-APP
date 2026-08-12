@@ -2104,7 +2104,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   <div className="space-y-4">
                     {/* Header row */}
                     <div>
-                      <h1 className="text-lg font-extrabold text-navy-blue tracking-tight">
+                      <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
                         Dashboard
                       </h1>
                     </div>
@@ -2522,32 +2522,30 @@ export default function AdminDashboard({ user, onLogout }) {
                               <tr className="border-b border-gray-100 bg-gray-50 text-[10px] uppercase font-bold text-gray-500">
                                 <th className="py-3 px-3">Item Details</th>
                                 <th className="py-3 px-2">
-                                  <select
+                                  <CustomSelect
                                     value={categoryFilter}
                                     onChange={(e) => setCategoryFilter(e.target.value)}
-                                    className="px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue cursor-pointer capitalize"
+                                    options={[
+                                      { value: 'all', label: 'Category (All)' },
+                                      ...allCategories.map((cat) => ({ value: cat, label: cat }))
+                                    ]}
+                                    placeholder="Category (All)"
                                     style={{ height: '36px', minWidth: '130px' }}
-                                  >
-                                    <option value="all">Category (All)</option>
-                                    {allCategories.map((cat) => (
-                                      <option key={cat} value={cat}>
-                                        {cat}
-                                      </option>
-                                    ))}
-                                  </select>
+                                  />
                                 </th>
                                 <th className="py-3 px-2">
-                                  <select
+                                  <CustomSelect
                                     value={statusFilter}
                                     onChange={(e) => setStatusFilter(e.target.value)}
-                                    className="px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue cursor-pointer capitalize"
+                                    options={[
+                                      { value: 'all', label: 'Stock Level (All)' },
+                                      { value: 'available', label: 'Available' },
+                                      { value: 'low stock', label: 'Low Stock' },
+                                      { value: 'expired', label: 'Expired' }
+                                    ]}
+                                    placeholder="Stock Level (All)"
                                     style={{ height: '36px', minWidth: '135px' }}
-                                  >
-                                    <option value="all">Stock Level (All)</option>
-                                    <option value="available">Available</option>
-                                    <option value="low stock">Low Stock</option>
-                                    <option value="expired">Expired</option>
-                                  </select>
+                                  />
                                 </th>
                                 <th className="py-3 px-2">Status</th>
                                 <th className="py-3 px-3 text-right">Actions</th>
@@ -2811,94 +2809,22 @@ export default function AdminDashboard({ user, onLogout }) {
                                 <label className="block text-gray-700 text-xs font-semibold mb-1">
                                   Category
                                 </label>
-                                <div className="relative">
-                                  <input
-                                    type="text"
-                                    value={itemCategory}
-                                    onFocus={() => {
-                                      prevAddCategoryRef.current = itemCategory
-                                      setItemCategory('')
-                                      setShowAddCategoryDropdown(true)
-                                    }}
-                                    onBlur={() =>
-                                      setTimeout(() => {
-                                        setShowAddCategoryDropdown(false)
-                                        setItemCategory((current) =>
-                                          current ? current : prevAddCategoryRef.current
-                                        )
-                                      }, 200)
-                                    }
-                                    onChange={(e) => {
-                                      setItemCategory(e.target.value)
-                                      setItemErrors((prev) => {
-                                        const copy = { ...prev }
-                                        delete copy.itemCategory
-                                        return copy
-                                      })
-                                    }}
-                                    placeholder="Select or type category"
-                                    className={`w-full pl-2.5 pr-16 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemCategory ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                    style={{ height: '40px' }}
-                                  />
-                                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
-                                    <div className="pointer-events-none text-gray-400">
-                                      <ChevronRight className="w-4 h-4 transform rotate-90" />
-                                    </div>
-                                  </div>
-                                  {showAddCategoryDropdown &&
-                                    activeCategories.filter(
-                                      (cat) =>
-                                        !itemCategory ||
-                                        cat.toLowerCase().includes(itemCategory.toLowerCase())
-                                    ).length > 0 && (
-                                      <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                        {activeCategories
-                                          .filter(
-                                            (cat) =>
-                                              !itemCategory ||
-                                              cat.toLowerCase().includes(itemCategory.toLowerCase())
-                                          )
-                                          .map((cat) => (
-                                            <div
-                                              key={cat}
-                                              onMouseDown={(e) => e.preventDefault()}
-                                              onClick={() => {
-                                                setItemCategory(cat)
-                                                prevAddCategoryRef.current = cat
-                                                setShowAddCategoryDropdown(false)
-                                                setItemErrors((prev) => {
-                                                  const copy = { ...prev }
-                                                  delete copy.itemCategory
-                                                  return copy
-                                                })
-                                              }}
-                                              className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
-                                            >
-                                              <span className="truncate">{cat}</span>
-                                              <button
-                                                type="button"
-                                                onMouseDown={(e) => {
-                                                  e.preventDefault()
-                                                  e.stopPropagation()
-                                                }}
-                                                onClick={(e) => {
-                                                  e.stopPropagation()
-                                                  handleDeleteCategory(cat)
-                                                }}
-                                                className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100"
-                                              >
-                                                <X className="w-3 h-3" />
-                                              </button>
-                                            </div>
-                                          ))}
-                                      </div>
-                                    )}
-                                </div>
-                                {itemErrors.itemCategory && (
-                                  <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                    {itemErrors.itemCategory}
-                                  </p>
-                                )}
+                                <SearchableDropdown
+                                  value={itemCategory}
+                                  onChange={(val) => {
+                                    setItemCategory(val)
+                                    setItemErrors((prev) => {
+                                      const copy = { ...prev }
+                                      delete copy.itemCategory
+                                      return copy
+                                    })
+                                  }}
+                                  options={activeCategories}
+                                  onDelete={(cat) => handleDeleteCategory(cat)}
+                                  allowCustom={true}
+                                  placeholder="Select or type category"
+                                  className={itemErrors.itemCategory ? 'border-red-500 ring-2 ring-red-500/10' : ''}
+                                />
                               </div>
 
                               {/* Unit Searchable Dropdown */}
@@ -2906,107 +2832,22 @@ export default function AdminDashboard({ user, onLogout }) {
                                 <label className="block text-gray-700 text-xs font-semibold mb-1">
                                   Unit
                                 </label>
-                                <div className="relative">
-                                  <input
-                                    type="text"
-                                    value={itemUnit}
-                                    onFocus={() => {
-                                      prevAddUnitRef.current = itemUnit
-                                      setItemUnit('')
-                                      setShowAddUnitDropdown(true)
-                                    }}
-                                    onBlur={() =>
-                                      setTimeout(() => {
-                                        setShowAddUnitDropdown(false)
-                                        setItemUnit((current) =>
-                                          current ? current : prevAddUnitRef.current
-                                        )
-                                      }, 200)
-                                    }
-                                    onChange={(e) => {
-                                      setItemUnit(e.target.value)
-                                      setItemErrors((prev) => {
-                                        const copy = { ...prev }
-                                        delete copy.itemUnit
-                                        return copy
-                                      })
-                                    }}
-                                    placeholder="Select or type unit"
-                                    className={`w-full pl-2.5 pr-16 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemUnit ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                    style={{ height: '40px' }}
-                                  />
-                                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
-                                    {itemUnit && (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setItemUnit('')
-                                          prevAddUnitRef.current = ''
-                                        }}
-                                        className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100"
-                                        tabIndex={-1}
-                                      >
-                                        <X className="w-3.5 h-3.5" />
-                                      </button>
-                                    )}
-                                    <div className="pointer-events-none text-gray-400">
-                                      <ChevronRight className="w-4 h-4 transform rotate-90" />
-                                    </div>
-                                  </div>
-                                  {showAddUnitDropdown &&
-                                    activeUnits.filter(
-                                      (u) =>
-                                        !itemUnit ||
-                                        u.toLowerCase().includes(itemUnit.toLowerCase())
-                                    ).length > 0 && (
-                                      <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                        {activeUnits
-                                          .filter(
-                                            (u) =>
-                                              !itemUnit ||
-                                              u.toLowerCase().includes(itemUnit.toLowerCase())
-                                          )
-                                          .map((u) => (
-                                            <div
-                                              key={u}
-                                              onMouseDown={(e) => e.preventDefault()}
-                                              onClick={() => {
-                                                setItemUnit(u)
-                                                prevAddUnitRef.current = u
-                                                setShowAddUnitDropdown(false)
-                                                setItemErrors((prev) => {
-                                                  const copy = { ...prev }
-                                                  delete copy.itemUnit
-                                                  return copy
-                                                })
-                                              }}
-                                              className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
-                                            >
-                                              <span className="truncate">{u}</span>
-                                              <button
-                                                type="button"
-                                                onMouseDown={(e) => {
-                                                  e.preventDefault()
-                                                  e.stopPropagation()
-                                                }}
-                                                onClick={(e) => {
-                                                  e.stopPropagation()
-                                                  handleDeleteUnit(u)
-                                                }}
-                                                className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100"
-                                              >
-                                                <X className="w-3 h-3" />
-                                              </button>
-                                            </div>
-                                          ))}
-                                      </div>
-                                    )}
-                                </div>
-                                {itemErrors.itemUnit && (
-                                  <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                    {itemErrors.itemUnit}
-                                  </p>
-                                )}
+                                <SearchableDropdown
+                                  value={itemUnit}
+                                  onChange={(val) => {
+                                    setItemUnit(val)
+                                    setItemErrors((prev) => {
+                                      const copy = { ...prev }
+                                      delete copy.itemUnit
+                                      return copy
+                                    })
+                                  }}
+                                  options={activeUnits}
+                                  onDelete={(u) => handleDeleteUnit(u)}
+                                  allowCustom={true}
+                                  placeholder="Select or type unit"
+                                  className={itemErrors.itemUnit ? 'border-red-500 ring-2 ring-red-500/10' : ''}
+                                />
                               </div>
 
                               {/* Quantity */}
@@ -3014,69 +2855,21 @@ export default function AdminDashboard({ user, onLogout }) {
                                 <label className="block text-gray-700 text-xs font-semibold mb-1">
                                   Quantity
                                 </label>
-                                <div className="relative">
-                                  <input
-                                    type="text"
-                                    value={itemQty}
-                                    onFocus={() => {
-                                      prevAddQtyRef.current = itemQty
-                                      setItemQty('')
-                                      setShowAddQtyDropdown(true)
-                                    }}
-                                    onBlur={() =>
-                                      setTimeout(() => {
-                                        setShowAddQtyDropdown(false)
-                                        setItemQty((current) =>
-                                          current ? current : prevAddQtyRef.current
-                                        )
-                                      }, 200)
-                                    }
-                                    onChange={(e) => {
-                                      handleQtyChange(e.target.value)
-                                      setItemErrors((prev) => {
-                                        const copy = { ...prev }
-                                        delete copy.itemQty
-                                        return copy
-                                      })
-                                    }}
-                                    placeholder="Select or enter quantity"
-                                    className={`w-full pl-2.5 pr-8 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemQty ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                    style={{ height: '40px' }}
-                                  />
-                                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                    <ChevronRight className="w-4 h-4 transform rotate-90" />
-                                  </div>
-                                  {showAddQtyDropdown && (
-                                    <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                      {[5, 10, 20, 50, 100, 250, 500]
-                                        .filter((q) => !itemQty || q.toString().includes(itemQty))
-                                        .map((q) => (
-                                          <div
-                                            key={q}
-                                            onMouseDown={(e) => e.preventDefault()}
-                                            onClick={() => {
-                                              setItemQty(q.toString())
-                                              prevAddQtyRef.current = q.toString()
-                                              setItemErrors((prev) => {
-                                                const copy = { ...prev }
-                                                delete copy.itemQty
-                                                return copy
-                                              })
-                                              setShowAddQtyDropdown(false)
-                                            }}
-                                            className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
-                                          >
-                                            {q}
-                                          </div>
-                                        ))}
-                                    </div>
-                                  )}
-                                </div>
-                                {itemErrors.itemQty && (
-                                  <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                    {itemErrors.itemQty}
-                                  </p>
-                                )}
+                                <SearchableDropdown
+                                  value={itemQty}
+                                  onChange={(val) => {
+                                    handleQtyChange(val)
+                                    setItemErrors((prev) => {
+                                      const copy = { ...prev }
+                                      delete copy.itemQty
+                                      return copy
+                                    })
+                                  }}
+                                  options={[5, 10, 20, 50, 100, 250, 500]}
+                                  allowCustom={true}
+                                  placeholder="Select or enter quantity"
+                                  className={itemErrors.itemQty ? 'border-red-500 ring-2 ring-red-500/10' : ''}
+                                />
                               </div>
 
                               {/* Group Stock & Pieces (if Quantity >= 12) */}
@@ -3098,7 +2891,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                         <label className="block text-gray-700 text-xs font-semibold mb-1">
                                           Group stock into (Optional)
                                         </label>
-                                        <select
+                                        <CustomSelect
                                           value={itemGroupUnit}
                                           onChange={(e) => {
                                             setItemGroupUnit(e.target.value)
@@ -3108,16 +2901,15 @@ export default function AdminDashboard({ user, onLogout }) {
                                               setItemPiecesPerUnit('12')
                                             }
                                           }}
-                                          className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue cursor-pointer"
+                                          options={[
+                                            { value: 'none', label: 'Do not group (Individual pieces)' },
+                                            { value: 'pack', label: 'Packs' },
+                                            { value: 'box', label: 'Boxes' },
+                                            { value: 'bundle', label: 'Bundles' }
+                                          ]}
+                                          placeholder="Do not group (Individual pieces)"
                                           style={{ height: '40px' }}
-                                        >
-                                          <option value="none">
-                                            Do not group (Individual pieces)
-                                          </option>
-                                          <option value="pack">Packs</option>
-                                          <option value="box">Boxes</option>
-                                          <option value="bundle">Bundles</option>
-                                        </select>
+                                        />
                                       </div>
                                       {itemGroupUnit !== 'none' && (
                                         <div className="space-y-4">
@@ -3314,94 +3106,22 @@ export default function AdminDashboard({ user, onLogout }) {
                                 <label className="block text-gray-700 text-xs font-semibold mb-1">
                                   Category
                                 </label>
-                                <div className="relative">
-                                  <input
-                                    type="text"
-                                    value={itemCategory}
-                                    onFocus={() => {
-                                      prevEditCategoryRef.current = itemCategory
-                                      setItemCategory('')
-                                      setShowEditCategoryDropdown(true)
-                                    }}
-                                    onBlur={() =>
-                                      setTimeout(() => {
-                                        setShowEditCategoryDropdown(false)
-                                        setItemCategory((current) =>
-                                          current ? current : prevEditCategoryRef.current
-                                        )
-                                      }, 200)
-                                    }
-                                    onChange={(e) => {
-                                      setItemCategory(e.target.value)
-                                      setItemErrors((prev) => {
-                                        const copy = { ...prev }
-                                        delete copy.itemCategory
-                                        return copy
-                                      })
-                                    }}
-                                    placeholder="Select or type category"
-                                    className={`w-full pl-2.5 pr-16 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemCategory ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                    style={{ height: '40px' }}
-                                  />
-                                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
-                                    <div className="pointer-events-none text-gray-400">
-                                      <ChevronRight className="w-4 h-4 transform rotate-90" />
-                                    </div>
-                                  </div>
-                                  {showEditCategoryDropdown &&
-                                    activeCategories.filter(
-                                      (cat) =>
-                                        !itemCategory ||
-                                        cat.toLowerCase().includes(itemCategory.toLowerCase())
-                                    ).length > 0 && (
-                                      <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                        {activeCategories
-                                          .filter(
-                                            (cat) =>
-                                              !itemCategory ||
-                                              cat.toLowerCase().includes(itemCategory.toLowerCase())
-                                          )
-                                          .map((cat) => (
-                                            <div
-                                              key={cat}
-                                              onMouseDown={(e) => e.preventDefault()}
-                                              onClick={() => {
-                                                setItemCategory(cat)
-                                                prevEditCategoryRef.current = cat
-                                                setShowEditCategoryDropdown(false)
-                                                setItemErrors((prev) => {
-                                                  const copy = { ...prev }
-                                                  delete copy.itemCategory
-                                                  return copy
-                                                })
-                                              }}
-                                              className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
-                                            >
-                                              <span className="truncate">{cat}</span>
-                                              <button
-                                                type="button"
-                                                onMouseDown={(e) => {
-                                                  e.preventDefault()
-                                                  e.stopPropagation()
-                                                }}
-                                                onClick={(e) => {
-                                                  e.stopPropagation()
-                                                  handleDeleteCategory(cat)
-                                                }}
-                                                className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100"
-                                              >
-                                                <X className="w-3 h-3" />
-                                              </button>
-                                            </div>
-                                          ))}
-                                      </div>
-                                    )}
-                                </div>
-                                {itemErrors.itemCategory && (
-                                  <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                    {itemErrors.itemCategory}
-                                  </p>
-                                )}
+                                <SearchableDropdown
+                                  value={itemCategory}
+                                  onChange={(val) => {
+                                    setItemCategory(val)
+                                    setItemErrors((prev) => {
+                                      const copy = { ...prev }
+                                      delete copy.itemCategory
+                                      return copy
+                                    })
+                                  }}
+                                  options={activeCategories}
+                                  onDelete={(cat) => handleDeleteCategory(cat)}
+                                  allowCustom={true}
+                                  placeholder="Select or type category"
+                                  className={itemErrors.itemCategory ? 'border-red-500 ring-2 ring-red-500/10' : ''}
+                                />
                               </div>
 
                               {/* Unit Searchable Dropdown */}
@@ -3409,107 +3129,22 @@ export default function AdminDashboard({ user, onLogout }) {
                                 <label className="block text-gray-700 text-xs font-semibold mb-1">
                                   Unit
                                 </label>
-                                <div className="relative">
-                                  <input
-                                    type="text"
-                                    value={itemUnit}
-                                    onFocus={() => {
-                                      prevEditUnitRef.current = itemUnit
-                                      setItemUnit('')
-                                      setShowEditUnitDropdown(true)
-                                    }}
-                                    onBlur={() =>
-                                      setTimeout(() => {
-                                        setShowEditUnitDropdown(false)
-                                        setItemUnit((current) =>
-                                          current ? current : prevEditUnitRef.current
-                                        )
-                                      }, 200)
-                                    }
-                                    onChange={(e) => {
-                                      setItemUnit(e.target.value)
-                                      setItemErrors((prev) => {
-                                        const copy = { ...prev }
-                                        delete copy.itemUnit
-                                        return copy
-                                      })
-                                    }}
-                                    placeholder="Select or type unit"
-                                    className={`w-full pl-2.5 pr-16 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemUnit ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                    style={{ height: '40px' }}
-                                  />
-                                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
-                                    {itemUnit && (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setItemUnit('')
-                                          prevEditUnitRef.current = ''
-                                        }}
-                                        className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100"
-                                        tabIndex={-1}
-                                      >
-                                        <X className="w-3.5 h-3.5" />
-                                      </button>
-                                    )}
-                                    <div className="pointer-events-none text-gray-400">
-                                      <ChevronRight className="w-4 h-4 transform rotate-90" />
-                                    </div>
-                                  </div>
-                                  {showEditUnitDropdown &&
-                                    activeUnits.filter(
-                                      (u) =>
-                                        !itemUnit ||
-                                        u.toLowerCase().includes(itemUnit.toLowerCase())
-                                    ).length > 0 && (
-                                      <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                        {activeUnits
-                                          .filter(
-                                            (u) =>
-                                              !itemUnit ||
-                                              u.toLowerCase().includes(itemUnit.toLowerCase())
-                                          )
-                                          .map((u) => (
-                                            <div
-                                              key={u}
-                                              onMouseDown={(e) => e.preventDefault()}
-                                              onClick={() => {
-                                                setItemUnit(u)
-                                                prevEditUnitRef.current = u
-                                                setShowEditUnitDropdown(false)
-                                                setItemErrors((prev) => {
-                                                  const copy = { ...prev }
-                                                  delete copy.itemUnit
-                                                  return copy
-                                                })
-                                              }}
-                                              className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
-                                            >
-                                              <span className="truncate">{u}</span>
-                                              <button
-                                                type="button"
-                                                onMouseDown={(e) => {
-                                                  e.preventDefault()
-                                                  e.stopPropagation()
-                                                }}
-                                                onClick={(e) => {
-                                                  e.stopPropagation()
-                                                  handleDeleteUnit(u)
-                                                }}
-                                                className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100"
-                                              >
-                                                <X className="w-3 h-3" />
-                                              </button>
-                                            </div>
-                                          ))}
-                                      </div>
-                                    )}
-                                </div>
-                                {itemErrors.itemUnit && (
-                                  <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                    {itemErrors.itemUnit}
-                                  </p>
-                                )}
+                                <SearchableDropdown
+                                  value={itemUnit}
+                                  onChange={(val) => {
+                                    setItemUnit(val)
+                                    setItemErrors((prev) => {
+                                      const copy = { ...prev }
+                                      delete copy.itemUnit
+                                      return copy
+                                    })
+                                  }}
+                                  options={activeUnits}
+                                  onDelete={(u) => handleDeleteUnit(u)}
+                                  allowCustom={true}
+                                  placeholder="Select or type unit"
+                                  className={itemErrors.itemUnit ? 'border-red-500 ring-2 ring-red-500/10' : ''}
+                                />
                               </div>
 
                               {/* Quantity (directly below Unit) */}
@@ -3517,69 +3152,21 @@ export default function AdminDashboard({ user, onLogout }) {
                                 <label className="block text-gray-700 text-xs font-semibold mb-1">
                                   Quantity
                                 </label>
-                                <div className="relative">
-                                  <input
-                                    type="text"
-                                    value={itemQty}
-                                    onFocus={() => {
-                                      prevEditQtyRef.current = itemQty
-                                      setItemQty('')
-                                      setShowEditQtyDropdown(true)
-                                    }}
-                                    onBlur={() =>
-                                      setTimeout(() => {
-                                        setShowEditQtyDropdown(false)
-                                        setItemQty((current) =>
-                                          current ? current : prevEditQtyRef.current
-                                        )
-                                      }, 200)
-                                    }
-                                    onChange={(e) => {
-                                      handleQtyChange(e.target.value)
-                                      setItemErrors((prev) => {
-                                        const copy = { ...prev }
-                                        delete copy.itemQty
-                                        return copy
-                                      })
-                                    }}
-                                    placeholder="Select or enter quantity"
-                                    className={`w-full pl-2.5 pr-8 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemQty ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                    style={{ height: '40px' }}
-                                  />
-                                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                    <ChevronRight className="w-4 h-4 transform rotate-90" />
-                                  </div>
-                                  {showEditQtyDropdown && (
-                                    <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                      {[5, 10, 20, 50, 100, 250, 500]
-                                        .filter((q) => !itemQty || q.toString().includes(itemQty))
-                                        .map((q) => (
-                                          <div
-                                            key={q}
-                                            onMouseDown={(e) => e.preventDefault()}
-                                            onClick={() => {
-                                              setItemQty(q.toString())
-                                              prevEditQtyRef.current = q.toString()
-                                              setItemErrors((prev) => {
-                                                const copy = { ...prev }
-                                                delete copy.itemQty
-                                                return copy
-                                              })
-                                              setShowEditQtyDropdown(false)
-                                            }}
-                                            className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
-                                          >
-                                            {q}
-                                          </div>
-                                        ))}
-                                    </div>
-                                  )}
-                                </div>
-                                {itemErrors.itemQty && (
-                                  <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                    {itemErrors.itemQty}
-                                  </p>
-                                )}
+                                <SearchableDropdown
+                                  value={itemQty}
+                                  onChange={(val) => {
+                                    handleQtyChange(val)
+                                    setItemErrors((prev) => {
+                                      const copy = { ...prev }
+                                      delete copy.itemQty
+                                      return copy
+                                    })
+                                  }}
+                                  options={[5, 10, 20, 50, 100, 250, 500]}
+                                  allowCustom={true}
+                                  placeholder="Select or enter quantity"
+                                  className={itemErrors.itemQty ? 'border-red-500 ring-2 ring-red-500/10' : ''}
+                                />
                               </div>
 
                               {/* Group Stock & Pieces (if Quantity >= 12) */}
@@ -3601,7 +3188,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                         <label className="block text-gray-700 text-xs font-semibold mb-1">
                                           Group stock into (Optional)
                                         </label>
-                                        <select
+                                        <CustomSelect
                                           value={itemGroupUnit}
                                           onChange={(e) => {
                                             setItemGroupUnit(e.target.value)
@@ -3611,16 +3198,15 @@ export default function AdminDashboard({ user, onLogout }) {
                                               setItemPiecesPerUnit('12')
                                             }
                                           }}
-                                          className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue cursor-pointer"
+                                          options={[
+                                            { value: 'none', label: 'Do not group (Individual pieces)' },
+                                            { value: 'pack', label: 'Packs' },
+                                            { value: 'box', label: 'Boxes' },
+                                            { value: 'bundle', label: 'Bundles' }
+                                          ]}
+                                          placeholder="Do not group (Individual pieces)"
                                           style={{ height: '40px' }}
-                                        >
-                                          <option value="none">
-                                            Do not group (Individual pieces)
-                                          </option>
-                                          <option value="pack">Packs</option>
-                                          <option value="box">Boxes</option>
-                                          <option value="bundle">Bundles</option>
-                                        </select>
+                                        />
                                       </div>
                                       {itemGroupUnit !== 'none' && (
                                         <div className="space-y-4">
@@ -4149,7 +3735,7 @@ export default function AdminDashboard({ user, onLogout }) {
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1">
                       <div>
                         <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
-                          Donors & Donations Logs
+                          Donors & Donations
                         </h1>
                       </div>
                       <button
@@ -4172,7 +3758,7 @@ export default function AdminDashboard({ user, onLogout }) {
                           }`}
                       >
                         <Plus className="w-4 h-4" />
-                        <span>Register Donation Batch</span>
+                        <span>Donate</span>
                       </button>
                     </div>
 
@@ -4720,18 +4306,19 @@ export default function AdminDashboard({ user, onLogout }) {
                                   <label className="block text-gray-700 text-xs font-semibold mb-1">
                                     Event Type
                                   </label>
-                                  <select
+                                  <CustomSelect
                                     value={evtType}
                                     onChange={(e) => {
                                       setEvtType(e.target.value)
                                       clearFieldValError('evtType')
                                     }}
-                                    className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                                    options={[
+                                      { value: 'department', label: 'Department' },
+                                      { value: 'organization', label: 'Organization' }
+                                    ]}
+                                    placeholder="Select Event Type"
                                     style={{ height: '40px' }}
-                                  >
-                                    <option value="department">Department</option>
-                                    <option value="organization">Organization</option>
-                                  </select>
+                                  />
                                 </div>
 
                                 {evtType === 'organization' ? (
@@ -4830,16 +4417,17 @@ export default function AdminDashboard({ user, onLogout }) {
                                     <label className="block text-gray-700 text-xs font-semibold mb-1">
                                       Status
                                     </label>
-                                    <select
+                                    <CustomSelect
                                       value={evtStatus}
                                       onChange={(e) => setEvtStatus(e.target.value)}
-                                      className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                                      options={[
+                                        { value: 'planned', label: 'Planned' },
+                                        { value: 'completed', label: 'Completed' },
+                                        { value: 'cancelled', label: 'Cancelled' }
+                                      ]}
+                                      placeholder="Select Status"
                                       style={{ height: '40px' }}
-                                    >
-                                      <option value="planned">Planned</option>
-                                      <option value="completed">Completed</option>
-                                      <option value="cancelled">Cancelled</option>
-                                    </select>
+                                    />
                                   </div>
                                 )}
                               </div>
@@ -5634,7 +5222,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   <div className="space-y-6 animate-fade-in">
                     <div className="pb-1">
                       <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
-                        Narrative Reports Queue
+                        Narrative Reports
                       </h1>
                     </div>
 
@@ -5651,7 +5239,7 @@ export default function AdminDashboard({ user, onLogout }) {
                         >
                           <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-2">
                             <h3 className="font-bold text-navy-blue text-sm">
-                              Pending Review Queue
+                              Pending Review
                             </h3>
                             <button
                               onClick={() => setReportsSubTab('approved')}
@@ -5684,11 +5272,10 @@ export default function AdminDashboard({ user, onLogout }) {
                                     <div className="space-y-1">
                                       <div className="flex items-center space-x-2">
                                         <span
-                                          className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                                            rep.status === 'submitted'
-                                              ? 'bg-amber-100 text-amber-800'
-                                              : 'bg-red-100 text-red-800'
-                                          }`}
+                                          className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${rep.status === 'submitted'
+                                            ? 'bg-amber-100 text-amber-800'
+                                            : 'bg-red-100 text-red-800'
+                                            }`}
                                         >
                                           {rep.status}
                                         </span>
@@ -5734,10 +5321,10 @@ export default function AdminDashboard({ user, onLogout }) {
                             {reportsList.filter(
                               (r) => r.status === 'submitted' || r.status === 'returned'
                             ).length === 0 && (
-                              <div className="text-center py-8 text-gray-400 text-xs">
-                                No reports pending review.
-                              </div>
-                            )}
+                                <div className="text-center py-8 text-gray-400 text-xs">
+                                  No reports pending review.
+                                </div>
+                              )}
                           </div>
                         </motion.div>
                       ) : (
@@ -6490,7 +6077,7 @@ export default function AdminDashboard({ user, onLogout }) {
           <div className="fixed inset-0 glass-modal-overlay flex items-center justify-center p-4 z-50 animate-fade-in">
             <div className="glass-modal rounded-2xl p-6 max-w-4xl w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto animate-fade-in-scale">
               <div className="flex items-center justify-between border-b border-gray-200/60 pb-3 text-left">
-                <h3 className="font-bold text-navy-blue text-base">Register Donation Batch</h3>
+                <h3 className="font-bold text-navy-blue text-base">Record Donation</h3>
                 <button
                   type="button"
                   onClick={handleCloseDonationModal}
@@ -6501,7 +6088,7 @@ export default function AdminDashboard({ user, onLogout }) {
               </div>
 
               <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3 mb-4">
-                Log Donation Batch
+                Log Donation
               </h3>
 
               <form onSubmit={handleCreateDonation} className="space-y-4">
@@ -6773,119 +6360,58 @@ export default function AdminDashboard({ user, onLogout }) {
                               <label className="block text-gray-700 text-xs font-semibold mb-1">
                                 Item Name
                               </label>
-                              <div className="relative">
-                                <input
-                                  type="text"
-                                  value={item.name}
-                                  onChange={(e) => {
-                                    handleDonItemChange(idx, 'name', e.target.value)
-                                    setDonErrors((prev) => {
-                                      const copy = { ...prev }
-                                      if (copy.items && copy.items[idx]) {
-                                        copy.items = [...copy.items]
-                                        copy.items[idx] = { ...copy.items[idx] }
-                                        delete copy.items[idx].name
-                                      }
-                                      return copy
-                                    })
-                                    setActiveDonItemSuggestionsIdx(idx)
-                                  }}
-                                  onFocus={() => setActiveDonItemSuggestionsIdx(idx)}
-                                  onBlur={() =>
-                                    setTimeout(() => setActiveDonItemSuggestionsIdx(null), 200)
+                              <SearchableDropdown
+                                value={item.name}
+                                onChange={(val) => {
+                                  const list = [...donItems]
+                                  list[idx].name = val
+                                  const originalItem = inventoryList.find(
+                                    (invItem) => invItem.name === val &&
+                                    !deletedItemNames.includes(invItem.name.toLowerCase().trim())
+                                  )
+                                  if (originalItem) {
+                                    list[idx].category = originalItem.category || ''
+                                    list[idx].unit = originalItem.unit || ''
+                                    list[idx].piecesPerUnit =
+                                      originalItem.piecesPerUnit
+                                        ? originalItem.piecesPerUnit.toString()
+                                        : ''
+                                    list[idx].groupUnit =
+                                      originalItem.groupUnit || 'none'
                                   }
-                                  placeholder="e.g. Corned Beef, Notebooks"
-                                  className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${donErrors?.items?.[idx]?.name ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                  style={{ height: '40px' }}
-                                />
-                                {donErrors?.items?.[idx]?.name && (
-                                  <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                    {donErrors.items[idx].name}
-                                  </p>
-                                )}
-                                {activeDonItemSuggestionsIdx === idx && item.name && (
-                                  <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                    {(() => {
-                                      const matching = inventoryList.filter(
-                                        (invItem) =>
-                                          invItem.name
-                                            .toLowerCase()
-                                            .includes(item.name.toLowerCase()) &&
-                                          !deletedItemNames.includes(
-                                            invItem.name.toLowerCase().trim()
-                                          )
+                                  setDonItems(list)
+                                  setDonErrors((prev) => {
+                                    const copy = { ...prev }
+                                    if (copy.items && copy.items[idx]) {
+                                      copy.items = [...copy.items]
+                                      copy.items[idx] = {}
+                                    }
+                                    return copy
+                                  })
+                                }}
+                                options={(() => {
+                                  const matching = inventoryList.filter(
+                                    (invItem) =>
+                                      !deletedItemNames.includes(
+                                        invItem.name.toLowerCase().trim()
                                       )
-                                      const uniqueNames = [
-                                        ...new Set(matching.map((invItem) => invItem.name))
-                                      ]
-                                      if (uniqueNames.length === 0) return null
-                                      return (
-                                        <div className="py-1">
-                                          {uniqueNames.map((name) => {
-                                            const originalItem = matching.find(
-                                              (invItem) => invItem.name === name
-                                            )
-                                            return (
-                                              <div
-                                                key={name}
-                                                onMouseDown={(e) => e.preventDefault()}
-                                                onClick={() => {
-                                                  const list = [...donItems]
-                                                  list[idx].name = name
-                                                  if (originalItem) {
-                                                    list[idx].category = originalItem.category || ''
-                                                    list[idx].unit = originalItem.unit || ''
-                                                    list[idx].piecesPerUnit =
-                                                      originalItem.piecesPerUnit
-                                                        ? originalItem.piecesPerUnit.toString()
-                                                        : ''
-                                                    list[idx].groupUnit =
-                                                      originalItem.groupUnit || 'none'
-                                                  }
-                                                  setDonItems(list)
-                                                  setDonErrors((prev) => {
-                                                    const copy = { ...prev }
-                                                    if (copy.items && copy.items[idx]) {
-                                                      copy.items = [...copy.items]
-                                                      copy.items[idx] = {}
-                                                    }
-                                                    return copy
-                                                  })
-                                                  setActiveDonItemSuggestionsIdx(null)
-                                                }}
-                                                className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left animate-fade-in"
-                                              >
-                                                <span className="truncate">
-                                                  {name}{' '}
-                                                  {originalItem?.category && (
-                                                    <span className="text-[10px] text-gray-400 font-normal">
-                                                      ({originalItem.category})
-                                                    </span>
-                                                  )}
-                                                </span>
-                                                <button
-                                                  type="button"
-                                                  onMouseDown={(e) => {
-                                                    e.preventDefault()
-                                                    e.stopPropagation()
-                                                  }}
-                                                  onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    handleDeleteItemName(name)
-                                                  }}
-                                                  className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100 shrink-0 ml-2"
-                                                >
-                                                  <X className="w-3 h-3" />
-                                                </button>
-                                              </div>
-                                            )
-                                          })}
-                                        </div>
-                                      )
-                                    })()}
-                                  </div>
-                                )}
-                              </div>
+                                  )
+                                  const uniqueNames = [
+                                    ...new Set(matching.map((invItem) => invItem.name))
+                                  ]
+                                  return uniqueNames.map(name => {
+                                    const originalItem = matching.find(invItem => invItem.name === name)
+                                    return {
+                                      id: name,
+                                      name: name,
+                                      abbreviation: originalItem?.category || ''
+                                    }
+                                  })
+                                })()}
+                                allowCustom={true}
+                                placeholder="e.g. Corned Beef, Notebooks"
+                                className={donErrors?.items?.[idx]?.name ? 'border-red-500 ring-2 ring-red-500/10' : ''}
+                              />
                             </div>
 
                             {/* Category Searchable Dropdown */}
@@ -6893,113 +6419,25 @@ export default function AdminDashboard({ user, onLogout }) {
                               <label className="block text-gray-700 text-xs font-semibold mb-1">
                                 Category
                               </label>
-                              <div className="relative">
-                                <input
-                                  type="text"
-                                  value={item.category}
-                                  onFocus={() => {
-                                    prevDonCategoryRef.current = {
-                                      idx,
-                                      value: item.category
+                              <SearchableDropdown
+                                value={item.category}
+                                onChange={(val) => {
+                                  handleDonItemChange(idx, 'category', val)
+                                  setDonErrors((prev) => {
+                                    const copy = { ...prev }
+                                    if (copy.items && copy.items[idx]) {
+                                      copy.items = [...copy.items]
+                                      copy.items[idx] = { ...copy.items[idx] }
+                                      delete copy.items[idx].category
                                     }
-                                    handleDonItemChange(idx, 'category', '')
-                                    setActiveDonItemCategoryIdx(idx)
-                                  }}
-                                  onBlur={() =>
-                                    setTimeout(() => {
-                                      setActiveDonItemCategoryIdx(null)
-                                      if (prevDonCategoryRef.current.idx === idx) {
-                                        const currentItem = donItems[idx]
-                                        if (currentItem) {
-                                          handleDonItemChange(
-                                            idx,
-                                            'category',
-                                            currentItem.category
-                                              ? currentItem.category
-                                              : prevDonCategoryRef.current.value
-                                          )
-                                        }
-                                      }
-                                    }, 200)
-                                  }
-                                  onChange={(e) => {
-                                    handleDonItemChange(idx, 'category', e.target.value)
-                                    setDonErrors((prev) => {
-                                      const copy = { ...prev }
-                                      if (copy.items && copy.items[idx]) {
-                                        copy.items = [...copy.items]
-                                        copy.items[idx] = { ...copy.items[idx] }
-                                        delete copy.items[idx].category
-                                      }
-                                      return copy
-                                    })
-                                  }}
-                                  placeholder="Select or type category"
-                                  className={`w-full pl-2.5 pr-16 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${donErrors?.items?.[idx]?.category ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                  style={{ height: '40px' }}
-                                />
-                                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
-                                  {item.category && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        handleDonItemChange(idx, 'category', '')
-                                        prevDonCategoryRef.current = { idx, value: '' }
-                                      }}
-                                      className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100"
-                                      tabIndex={-1}
-                                    >
-                                      <X className="w-3.5 h-3.5" />
-                                    </button>
-                                  )}
-                                  <div className="pointer-events-none text-gray-400">
-                                    <ChevronRight className="w-4 h-4 transform rotate-90" />
-                                  </div>
-                                </div>
-                                {activeDonItemCategoryIdx === idx &&
-                                  activeCategories.filter(
-                                    (cat) =>
-                                      !item.category ||
-                                      cat.toLowerCase().includes(item.category.toLowerCase())
-                                  ).length > 0 && (
-                                    <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                      {activeCategories
-                                        .filter(
-                                          (cat) =>
-                                            !item.category ||
-                                            cat.toLowerCase().includes(item.category.toLowerCase())
-                                        )
-                                        .map((cat) => (
-                                          <div
-                                            key={cat}
-                                            onMouseDown={(e) => e.preventDefault()}
-                                            onClick={() => {
-                                              handleDonItemChange(idx, 'category', cat)
-                                              prevDonCategoryRef.current = { idx, value: cat }
-                                              setDonErrors((prev) => {
-                                                const copy = { ...prev }
-                                                if (copy.items && copy.items[idx]) {
-                                                  copy.items = [...copy.items]
-                                                  copy.items[idx] = { ...copy.items[idx] }
-                                                  delete copy.items[idx].category
-                                                }
-                                                return copy
-                                              })
-                                              setActiveDonItemCategoryIdx(null)
-                                            }}
-                                            className="flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
-                                          >
-                                            <span className="truncate">{cat}</span>
-                                          </div>
-                                        ))}
-                                    </div>
-                                  )}
-                              </div>
-                              {donErrors?.items?.[idx]?.category && (
-                                <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                  {donErrors.items[idx].category}
-                                </p>
-                              )}
+                                    return copy
+                                  })
+                                }}
+                                options={activeCategories}
+                                allowCustom={true}
+                                placeholder="Select or type category"
+                                className={donErrors?.items?.[idx]?.category ? 'border-red-500 ring-2 ring-red-500/10' : ''}
+                              />
                             </div>
 
                             {/* Unit Searchable Dropdown */}
@@ -7007,110 +6445,25 @@ export default function AdminDashboard({ user, onLogout }) {
                               <label className="block text-gray-700 text-xs font-semibold mb-1">
                                 Unit
                               </label>
-                              <div className="relative">
-                                <input
-                                  type="text"
-                                  value={item.unit}
-                                  onFocus={() => {
-                                    prevDonUnitRef.current = { idx, value: item.unit }
-                                    handleDonItemChange(idx, 'unit', '')
-                                    setActiveDonItemUnitIdx(idx)
-                                  }}
-                                  onBlur={() =>
-                                    setTimeout(() => {
-                                      setActiveDonItemUnitIdx(null)
-                                      if (prevDonUnitRef.current.idx === idx) {
-                                        const currentItem = donItems[idx]
-                                        if (currentItem) {
-                                          handleDonItemChange(
-                                            idx,
-                                            'unit',
-                                            currentItem.unit
-                                              ? currentItem.unit
-                                              : prevDonUnitRef.current.value
-                                          )
-                                        }
-                                      }
-                                    }, 200)
-                                  }
-                                  onChange={(e) => {
-                                    handleDonItemChange(idx, 'unit', e.target.value)
-                                    setDonErrors((prev) => {
-                                      const copy = { ...prev }
-                                      if (copy.items && copy.items[idx]) {
-                                        copy.items = [...copy.items]
-                                        copy.items[idx] = { ...copy.items[idx] }
-                                        delete copy.items[idx].unit
-                                      }
-                                      return copy
-                                    })
-                                  }}
-                                  placeholder="Select or type unit"
-                                  className={`w-full pl-2.5 pr-16 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${donErrors?.items?.[idx]?.unit ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                  style={{ height: '40px' }}
-                                />
-                                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
-                                  {item.unit && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        handleDonItemChange(idx, 'unit', '')
-                                        prevDonUnitRef.current = { idx, value: '' }
-                                      }}
-                                      className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100"
-                                      tabIndex={-1}
-                                    >
-                                      <X className="w-3.5 h-3.5" />
-                                    </button>
-                                  )}
-                                  <div className="pointer-events-none text-gray-400">
-                                    <ChevronRight className="w-4 h-4 transform rotate-90" />
-                                  </div>
-                                </div>
-                                {activeDonItemUnitIdx === idx &&
-                                  activeUnits.filter(
-                                    (u) =>
-                                      !item.unit ||
-                                      u.toLowerCase().includes(item.unit.toLowerCase())
-                                  ).length > 0 && (
-                                    <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                      {activeUnits
-                                        .filter(
-                                          (u) =>
-                                            !item.unit ||
-                                            u.toLowerCase().includes(item.unit.toLowerCase())
-                                        )
-                                        .map((u) => (
-                                          <div
-                                            key={u}
-                                            onMouseDown={(e) => e.preventDefault()}
-                                            onClick={() => {
-                                              handleDonItemChange(idx, 'unit', u)
-                                              prevDonUnitRef.current = { idx, value: u }
-                                              setDonErrors((prev) => {
-                                                const copy = { ...prev }
-                                                if (copy.items && copy.items[idx]) {
-                                                  copy.items = [...copy.items]
-                                                  copy.items[idx] = { ...copy.items[idx] }
-                                                  delete copy.items[idx].unit
-                                                }
-                                                return copy
-                                              })
-                                              setActiveDonItemUnitIdx(null)
-                                            }}
-                                            className="flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold capitalize text-left"
-                                          >
-                                            <span className="truncate">{u}</span>
-                                          </div>
-                                        ))}
-                                    </div>
-                                  )}
-                              </div>
-                              {donErrors?.items?.[idx]?.unit && (
-                                <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                  {donErrors.items[idx].unit}
-                                </p>
-                              )}
+                              <SearchableDropdown
+                                value={item.unit}
+                                onChange={(val) => {
+                                  handleDonItemChange(idx, 'unit', val)
+                                  setDonErrors((prev) => {
+                                    const copy = { ...prev }
+                                    if (copy.items && copy.items[idx]) {
+                                      copy.items = [...copy.items]
+                                      copy.items[idx] = { ...copy.items[idx] }
+                                      delete copy.items[idx].unit
+                                    }
+                                    return copy
+                                  })
+                                }}
+                                options={activeUnits}
+                                allowCustom={true}
+                                placeholder="Select or type unit"
+                                className={donErrors?.items?.[idx]?.unit ? 'border-red-500 ring-2 ring-red-500/10' : ''}
+                              />
                             </div>
 
                             {/* Quantity */}
@@ -7118,92 +6471,25 @@ export default function AdminDashboard({ user, onLogout }) {
                               <label className="block text-gray-700 text-xs font-semibold mb-1">
                                 Quantity
                               </label>
-                              <div className="relative">
-                                <input
-                                  type="text"
-                                  value={item.quantity}
-                                  onFocus={() => {
-                                    prevDonQtyRef.current = { idx, value: item.quantity }
-                                    handleDonItemChange(idx, 'quantity', '')
-                                    setActiveDonItemQtyIdx(idx)
-                                  }}
-                                  onBlur={() =>
-                                    setTimeout(() => {
-                                      setActiveDonItemQtyIdx(null)
-                                      if (prevDonQtyRef.current.idx === idx) {
-                                        const currentItem = donItems[idx]
-                                        if (currentItem) {
-                                          handleDonItemChange(
-                                            idx,
-                                            'quantity',
-                                            currentItem.quantity
-                                              ? currentItem.quantity
-                                              : prevDonQtyRef.current.value
-                                          )
-                                        }
-                                      }
-                                    }, 200)
-                                  }
-                                  onChange={(e) => {
-                                    handleDonItemChange(idx, 'quantity', e.target.value)
-                                    setDonErrors((prev) => {
-                                      const copy = { ...prev }
-                                      if (copy.items && copy.items[idx]) {
-                                        copy.items = [...copy.items]
-                                        copy.items[idx] = { ...copy.items[idx] }
-                                        delete copy.items[idx].quantity
-                                      }
-                                      return copy
-                                    })
-                                  }}
-                                  placeholder="Select or enter quantity"
-                                  className={`w-full pl-2.5 pr-8 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${donErrors?.items?.[idx]?.quantity ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                  style={{ height: '40px' }}
-                                />
-                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                  <ChevronRight className="w-4 h-4 transform rotate-90" />
-                                </div>
-                                {activeDonItemQtyIdx === idx && (
-                                  <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                    {[5, 10, 20, 50, 100, 250, 500]
-                                      .filter(
-                                        (q) =>
-                                          !item.quantity || q.toString().includes(item.quantity)
-                                      )
-                                      .map((q) => (
-                                        <div
-                                          key={q}
-                                          onMouseDown={(e) => e.preventDefault()}
-                                          onClick={() => {
-                                            handleDonItemChange(idx, 'quantity', q.toString())
-                                            prevDonQtyRef.current = {
-                                              idx,
-                                              value: q.toString()
-                                            }
-                                            setDonErrors((prev) => {
-                                              const copy = { ...prev }
-                                              if (copy.items && copy.items[idx]) {
-                                                copy.items = [...copy.items]
-                                                copy.items[idx] = { ...copy.items[idx] }
-                                                delete copy.items[idx].quantity
-                                              }
-                                              return copy
-                                            })
-                                            setActiveDonItemQtyIdx(null)
-                                          }}
-                                          className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
-                                        >
-                                          {q}
-                                        </div>
-                                      ))}
-                                  </div>
-                                )}
-                              </div>
-                              {donErrors?.items?.[idx]?.quantity && (
-                                <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                  {donErrors.items[idx].quantity}
-                                </p>
-                              )}
+                              <SearchableDropdown
+                                value={item.quantity}
+                                onChange={(val) => {
+                                  handleDonItemChange(idx, 'quantity', val)
+                                  setDonErrors((prev) => {
+                                    const copy = { ...prev }
+                                    if (copy.items && copy.items[idx]) {
+                                      copy.items = [...copy.items]
+                                      copy.items[idx] = { ...copy.items[idx] }
+                                      delete copy.items[idx].quantity
+                                    }
+                                    return copy
+                                  })
+                                }}
+                                options={[5, 10, 20, 50, 100, 250, 500]}
+                                allowCustom={true}
+                                placeholder="Select or enter quantity"
+                                className={donErrors?.items?.[idx]?.quantity ? 'border-red-500 ring-2 ring-red-500/10' : ''}
+                              />
                             </div>
 
                             {/* Pieces per Unit (if Unit is already pack/box/bundle) */}
@@ -7247,7 +6533,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                 <label className="block text-gray-700 text-xs font-semibold mb-1">
                                   Group stock into (Optional)
                                 </label>
-                                <select
+                                <CustomSelect
                                   value={item.groupUnit}
                                   onChange={(e) => {
                                     const list = [...donItems]
@@ -7259,14 +6545,15 @@ export default function AdminDashboard({ user, onLogout }) {
                                     }
                                     setDonItems(list)
                                   }}
-                                  className="w-full px-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue cursor-pointer"
+                                  options={[
+                                    { value: 'none', label: 'Do not group (Individual pieces)' },
+                                    { value: 'pack', label: 'Packs' },
+                                    { value: 'box', label: 'Boxes' },
+                                    { value: 'bundle', label: 'Bundles' }
+                                  ]}
+                                  placeholder="Do not group"
                                   style={{ height: '40px' }}
-                                >
-                                  <option value="none">Do not group (Individual pieces)</option>
-                                  <option value="pack">Packs</option>
-                                  <option value="box">Boxes</option>
-                                  <option value="bundle">Bundles</option>
-                                </select>
+                                />
                               </div>
                             )}
 
@@ -7360,7 +6647,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center justify-center cursor-pointer"
                   style={{ height: '42px' }}
                 >
-                  {loading ? 'Registering Batch...' : 'Register Donation Batch'}
+                  {loading ? 'Adding Donations...' : 'Add Donation'}
                 </button>
               </form>
             </div>
@@ -7391,7 +6678,7 @@ export default function AdminDashboard({ user, onLogout }) {
         <form onSubmit={handleSaveUser} className="space-y-4 text-left">
           <div>
             <label className="block text-navy-blue text-xs font-semibold mb-1">Role</label>
-            <select
+            <CustomSelect
               value={coordRole}
               onChange={(e) => {
                 setCoordRole(e.target.value)
@@ -7401,11 +6688,13 @@ export default function AdminDashboard({ user, onLogout }) {
                   return copy
                 })
               }}
-              className={`w-full px-3 py-2 text-xs glass-input rounded-xl focus:outline-none font-semibold text-navy-blue ${coordErrors.coordRole ? 'border-red-500 ring-2 ring-red-500/10' : ''}`}
-            >
-              <option value="admin">Admin</option>
-              <option value="office_coordinator">Office Coordinator</option>
-            </select>
+              options={[
+                { value: 'admin', label: 'Admin' },
+                { value: 'office_coordinator', label: 'Office Coordinator' }
+              ]}
+              placeholder="Select Role"
+              error={!!coordErrors.coordRole}
+            />
             {coordErrors.coordRole && (
               <p className="text-red-500 text-[10px] mt-1 font-semibold">{coordErrors.coordRole}</p>
             )}
