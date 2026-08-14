@@ -117,6 +117,7 @@ import {
   Redo2,
   Settings,
   ChevronLeft,
+  ChevronDown,
   Home,
   Layers
 } from 'lucide-react'
@@ -624,10 +625,24 @@ export default function AdminDashboard({ user, onLogout }) {
   const [orgName, setOrgName] = useState('')
   const [orgAbbr, setOrgAbbr] = useState('')
   const [orgDesc, setOrgDesc] = useState('')
+  const [orgLogo, setOrgLogo] = useState('')
+  const [orgDepartmentId, setOrgDepartmentId] = useState('')
   const [orgSearchQuery, setOrgSearchQuery] = useState('')
   const [selectedOrgSubTab, setSelectedOrgSubTab] = useState('department')
   const [deptLogo, setDeptLogo] = useState('')
   const [deptCoordinatorId, setDeptCoordinatorId] = useState('')
+  const [isAddDropdownOpen, setIsAddDropdownOpen] = useState(false)
+  const addOrgDropdownRef = useRef(null)
+
+  useEffect(() => {
+    function handleClickOutsideOrgDropdown(event) {
+      if (addOrgDropdownRef.current && !addOrgDropdownRef.current.contains(event.target)) {
+        setIsAddDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutsideOrgDropdown)
+    return () => document.removeEventListener('mousedown', handleClickOutsideOrgDropdown)
+  }, [])
 
   // Organization Activity Tracker States
   const [trackerDeptFilter, setTrackerDeptFilter] = useState('all')
@@ -1564,9 +1579,11 @@ export default function AdminDashboard({ user, onLogout }) {
     const isEditing = editingOrg !== null
     const determinedType = isEditing
       ? editingOrg.type || 'department'
-      : selectedOrgSubTab === 'department'
-        ? 'department'
-        : 'organization'
+      : isAddOrgModalOpen
+        ? 'organization'
+        : selectedOrgSubTab === 'organization'
+          ? 'organization'
+          : 'department'
 
     const upperAbbr = orgAbbr.toUpperCase().trim()
     let finalOrgId = orgId
@@ -1575,8 +1592,22 @@ export default function AdminDashboard({ user, onLogout }) {
     if (!orgName.trim()) errors.orgName = 'Name is required.'
     if (!upperAbbr) errors.orgAbbr = 'Abbreviation is required.'
 
-    // Check unique department name
-    if (determinedType === 'department') {
+    if (determinedType === 'organization') {
+      if (!orgDesc.trim()) errors.orgDesc = 'Description is required.'
+      if (!orgLogo) errors.orgLogo = 'Organization logo is required.'
+
+      // Check unique organization name
+      const duplicateOrg = orgsList.find(
+        (org) =>
+          org.id !== (isEditing ? editingOrg.id : null) &&
+          org.type === 'organization' &&
+          isFuzzyDuplicate(org.name, orgName)
+      )
+      if (duplicateOrg) {
+        errors.orgName = `The organization name "${duplicateOrg.name}" is already in use.`
+      }
+    } else {
+      // Check unique department name
       const duplicateDept = orgsList.find(
         (org) =>
           org.id !== (isEditing ? editingOrg.id : null) &&
@@ -1615,14 +1646,18 @@ export default function AdminDashboard({ user, onLogout }) {
       if (isEditing) {
         // If updating
         const updates = {
-          name: orgName,
+          name: orgName.trim(),
           abbreviation: upperAbbr,
-          description: orgDesc,
+          description: orgDesc.trim(),
           type: determinedType
         }
         if (determinedType === 'department') {
           updates.logo = deptLogo || null
           updates.coordinatorId = deptCoordinatorId || null
+        } else {
+          updates.logo = orgLogo || null
+          updates.departmentId = orgDepartmentId || null
+          updates.parentDepartmentId = orgDepartmentId || null
         }
         await updateOrganization(editingOrg.id, updates)
 
@@ -1636,14 +1671,18 @@ export default function AdminDashboard({ user, onLogout }) {
         // If registering new
         const newOrg = {
           id: finalOrgId,
-          name: orgName,
+          name: orgName.trim(),
           abbreviation: upperAbbr,
-          description: orgDesc,
+          description: orgDesc.trim(),
           type: determinedType
         }
         if (determinedType === 'department') {
           newOrg.logo = deptLogo || null
           newOrg.coordinatorId = deptCoordinatorId || null
+        } else {
+          newOrg.logo = orgLogo || null
+          newOrg.departmentId = orgDepartmentId || null
+          newOrg.parentDepartmentId = orgDepartmentId || null
         }
         await addOrganization(newOrg)
 
@@ -1660,6 +1699,8 @@ export default function AdminDashboard({ user, onLogout }) {
       setOrgAbbr('')
       setOrgDesc('')
       setDeptLogo('')
+      setOrgLogo('')
+      setOrgDepartmentId('')
       setDeptCoordinatorId('')
       setOrgErrors({})
       setDeptErrors({})
@@ -1680,6 +1721,8 @@ export default function AdminDashboard({ user, onLogout }) {
     setOrgAbbr(org.abbreviation)
     setOrgDesc(org.description || '')
     setDeptLogo(org.logo || '')
+    setOrgLogo(org.logo || '')
+    setOrgDepartmentId(org.departmentId || org.parentDepartmentId || '')
     setDeptCoordinatorId(org.coordinatorId || '')
     setOrgErrors({})
     setDeptErrors({})
@@ -1697,6 +1740,8 @@ export default function AdminDashboard({ user, onLogout }) {
     setOrgAbbr('')
     setOrgDesc('')
     setDeptLogo('')
+    setOrgLogo('')
+    setOrgDepartmentId('')
     setDeptCoordinatorId('')
     setOrgErrors({})
     setDeptErrors({})
@@ -1823,8 +1868,7 @@ export default function AdminDashboard({ user, onLogout }) {
     if (!evtDate) errors.evtDate = 'Schedule date is required.'
     if (!evtLoc.trim()) errors.evtLoc = 'Target location is required.'
     if (isOrg) {
-      if (!evtOrgName.trim()) errors.evtOrgName = 'Organization/Club Name is required.'
-      if (!evtParentDeptId) errors.evtParentDeptId = 'Parent Department is required.'
+      if (!evtOrgId) errors.evtOrgId = 'Assigned Organization is required.'
     } else {
       if (!evtOrgId) errors.evtOrgId = 'Assigned Department is required.'
     }
@@ -1836,15 +1880,18 @@ export default function AdminDashboard({ user, onLogout }) {
 
     setLoading(true)
     try {
+      const selectedOrg = orgsList.find((o) => o.id === evtOrgId)
       const payload = {
-        name: evtName,
-        description: evtDesc,
+        name: evtName.trim(),
+        description: evtDesc.trim(),
         scheduleDate: new Date(evtDate).toISOString(),
-        location: evtLoc,
-        assignedOrganizationId: isOrg ? evtParentDeptId : evtOrgId,
+        location: evtLoc.trim(),
+        assignedOrganizationId: evtOrgId,
         eventType: evtType,
-        organizationName: isOrg ? evtOrgName : null,
-        parentDepartmentId: isOrg ? evtParentDeptId : null
+        organizationName: isOrg ? (selectedOrg ? selectedOrg.name : '') : null,
+        parentDepartmentId: isOrg
+          ? selectedOrg?.departmentId || selectedOrg?.parentDepartmentId || null
+          : null
       }
 
       if (editingEvent) {
@@ -4309,7 +4356,14 @@ export default function AdminDashboard({ user, onLogout }) {
                                   <CustomSelect
                                     value={evtType}
                                     onChange={(e) => {
-                                      setEvtType(e.target.value)
+                                      const nextType = e.target.value
+                                      setEvtType(nextType)
+                                      setEvtOrgId('')
+                                      setEvtErrors((prev) => {
+                                        const copy = { ...prev }
+                                        delete copy.evtOrgId
+                                        return copy
+                                      })
                                       clearFieldValError('evtType')
                                     }}
                                     options={[
@@ -4322,64 +4376,37 @@ export default function AdminDashboard({ user, onLogout }) {
                                 </div>
 
                                 {evtType === 'organization' ? (
-                                  <>
-                                    <div>
-                                      <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                        Organization Name
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={evtOrgName}
-                                        onChange={(e) => {
-                                          setEvtOrgName(e.target.value)
-                                          setEvtErrors((prev) => {
-                                            const copy = { ...prev }
-                                            delete copy.evtOrgName
-                                            return copy
-                                          })
-                                        }}
-                                        placeholder="Organization Name"
-                                        className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${evtErrors.evtOrgName ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                        style={{ height: '40px' }}
-                                      />
-                                      {evtErrors.evtOrgName && (
-                                        <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                          {evtErrors.evtOrgName}
-                                        </p>
+                                  <div>
+                                    <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                      Assigned Organization
+                                    </label>
+                                    <SearchableDropdown
+                                      value={evtOrgId}
+                                      onChange={(val) => {
+                                        setEvtOrgId(val)
+                                        setEvtErrors((prev) => {
+                                          const copy = { ...prev }
+                                          delete copy.evtOrgId
+                                          return copy
+                                        })
+                                      }}
+                                      options={orgsList.filter(
+                                        (o) => o.type === 'organization'
                                       )}
-                                    </div>
-                                    <div>
-                                      <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                        Assigned Department
-                                      </label>
-                                      <SearchableDropdown
-                                        value={evtParentDeptId}
-                                        onChange={(val) => {
-                                          setEvtParentDeptId(val)
-                                          setEvtErrors((prev) => {
-                                            const copy = { ...prev }
-                                            delete copy.evtParentDeptId
-                                            return copy
-                                          })
-                                        }}
-                                        options={orgsList.filter(
-                                          (o) => o.type === 'department' || !o.type
-                                        )}
-                                        onDelete={(o) => handleDeleteOrg(o.id)}
-                                        placeholder="Select department..."
-                                        className={
-                                          evtErrors.evtParentDeptId
-                                            ? 'border-red-500 ring-2 ring-red-500/10'
-                                            : ''
-                                        }
-                                      />
-                                      {evtErrors.evtParentDeptId && (
-                                        <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                          {evtErrors.evtParentDeptId}
-                                        </p>
-                                      )}
-                                    </div>
-                                  </>
+                                      onDelete={(o) => handleDeleteOrg(o.id)}
+                                      placeholder="Select organization..."
+                                      className={
+                                        evtErrors.evtOrgId
+                                          ? 'border-red-500 ring-2 ring-red-500/10'
+                                          : ''
+                                      }
+                                    />
+                                    {evtErrors.evtOrgId && (
+                                      <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                        {evtErrors.evtOrgId}
+                                      </p>
+                                    )}
+                                  </div>
                                 ) : (
                                   <div>
                                     <label className="block text-gray-700 text-xs font-semibold mb-1">
@@ -4484,125 +4511,297 @@ export default function AdminDashboard({ user, onLogout }) {
                         </h1>
                       </div>
 
-                      {/* Top-Right Add Buttons */}
-                      {selectedOrgSubTab === 'department' && (
-                        <button
-                          onClick={() => {
-                            handleCancelOrgEdit()
-                            setIsAddDeptModalOpen(true)
-                          }}
-                          className="flex items-center gap-1.5 bg-navy-blue text-white rounded-full text-xs font-semibold px-4 py-2.5 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition-all duration-150 cursor-pointer self-start sm:self-auto"
-                        >
-                          <Plus className="w-3.5 h-3.5" /> Add
-                        </button>
+                      {/* Top-Right Add New Dropdown Button */}
+                      {(selectedOrgSubTab === 'department' ||
+                        selectedOrgSubTab === 'organization') && (
+                        <div className="relative self-start sm:self-auto" ref={addOrgDropdownRef}>
+                          <button
+                            type="button"
+                            onClick={() => setIsAddDropdownOpen((prev) => !prev)}
+                            className="flex items-center gap-1.5 bg-navy-blue text-white rounded-full text-xs font-semibold px-4 py-2.5 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition-all duration-150 cursor-pointer shadow-xs"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add New</span>
+                            <ChevronDown
+                              className={`w-3.5 h-3.5 transition-transform duration-200 ${isAddDropdownOpen ? 'rotate-180' : ''}`}
+                            />
+                          </button>
+
+                          <AnimatePresence>
+                            {isAddDropdownOpen && (
+                              <motion.div
+                                initial={{ opacity: 0, y: -5, scale: 0.95 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: -5, scale: 0.95 }}
+                                transition={{ duration: 0.15, ease: 'easeOut' }}
+                                className="absolute right-0 top-full mt-2 w-44 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-30 overflow-hidden"
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsAddDropdownOpen(false)
+                                    handleCancelOrgEdit()
+                                    setIsAddOrgModalOpen(true)
+                                  }}
+                                  className="w-full px-4 py-2.5 text-left text-xs font-semibold text-navy-blue hover:bg-navy-blue/5 hover:text-sig-green transition flex items-center gap-2 cursor-pointer"
+                                >
+                                  <Sparkles className="w-3.5 h-3.5 text-sig-green" />
+                                  <span>Organization</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsAddDropdownOpen(false)
+                                    handleCancelOrgEdit()
+                                    setIsAddDeptModalOpen(true)
+                                  }}
+                                  className="w-full px-4 py-2.5 text-left text-xs font-semibold text-navy-blue hover:bg-navy-blue/5 hover:text-sig-green transition flex items-center gap-2 cursor-pointer"
+                                >
+                                  <Users className="w-3.5 h-3.5 text-navy-blue" />
+                                  <span>Department</span>
+                                </button>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
                       )}
                     </div>
 
-                    {/* Department Tab View (Card Grid Layout) & Profile Panel with Motion Transitions */}
-                    <AnimatePresence mode="wait">
-                      {selectedOrgSubTab === 'department' && (
-                        <motion.div
-                          key="department-directory"
-                          variants={pageVariants}
-                          initial="initial"
-                          animate="animate"
-                          exit="exit"
-                          transition={pageTransition}
-                          className="space-y-4"
-                        >
-                          <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                            <h3 className="font-bold text-navy-blue text-sm">
-                              Registered Departments Directory
-                            </h3>
+                    {/* Directory Navigation Bar & Directory Card Grids */}
+                    {(selectedOrgSubTab === 'department' ||
+                      selectedOrgSubTab === 'organization') && (
+                      <div className="space-y-4">
+                        {/* Tab Bar */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-100 pb-3 gap-3">
+                          <div className="flex items-center gap-2 bg-gray-100/80 p-1 rounded-2xl w-fit">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedOrgSubTab('department')}
+                              className={`px-4 py-2 text-xs font-bold rounded-xl transition-all duration-150 cursor-pointer ${
+                                selectedOrgSubTab === 'department'
+                                  ? 'bg-navy-blue text-white shadow-xs'
+                                  : 'text-gray-600 hover:text-navy-blue hover:bg-white/60'
+                              }`}
+                            >
+                              Departments
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedOrgSubTab('organization')}
+                              className={`px-4 py-2 text-xs font-bold rounded-xl transition-all duration-150 cursor-pointer ${
+                                selectedOrgSubTab === 'organization'
+                                  ? 'bg-navy-blue text-white shadow-xs'
+                                  : 'text-gray-600 hover:text-navy-blue hover:bg-white/60'
+                              }`}
+                            >
+                              Organizations
+                            </button>
                           </div>
 
-                          {(() => {
-                            const filtered = orgsList.filter(
-                              (o) => o.type === 'department' || !o.type
-                            )
+                          <h3 className="font-bold text-navy-blue text-sm">
+                            {selectedOrgSubTab === 'department'
+                              ? 'Registered Departments Directory'
+                              : 'Registered Organizations Directory'}
+                          </h3>
+                        </div>
 
-                            if (filtered.length === 0) {
-                              return (
-                                <p className="text-center py-10 text-gray-400 text-xs font-semibold">
-                                  No departments registered yet.
-                                </p>
-                              )
-                            }
+                        {/* Directory Views with Motion Transitions */}
+                        <AnimatePresence mode="wait">
+                          {selectedOrgSubTab === 'department' && (
+                            <motion.div
+                              key="department-directory"
+                              variants={pageVariants}
+                              initial="initial"
+                              animate="animate"
+                              exit="exit"
+                              transition={pageTransition}
+                            >
+                              {(() => {
+                                const filtered = orgsList.filter(
+                                  (o) => o.type === 'department' || !o.type
+                                )
 
-                            return (
-                              <motion.div
-                                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-center max-w-5xl mx-auto py-4"
-                                variants={staggerContainer}
-                                initial="initial"
-                                animate="animate"
-                              >
-                                {filtered.map((org) => {
+                                if (filtered.length === 0) {
                                   return (
-                                    <motion.div
-                                      key={org.id}
-                                      variants={staggerItem}
-                                      whileHover={{ y: -2, scale: 1.01 }}
-                                      whileTap={{ scale: 0.98 }}
-                                      onClick={() => setSelectedOrgSubTab(org.id)}
-                                      className="bg-white rounded-3xl p-8 border border-gray-200/60 shadow-xs hover:shadow-md hover:border-sig-green/45 transition duration-200 cursor-pointer flex flex-col items-center justify-center text-center group space-y-5 relative h-72"
-                                    >
-                                      {/* Centered Logo */}
-                                      <div className="w-32 h-32 flex items-center justify-center overflow-hidden transition-transform duration-200 group-hover:scale-105">
-                                        {org.logo ? (
-                                          <img
-                                            src={org.logo}
-                                            alt={`${org.name} logo`}
-                                            className="w-full h-full object-contain"
-                                          />
-                                        ) : (
-                                          <div className="w-24 h-24 rounded-full bg-navy-blue/5 border border-navy-blue/10 flex items-center justify-center">
-                                            <span className="text-2xl font-bold text-navy-blue/70">
+                                    <p className="text-center py-10 text-gray-400 text-xs font-semibold">
+                                      No departments registered yet.
+                                    </p>
+                                  )
+                                }
+
+                                return (
+                                  <motion.div
+                                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-center max-w-5xl mx-auto py-4"
+                                    variants={staggerContainer}
+                                    initial="initial"
+                                    animate="animate"
+                                  >
+                                    {filtered.map((org) => {
+                                      return (
+                                        <motion.div
+                                          key={org.id}
+                                          variants={staggerItem}
+                                          whileHover={{ y: -2, scale: 1.01 }}
+                                          whileTap={{ scale: 0.98 }}
+                                          onClick={() => setSelectedOrgSubTab(org.id)}
+                                          className="bg-white rounded-3xl p-8 border border-gray-200/60 shadow-xs hover:shadow-md hover:border-sig-green/45 transition duration-200 cursor-pointer flex flex-col items-center justify-center text-center group space-y-5 relative h-72"
+                                        >
+                                          {/* Centered Logo */}
+                                          <div className="w-32 h-32 flex items-center justify-center overflow-hidden transition-transform duration-200 group-hover:scale-105">
+                                            {org.logo ? (
+                                              <img
+                                                src={org.logo}
+                                                alt={`${org.name} logo`}
+                                                className="w-full h-full object-contain"
+                                              />
+                                            ) : (
+                                              <div className="w-24 h-24 rounded-full bg-navy-blue/5 border border-navy-blue/10 flex items-center justify-center">
+                                                <span className="text-2xl font-bold text-navy-blue/70">
+                                                  {org.abbreviation?.toUpperCase()}
+                                                </span>
+                                              </div>
+                                            )}
+                                          </div>
+
+                                          {/* Name below logo */}
+                                          <div className="space-y-1">
+                                            <h4 className="text-xs font-bold text-navy-blue group-hover:text-sig-green transition-colors duration-200 line-clamp-2 leading-tight px-2">
+                                              {org.name}
+                                            </h4>
+                                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">
                                               {org.abbreviation?.toUpperCase()}
                                             </span>
                                           </div>
-                                        )}
-                                      </div>
 
-                                      {/* Name below logo */}
-                                      <div className="space-y-1">
-                                        <h4 className="text-xs font-bold text-navy-blue group-hover:text-sig-green transition-colors duration-200 line-clamp-2 leading-tight px-2">
-                                          {org.name}
-                                        </h4>
-                                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">
-                                          {org.abbreviation?.toUpperCase()}
-                                        </span>
-                                      </div>
+                                          {/* Absolute controls to edit/delete */}
+                                          <div
+                                            className="absolute top-4 right-4 flex items-center space-x-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <button
+                                              onClick={() => handleEditOrgClick(org)}
+                                              className="p-1.5 text-navy-blue hover:bg-navy-blue/5 rounded-lg cursor-pointer transition"
+                                              title="Edit"
+                                            >
+                                              <Edit2 className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
+                                              onClick={() => handleDeleteOrg(org.id)}
+                                              className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer transition"
+                                              title="Delete"
+                                            >
+                                              <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                          </div>
+                                        </motion.div>
+                                      )
+                                    })}
+                                  </motion.div>
+                                )
+                              })()}
+                            </motion.div>
+                          )}
 
-                                      {/* Absolute controls to edit/delete */}
-                                      <div
-                                        className="absolute top-4 right-4 flex items-center space-x-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200"
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        <button
-                                          onClick={() => handleEditOrgClick(org)}
-                                          className="p-1.5 text-navy-blue hover:bg-navy-blue/5 rounded-lg cursor-pointer transition"
-                                          title="Edit"
-                                        >
-                                          <Edit2 className="w-3.5 h-3.5" />
-                                        </button>
-                                        <button
-                                          onClick={() => handleDeleteOrg(org.id)}
-                                          className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer transition"
-                                          title="Delete"
-                                        >
-                                          <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                      </div>
-                                    </motion.div>
+                          {selectedOrgSubTab === 'organization' && (
+                            <motion.div
+                              key="organization-directory"
+                              variants={pageVariants}
+                              initial="initial"
+                              animate="animate"
+                              exit="exit"
+                              transition={pageTransition}
+                            >
+                              {(() => {
+                                const filtered = orgsList.filter(
+                                  (o) => o.type === 'organization'
+                                )
+
+                                if (filtered.length === 0) {
+                                  return (
+                                    <p className="text-center py-10 text-gray-400 text-xs font-semibold">
+                                      No organizations registered yet.
+                                    </p>
                                   )
-                                })}
-                              </motion.div>
-                            )
-                          })()}
-                        </motion.div>
-                      )}
+                                }
 
-                      {/* Specific Organization / Department Tab Panel Content */}
+                                return (
+                                  <motion.div
+                                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-center max-w-5xl mx-auto py-4"
+                                    variants={staggerContainer}
+                                    initial="initial"
+                                    animate="animate"
+                                  >
+                                    {filtered.map((org) => {
+                                      return (
+                                        <motion.div
+                                          key={org.id}
+                                          variants={staggerItem}
+                                          whileHover={{ y: -2, scale: 1.01 }}
+                                          whileTap={{ scale: 0.98 }}
+                                          onClick={() => setSelectedOrgSubTab(org.id)}
+                                          className="bg-white rounded-3xl p-8 border border-gray-200/60 shadow-xs hover:shadow-md hover:border-sig-green/45 transition duration-200 cursor-pointer flex flex-col items-center justify-center text-center group space-y-5 relative h-72"
+                                        >
+                                          {/* Centered Logo */}
+                                          <div className="w-32 h-32 flex items-center justify-center overflow-hidden transition-transform duration-200 group-hover:scale-105">
+                                            {org.logo ? (
+                                              <img
+                                                src={org.logo}
+                                                alt={`${org.name} logo`}
+                                                className="w-full h-full object-contain"
+                                              />
+                                            ) : (
+                                              <div className="w-24 h-24 rounded-full bg-navy-blue/5 border border-navy-blue/10 flex items-center justify-center">
+                                                <span className="text-2xl font-bold text-navy-blue/70">
+                                                  {org.abbreviation?.toUpperCase()}
+                                                </span>
+                                              </div>
+                                            )}
+                                          </div>
+
+                                          {/* Name below logo */}
+                                          <div className="space-y-1">
+                                            <h4 className="text-xs font-bold text-navy-blue group-hover:text-sig-green transition-colors duration-200 line-clamp-2 leading-tight px-2">
+                                              {org.name}
+                                            </h4>
+                                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">
+                                              {org.abbreviation?.toUpperCase()}
+                                            </span>
+                                          </div>
+
+                                          {/* Absolute controls to edit/delete */}
+                                          <div
+                                            className="absolute top-4 right-4 flex items-center space-x-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <button
+                                              onClick={() => handleEditOrgClick(org)}
+                                              className="p-1.5 text-navy-blue hover:bg-navy-blue/5 rounded-lg cursor-pointer transition"
+                                              title="Edit"
+                                            >
+                                              <Edit2 className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
+                                              onClick={() => handleDeleteOrg(org.id)}
+                                              className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer transition"
+                                              title="Delete"
+                                            >
+                                              <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                          </div>
+                                        </motion.div>
+                                      )
+                                    })}
+                                  </motion.div>
+                                )
+                              })()}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    )}
+
+                    {/* Specific Organization / Department Profile Panel Content */}
+                    <AnimatePresence mode="wait">
                       {selectedOrgSubTab !== 'organization' &&
                         selectedOrgSubTab !== 'department' && (
                           <motion.div
@@ -4624,7 +4823,8 @@ export default function AdminDashboard({ user, onLogout }) {
                                   </p>
                                 )
 
-                              const isDept = selectedOrgObj.type === 'department'
+                              const isDept =
+                                selectedOrgObj.type === 'department' || !selectedOrgObj.type
                               const coord = usersList.find(
                                 (u) =>
                                   u.uid === selectedOrgObj.coordinatorId ||
@@ -4637,7 +4837,8 @@ export default function AdminDashboard({ user, onLogout }) {
                                 const isUnderDept =
                                   isDept &&
                                   e.eventType === 'organization' &&
-                                  e.parentDepartmentId === selectedOrgObj.id
+                                  (e.parentDepartmentId === selectedOrgObj.id ||
+                                    e.assignedOrganizationId === selectedOrgObj.id)
                                 return (isAssigned || isUnderDept) && e.status === 'ongoing'
                               })
                               const upcomingActivities = eventsList.filter((e) => {
@@ -4645,7 +4846,8 @@ export default function AdminDashboard({ user, onLogout }) {
                                 const isUnderDept =
                                   isDept &&
                                   e.eventType === 'organization' &&
-                                  e.parentDepartmentId === selectedOrgObj.id
+                                  (e.parentDepartmentId === selectedOrgObj.id ||
+                                    e.assignedOrganizationId === selectedOrgObj.id)
                                 return (
                                   (isAssigned || isUnderDept) &&
                                   (e.status === 'scheduled' || e.status === 'planned')
@@ -4656,7 +4858,8 @@ export default function AdminDashboard({ user, onLogout }) {
                                 const isUnderDept =
                                   isDept &&
                                   e.eventType === 'organization' &&
-                                  e.parentDepartmentId === selectedOrgObj.id
+                                  (e.parentDepartmentId === selectedOrgObj.id ||
+                                    e.assignedOrganizationId === selectedOrgObj.id)
                                 return (isAssigned || isUnderDept) && e.status === 'completed'
                               })
 
@@ -4664,7 +4867,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                 <div className="space-y-6">
                                   {/* Profile Details Card (Full Width) */}
                                   <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col space-y-4 w-full relative overflow-hidden">
-                                    {isDept && selectedOrgObj.logo && (
+                                    {selectedOrgObj.logo && (
                                       <div className="absolute right-[-10px] bottom-[-26px] w-[500px] h-[270px] opacity-50 pointer-events-none select-none z-0 overflow-hidden">
                                         <img
                                           src={selectedOrgObj.logo}
@@ -4717,21 +4920,19 @@ export default function AdminDashboard({ user, onLogout }) {
                                     <div className="border-b border-gray-100 w-[60%] relative z-10" />
 
                                     <div className="flex flex-col md:flex-row gap-6 items-start md:items-center relative z-10">
-                                      {isDept && (
-                                        <div className="w-24 h-24 rounded-3xl border border-gray-100 bg-gray-50 flex items-center justify-center overflow-hidden shadow-inner shrink-0">
-                                          {selectedOrgObj.logo ? (
-                                            <img
-                                              src={selectedOrgObj.logo}
-                                              alt={`${selectedOrgObj.name} logo`}
-                                              className="w-full h-full object-cover"
-                                            />
-                                          ) : (
-                                            <span className="text-2xl font-bold text-navy-blue/70">
-                                              {selectedOrgObj.abbreviation?.toUpperCase()}
-                                            </span>
-                                          )}
-                                        </div>
-                                      )}
+                                      <div className="w-24 h-24 rounded-3xl border border-gray-100 bg-gray-50 flex items-center justify-center overflow-hidden shadow-inner shrink-0">
+                                        {selectedOrgObj.logo ? (
+                                          <img
+                                            src={selectedOrgObj.logo}
+                                            alt={`${selectedOrgObj.name} logo`}
+                                            className="w-full h-full object-cover"
+                                          />
+                                        ) : (
+                                          <span className="text-2xl font-bold text-navy-blue/70">
+                                            {selectedOrgObj.abbreviation?.toUpperCase()}
+                                          </span>
+                                        )}
+                                      </div>
                                       <div className="flex flex-wrap gap-x-16 gap-y-4 flex-1">
                                         <div>
                                           <p className="text-[10px] uppercase font-bold text-gray-400">
@@ -4762,6 +4963,34 @@ export default function AdminDashboard({ user, onLogout }) {
                                       </p>
                                     </div>
 
+                                    {/* Department link for organizations */}
+                                    {!isDept &&
+                                      (selectedOrgObj.departmentId ||
+                                        selectedOrgObj.parentDepartmentId) && (
+                                        <>
+                                          <div className="w-[45%] border-t border-gray-300 relative z-10" />
+                                          <div className="pt-2 relative z-10">
+                                            <p className="text-[10px] uppercase font-bold text-gray-400">
+                                              Department
+                                            </p>
+                                            <p className="text-xs font-semibold text-navy-blue mt-1">
+                                              {(() => {
+                                                const pDept = orgsList.find(
+                                                  (o) =>
+                                                    o.id ===
+                                                    (selectedOrgObj.departmentId ||
+                                                      selectedOrgObj.parentDepartmentId)
+                                                )
+                                                return pDept
+                                                  ? `${pDept.name} (${pDept.abbreviation?.toUpperCase()})`
+                                                  : 'N/A'
+                                              })()}
+                                            </p>
+                                          </div>
+                                        </>
+                                      )}
+
+                                    {/* Organizations under department */}
                                     {isDept && (
                                       <>
                                         <div className="w-[45%] border-t border-gray-300 relative z-10" />
@@ -4771,8 +5000,16 @@ export default function AdminDashboard({ user, onLogout }) {
                                           </p>
                                           {(() => {
                                             const orgsUnderDept = [
-                                              ...new Set(
-                                                eventsList
+                                              ...new Set([
+                                                ...orgsList
+                                                  .filter(
+                                                    (o) =>
+                                                      o.type === 'organization' &&
+                                                      (o.departmentId === selectedOrgObj.id ||
+                                                        o.parentDepartmentId === selectedOrgObj.id)
+                                                  )
+                                                  .map((o) => o.name),
+                                                ...eventsList
                                                   .filter(
                                                     (evt) =>
                                                       evt.eventType === 'organization' &&
@@ -4780,7 +5017,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                                   )
                                                   .map((evt) => evt.organizationName)
                                                   .filter(Boolean)
-                                              )
+                                              ])
                                             ]
                                             if (orgsUnderDept.length === 0) {
                                               return (
@@ -4809,8 +5046,9 @@ export default function AdminDashboard({ user, onLogout }) {
 
                                   {/* Activities & Statistics (Same Row Grid) */}
                                   <div
-                                    className={`grid grid-cols-1 ${isDept ? 'lg:grid-cols-2' : 'lg:grid-cols-3'
-                                      } gap-6`}
+                                    className={`grid grid-cols-1 ${
+                                      isDept ? 'lg:grid-cols-2' : 'lg:grid-cols-3'
+                                    } gap-6`}
                                   >
                                     {/* Ongoing Activities */}
                                     {!isDept && (
@@ -4832,8 +5070,8 @@ export default function AdminDashboard({ user, onLogout }) {
                                                 act.eventType === 'organization'
                                                   ? act.organizationName
                                                   : orgsList.find(
-                                                    (o) => o.id === act.assignedOrganizationId
-                                                  )?.abbreviation || 'CES'
+                                                      (o) => o.id === act.assignedOrganizationId
+                                                    )?.abbreviation || 'CES'
                                               return (
                                                 <div
                                                   key={act.id}
@@ -4847,8 +5085,8 @@ export default function AdminDashboard({ user, onLogout }) {
                                                       {act.date ||
                                                         (act.scheduleDate
                                                           ? new Date(
-                                                            act.scheduleDate
-                                                          ).toLocaleDateString()
+                                                              act.scheduleDate
+                                                            ).toLocaleDateString()
                                                           : '')}{' '}
                                                       • {act.location}
                                                     </p>
@@ -4883,8 +5121,8 @@ export default function AdminDashboard({ user, onLogout }) {
                                               act.eventType === 'organization'
                                                 ? act.organizationName
                                                 : orgsList.find(
-                                                  (o) => o.id === act.assignedOrganizationId
-                                                )?.abbreviation || 'CES'
+                                                    (o) => o.id === act.assignedOrganizationId
+                                                  )?.abbreviation || 'CES'
                                             return (
                                               <div
                                                 key={act.id}
@@ -4898,8 +5136,8 @@ export default function AdminDashboard({ user, onLogout }) {
                                                     {act.date ||
                                                       (act.scheduleDate
                                                         ? new Date(
-                                                          act.scheduleDate
-                                                        ).toLocaleDateString()
+                                                            act.scheduleDate
+                                                          ).toLocaleDateString()
                                                         : '')}{' '}
                                                     • {act.location}
                                                   </p>
@@ -4958,7 +5196,7 @@ export default function AdminDashboard({ user, onLogout }) {
                     >
                       <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                         <h3 className="font-bold text-navy-blue text-base">
-                          {editingOrg ? 'Update Organization Profile' : 'Register New Organization'}
+                          {editingOrg ? 'Update Organization Profile' : 'Add New Organization'}
                         </h3>
                         <button
                           onClick={handleCancelOrgEdit}
@@ -4968,6 +5206,7 @@ export default function AdminDashboard({ user, onLogout }) {
                         </button>
                       </div>
                       <form onSubmit={handleCreateOrg} className="space-y-4">
+                        {/* Organization Name (Required) */}
                         <div>
                           <label className="block text-gray-700 text-xs font-semibold mb-1">
                             Organization Name
@@ -4993,6 +5232,8 @@ export default function AdminDashboard({ user, onLogout }) {
                             </p>
                           )}
                         </div>
+
+                        {/* Abbreviation (Required) */}
                         <div>
                           <label className="block text-gray-700 text-xs font-semibold mb-1">
                             Abbreviation
@@ -5018,15 +5259,105 @@ export default function AdminDashboard({ user, onLogout }) {
                             </p>
                           )}
                         </div>
+
+                        {/* Description (Required) */}
                         <div>
                           <label className="block text-gray-700 text-xs font-semibold mb-1">
                             Description
                           </label>
                           <textarea
                             value={orgDesc}
-                            onChange={(e) => setOrgDesc(e.target.value)}
+                            onChange={(e) => {
+                              setOrgDesc(e.target.value)
+                              setOrgErrors((prev) => {
+                                const copy = { ...prev }
+                                delete copy.orgDesc
+                                return copy
+                              })
+                            }}
                             placeholder="Student leadership and outreach programs"
-                            className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-medium text-navy-blue h-20 resize-none"
+                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-medium text-navy-blue h-20 resize-none ${orgErrors.orgDesc ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                          />
+                          {orgErrors.orgDesc && (
+                            <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                              {orgErrors.orgDesc}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Organization Logo (Required) */}
+                        <div>
+                          <label className="block text-gray-700 text-xs font-semibold mb-1">
+                            Organization Logo
+                          </label>
+                          <div className="flex items-center space-x-4">
+                            <div
+                              className={`w-16 h-16 rounded-2xl border bg-gray-50 flex items-center justify-center overflow-hidden ${orgErrors.orgLogo ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                            >
+                              {orgLogo ? (
+                                <img
+                                  src={orgLogo}
+                                  alt="Logo preview"
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <Sparkles className="w-8 h-8 text-gray-400" />
+                              )}
+                            </div>
+                            <label
+                              htmlFor="org-logo-upload"
+                              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-navy-blue text-xs font-bold rounded-xl transition-all duration-150 cursor-pointer"
+                            >
+                              Upload Logo
+                            </label>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files[0]
+                                if (file) {
+                                  const reader = new FileReader()
+                                  reader.onloadend = () => {
+                                    setOrgLogo(reader.result)
+                                    setOrgErrors((prev) => {
+                                      const copy = { ...prev }
+                                      delete copy.orgLogo
+                                      return copy
+                                    })
+                                  }
+                                  reader.readAsDataURL(file)
+                                }
+                              }}
+                              className="hidden"
+                              id="org-logo-upload"
+                            />
+                            {orgLogo && (
+                              <button
+                                type="button"
+                                onClick={() => setOrgLogo('')}
+                                className="text-red-500 text-xs font-bold cursor-pointer"
+                              >
+                                Remove
+                              </button>
+                            )}
+                          </div>
+                          {orgErrors.orgLogo && (
+                            <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                              {orgErrors.orgLogo}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Department (Optional) */}
+                        <div>
+                          <label className="block text-gray-700 text-xs font-semibold mb-1">
+                            Department (optional, if organization is under a department)
+                          </label>
+                          <SearchableDropdown
+                            value={orgDepartmentId}
+                            onChange={(val) => setOrgDepartmentId(val)}
+                            options={orgsList.filter((o) => o.type === 'department' || !o.type)}
+                            placeholder="Select department (optional)..."
                           />
                         </div>
 
@@ -5065,7 +5396,7 @@ export default function AdminDashboard({ user, onLogout }) {
                     >
                       <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                         <h3 className="font-bold text-navy-blue text-base">
-                          {editingOrg ? 'Update Department Profile' : 'Register New Department'}
+                          {editingOrg ? 'Update Department Profile' : 'Add New Department'}
                         </h3>
                         <button
                           onClick={handleCancelOrgEdit}
@@ -5652,9 +5983,9 @@ export default function AdminDashboard({ user, onLogout }) {
                             <p className="text-xs text-gray-600 mt-1 leading-relaxed">
                               DommUnity is a desktop-based management system developed for the
                               Community Extension & Services (CES) Office of Dominican College of
-                              Tarlac, Inc. It streamlines community extension operations by
-                              automating inventory tracking (with FIFO & expiration management),
-                              donor records, event scheduling, and narrative report generation.
+                              Tarlac, Inc. It is designed to simplify inventory management,
+                              donor management, organization management, and report generation for the
+                              Community Extension Services Office.
                             </p>
                           </div>
                         </div>
@@ -5665,38 +5996,25 @@ export default function AdminDashboard({ user, onLogout }) {
                           </h2>
                           <div>
                             <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-                              Vision & Mission
+                              Vision
                             </span>
                             <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                              The Community Extension & Services (CES) Office is responsible for
-                              community involvement, engagement, and reform towards sustainable
-                              development. It transforms both institutional and academic values into
-                              ground-level exposure and applications, addressing significant and
-                              relevant challenges and problems of the local community, making
-                              education a pertinent medium for social and ecological improvement.
+                              The Community Extensions Services (CES) Office of the Dominican College of Tarlac envisions socially awareness,
+                              sensitive and responsive students through active involvement in community extensions, service learning and outreach
+                              activities towards community development.
                             </p>
                           </div>
                           <div>
                             <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-                              Core Advocacy Areas (CEAP JEEPGY)
+                              Mission
                             </span>
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {[
-                                'Justice and Peace',
-                                'Care for the Environment',
-                                'Active Citizenship',
-                                'Poverty Awareness',
-                                'Gender Equality',
-                                'Youth Empowerment'
-                              ].map((adv, idx) => (
-                                <span
-                                  key={idx}
-                                  className="bg-sig-green/10 text-navy-blue text-xs font-semibold px-3 py-1 rounded-full"
-                                >
-                                  {adv}
-                                </span>
-                              ))}
-                            </div>
+                            <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                              The Community and Extension Services Office shall: Participate in optimistic and relevant social activities for the
+                              promotion of passion for truth and compassion for humanity. Sustain holistic development of communities which are humane,
+                              self-reliant, and sustainable. Encourage volunteerism among the DCT Community for the noble and worthwhile extension activities
+                              thereby cultivating the same spirit in the client partner communities.
+                            </p>
+
                           </div>
                         </div>
                       </div>
@@ -5706,7 +6024,7 @@ export default function AdminDashboard({ user, onLogout }) {
                         {/* CES Organizational Chart */}
                         <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
                           <h2 className="text-lg font-bold text-navy-blue border-b border-gray-100 pb-3">
-                            CES Org Hierarchy
+                            Organizational Chart
                           </h2>
                           <div className="space-y-3">
                             {[
@@ -6367,7 +6685,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                   list[idx].name = val
                                   const originalItem = inventoryList.find(
                                     (invItem) => invItem.name === val &&
-                                    !deletedItemNames.includes(invItem.name.toLowerCase().trim())
+                                      !deletedItemNames.includes(invItem.name.toLowerCase().trim())
                                   )
                                   if (originalItem) {
                                     list[idx].category = originalItem.category || ''

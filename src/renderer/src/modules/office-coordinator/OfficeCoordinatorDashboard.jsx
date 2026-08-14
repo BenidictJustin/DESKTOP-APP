@@ -847,9 +847,9 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                           <p className="text-xs text-gray-600 mt-1 leading-relaxed">
                             DommUnity is a desktop-based management system developed for the
                             Community Extension & Services (CES) Office of Dominican College of
-                            Tarlac, Inc. It streamlines community extension operations by automating
-                            inventory tracking (with FIFO & expiration management), donor records,
-                            event scheduling, and narrative report generation.
+                            Tarlac, Inc. It is designed to simplify inventory management,
+                            donor management, organization management, and report generation for the
+                            Community Extension Services Office.
                           </p>
                         </div>
                       </div>
@@ -860,38 +860,24 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                         </h2>
                         <div>
                           <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-                            Vision & Mission
+                            Vision
                           </span>
                           <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                            The Community Extension & Services (CES) Office is responsible for
-                            community involvement, engagement, and reform towards sustainable
-                            development. It transforms both institutional and academic values into
-                            ground-level exposure and applications, addressing significant and
-                            relevant challenges and problems of the local community, making
-                            education a pertinent medium for social and ecological improvement.
+                            The Community Extensions Services (CES) Office of the Dominican College of Tarlac envisions socially awareness,
+                            sensitive and responsive students through active involvement in community extensions, service learning and outreach
+                            activities towards community development.
                           </p>
                         </div>
                         <div>
                           <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-                            Core Advocacy Areas (CEAP JEEPGY)
+                            Mission
                           </span>
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {[
-                              'Justice and Peace',
-                              'Care for the Environment',
-                              'Active Citizenship',
-                              'Poverty Awareness',
-                              'Gender Equality',
-                              'Youth Empowerment'
-                            ].map((adv, idx) => (
-                              <span
-                                key={idx}
-                                className="bg-sig-green/10 text-navy-blue text-xs font-semibold px-3 py-1 rounded-full"
-                              >
-                                {adv}
-                              </span>
-                            ))}
-                          </div>
+                          <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                            The Community and Extension Services Office shall: Participate in optimistic and relevant social activities for the
+                            promotion of passion for truth and compassion for humanity. Sustain holistic development of communities which are humane,
+                            self-reliant, and sustainable. Encourage volunteerism among the DCT Community for the noble and worthwhile extension activities
+                            thereby cultivating the same spirit in the client partner communities.
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -901,7 +887,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                       {/* CES Organizational Chart */}
                       <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
                         <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">
-                          CES Org Hierarchy
+                          Organizational Chart
                         </h2>
                         <div className="space-y-3">
                           {[

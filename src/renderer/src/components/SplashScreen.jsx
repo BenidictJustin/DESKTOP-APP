@@ -1,28 +1,140 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { motion } from 'motion/react'
 import logo from '../assets/logo.png'
 import logo3 from '../assets/logo3.png'
 import { splashContainerVariants } from './motion/motionConfig'
 
 export default function SplashScreen({ onComplete }) {
+  const [isOnline, setIsOnline] = useState(null)
+  const [minTimePassed, setMinTimePassed] = useState(false)
   const [isFadingOut, setIsFadingOut] = useState(false)
 
-  useEffect(() => {
-    // 1.5 seconds display time before initiating smooth fade-out
-    const fadeTimer = setTimeout(() => {
-      setIsFadingOut(true)
-    }, 1500)
+  // Refs to avoid stale closures in polling interval
+  const isOnlineRef = useRef(null)
+  const isMountedRef = useRef(true)
 
-    // Complete splash & unmount at 2.0 seconds total
-    const completeTimer = setTimeout(() => {
-      if (onComplete) onComplete()
+  // Keep ref in sync with state
+  useEffect(() => {
+    isOnlineRef.current = isOnline
+  }, [isOnline])
+
+  // Internet connection verification.
+  // Primary: use Electron main process IPC (no CORS restrictions, reliable).
+  // Fallback: renderer-side fetch with no-cors (opaque response resolves = online, rejects = offline).
+  const checkInternet = useCallback(async () => {
+    // Quick fail if browser API says offline
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return false
+    }
+
+    // Primary: Electron IPC-based check (main process, no CORS)
+    // If IPC succeeds, return the result. If it fails (handler not registered),
+    // fall through to the fetch fallback — do NOT return false here.
+    if (window.api && typeof window.api.checkInternet === 'function') {
+      try {
+        const result = await window.api.checkInternet()
+        return !!result
+      } catch {
+        // IPC handler not registered or errored — fall through to fetch fallback
+      }
+    }
+
+    // Fallback: renderer-side fetch with no-cors.
+    // With mode:'no-cors', the promise resolves with an opaque response when
+    // network is reachable, and rejects with a TypeError when offline.
+    // The resolve/reject itself is the connectivity signal.
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 4000)
+      await fetch(`https://www.google.com/generate_204?t=${Date.now()}`, {
+        method: 'HEAD',
+        mode: 'no-cors',
+        cache: 'no-store',
+        signal: controller.signal
+      })
+      clearTimeout(timeoutId)
+      return true
+    } catch {
+      // First endpoint failed, try a second one
+    }
+
+    // Second fallback endpoint
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 4000)
+      await fetch(`https://clients3.google.com/generate_204?t=${Date.now()}`, {
+        method: 'HEAD',
+        mode: 'no-cors',
+        cache: 'no-store',
+        signal: controller.signal
+      })
+      clearTimeout(timeoutId)
+      return true
+    } catch {
+      return false
+    }
+  }, [])
+
+  // Handle minimum initial splash duration (1.5s)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setMinTimePassed(true)
+    }, 1500)
+    return () => clearTimeout(timer)
+  }, [])
+
+  // Single stable polling effect — runs once on mount, never tears down due to state changes
+  useEffect(() => {
+    isMountedRef.current = true
+
+    const runCheck = async () => {
+      const online = await checkInternet()
+      if (isMountedRef.current) {
+        setIsOnline(online)
+      }
+    }
+
+    // Initial check
+    runCheck()
+
+    // Browser online/offline events for instant detection
+    const handleOnline = () => runCheck()
+    const handleOffline = () => {
+      if (isMountedRef.current) setIsOnline(false)
+    }
+
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+
+    // Poll every 2s — always polls until online is confirmed,
+    // then stops polling (no need to keep checking once online)
+    const intervalId = setInterval(() => {
+      if (!isOnlineRef.current) {
+        runCheck()
+      }
     }, 2000)
 
     return () => {
-      clearTimeout(fadeTimer)
-      clearTimeout(completeTimer)
+      isMountedRef.current = false
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+      clearInterval(intervalId)
     }
-  }, [onComplete])
+  }, [checkInternet])
+
+  const hasCompletedRef = useRef(false)
+
+  // Proceed only when minimum display time is reached AND internet is verified
+  useEffect(() => {
+    if (minTimePassed && isOnline && !hasCompletedRef.current) {
+      hasCompletedRef.current = true
+      setIsFadingOut(true)
+      const completeTimer = setTimeout(() => {
+        if (onComplete) onComplete()
+      }, 500)
+      return () => clearTimeout(completeTimer)
+    }
+  }, [minTimePassed, isOnline, onComplete])
 
   return (
     <motion.div
@@ -50,7 +162,7 @@ export default function SplashScreen({ onComplete }) {
         <div className="absolute inset-0 bg-gradient-to-b from-[#020519]/40 via-[#030E69]/30 to-[#02061f]/55 backdrop-blur-[1px]" />
       </div>
 
-      {/* Main Splash Container */}
+      {/* Main Splash Container - Perfectly Centered */}
       <motion.div
         className="flex flex-col items-center justify-center text-center z-10 px-6 relative"
         variants={splashContainerVariants}
@@ -86,6 +198,22 @@ export default function SplashScreen({ onComplete }) {
           DommUnity
         </motion.h1>
       </motion.div>
+
+      {/* Subtle, minimalist connection status at bottom */}
+      {isOnline === false && (
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center justify-center space-x-2 text-[12px] font-normal tracking-wide text-gray-400/90 whitespace-nowrap select-none pointer-events-none z-20"
+        >
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-60" />
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-400" />
+          </span>
+          <span>No internet connection. Waiting for connection...</span>
+        </motion.div>
+      )}
     </motion.div>
   )
 }

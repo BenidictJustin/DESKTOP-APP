@@ -54,8 +54,20 @@ function App() {
       })
     })
 
-    return () => unsubscribe()
+    // Safety fallback: ensure loading screen resolves even if auth listener takes long during network recovery
+    const fallbackTimer = setTimeout(() => {
+      setLoading(false)
+    }, 3000)
+
+    return () => {
+      unsubscribe()
+      clearTimeout(fallbackTimer)
+    }
   }, [])
+
+  const handleSplashComplete = () => {
+    setShowSplash(false)
+  }
 
   const handleLogout = async () => {
     try {
@@ -82,7 +94,7 @@ function App() {
     <div className="min-h-screen w-screen bg-[#F1EFEC] font-poppins relative overflow-hidden">
       <UpdateNotification />
       <AnimatePresence>
-        {showSplash && <SplashScreen key="splash" onComplete={() => setShowSplash(false)} />}
+        {showSplash && <SplashScreen key="splash" onComplete={handleSplashComplete} />}
       </AnimatePresence>
 
       {!showSplash && (

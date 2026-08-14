@@ -204,22 +204,81 @@ body {
   line-height: 1.5;
 }
 
-/* Custom subtle scrollbars */
+/* ══════════════════════════════════════════════════════════════════════════════
+   MODERN & MINIMAL SCROLLBARS (PAGE FLOWS INSPIRED)
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* Global Smooth Scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Firefox scrollbar standard */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(3, 14, 105, 0.25) transparent;
+}
+
+/* WebKit Scrollbar Styling (Chrome, Safari, Electron, Edge) */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(156, 163, 175, 0.5);
   border-radius: 9999px;
-  backdrop-filter: blur(4px);
 }
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(3, 14, 105, 0.22);
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(107, 114, 128, 0.8);
+  background-color: rgba(3, 14, 105, 0.6);
 }
+
+::-webkit-scrollbar-thumb:active {
+  background-color: #80cc2a;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Dark Surface Scrollbars (e.g. Glass Sidebar, Dark Popovers, Slate Cards) */
+.glass-sidebar,
+.bg-gray-950,
+.glass-sidebar-hover-collapsed,
+[data-dark-scrollbar] {
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+.glass-sidebar::-webkit-scrollbar-thumb,
+.bg-gray-950::-webkit-scrollbar-thumb,
+.glass-sidebar-hover-collapsed::-webkit-scrollbar-thumb,
+[data-dark-scrollbar]::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.25);
+}
+
+.glass-sidebar::-webkit-scrollbar-thumb:hover,
+.bg-gray-950::-webkit-scrollbar-thumb:hover,
+.glass-sidebar-hover-collapsed::-webkit-scrollbar-thumb:hover,
+[data-dark-scrollbar]::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(128, 204, 42, 0.85);
+}
+
+.glass-sidebar::-webkit-scrollbar-thumb:active,
+.bg-gray-950::-webkit-scrollbar-thumb:active,
+.glass-sidebar-hover-collapsed::-webkit-scrollbar-thumb:active,
+[data-dark-scrollbar]::-webkit-scrollbar-thumb:active {
+  background-color: #80cc2a;
+}
+
 
 /* Focus ring accessibility */
 :focus-visible {

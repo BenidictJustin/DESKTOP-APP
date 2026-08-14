@@ -5,6 +5,7 @@ import { ipcRenderer } from 'electron'
 
 // Custom APIs for renderer
 const api = {
+  checkInternet: () => ipcRenderer.invoke('check-internet'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   restartAndInstall: () => ipcRenderer.invoke('restart-and-install'),

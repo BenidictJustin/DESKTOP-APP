@@ -3,6 +3,8 @@ import { join, basename } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import fs from 'fs'
+import dns from 'dns'
+import net from 'net'
 
 import { autoUpdater } from 'electron-updater'
 
@@ -15,6 +17,54 @@ autoUpdater.autoInstallOnAppQuit = true
 app.commandLine.appendSwitch('disable-print-preview')
 
 let mainWindow = null
+
+// Robust internet verification in main process using DNS + raw TCP socket
+function verifyInternetConnection() {
+  return new Promise((resolve) => {
+    // 1. Try DNS lookup first
+    dns.lookup('google.com', (err) => {
+      if (!err) return resolve(true)
+
+      dns.lookup('cloudflare.com', (err2) => {
+        if (!err2) return resolve(true)
+
+        // 2. Direct TCP socket to public DNS port 53 (instant, no CORS or HTTP parsing)
+        const socket = net.createConnection(53, '8.8.8.8')
+        socket.setTimeout(2500)
+        socket.on('connect', () => {
+          socket.destroy()
+          resolve(true)
+        })
+        socket.on('error', () => {
+          socket.destroy()
+          const socket2 = net.createConnection(53, '1.1.1.1')
+          socket2.setTimeout(2500)
+          socket2.on('connect', () => {
+            socket2.destroy()
+            resolve(true)
+          })
+          socket2.on('error', () => {
+            socket2.destroy()
+            resolve(false)
+          })
+          socket2.on('timeout', () => {
+            socket2.destroy()
+            resolve(false)
+          })
+        })
+        socket.on('timeout', () => {
+          socket.destroy()
+          resolve(false)
+        })
+      })
+    })
+  })
+}
+
+// IPC handler: check internet connectivity from main process
+ipcMain.handle('check-internet', async () => {
+  return await verifyInternetConnection()
+})
 
 function createWindow() {
   // Create the browser window.
