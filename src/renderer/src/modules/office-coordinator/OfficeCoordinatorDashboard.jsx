@@ -825,119 +825,134 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
             {activeTab === 'about' && (
               <div className="flex-1 overflow-y-auto p-8 text-left">
                 <div className="max-w-5xl mx-auto space-y-6">
-                  {/* Header section */}
-                  <h1 className="text-xl font-extrabold text-navy-blue tracking-tight pb-1">
-                    About DommUnity
-                  </h1>
 
-                  {/* System & Office Info Cards */}
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Left Column - System and CES Details */}
-                    <div className="lg:col-span-2 space-y-6">
-                      <AboutVersionCard />
+                  {/* ── 1. PAGE HEADER ─────────────────────────────── */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
+                      About DommUnity
+                    </h1>
+                    <AboutVersionCard />
+                  </div>
 
-                      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
-                        <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">
-                          System Description
-                        </h2>
-                        <div>
-                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-                            Project Overview
-                          </span>
-                          <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                            DommUnity is a desktop-based management system developed for the
-                            Community Extension & Services (CES) Office of Dominican College of
-                            Tarlac, Inc. It is designed to simplify inventory management,
-                            donor management, organization management, and report generation for the
-                            Community Extension Services Office.
-                          </p>
-                        </div>
+                  {/* ── 2. SYSTEM DESCRIPTION (full-width) ─────────── */}
+                  <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
+                    <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">
+                      System Description
+                    </h2>
+                    <div>
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                        Project Overview
+                      </span>
+                      <p className="text-sm text-gray-700 mt-1 leading-relaxed">
+                        DommUnity is a desktop-based management system developed for the
+                        Community Extension & Services (CES) Office of Dominican College of
+                        Tarlac, Inc. It is designed to simplify inventory management,
+                        donor management, organization management, and report generation for the
+                        Community Extension Services Office.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* ── 3. CES OFFICE — Vision / Mission / Goal ────── */}
+                  <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-5">
+                    <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">
+                      Community Extension & Services (CES) Office
+                    </h2>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                      {/* Vision */}
+                      <div className="bg-gradient-to-br from-slate-50 to-white rounded-2xl p-5 border border-gray-100 flex flex-col">
+                        <span className="text-xs text-navy-blue font-bold uppercase tracking-wider block mb-2">
+                          Vision
+                        </span>
+                        <p className="text-sm text-gray-700 leading-relaxed flex-1">
+                          The Community Extensions Services (CES) Office of the Dominican College of Tarlac envisions socially awareness,
+                          sensitive and responsive students through active involvement in community extensions, service learning and outreach
+                          activities towards community development.
+                        </p>
                       </div>
 
-                      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
-                        <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">
-                          Community Extension & Services (CES) Office
-                        </h2>
-                        <div>
-                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-                            Vision
-                          </span>
-                          <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                            The Community Extensions Services (CES) Office of the Dominican College of Tarlac envisions socially awareness,
-                            sensitive and responsive students through active involvement in community extensions, service learning and outreach
-                            activities towards community development.
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-                            Mission
-                          </span>
-                          <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                            The Community and Extension Services Office shall: Participate in optimistic and relevant social activities for the
-                            promotion of passion for truth and compassion for humanity. Sustain holistic development of communities which are humane,
-                            self-reliant, and sustainable. Encourage volunteerism among the DCT Community for the noble and worthwhile extension activities
-                            thereby cultivating the same spirit in the client partner communities.
-                          </p>
-                        </div>
+                      {/* Mission */}
+                      <div className="bg-gradient-to-br from-slate-50 to-white rounded-2xl p-5 border border-gray-100 flex flex-col">
+                        <span className="text-xs text-navy-blue font-bold uppercase tracking-wider block mb-2">
+                          Mission
+                        </span>
+                        <p className="text-sm text-gray-700 leading-relaxed flex-1">
+                          The Community and Extension Services Office Shall: Participate in optimistic and relevant social activities for the
+                          promotion of passion for truth and compassion for humanity. Sustain holistic development of communities which are humane,
+                          self-reliant, and sustainable. Encourage volunteerism among the DCT Community for the noble and worthwhile extension activities
+                          thereby cultivating the same spirit in the client partner communities.
+                        </p>
+                      </div>
+
+                      {/* Goal */}
+                      <div className="bg-gradient-to-br from-slate-50 to-white rounded-2xl p-5 border border-gray-100 flex flex-col">
+                        <span className="text-xs text-navy-blue font-bold uppercase tracking-wider block mb-2">
+                          Goal
+                        </span>
+                        <p className="text-sm text-gray-700 leading-relaxed flex-1">
+                          We aim to provide Community Extension Services program for the improvement of our target clientele in accordance with the
+                          Gospel Values to become a productive, self-reliant, and sustainable member of the society.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ── 4. BOTTOM ROW — Org Chart | Dev Team ─────────── */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Organization Chart */}
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
+                      <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">
+                        Organizational Chart
+                      </h2>
+                      <div className="space-y-3">
+                        {[
+                          { name: 'Sr. Lorna I. Ablog, O.P.', role: 'School Administrator' },
+                          {
+                            name: 'Dr. Augusto R. Dela Cruz',
+                            role: 'Vice President of Academic Affairs'
+                          },
+                          {
+                            name: 'Mrs. Faithful Anne F. Arugay',
+                            role: 'Head of the CES Office'
+                          },
+                          { name: 'Mr. Jonnel B. Manio', role: 'Coordinator of the CES Office' }
+                        ].map((person, idx) => (
+                          <div
+                            key={idx}
+                            className="p-2.5 border-b border-gray-100 last:border-0 text-left"
+                          >
+                            <p className="text-sm font-bold text-navy-blue">{person.name}</p>
+                            <p className="text-xs text-gray-500 font-medium mt-0.5">
+                              {person.role}
+                            </p>
+                          </div>
+                        ))}
                       </div>
                     </div>
 
-                    {/* Right Column - Org Chart & Proponents */}
-                    <div className="space-y-6">
-                      {/* CES Organizational Chart */}
-                      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
-                        <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">
-                          Organizational Chart
-                        </h2>
-                        <div className="space-y-3">
-                          {[
-                            { name: 'Sr. Lorna I. Ablog, O.P.', role: 'School Administrator' },
-                            {
-                              name: 'Dr. Augusto R. Dela Cruz',
-                              role: 'Vice President of Academic Affairs'
-                            },
-                            {
-                              name: 'Mrs. Faithful Anne F. Arugay',
-                              role: 'Head of the CES Office'
-                            },
-                            { name: 'Mr. Jonnel B. Manio', role: 'Coordinator of the CES Office' }
-                          ].map((person, idx) => (
-                            <div
-                              key={idx}
-                              className="p-2 border-b border-gray-50 last:border-0 text-left"
-                            >
-                              <p className="text-xs font-bold text-navy-blue">{person.name}</p>
-                              <p className="text-[9px] text-gray-400 font-medium mt-0.5">
-                                {person.role}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Developers section */}
-                      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
-                        <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">
-                          Development Team
-                        </h2>
-                        <div className="space-y-3">
-                          {[
-                            { name: 'Benidict Justin Salunga', role: 'Lead Programmer' },
-                            { name: 'Mc Harry Tolentino', role: 'Project Manager' },
-                            { name: 'Aron Stefan Taruc', role: 'UI-UX Designer' },
-                            { name: 'John Harold Santos', role: 'Tester' }
-                          ].map((dev, idx) => (
-                            <div
-                              key={idx}
-                              className="p-2 border-b border-gray-50 last:border-0 text-left"
-                            >
-                              <p className="text-xs font-bold text-navy-blue">{dev.name}</p>
-                              <p className="text-[9px] text-gray-400 font-semibold mt-0.5">
-                                {dev.role}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
+                    {/* Development Team */}
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
+                      <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">
+                        Development Team
+                      </h2>
+                      <div className="space-y-3">
+                        {[
+                          { name: 'Benidict Justin Salunga', role: 'Lead Programmer' },
+                          { name: 'Mc Harry Tolentino', role: 'Project Manager' },
+                          { name: 'Aron Stefan Taruc', role: 'UI-UX Designer' },
+                          { name: 'John Harold Santos', role: 'Tester' }
+                        ].map((dev, idx) => (
+                          <div
+                            key={idx}
+                            className="p-2.5 border-b border-gray-100 last:border-0 text-left"
+                          >
+                            <p className="text-sm font-bold text-navy-blue">{dev.name}</p>
+                            <p className="text-xs text-gray-500 font-semibold mt-0.5">
+                              {dev.role}
+                            </p>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>

@@ -470,6 +470,25 @@ const initLocalStorage = () => {
     }
   }
 
+  const storedOrgs = localStorage.getItem(LOCAL_STORAGE_KEYS.ORGANIZATIONS)
+  if (storedOrgs) {
+    try {
+      const parsedOrgs = JSON.parse(storedOrgs)
+      let orgsUpdated = false
+      parsedOrgs.forEach((o) => {
+        if (!o.type) {
+          o.type = o.id && o.id.startsWith('org-') ? 'organization' : 'department'
+          orgsUpdated = true
+        }
+      })
+      if (orgsUpdated) {
+        localStorage.setItem(LOCAL_STORAGE_KEYS.ORGANIZATIONS, JSON.stringify(parsedOrgs))
+      }
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
   if (!localStorage.getItem(LOCAL_STORAGE_KEYS.USERS)) {
     localStorage.setItem(LOCAL_STORAGE_KEYS.USERS, JSON.stringify(SEED_DATA.USERS))
     localStorage.setItem(LOCAL_STORAGE_KEYS.ORGANIZATIONS, JSON.stringify(SEED_DATA.ORGANIZATIONS))
@@ -1474,10 +1493,12 @@ export const subscribeOrganizations = (callback) => {
 }
 
 export const addOrganization = async (org) => {
+  const resolvedType = org.type || (org.id && org.id.startsWith('org-') ? 'organization' : 'department')
   if (isDemoMode) {
-    const orgs = getLocalData(LOCAL_STORAGE_KEYS.ORGANIZATIONS)
+    const orgs = getLocalData(LOCAL_STORAGE_KEYS.ORGANIZATIONS) || []
     const newOrg = {
       ...org,
+      type: resolvedType,
       coordinatorId: org.coordinatorId || null,
       logo: org.logo || null,
       createdAt: new Date().toISOString()
@@ -1488,11 +1509,12 @@ export const addOrganization = async (org) => {
   } else {
     await setDoc(doc(fdb, 'organizations', org.id), {
       ...org,
+      type: resolvedType,
       coordinatorId: org.coordinatorId || null,
       logo: org.logo || null,
       createdAt: new Date()
     })
-    return org
+    return { ...org, type: resolvedType }
   }
 }
 
