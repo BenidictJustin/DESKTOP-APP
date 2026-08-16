@@ -139,7 +139,7 @@ ipcMain.handle('check-for-updates', async () => {
   }
   try {
     const result = await autoUpdater.checkForUpdates()
-    return { success: true, result }
+    return { success: true, version: result?.updateInfo?.version || null }
   } catch (error) {
     return { success: false, error: error?.message || 'Failed to check for updates' }
   }
