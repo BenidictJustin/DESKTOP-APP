@@ -91,6 +91,8 @@ import {
   MapPin,
   Eye,
   EyeOff,
+  Rocket,
+  Target,
   FileSymlink,
   ChevronRight,
   AlertTriangle,
@@ -131,6 +133,9 @@ import DocumentViewer from '../../components/DocumentViewer'
 import GlassDatePicker from '../../components/GlassDatePicker'
 import AnimatedSidebar from '../../components/AnimatedSidebar'
 import EventCalendar from '../../components/EventCalendar'
+import UpcomingEventsSchedule from '../../components/UpcomingEventsSchedule'
+import OrganizationalChart from '../../components/OrganizationalChart'
+import DevelopersChart from '../../components/DevelopersChart'
 import {
   sanitizeOklchInDocument,
   exportElementToPDF,
@@ -138,6 +143,17 @@ import {
   parseNarrativePages
 } from '../../components/editor/utils/editorHelpers'
 import { PAPER, MARGINS } from '../../components/editor/constants'
+import { useNetworkStatus } from '../../context/NetworkContext'
+import {
+  DashboardSkeleton,
+  InventorySkeleton,
+  DonationsSkeleton,
+  EventsSkeleton,
+  OrganizationSkeleton,
+  ReportsSkeleton,
+  AccountsSkeleton,
+  AboutSkeleton
+} from '../../components/skeletons'
 
 const isFuzzyDuplicate = (existingName, newName) => {
   const s1 = existingName.toLowerCase().trim().replace(/\s+/g, ' ')
@@ -176,6 +192,7 @@ const isFuzzyDuplicate = (existingName, newName) => {
 }
 
 export default function AdminDashboard({ user, onLogout }) {
+  const { isOffline, registerReconnectHandler } = useNetworkStatus()
   const [activeTab, setActiveTab] = useState('dashboard')
   const [editingUser, setEditingUser] = useState(null)
 
@@ -711,6 +728,9 @@ export default function AdminDashboard({ user, onLogout }) {
 
   useEffect(() => {
     loadData()
+    const unsubReconnect = registerReconnectHandler(() => {
+      loadData()
+    })
     const unsubUsers = subscribeUsers((u) => setUsersList(u))
     const unsubOrgs = subscribeOrganizations((o) => setOrgsList((o || []).map(normalizeOrg)))
     const unsubInv = subscribeInventory((inv) => setInventoryList(inv))
@@ -720,6 +740,7 @@ export default function AdminDashboard({ user, onLogout }) {
     const unsubReports = subscribeReports((rep) => setReportsList(rep))
 
     return () => {
+      if (typeof unsubReconnect === 'function') unsubReconnect()
       if (typeof unsubUsers === 'function') unsubUsers()
       if (typeof unsubOrgs === 'function') unsubOrgs()
       if (typeof unsubInv === 'function') unsubInv()
@@ -728,7 +749,7 @@ export default function AdminDashboard({ user, onLogout }) {
       if (typeof unsubEvents === 'function') unsubEvents()
       if (typeof unsubReports === 'function') unsubReports()
     }
-  }, [])
+  }, [registerReconnectHandler])
 
   const triggerError = (msg) => {
     setActionError(msg)
@@ -765,6 +786,11 @@ export default function AdminDashboard({ user, onLogout }) {
   // Save User (Create or Update)
   const handleSaveUser = async (e) => {
     e.preventDefault()
+
+    if (isOffline) {
+      triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+      return
+    }
 
     const errors = {}
 
@@ -905,6 +931,10 @@ export default function AdminDashboard({ user, onLogout }) {
   }
 
   const handleDeleteUser = async (targetUser) => {
+    if (isOffline) {
+      triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+      return
+    }
     if (targetUser.uid === user.uid) {
       triggerError('Cannot delete your own administrator session.')
       return
@@ -913,6 +943,10 @@ export default function AdminDashboard({ user, onLogout }) {
       title: 'Delete User Account',
       message: `Are you sure you want to permanently delete the account of ${targetUser.name}? This action is irreversible.`,
       onConfirm: async () => {
+        if (isOffline) {
+          triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+          return
+        }
         setLoading(true)
         try {
           await deleteUser(targetUser.uid, targetUser.email, targetUser.password)
@@ -929,6 +963,10 @@ export default function AdminDashboard({ user, onLogout }) {
 
   // Toggle user status
   const handleToggleStatus = async (uid, currentStatus) => {
+    if (isOffline) {
+      triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+      return
+    }
     const nextStatus = currentStatus === 'active' ? 'inactive' : 'active'
     try {
       await updateCoordinatorStatus(uid, nextStatus)
@@ -940,10 +978,18 @@ export default function AdminDashboard({ user, onLogout }) {
   }
 
   const handleSendCoordinatorReset = (targetUser) => {
+    if (isOffline) {
+      triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+      return
+    }
     setConfirmDialog({
       title: 'Send Password Reset Link',
       message: `Are you sure you want to send a password reset email to ${targetUser.name} (${targetUser.email})? They will receive a secure link from Firebase to set their new password.`,
       onConfirm: async () => {
+        if (isOffline) {
+          triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+          return
+        }
         setLoading(true)
         try {
           await sendCoordinatorResetEmail(targetUser.email)
@@ -959,6 +1005,10 @@ export default function AdminDashboard({ user, onLogout }) {
 
   // Reset password requests approval
   const handleResetApproval = async (reqId, action) => {
+    if (isOffline) {
+      triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+      return
+    }
     try {
       await handleResetRequest(reqId, action)
       triggerSuccess(`Password request status updated: ${action}.`)
@@ -971,6 +1021,10 @@ export default function AdminDashboard({ user, onLogout }) {
   // Inventory Save (Add/Update)
   const handleSaveInventory = async (e) => {
     e.preventDefault()
+    if (isOffline) {
+      triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+      return
+    }
     const isSchoolSupplies = (itemCategory || '').toLowerCase().trim() === 'school supplies'
 
     const unitLower = (itemUnit || '').toLowerCase().trim()
@@ -1101,10 +1155,18 @@ export default function AdminDashboard({ user, onLogout }) {
   }
 
   const handleDeleteInventory = async (itemId) => {
+    if (isOffline) {
+      triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+      return
+    }
     setConfirmDialog({
       title: 'Delete Inventory Item',
       message: 'Are you sure you want to delete this item? This action is permanent.',
       onConfirm: async () => {
+        if (isOffline) {
+          triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+          return
+        }
         try {
           const item = inventoryList.find((i) => i.id === itemId)
           await deleteInventoryItem(itemId)
@@ -1273,6 +1335,10 @@ export default function AdminDashboard({ user, onLogout }) {
   }
 
   const handleConfirmRelease = async () => {
+    if (isOffline) {
+      triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+      return
+    }
     const invalidItem = pendingReleaseItems.find((p) => !p.baseQty || parseInt(p.baseQty, 10) <= 0)
     if (invalidItem) {
       triggerValidationError(
@@ -1359,6 +1425,10 @@ export default function AdminDashboard({ user, onLogout }) {
   }
 
   const handleDeleteDonor = async (donorId) => {
+    if (isOffline) {
+      triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+      return
+    }
     const donor = donorsList.find((d) => d.id === donorId)
     if (!donor) return
 
@@ -1366,6 +1436,10 @@ export default function AdminDashboard({ user, onLogout }) {
       title: 'Delete Donor Profile',
       message: `Are you sure you want to delete ${donor.name}? This will permanently remove the donor profile.`,
       onConfirm: async () => {
+        if (isOffline) {
+          triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+          return
+        }
         setLoading(true)
         try {
           await deleteDonor(donorId)
@@ -1418,6 +1492,11 @@ export default function AdminDashboard({ user, onLogout }) {
   // Donation Batch Create
   const handleCreateDonation = async (e) => {
     e.preventDefault()
+
+    if (isOffline) {
+      triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+      return
+    }
 
     const errors = {}
     if (!donorName.trim()) errors.donorName = 'Donor name is required.'
@@ -1594,6 +1673,11 @@ export default function AdminDashboard({ user, onLogout }) {
   // Org Create & Update
   const handleCreateOrg = async (e) => {
     e.preventDefault()
+
+    if (isOffline) {
+      triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+      return
+    }
 
     const isEditing = editingOrg !== null
     const determinedType = isEditing
@@ -1778,6 +1862,10 @@ export default function AdminDashboard({ user, onLogout }) {
   }
 
   const handleDeleteOrg = async (orgId) => {
+    if (isOffline) {
+      triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+      return
+    }
     const org = orgsList.find((o) => o.id === orgId)
     if (!org) return
 
@@ -1786,6 +1874,10 @@ export default function AdminDashboard({ user, onLogout }) {
       title: `Delete ${orgIsOrg ? 'Organization' : 'Department'} Profile`,
       message: `Are you sure you want to delete ${org.name}? This will permanently remove the profile.`,
       onConfirm: async () => {
+        if (isOffline) {
+          triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+          return
+        }
         setLoading(true)
         try {
           await deleteOrganization(orgId)
@@ -1868,10 +1960,18 @@ export default function AdminDashboard({ user, onLogout }) {
   }
 
   const handleDeleteEventClick = (evt) => {
+    if (isOffline) {
+      triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+      return
+    }
     setConfirmDialog({
       title: 'Delete Event Profile',
       message: `Are you sure you want to permanently delete event "${evt.name}"? This action cannot be undone.`,
       onConfirm: async () => {
+        if (isOffline) {
+          triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+          return
+        }
         setLoading(true)
         try {
           await deleteEvent(evt.id)
@@ -1887,10 +1987,18 @@ export default function AdminDashboard({ user, onLogout }) {
   }
 
   const handleQuickCompleteEvent = (evt) => {
+    if (isOffline) {
+      triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+      return
+    }
     setConfirmDialog({
       title: 'Mark Event as Completed',
       message: `Are you sure you want to mark event "${evt.name}" as Completed? It will be moved to the assigned organization/department history.`,
       onConfirm: async () => {
+        if (isOffline) {
+          triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+          return
+        }
         setLoading(true)
         try {
           await updateEvent(evt.id, { status: 'completed' })
@@ -1908,6 +2016,10 @@ export default function AdminDashboard({ user, onLogout }) {
   // Event schedule / update handler
   const handleCreateEvent = async (e) => {
     e.preventDefault()
+    if (isOffline) {
+      triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+      return
+    }
     const isOrg = evtType === 'organization'
 
     const errors = {}
@@ -1976,6 +2088,10 @@ export default function AdminDashboard({ user, onLogout }) {
 
   // Report decision: Approve or Return
   const handleReviewReport = async (status) => {
+    if (isOffline) {
+      triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+      return
+    }
     if (!selectedReport) return
     if (status === 'returned' && !feedbackNote.trim()) {
       alert('Feedback notes are mandatory to return reports.')
@@ -2195,270 +2311,227 @@ export default function AdminDashboard({ user, onLogout }) {
                 {/* DASHBOARD TAB PANEL */}
                 {/* ==================================================== */}
                 {activeTab === 'dashboard' && user.role === 'admin' && (
-                  <div className="space-y-4">
-                    {/* Header row */}
-                    <div>
-                      <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
-                        Dashboard
-                      </h1>
-                    </div>
+                  isOffline ? (
+                    <DashboardSkeleton />
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Header row */}
+                      <div>
+                        <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
+                          Dashboard
+                        </h1>
+                      </div>
 
-                    {/* Quick Stats Grid */}
-                    <motion.div
-                      className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"
-                      variants={staggerContainer}
-                      initial="initial"
-                      animate="animate"
-                    >
+                      {/* Quick Stats Grid */}
                       <motion.div
-                        variants={staggerItem}
-                        className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3 hover:shadow-md hover:border-sig-green/30 transition-all duration-200"
+                        className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"
+                        variants={staggerContainer}
+                        initial="initial"
+                        animate="animate"
                       >
-                        <div className="p-2.5 bg-blue-50 text-blue-500 rounded-xl shrink-0">
-                          <Users className="w-4.5 h-4.5" />
-                        </div>
-                        <div className="min-w-0">
-                          <span className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider block leading-none mb-1">
-                            Coordinators
-                          </span>
-                          <span className="text-xl font-black text-navy-blue leading-none">
-                            {
-                              usersList.filter(
-                                (u) => u.role === 'office_coordinator' && u.status === 'active'
-                              ).length
-                            }
-                          </span>
-                        </div>
-                      </motion.div>
-
-                      <motion.div
-                        variants={staggerItem}
-                        className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3 hover:shadow-md hover:border-sig-green/30 transition-all duration-200"
-                      >
-                        <div className="p-2.5 bg-amber-50 text-amber-500 rounded-xl shrink-0">
-                          <Package className="w-4.5 h-4.5" />
-                        </div>
-                        <div className="min-w-0">
-                          <span className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider block leading-none mb-1">
-                            Stock Items
-                          </span>
-                          <span className="text-xl font-black text-navy-blue leading-none">
-                            {inventoryList.reduce((sum, item) => sum + item.quantity, 0)}
-                          </span>
-                        </div>
-                      </motion.div>
-
-                      <motion.div
-                        variants={staggerItem}
-                        className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3 hover:shadow-md hover:border-sig-green/30 transition-all duration-200"
-                      >
-                        <div className="p-2.5 bg-navy-blue/5 text-navy-blue rounded-xl shrink-0">
-                          <FolderOpen className="w-4.5 h-4.5" />
-                        </div>
-                        <div className="min-w-0">
-                          <span className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider block leading-none mb-1">
-                            Departments
-                          </span>
-                          <span className="text-xl font-black text-navy-blue leading-none">
-                            {orgsList.filter(isDeptItem).length}
-                          </span>
-                        </div>
-                      </motion.div>
-
-                      <motion.div
-                        variants={staggerItem}
-                        className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3 hover:shadow-md hover:border-sig-green/30 transition-all duration-200"
-                      >
-                        <div className="p-2.5 bg-sig-green/10 text-sig-green rounded-xl shrink-0">
-                          <Calendar className="w-4.5 h-4.5" />
-                        </div>
-                        <div className="min-w-0">
-                          <span className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider block leading-none mb-1">
-                            Scheduled
-                          </span>
-                          <span className="text-xl font-black text-navy-blue leading-none">
-                            {
-                              eventsList.filter((e) => {
-                                const o = orgsList.find(
-                                  (org) => org.id === e.assignedOrganizationId
-                                )
-                                const isMatch = !o || isDeptItem(o)
-                                return isMatch && e.status !== 'completed'
-                              }).length
-                            }
-                          </span>
-                        </div>
-                      </motion.div>
-
-                      <motion.div
-                        variants={staggerItem}
-                        onClick={() => handleOpenCompletedModal(null)}
-                        className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3 cursor-pointer hover:shadow-md hover:border-sig-green/30 transition-all duration-200"
-                      >
-                        <div className="p-2.5 bg-emerald-50 text-emerald-500 rounded-xl shrink-0">
-                          <Check className="w-4.5 h-4.5" />
-                        </div>
-                        <div className="min-w-0">
-                          <span className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider block leading-none mb-1">
-                            Completed
-                          </span>
-                          <span className="text-xl font-black text-navy-blue leading-none">
-                            {
-                              eventsList.filter((e) => {
-                                const o = orgsList.find(
-                                  (org) => org.id === e.assignedOrganizationId
-                                )
-                                const isMatch = !o || isDeptItem(o)
-                                return isMatch && e.status === 'completed'
-                              }).length
-                            }
-                          </span>
-                        </div>
-                      </motion.div>
-                    </motion.div>
-
-                    {/* Pending Submitted Reports */}
-                    <div className="glass-card rounded-2xl p-4 space-y-3 w-full">
-                      <div className="flex items-center justify-between border-b border-gray-200/50 pb-2.5">
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-3.5 h-3.5 text-navy-blue" />
-                          <h3 className="font-bold text-navy-blue text-[12.5px]">
-                            Pending Submitted Reports
-                          </h3>
-                          {reportsList.filter((r) => r.status === 'submitted').length > 0 && (
-                            <span className="bg-amber-500 text-white rounded-full px-1.5 py-px text-[9px] font-bold leading-none">
-                              {reportsList.filter((r) => r.status === 'submitted').length}
+                        <motion.div
+                          variants={staggerItem}
+                          className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3 hover:shadow-md hover:border-sig-green/30 transition-all duration-200"
+                        >
+                          <div className="p-2.5 bg-blue-50 text-blue-500 rounded-xl shrink-0">
+                            <Users className="w-4.5 h-4.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider block leading-none mb-1">
+                              Coordinators
                             </span>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => setActiveTab('reports')}
-                          className="text-[10px] text-sig-green-600 font-bold hover:underline cursor-pointer flex items-center gap-0.5"
-                        >
-                          <span>Review All Reports</span>
-                          <ChevronRight className="w-3 h-3" />
-                        </button>
-                      </div>
+                            <span className="text-xl font-black text-navy-blue leading-none">
+                              {
+                                usersList.filter(
+                                  (u) => u.role === 'office_coordinator' && u.status === 'active'
+                                ).length
+                              }
+                            </span>
+                          </div>
+                        </motion.div>
 
-                      {reportsList.filter((r) => r.status === 'submitted').length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {reportsList
-                            .filter((r) => r.status === 'submitted')
-                            .slice(0, 4)
-                            .map((rep) => {
-                              const ev = eventsList.find((e) => e.id === rep.eventId)
-                              const org = orgsList.find((o) => o.id === rep.organizationId)
-                              const author = usersList.find((u) => u.uid === rep.authorId)
-                              return (
-                                <div
-                                  key={rep.id}
-                                  className="p-3 bg-white/70 backdrop-blur-sm rounded-xl border border-white/80 shadow-xs flex items-center justify-between gap-3 hover:shadow-sm transition-all"
-                                >
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-1.5 mb-0.5">
-                                      <span className="text-[9px] font-extrabold text-navy-blue uppercase bg-navy-blue/8 px-1.5 py-0.5 rounded">
-                                        {org ? org.abbreviation : 'CES'}
-                                      </span>
-                                      <span className="text-[9px] text-gray-400">
-                                        {new Date(rep.updatedAt || Date.now()).toLocaleDateString()}
-                                      </span>
-                                    </div>
-                                    <h4 className="font-bold text-navy-blue text-[11.5px] truncate">
-                                      {ev ? ev.name : rep.activityTitle || 'Submitted Report'}
-                                    </h4>
-                                    <p className="text-[10px] text-gray-400 mt-px">
-                                      Submitted by {author ? author.name : 'Coordinator'}
-                                    </p>
-                                  </div>
-                                  <button
-                                    onClick={() => {
-                                      setSelectedReport(rep)
-                                      setFeedbackNote('')
-                                    }}
-                                    className="bg-navy-blue hover:bg-navy-blue-600 text-white font-semibold py-1.5 px-2.5 rounded-lg text-[10px] flex items-center gap-1 shadow-xs transition-all cursor-pointer shrink-0"
+                        <motion.div
+                          variants={staggerItem}
+                          className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3 hover:shadow-md hover:border-sig-green/30 transition-all duration-200"
+                        >
+                          <div className="p-2.5 bg-amber-50 text-amber-500 rounded-xl shrink-0">
+                            <Package className="w-4.5 h-4.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider block leading-none mb-1">
+                              Stock Items
+                            </span>
+                            <span className="text-xl font-black text-navy-blue leading-none">
+                              {inventoryList.reduce((sum, item) => sum + item.quantity, 0)}
+                            </span>
+                          </div>
+                        </motion.div>
+
+                        <motion.div
+                          variants={staggerItem}
+                          className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3 hover:shadow-md hover:border-sig-green/30 transition-all duration-200"
+                        >
+                          <div className="p-2.5 bg-navy-blue/5 text-navy-blue rounded-xl shrink-0">
+                            <FolderOpen className="w-4.5 h-4.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider block leading-none mb-1">
+                              Departments
+                            </span>
+                            <span className="text-xl font-black text-navy-blue leading-none">
+                              {orgsList.filter(isDeptItem).length}
+                            </span>
+                          </div>
+                        </motion.div>
+
+                        <motion.div
+                          variants={staggerItem}
+                          className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3 hover:shadow-md hover:border-sig-green/30 transition-all duration-200"
+                        >
+                          <div className="p-2.5 bg-sig-green/10 text-sig-green rounded-xl shrink-0">
+                            <Calendar className="w-4.5 h-4.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider block leading-none mb-1">
+                              Scheduled
+                            </span>
+                            <span className="text-xl font-black text-navy-blue leading-none">
+                              {
+                                eventsList.filter((e) => {
+                                  const o = orgsList.find(
+                                    (org) => org.id === e.assignedOrganizationId
+                                  )
+                                  const isMatch = !o || isDeptItem(o)
+                                  return isMatch && e.status !== 'completed'
+                                }).length
+                              }
+                            </span>
+                          </div>
+                        </motion.div>
+
+                        <motion.div
+                          variants={staggerItem}
+                          onClick={() => handleOpenCompletedModal(null)}
+                          className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3 cursor-pointer hover:shadow-md hover:border-sig-green/30 transition-all duration-200"
+                        >
+                          <div className="p-2.5 bg-emerald-50 text-emerald-500 rounded-xl shrink-0">
+                            <Check className="w-4.5 h-4.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider block leading-none mb-1">
+                              Completed
+                            </span>
+                            <span className="text-xl font-black text-navy-blue leading-none">
+                              {
+                                eventsList.filter((e) => {
+                                  const o = orgsList.find(
+                                    (org) => org.id === e.assignedOrganizationId
+                                  )
+                                  const isMatch = !o || isDeptItem(o)
+                                  return isMatch && e.status === 'completed'
+                                }).length
+                              }
+                            </span>
+                          </div>
+                        </motion.div>
+                      </motion.div>
+
+                      {/* Pending Submitted Reports */}
+                      <div className="glass-card rounded-2xl p-4 space-y-3 w-full">
+                        <div className="flex items-center justify-between border-b border-gray-200/50 pb-2.5">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-3.5 h-3.5 text-navy-blue" />
+                            <h3 className="font-bold text-navy-blue text-[12.5px]">
+                              Pending Submitted Reports
+                            </h3>
+                            {reportsList.filter((r) => r.status === 'submitted').length > 0 && (
+                              <span className="bg-amber-500 text-white rounded-full px-1.5 py-px text-[9px] font-bold leading-none">
+                                {reportsList.filter((r) => r.status === 'submitted').length}
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => setActiveTab('reports')}
+                            className="text-[10px] text-sig-green-600 font-bold hover:underline cursor-pointer flex items-center gap-0.5"
+                          >
+                            <span>Review All Reports</span>
+                            <ChevronRight className="w-3 h-3" />
+                          </button>
+                        </div>
+
+                        {reportsList.filter((r) => r.status === 'submitted').length > 0 ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {reportsList
+                              .filter((r) => r.status === 'submitted')
+                              .slice(0, 4)
+                              .map((rep) => {
+                                const ev = eventsList.find((e) => e.id === rep.eventId)
+                                const org = orgsList.find((o) => o.id === rep.organizationId)
+                                const author = usersList.find((u) => u.uid === rep.authorId)
+                                return (
+                                  <div
+                                    key={rep.id}
+                                    className="p-3 bg-white/70 backdrop-blur-sm rounded-xl border border-white/80 shadow-xs flex items-center justify-between gap-3 hover:shadow-sm transition-all"
                                   >
-                                    <Eye className="w-3 h-3" />
-                                    <span>Inspect Report</span>
-                                  </button>
-                                </div>
-                              )
-                            })}
-                        </div>
-                      ) : (
-                        <div className="text-center py-6 text-gray-400 text-xs font-medium">
-                          No pending submitted reports requiring review.
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Upcoming Outreaches Widget */}
-                    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-3 w-full">
-                      <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-3.5 h-3.5 text-navy-blue" />
-                          <h3 className="font-bold text-navy-blue text-[12.5px]">
-                            Upcoming Events
-                          </h3>
-                        </div>
-                        <button
-                          onClick={() => setActiveTab('events')}
-                          className="text-[10px] text-sig-green font-bold hover:underline cursor-pointer flex items-center gap-0.5"
-                        >
-                          <span>View All</span>
-                          <ChevronRight className="w-3 h-3" />
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                        {eventsList
-                          .filter((e) => e.status === 'planned')
-                          .slice(0, 4)
-                          .map((evt) => {
-                            const org = orgsList.find((o) => o.id === evt.assignedOrganizationId)
-                            return (
-                              <div
-                                key={evt.id}
-                                className="p-2.5 bg-gray-50/80 hover:bg-gray-50 border border-gray-100/80 rounded-xl text-[11px] flex items-center justify-between gap-2 transition-colors"
-                              >
-                                <div className="min-w-0">
-                                  <span className="font-bold text-navy-blue truncate block">
-                                    {evt.name}
-                                  </span>
-                                  <span className="flex items-center gap-1 text-[9.5px] text-gray-400 mt-0.5">
-                                    <Clock className="w-2.5 h-2.5 text-gray-300 shrink-0" />
-                                    {new Date(evt.scheduleDate).toLocaleDateString(undefined, {
-                                      month: 'short',
-                                      day: 'numeric'
-                                    })}
-                                    {evt.location && (
-                                      <span className="truncate max-w-[80px]">
-                                        {' '}
-                                        · {evt.location}
-                                      </span>
-                                    )}
-                                  </span>
-                                </div>
-                                <span className="bg-navy-blue text-sig-green text-[7.5px] font-extrabold px-1.5 py-0.5 rounded leading-none shrink-0">
-                                  {org ? org.abbreviation : 'CES'}
-                                </span>
-                              </div>
-                            )
-                          })}
-                        {eventsList.filter((e) => e.status === 'planned').length === 0 && (
-                          <div className="text-center py-5 text-gray-400 text-[10.5px] col-span-full">
-                            No upcoming events scheduled.
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-1.5 mb-0.5">
+                                        <span className="text-[9px] font-extrabold text-navy-blue uppercase bg-navy-blue/8 px-1.5 py-0.5 rounded">
+                                          {org ? org.abbreviation : 'CES'}
+                                        </span>
+                                        <span className="text-[9px] text-gray-400">
+                                          {new Date(rep.updatedAt || Date.now()).toLocaleDateString()}
+                                        </span>
+                                      </div>
+                                      <h4 className="font-bold text-navy-blue text-[11.5px] truncate">
+                                        {ev ? ev.name : rep.activityTitle || 'Submitted Report'}
+                                      </h4>
+                                      <p className="text-[10px] text-gray-400 mt-px">
+                                        Submitted by {author ? author.name : 'Coordinator'}
+                                      </p>
+                                    </div>
+                                    <button
+                                      onClick={() => {
+                                        setSelectedReport(rep)
+                                        setFeedbackNote('')
+                                      }}
+                                      className="bg-navy-blue hover:bg-navy-blue-600 text-white font-semibold py-1.5 px-2.5 rounded-lg text-[10px] flex items-center gap-1 shadow-xs transition-all cursor-pointer shrink-0"
+                                    >
+                                      <Eye className="w-3 h-3" />
+                                      <span>Inspect Report</span>
+                                    </button>
+                                  </div>
+                                )
+                              })}
+                          </div>
+                        ) : (
+                          <div className="text-center py-6 text-gray-400 text-xs font-medium">
+                            No pending submitted reports requiring review.
                           </div>
                         )}
                       </div>
+
+                      {/* Upcoming Events Calendar Schedule Widget */}
+                      <UpcomingEventsSchedule
+                        events={eventsList}
+                        orgs={orgsList}
+                        onViewEvent={(evt) => {
+                          setSelectedViewEvent(evt)
+                          setIsViewEventModalOpen(true)
+                        }}
+                        onViewAll={() => setActiveTab('events')}
+                      />
                     </div>
-                  </div>
+                  )
                 )}
 
                 {/* ==================================================== */}
                 {/* INVENTORY TAB PANEL */}
                 {/* ==================================================== */}
                 {activeTab === 'inventory' && user.role === 'admin' && (
-                  <div className="space-y-6 animate-fade-in">
+                  isOffline ? (
+                    <InventorySkeleton />
+                  ) : (
+                    <div className="space-y-6 animate-fade-in">
                     {/* Header section */}
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1">
                       <div>
@@ -3818,14 +3891,18 @@ export default function AdminDashboard({ user, onLogout }) {
                         </div>,
                         document.body
                       )}
-                  </div>
+                    </div>
+                  )
                 )}
 
                 {/* ==================================================== */}
                 {/* DONORS & DONATIONS TAB PANEL */}
                 {/* ==================================================== */}
                 {activeTab === 'donations' && user.role === 'admin' && (
-                  <div className="space-y-6 animate-fade-in">
+                  isOffline ? (
+                    <DonationsSkeleton />
+                  ) : (
+                    <div className="space-y-6 animate-fade-in">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1">
                       <div>
                         <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
@@ -3917,10 +3994,14 @@ export default function AdminDashboard({ user, onLogout }) {
                       </div>
                     </div>
                   </div>
-                )}
+                )
+              )}
 
                 {activeTab === 'events' && user.role === 'admin' && (
-                  <div className="space-y-6 animate-fade-in">
+                  isOffline ? (
+                    <EventsSkeleton />
+                  ) : (
+                    <div className="space-y-6 animate-fade-in">
                     {/* Header section with top action bar button & view mode switcher */}
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1">
                       <div>
@@ -4555,14 +4636,18 @@ export default function AdminDashboard({ user, onLogout }) {
                         </div>,
                         document.body
                       )}
-                  </div>
+                    </div>
+                  )
                 )}
 
                 {/* ==================================================== */}
                 {/* ORGANIZATION TAB PANEL */}
                 {/* ==================================================== */}
                 {activeTab === 'organization' && user.role === 'admin' && (
-                  <div className="space-y-6 animate-fade-in">
+                  isOffline ? (
+                    <OrganizationSkeleton />
+                  ) : (
+                    <div className="space-y-6 animate-fade-in">
                     {/* Organization Header Dashboard */}
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between justify-start gap-4 pb-1">
                       <div>
@@ -5595,13 +5680,17 @@ export default function AdminDashboard({ user, onLogout }) {
                       </form>
                     </AnimatedModal>
                   </div>
-                )}
+                )
+              )}
 
                 {/* ==================================================== */}
                 {/* NARRATIVES REVIEW QUEUE TAB PANEL */}
                 {/* ==================================================== */}
                 {activeTab === 'reports' && user.role === 'admin' && (
-                  <div className="space-y-6 animate-fade-in">
+                  isOffline ? (
+                    <ReportsSkeleton />
+                  ) : (
+                    <div className="space-y-6 animate-fade-in">
                     <div className="pb-1">
                       <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
                         Narrative Reports
@@ -5845,13 +5934,17 @@ export default function AdminDashboard({ user, onLogout }) {
                       )}
                     </AnimatePresence>
                   </div>
-                )}
+                )
+              )}
 
                 {/* ==================================================== */}
                 {/* USER ACCOUNT MANAGEMENT TAB PANEL */}
                 {/* ==================================================== */}
                 {activeTab === 'accounts' && user.role === 'admin' && (
-                  <div className="space-y-6 animate-fade-in w-full">
+                  isOffline ? (
+                    <AccountsSkeleton />
+                  ) : (
+                    <div className="space-y-6 animate-fade-in w-full">
                     {/* Header section */}
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1">
                       <div>
@@ -6003,146 +6096,109 @@ export default function AdminDashboard({ user, onLogout }) {
                       </div>
                     </div>
                   </div>
-                )}
+                )
+              )}
 
                 {/* ==================================================== */}
                 {/* ABOUT TAB PANEL */}
                 {/* ==================================================== */}
                 {activeTab === 'about' && (
-                  <div className="space-y-6 animate-fade-in w-full text-left">
+                  isOffline ? (
+                    <AboutSkeleton />
+                  ) : (
+                    <div className="space-y-6 animate-fade-in w-full text-left">
 
-                    {/* ── 1. PAGE HEADER ─────────────────────────────── */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
-                        About DommUnity
-                      </h1>
-                      <AboutVersionCard />
-                    </div>
-
-                    {/* ── 2. SYSTEM DESCRIPTION (full-width) ─────────── */}
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
-                      <h2 className="text-lg font-bold text-navy-blue border-b border-gray-100 pb-3">
-                        System Description
-                      </h2>
-                      <div>
-                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-                          Project Overview
-                        </span>
-                        <p className="text-sm text-gray-700 mt-1 leading-relaxed">
-                          DommUnity is a desktop-based management system developed for the
-                          Community Extension & Services (CES) Office of Dominican College of
-                          Tarlac, Inc. It is designed to simplify inventory management,
-                          donor management, organization management, and report generation for the
-                          Community Extension Services Office.
-                        </p>
+                      {/* ── 1. PAGE HEADER ─────────────────────────────── */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
+                          About DommUnity
+                        </h1>
+                        <AboutVersionCard />
                       </div>
-                    </div>
 
-                    {/* ── 3. CES OFFICE — Vision / Mission / Goal ────── */}
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-5">
-                      <h2 className="text-lg font-bold text-navy-blue border-b border-gray-100 pb-3">
-                        Community Extension & Services (CES) Office
-                      </h2>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                        {/* Vision */}
-                        <div className="bg-gradient-to-br from-slate-50 to-white rounded-2xl p-5 border border-gray-100 flex flex-col">
-                          <span className="text-xs text-navy-blue font-bold uppercase tracking-wider block mb-2">
-                            Vision
-                          </span>
-                          <p className="text-sm text-gray-700 leading-relaxed flex-1">
-                            The Community Extensions Services (CES) Office of the Dominican College of Tarlac envisions socially awareness,
-                            sensitive and responsive students through active involvement in community extensions, service learning and outreach
-                            activities towards community development.
-                          </p>
-                        </div>
-
-                        {/* Mission */}
-                        <div className="bg-gradient-to-br from-slate-50 to-white rounded-2xl p-5 border border-gray-100 flex flex-col">
-                          <span className="text-xs text-navy-blue font-bold uppercase tracking-wider block mb-2">
-                            Mission
-                          </span>
-                          <p className="text-sm text-gray-700 leading-relaxed flex-1">
-                            The Community and Extension Services Office Shall:
-                            <br />Participate in optimistic and relevant social activities for the
-                            promotion of passion for truth and compassion for humanity. Sustain holistic development of communities which are humane,
-                            self-reliant, and sustainable. Encourage volunteerism among the DCT Community for the noble and worthwhile extension activities
-                            thereby cultivating the same spirit in the client partner communities.
-                          </p>
-                        </div>
-
-                        {/* Goal */}
-                        <div className="bg-gradient-to-br from-slate-50 to-white rounded-2xl p-5 border border-gray-100 flex flex-col">
-                          <span className="text-xs text-navy-blue font-bold uppercase tracking-wider block mb-2">
-                            Goal
-                          </span>
-                          <p className="text-sm text-gray-700 leading-relaxed flex-1">
-                            We aim to provide Community Extension Services program for the improvement of our target clientele in accordance with the
-                            Gospel Values to become a productive, self-reliant, and sustainable member of the society.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* ── 4. BOTTOM ROW — Org Chart | Dev System ─────── */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Organization Chart */}
+                      {/* ── 2. SYSTEM DESCRIPTION (full-width) ─────────── */}
                       <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
                         <h2 className="text-lg font-bold text-navy-blue border-b border-gray-100 pb-3">
-                          Organizational Chart
+                          System Description
                         </h2>
-                        <div className="space-y-3">
-                          {[
-                            { name: 'Sr. Lorna I. Ablog, O.P.', role: 'School Administrator' },
-                            {
-                              name: 'Dr. Augusto R. Dela Cruz',
-                              role: 'Vice President of Academic Affairs'
-                            },
-                            {
-                              name: 'Mrs. Faithful Anne F. Arugay',
-                              role: 'Head of the CES Office'
-                            },
-                            { name: 'Mr. Jonnel B. Manio', role: 'Coordinator of the CES Office' }
-                          ].map((person, idx) => (
-                            <div
-                              key={idx}
-                              className="p-2.5 border-b border-gray-100 last:border-0 text-left"
-                            >
-                              <p className="text-sm font-bold text-navy-blue">{person.name}</p>
-                              <p className="text-xs text-gray-500 font-medium mt-0.5">
-                                {person.role}
-                              </p>
-                            </div>
-                          ))}
+                        <div>
+                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                            Project Overview
+                          </span>
+                          <p className="text-sm text-gray-700 mt-1 leading-relaxed">
+                            DommUnity is a desktop-based management system developed for the
+                            Community Extension & Services (CES) Office of Dominican College of
+                            Tarlac, Inc. It is designed to simplify inventory management,
+                            donor management, organization management, and report generation for the
+                            Community Extension Services Office.
+                          </p>
                         </div>
                       </div>
 
-                      {/* Development System */}
-                      <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
+                      {/* ── 3. CES OFFICE — Vision / Mission / Goal ────── */}
+                      <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-5">
                         <h2 className="text-lg font-bold text-navy-blue border-b border-gray-100 pb-3">
-                          Development System
+                          Community Extension & Services (CES) Office
                         </h2>
-                        <div className="space-y-3">
-                          {[
-                            { name: 'Benidict Justin Salunga', role: 'Lead Programmer' },
-                            { name: 'Mc Harry Tolentino', role: 'Project Manager' },
-                            { name: 'Aron Stefan Taruc', role: 'UI-UX Designer' },
-                            { name: 'John Harold Santos', role: 'Tester' }
-                          ].map((dev, idx) => (
-                            <div
-                              key={idx}
-                              className="p-2.5 border-b border-gray-100 last:border-0 text-left"
-                            >
-                              <p className="text-sm font-bold text-navy-blue">{dev.name}</p>
-                              <p className="text-xs text-gray-500 font-semibold mt-0.5">
-                                {dev.role}
-                              </p>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                          {/* Vision */}
+                          <div className="group bg-gradient-to-b from-slate-50/80 via-white to-white rounded-2xl p-6 border border-gray-100 shadow-2xs hover:shadow-md hover:border-navy-blue/20 transition-all duration-300 flex flex-col items-center text-center">
+                            {/* Main Icon Badge */}
+                            <div className="w-14 h-14 rounded-full bg-navy-blue flex items-center justify-center mb-4 shadow-sm transition-transform duration-300 group-hover:scale-105">
+                              <Eye className="w-7 h-7 text-sig-green" />
                             </div>
-                          ))}
+                            <h3 className="text-base font-extrabold text-navy-blue uppercase tracking-wider mb-2.5">
+                              Vision
+                            </h3>
+                            <p className="text-sm text-gray-700 leading-relaxed flex-1">
+                              The Community Extensions Services (CES) Office of the Dominican College of Tarlac envisions socially awareness,
+                              sensitive and responsive students through active involvement in community extensions, service learning and outreach
+                              activities towards community development.
+                            </p>
+                          </div>
+
+                          {/* Mission */}
+                          <div className="group bg-gradient-to-b from-slate-50/80 via-white to-white rounded-2xl p-6 border border-gray-100 shadow-2xs hover:shadow-md hover:border-sig-green/30 transition-all duration-300 flex flex-col items-center text-center">
+                            {/* Main Icon Badge */}
+                            <div className="w-14 h-14 rounded-full bg-sig-green flex items-center justify-center mb-4 shadow-sm transition-transform duration-300 group-hover:scale-105">
+                              <Rocket className="w-7 h-7 text-white" />
+                            </div>
+                            <h3 className="text-base font-extrabold text-navy-blue uppercase tracking-wider mb-2.5">
+                              Mission
+                            </h3>
+                            <p className="text-sm text-gray-700 leading-relaxed flex-1">
+                              The Community and Extension Services Office Shall: Participate in optimistic and relevant social activities for the
+                              promotion of passion for truth and compassion for humanity. Sustain holistic development of communities which are humane,
+                              self-reliant, and sustainable. Encourage volunteerism among the DCT Community for the noble and worthwhile extension activities
+                              thereby cultivating the same spirit in the client partner communities.
+                            </p>
+                          </div>
+
+                          {/* Goal */}
+                          <div className="group bg-gradient-to-b from-slate-50/80 via-white to-white rounded-2xl p-6 border border-gray-100 shadow-2xs hover:shadow-md hover:border-navy-blue/20 transition-all duration-300 flex flex-col items-center text-center">
+                            {/* Main Icon Badge */}
+                            <div className="w-14 h-14 rounded-full bg-navy-blue flex items-center justify-center mb-4 shadow-sm transition-transform duration-300 group-hover:scale-105">
+                              <Target className="w-7 h-7 text-sig-green" />
+                            </div>
+                            <h3 className="text-base font-extrabold text-navy-blue uppercase tracking-wider mb-2.5">
+                              Goal
+                            </h3>
+                            <p className="text-sm text-gray-700 leading-relaxed flex-1">
+                              We aim to provide Community Extension Services program for the improvement of our target clientele in accordance with the
+                              Gospel Values to become a productive, self-reliant, and sustainable member of the society.
+                            </p>
+                          </div>
                         </div>
                       </div>
+
+                      {/* ── 4. Organizational Chart ─────── */}
+                      <OrganizationalChart />
+
+                      {/* ── 5. Developers ─────── */}
+                      <DevelopersChart />
                     </div>
-                  </div>
+                  )
                 )}
               </div>
             </div>
@@ -7256,6 +7312,146 @@ export default function AdminDashboard({ user, onLogout }) {
             </button>
           </div>
         </form>
+      </AnimatedModal>
+
+      {/* Event Details View Modal */}
+      <AnimatedModal
+        isOpen={isViewEventModalOpen}
+        onClose={() => {
+          setIsViewEventModalOpen(false)
+          setSelectedViewEvent(null)
+        }}
+        overlayClassName="fixed inset-0 z-[99999] flex items-center justify-center p-4 glass-modal-overlay"
+        contentClassName="glass-modal rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-white/80 space-y-5 max-h-[90vh] overflow-y-auto"
+      >
+        {selectedViewEvent &&
+          (() => {
+            const org = orgsList.find((o) => o.id === selectedViewEvent.assignedOrganizationId)
+            const dateObj = new Date(selectedViewEvent.scheduleDate)
+            return (
+              <>
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-gray-200/60 pb-3.5">
+                  <div className="flex items-center space-x-2">
+                    <div className="p-1.5 bg-navy-blue/5 text-navy-blue rounded-xl">
+                      <Calendar className="w-5 h-5" />
+                    </div>
+                    <h3 className="font-extrabold text-navy-blue text-base">Event Details</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsViewEventModalOpen(false)
+                      setSelectedViewEvent(null)
+                    }}
+                    className="text-gray-400 hover:text-navy-blue transition-colors cursor-pointer p-1.5 rounded-lg hover:bg-gray-100"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Event Details Content */}
+                <div className="space-y-4 text-left">
+                  {/* Event Name */}
+                  <div>
+                    <h4 className="text-lg font-black text-navy-blue leading-snug break-words whitespace-normal">
+                      {selectedViewEvent.name}
+                    </h4>
+                  </div>
+
+                  {/* Status & Type Badges */}
+                  <div className="flex flex-wrap gap-2">
+                    <span
+                      className={`inline-flex items-center text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${selectedViewEvent.status === 'completed' ||
+                        selectedViewEvent.status === 'successful'
+                        ? 'bg-green-100 text-green-800'
+                        : selectedViewEvent.status === 'cancelled'
+                          ? 'bg-red-100 text-red-800'
+                          : selectedViewEvent.status === 'planned'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                    >
+                      Status: {selectedViewEvent.status || 'planned'}
+                    </span>
+                    <span className="inline-flex items-center text-[10px] font-bold uppercase px-2.5 py-1 rounded-full bg-navy-blue/5 text-navy-blue">
+                      Type: {selectedViewEvent.eventType || 'department'}
+                    </span>
+                  </div>
+
+                  {/* Info Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
+                    {/* Department / Org */}
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                        Assigned Department / Org
+                      </span>
+                      <span className="text-xs text-navy-blue font-bold flex items-center space-x-1.5">
+                        <Users className="w-3.5 h-3.5 text-navy-blue shrink-0" />
+                        <span className="break-words whitespace-normal">
+                          {selectedViewEvent.eventType === 'organization'
+                            ? `${selectedViewEvent.organizationName || 'Organization'} (${org ? org.abbreviation : 'All'})`
+                            : org
+                              ? `${org.name} (${org.abbreviation})`
+                              : 'All'}
+                        </span>
+                      </span>
+                    </div>
+
+                    {/* Location/Venue */}
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                        Venue / Location
+                      </span>
+                      <span className="text-xs text-navy-blue font-bold flex items-center space-x-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-sig-green shrink-0" />
+                        <span className="break-words whitespace-normal">
+                          {selectedViewEvent.location || 'No venue specified'}
+                        </span>
+                      </span>
+                    </div>
+
+                    {/* Scheduled Date */}
+                    <div className="space-y-1 md:col-span-2">
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                        Date & Time
+                      </span>
+                      <span className="text-xs text-navy-blue font-bold flex items-center space-x-1.5">
+                        <Clock className="w-3.5 h-3.5 text-navy-blue shrink-0" />
+                        <span>{!isNaN(dateObj.getTime()) ? dateObj.toLocaleString() : 'N/A'}</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  {selectedViewEvent.description && (
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                        Description / Narrative
+                      </span>
+                      <div className="bg-white border border-gray-150 rounded-xl p-3 text-xs text-gray-650 leading-relaxed font-medium break-words whitespace-pre-wrap">
+                        {selectedViewEvent.description}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer */}
+                <div className="flex justify-end border-t border-gray-100 pt-3 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsViewEventModalOpen(false)
+                      setSelectedViewEvent(null)
+                    }}
+                    className="bg-navy-blue hover:bg-navy-blue/90 text-white rounded-xl text-xs font-semibold py-2 px-5 shadow-sm transition-all duration-150 cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+              </>
+            )
+          })()}
       </AnimatedModal>
 
       {/* Inspect Report Document Viewer Modal (Fixed to Viewport Root) */}

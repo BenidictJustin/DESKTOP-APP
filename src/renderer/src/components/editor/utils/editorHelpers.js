@@ -60,29 +60,29 @@ export function insertChart(editor) {
     .focus()
     .insertContent(
       `
-    <table style="border: 1px solid #c0c0c0; width: 100%; margin: 12px 0;">
+    <table style="border-collapse: collapse; border: 1.5px solid #000000; width: 100%; margin: 12px 0;">
       <thead>
         <tr style="background-color: #f3f4f6;">
-          <th style="padding: 8px; border: 1px solid #c0c0c0; font-weight: bold;">Category</th>
-          <th style="padding: 8px; border: 1px solid #c0c0c0; font-weight: bold;">Value</th>
-          <th style="padding: 8px; border: 1px solid #c0c0c0; font-weight: bold;">Progress</th>
+          <th style="padding: 8px; border: 1.5px solid #000000; font-weight: bold;">Category</th>
+          <th style="padding: 8px; border: 1.5px solid #000000; font-weight: bold;">Value</th>
+          <th style="padding: 8px; border: 1.5px solid #000000; font-weight: bold;">Progress</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td style="padding: 8px; border: 1px solid #c0c0c0;">Category A</td>
-          <td style="padding: 8px; border: 1px solid #c0c0c0;">120</td>
-          <td style="padding: 8px; border: 1px solid #c0c0c0;"><div style="background-color:#059669; width:80%; height:12px; border-radius:2px;"></div></td>
+          <td style="padding: 8px; border: 1.5px solid #000000;">Category A</td>
+          <td style="padding: 8px; border: 1.5px solid #000000;">120</td>
+          <td style="padding: 8px; border: 1.5px solid #000000;"><div style="background-color:#059669; width:80%; height:12px; border-radius:2px;"></div></td>
         </tr>
         <tr>
-          <td style="padding: 8px; border: 1px solid #c0c0c0;">Category B</td>
-          <td style="padding: 8px; border: 1px solid #c0c0c0;">85</td>
-          <td style="padding: 8px; border: 1px solid #c0c0c0;"><div style="background-color:#2563eb; width:57%; height:12px; border-radius:2px;"></div></td>
+          <td style="padding: 8px; border: 1.5px solid #000000;">Category B</td>
+          <td style="padding: 8px; border: 1.5px solid #000000;">85</td>
+          <td style="padding: 8px; border: 1.5px solid #000000;"><div style="background-color:#2563eb; width:57%; height:12px; border-radius:2px;"></div></td>
         </tr>
         <tr>
-          <td style="padding: 8px; border: 1px solid #c0c0c0;">Category C</td>
-          <td style="padding: 8px; border: 1px solid #c0c0c0;">45</td>
-          <td style="padding: 8px; border: 1px solid #c0c0c0;"><div style="background-color:#ea580c; width:30%; height:12px; border-radius:2px;"></div></td>
+          <td style="padding: 8px; border: 1.5px solid #000000;">Category C</td>
+          <td style="padding: 8px; border: 1.5px solid #000000;">45</td>
+          <td style="padding: 8px; border: 1.5px solid #000000;"><div style="background-color:#ea580c; width:30%; height:12px; border-radius:2px;"></div></td>
         </tr>
       </tbody>
     </table>
@@ -254,16 +254,86 @@ export function handleExportTXT(editor, title) {
   URL.revokeObjectURL(url)
 }
 
-/** Export the editor content as a DOCX-compatible HTML file. */
-export function handleExportDOCX(editor, title) {
+/** Export the editor content as a DOCX-compatible document file. */
+export function handleExportDOCX(editor, title, options = {}) {
+  if (options.docxBuffer) {
+    const blob = new Blob([options.docxBuffer], {
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${title || 'Document'}.docx`
+    a.click()
+    URL.revokeObjectURL(url)
+    return
+  }
+
   if (!editor) return
   const html = editor.getHTML()
-  const blob = new Blob(
-    [
-      `<html><head><meta charset="utf-8"><style>body{font-family:Calibri,sans-serif;font-size:11pt;margin:2.54cm;}</style></head><body>${html}</body></html>`
-    ],
-    { type: 'application/msword' }
-  )
+  const headerHtml = options.showHeader && options.headerText ? `<div style="margin-bottom: 24px; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px;">${options.headerText}</div>` : ''
+  const footerHtml = options.showFooter && options.footerText ? `<div style="margin-top: 24px; border-top: 1px solid #e5e7eb; padding-top: 12px;">${options.footerText}</div>` : ''
+
+  const fullHtml = `<!DOCTYPE html>
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+  <meta charset="utf-8">
+  <title>${title || 'Document'}</title>
+  <!--[if gte mso 9]>
+  <xml>
+    <w:WordDocument>
+      <w:View>Print</w:View>
+      <w:Zoom>100</w:Zoom>
+      <w:DoNotOptimizeForBrowser/>
+    </w:WordDocument>
+  </xml>
+  <![endif]-->
+  <style>
+    body {
+      font-family: 'Calibri', 'Arial', sans-serif;
+      font-size: 11pt;
+      line-height: 1.5;
+      margin: 1in;
+      color: #1f2937;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0;
+      border: 1px solid #374151;
+    }
+    table, th, td {
+      border: 1px solid #374151;
+    }
+    th, td {
+      padding: 6px 10px;
+      font-size: 10pt;
+      text-align: left;
+    }
+    th {
+      background-color: #f3f4f6;
+      font-weight: bold;
+    }
+    tr:nth-child(even) td {
+      background-color: #fafafa;
+    }
+    h1 { font-size: 18pt; font-weight: bold; color: #111827; margin-bottom: 12px; }
+    h2 { font-size: 14pt; font-weight: bold; color: #1f2937; margin-bottom: 10px; }
+    h3 { font-size: 12pt; font-weight: bold; color: #374151; margin-bottom: 8px; }
+    p { margin-bottom: 8px; }
+    ul { list-style-type: disc; padding-left: 24px; margin-bottom: 8px; }
+    ol { list-style-type: decimal; padding-left: 24px; margin-bottom: 8px; }
+    img { max-width: 100%; height: auto; }
+  </style>
+</head>
+<body>
+  ${headerHtml}
+  <div>${html}</div>
+  ${footerHtml}
+</body>
+</html>`
+
+  const blob = new Blob([fullHtml], { type: 'application/msword' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -508,11 +578,21 @@ export async function preparePrintHtmlPayload(element, title, options = {}) {
     const docW = options.paperW || 816
     const docH = options.paperH || 1248
     const gapH = options.gapH || 36
-    const printCanvas = cloned.querySelector('.print-canvas')
+    const printCanvas = (cloned.classList && cloned.classList.contains('print-canvas'))
+      ? cloned
+      : cloned.querySelector('.print-canvas')
 
     if (printCanvas) {
-      const sheets = Array.from(printCanvas.querySelectorAll('[id^="doc-viewer-page-"]'))
-      const docPage = printCanvas.querySelector('.doc-page')
+      let sheets = Array.from(printCanvas.querySelectorAll('[id^="doc-viewer-page-"]'))
+      if (sheets.length === 0) {
+        const sheetsContainer = printCanvas.firstElementChild
+        if (sheetsContainer) {
+          sheets = Array.from(sheetsContainer.children).filter(
+            (el) => el.classList?.contains('bg-white') || el.style?.height || el.offsetHeight > 0
+          )
+        }
+      }
+      const docPage = printCanvas.querySelector('.doc-page') || printCanvas.querySelector('.doc-page-container')
 
       if (sheets.length > 0 && docPage) {
         // Remove any zoom scale transforms
@@ -524,8 +604,13 @@ export async function preparePrintHtmlPayload(element, title, options = {}) {
         })
 
         sheets.forEach((sheet, idx) => {
-          const header = sheet.querySelector('.absolute.z-50') || sheet.children[0]
-          const footer = sheet.querySelectorAll('.absolute.z-50')[1] || sheet.children[1]
+          const header = Array.from(sheet.querySelectorAll('.absolute.z-50, [class*="top-"], [style*="top"]')).find(
+            (el) => el.style?.top || el.className?.includes('top') || (el.getAttribute('style') && el.getAttribute('style').includes('top'))
+          ) || (sheet.children.length > 0 && !sheet.children[0].className?.includes('bottom') && !(sheet.children[0].getAttribute('style') && sheet.children[0].getAttribute('style').includes('bottom')) ? sheet.children[0] : null)
+
+          const footer = Array.from(sheet.querySelectorAll('.absolute.z-50, [class*="bottom-"], [style*="bottom"]')).find(
+            (el) => el.style?.bottom || el.className?.includes('bottom') || (el.getAttribute('style') && el.getAttribute('style').includes('bottom'))
+          ) || (sheet.children.length > 1 ? sheet.children[1] : (sheet.children.length === 1 && (sheet.children[0].className?.includes('bottom') || (sheet.children[0].getAttribute('style') && sheet.children[0].getAttribute('style').includes('bottom'))) ? sheet.children[0] : null))
 
           // 1. Header (Fixed at top of page card)
           let headerHtml = ''
@@ -697,15 +782,52 @@ export async function preparePrintHtmlPayload(element, title, options = {}) {
           .ProseMirror img {
             max-width: 100%; height: auto;
           }
-          .ProseMirror table { border-collapse: collapse; width: 100%; margin: 6px 0; table-layout: auto; }
-          .ProseMirror th, .ProseMirror td { border: 1px solid #c0c0c0; padding: 4px 8px; font-size: 11px; line-height: 1.35; text-align: left; position: relative; }
-          .ProseMirror th { background: #f3f4f6; font-weight: 600; }
-          .ProseMirror tr:nth-child(even) td { background: #fafafa; }
+          /* Document Body Table Styling (Strictly scoped to document body content) */
+          .ProseMirror table,
+          .doc-page-content table,
+          table.movable-table {
+            border-collapse: collapse !important;
+            border-spacing: 0 !important;
+            width: 100% !important;
+            margin: 6px 0 !important;
+            border: 1.5px solid #000000 !important;
+            border-top: 1.5px solid #000000 !important;
+            border-bottom: 1.5px solid #000000 !important;
+            border-left: 1.5px solid #000000 !important;
+            border-right: 1.5px solid #000000 !important;
+            box-sizing: border-box !important;
+          }
+          .ProseMirror table th,
+          .ProseMirror table td,
+          .doc-page-content table th,
+          .doc-page-content table td,
+          table.movable-table th,
+          table.movable-table td {
+            border: 1.5px solid #000000 !important;
+            border-top: 1.5px solid #000000 !important;
+            border-bottom: 1.5px solid #000000 !important;
+            border-left: 1.5px solid #000000 !important;
+            border-right: 1.5px solid #000000 !important;
+            padding: 4px 8px;
+            font-size: 11px;
+            line-height: 1.35;
+            text-align: left;
+            position: relative;
+            box-sizing: border-box !important;
+          }
+          .ProseMirror th, .doc-page-content th { background: #f3f4f6; font-weight: 600; }
+          .ProseMirror tr:nth-child(even) td, .doc-page-content tr:nth-child(even) td { background: #fafafa; }
           .ProseMirror hr { border: none; border-top: 1px solid #d1d5db; margin: 14px 0; }
           .ProseMirror mark { padding: 1px 2px; border-radius: 2px; }
           .ProseMirror a { color: #2563eb; text-decoration: underline; }
           .ProseMirror sub { font-size: 0.75em; }
           .ProseMirror sup { font-size: 0.75em; }
+
+          /* Header and Footer layout tables are completely borderless */
+          .doc-header table, .doc-header td, .doc-header th,
+          .doc-footer table, .doc-footer td, .doc-footer th {
+            border: none !important;
+          }
 
           /* doc-page-content Styling */
           .doc-page-content p { margin-bottom: 8px; }
@@ -719,10 +841,6 @@ export async function preparePrintHtmlPayload(element, title, options = {}) {
           .doc-page-content li p { margin-bottom: 2px; }
           .doc-page-content blockquote { border-left: 3px solid #d1d5db; padding-left: 14px; margin: 0 0 8px; color: #6b7280; font-style: italic; }
           .doc-page-content img { max-width: 100%; height: auto; }
-          .doc-page-content table { border-collapse: collapse; width: 100%; margin: 6px 0; table-layout: auto; }
-          .doc-page-content th, .doc-page-content td { border: 1px solid #c0c0c0; padding: 4px 8px; font-size: 11px; line-height: 1.35; text-align: left; position: relative; }
-          .doc-page-content th { background: #f3f4f6; font-weight: 600; }
-          .doc-page-content tr:nth-child(even) td { background: #fafafa; }
           .doc-page-content hr { border: none; border-top: 1px solid #d1d5db; margin: 14px 0; }
           .doc-page-content a { color: #2563eb; text-decoration: underline; }
 
@@ -741,11 +859,16 @@ export async function preparePrintHtmlPayload(element, title, options = {}) {
             print-color-adjust: exact !important;
             overflow: visible !important;
             display: block !important;
+            height: auto !important;
+            min-height: 100% !important;
           }
 
+          /* Export Page Wrapper */
           .pdf-page-card {
             width: ${options.paperW || 816}px !important;
             height: ${options.paperH || 1248}px !important;
+            min-height: ${options.paperH || 1248}px !important;
+            max-height: ${options.paperH || 1248}px !important;
             page-break-after: always !important;
             page-break-before: avoid !important;
             page-break-inside: avoid !important;
@@ -766,6 +889,11 @@ export async function preparePrintHtmlPayload(element, title, options = {}) {
             overflow: visible !important;
           }
 
+          .print-canvas [id^="doc-viewer-page-"] {
+            border: none !important;
+            box-shadow: none !important;
+          }
+
           .print-canvas .absolute { position: absolute !important; }
           .print-canvas .relative { position: relative !important; }
           .print-canvas .inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
@@ -773,14 +901,12 @@ export async function preparePrintHtmlPayload(element, title, options = {}) {
           .print-canvas .select-none { user-select: none; }
           .print-canvas .bg-white { background: white !important; }
           .print-canvas .shadow-xl { box-shadow: none !important; }
-          .print-canvas .border { border: none !important; }
           .print-canvas .shrink-0 { flex-shrink: 0; }
           .print-canvas .flex { display: flex; }
           .print-canvas .flex-col { flex-direction: column; }
           .print-canvas .items-center { align-items: center; }
           .print-canvas .z-50 { z-index: 50; }
           .print-canvas .rounded-xs { border-radius: 0 !important; }
-          .print-canvas .border-gray-300\\/70 { border: none !important; }
 
           .doc-page {
             position: relative !important;
@@ -917,20 +1043,20 @@ export async function printElementNative(element, title, options = {}) {
 }
 
 /** Export the editor content as a native vector PDF using Electron printToPDF. */
-export async function handleExportPDF(canvasRef, title) {
+export async function handleExportPDF(canvasRef, title, options = {}) {
   if (!canvasRef?.current) return
   try {
-    await exportElementToPDF(canvasRef.current, title, { isDocument: true })
+    await exportElementToPDF(canvasRef.current, title, { isDocument: true, ...options })
   } catch (err) {
     console.error('Native PDF export failed:', err)
   }
 }
 
 /** Print the editor content natively using Electron webContents.print. */
-export async function handlePrintNative(canvasRef, title) {
+export async function handlePrintNative(canvasRef, title, options = {}) {
   if (!canvasRef?.current) return
   try {
-    await printElementNative(canvasRef.current, title, { isDocument: true })
+    await printElementNative(canvasRef.current, title, { isDocument: true, ...options })
   } catch (err) {
     console.error('Native print failed:', err)
   }
@@ -1153,7 +1279,7 @@ export async function parseXmlToHtml(xmlStr, zip, relsMap) {
         tcHtml += await processNode(node.childNodes[i])
       }
       let cellStyle =
-        'border: 1px solid #c0c0c0; padding: 6px 10px; text-align: left; vertical-align: top;'
+        'border: 1px solid #374151; padding: 6px 10px; text-align: left; vertical-align: top;'
       const tcPr = node.getElementsByTagName('w:tcPr')[0]
       if (tcPr) {
         const shd = tcPr.getElementsByTagName('w:shd')[0]
@@ -1180,7 +1306,7 @@ export async function parseXmlToHtml(xmlStr, zip, relsMap) {
       for (let i = 0; i < node.childNodes.length; i++) {
         tblHtml += await processNode(node.childNodes[i])
       }
-      return `<table style="border-collapse: collapse; width: 100%; margin: 12px 0; border: 1px solid #c0c0c0;">${tblHtml}</table>`
+      return `<table style="border-collapse: collapse; width: 100%; margin: 12px 0; border: 1px solid #374151;">${tblHtml}</table>`
     }
 
     // Paragraph

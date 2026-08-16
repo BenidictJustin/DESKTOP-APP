@@ -2,6 +2,9 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import AboutVersionCard from '../../components/AboutVersionCard'
+import UpcomingEventsSchedule from '../../components/UpcomingEventsSchedule'
+import OrganizationalChart from '../../components/OrganizationalChart'
+import DevelopersChart from '../../components/DevelopersChart'
 import AnimatedPage from '../../components/motion/AnimatedPage'
 import { staggerContainer, staggerItem } from '../../components/motion/motionConfig'
 import {
@@ -31,6 +34,8 @@ import {
   Info,
   Users,
   Eye,
+  Rocket,
+  Target,
   Download,
   Layers,
   Calendar,
@@ -51,6 +56,12 @@ import {
   parseNarrativePages
 } from '../../components/editor/utils/editorHelpers'
 import { PAPER, MARGINS } from '../../components/editor/constants'
+import { useNetworkStatus } from '../../context/NetworkContext'
+import {
+  CoordinatorDashboardSkeleton,
+  ReportsSkeleton,
+  AboutSkeleton
+} from '../../components/skeletons'
 
 // ─── Status Badge helper ───────────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
@@ -70,6 +81,7 @@ const StatusBadge = ({ status }) => {
 }
 
 export default function OfficeCoordinatorDashboard({ user, onLogout }) {
+  const { isOffline, registerReconnectHandler } = useNetworkStatus()
   // ── Navigation ──
   const [activeTab, setActiveTab] = useState('dashboard')
 
@@ -123,17 +135,21 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
   useEffect(() => {
     loadData()
+    const unsubReconnect = registerReconnectHandler(() => {
+      loadData()
+    })
     const unsubReports = subscribeReports((reports) => setReportsList(reports))
     const unsubOrgs = subscribeOrganizations((orgs) => setOrgsList(orgs))
     const unsubEvents = subscribeEvents((events) => setEventsList(events))
     const unsubUsers = subscribeUsers((users) => setUsersList(users))
     return () => {
+      if (typeof unsubReconnect === 'function') unsubReconnect()
       if (typeof unsubReports === 'function') unsubReports()
       if (typeof unsubOrgs === 'function') unsubOrgs()
       if (typeof unsubEvents === 'function') unsubEvents()
       if (typeof unsubUsers === 'function') unsubUsers()
     }
-  }, [loadData])
+  }, [loadData, registerReconnectHandler])
 
   // Body scroll lock effect whenever any modal/dialog is open
   useEffect(() => {
@@ -214,6 +230,14 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   // ── Save/Submit handler ──
   const handleSave = useCallback(
     async (status, html, silent = false, layoutOptions = {}) => {
+      if (isOffline) {
+        if (!silent) {
+          alert('Cannot save or submit report: Internet connection is offline. Your draft remains safe in the editor. Please reconnect to sync.')
+        }
+        setSaveStatus('offline')
+        return
+      }
+
       if (!html || html === '<p></p>') {
         if (!silent) alert('Please write some content before saving.')
         return
@@ -334,24 +358,6 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     returned: myReports.filter((r) => r.status === 'returned').length
   }
 
-  const completedEvents = eventsList
-    .filter((e) => {
-      const s = (e.status || '').toLowerCase().trim()
-      return (
-        s === 'completed' ||
-        s === 'complete' ||
-        s === 'successful' ||
-        s === 'success' ||
-        s === 'done' ||
-        s === 'finished'
-      )
-    })
-    .sort((a, b) => {
-      const dateA = new Date(a.scheduleDate || a.date || 0).getTime()
-      const dateB = new Date(b.scheduleDate || b.date || 0).getTime()
-      return dateB - dateA
-    })
-
   // ─────────────────────────────────────────────────────────────────────────────
   // ── RENDER ────────────────────────────────────────────────────────────────────
   // ─────────────────────────────────────────────────────────────────────────────
@@ -434,251 +440,110 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           <AnimatedPage pageKey={activeTab} className="h-full flex flex-col">
             {/* ── DASHBOARD ── */}
             {activeTab === 'dashboard' && (
-              <div className="flex-1 overflow-y-auto p-8">
-                <div className="max-w-5xl mx-auto space-y-6">
-                  {/* Stats row */}
-                  <motion.div
-                    className="grid grid-cols-2 md:grid-cols-5 gap-4"
-                    variants={staggerContainer}
-                    initial="initial"
-                    animate="animate"
-                  >
-                    {[
-                      {
-                        label: 'Total Reports',
-                        value: stats.total,
-                        iconBg: 'bg-blue-50 text-blue-500',
-                        icon: FileText
-                      },
-                      {
-                        label: 'Drafts',
-                        value: stats.drafts,
-                        iconBg: 'bg-gray-100 text-gray-500',
-                        icon: Edit3
-                      },
-                      {
-                        label: 'Submitted',
-                        value: stats.submitted,
-                        iconBg: 'bg-amber-50 text-amber-500',
-                        icon: Layers
-                      },
-                      {
-                        label: 'Approved',
-                        value: stats.approved,
-                        iconBg: 'bg-green-50 text-green-500',
-                        icon: Check
-                      },
-                      {
-                        label: 'Returned',
-                        value: stats.returned,
-                        iconBg: 'bg-red-50 text-red-500',
-                        icon: AlertTriangle
-                      }
-                    ].map((s) => {
-                      const StatIcon = s.icon
-                      return (
-                        <motion.div
-                          key={s.label}
-                          variants={staggerItem}
-                          className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3 hover:shadow-md hover:border-sig-green/30 transition-all duration-200"
-                        >
-                          <div className={`p-2.5 ${s.iconBg} rounded-xl shrink-0`}>
-                            <StatIcon className="w-4.5 h-4.5" />
-                          </div>
-                          <div className="min-w-0">
-                            <span className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider block leading-none mb-1">
-                              {s.label}
-                            </span>
-                            <span className="text-xl font-black text-navy-blue leading-none">
-                              {s.value}
-                            </span>
-                          </div>
-                        </motion.div>
-                      )
-                    })}
-                  </motion.div>
-
-                  {/* Quick actions */}
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => {
-                        resetForm()
-                        setActiveTab('editor')
-                      }}
-                      className="flex items-center gap-2 bg-navy-blue text-white text-xs font-semibold px-4 py-2.5 rounded-xl border-b-2 border-sig-green hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>New Report</span>
-                    </button>
-                    <button
-                      onClick={() => setActiveTab('reports')}
-                      className="flex items-center gap-2 bg-white text-navy-blue text-xs font-semibold px-4 py-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 transition-all duration-150 cursor-pointer"
-                    >
-                      <FolderOpen className="w-3.5 h-3.5" />
-                      <span>View My Reports</span>
-                    </button>
+              isOffline ? (
+                <div className="flex-1 overflow-y-auto p-8">
+                  <div className="max-w-5xl mx-auto">
+                    <CoordinatorDashboardSkeleton />
                   </div>
-
-                  {/* Completed Events Section */}
-                  <div className="bg-white rounded-2xl border border-gray-100 shadow-xs p-5 space-y-4 text-left">
-                    <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                      <div className="flex items-center space-x-2">
-                        <h3 className="text-xs font-extrabold text-navy-blue uppercase tracking-wider">
-                          Completed Events
-                        </h3>
-                        <span className="bg-green-100 text-green-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-green-200/60">
-                          {completedEvents.length}
-                        </span>
-                      </div>
-                    </div>
-
-                    {completedEvents.length === 0 ? (
-                      <div className="text-center py-8 text-gray-400 text-xs font-medium">
-                        No completed or successful events found.
-                      </div>
-                    ) : (
-                      <>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {(showAllCompleted ? completedEvents : completedEvents.slice(0, 3)).map((evt) => {
-                            const org = orgsList.find((o) => o.id === evt.assignedOrganizationId)
-                            const orgDisplay =
-                              evt.eventType === 'organization'
-                                ? `${evt.organizationName || 'Organization'} (${org ? org.abbreviation : 'All'})`
-                                : org
-                                  ? `${org.name} (${org.abbreviation})`
-                                  : 'All'
-                            const eventDateDisplay = evt.scheduleDate
-                              ? new Date(evt.scheduleDate).toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric'
-                              })
-                              : 'N/A'
-
-                            return (
-                              <div
-                                key={evt.id}
-                                onClick={() => {
-                                  setSelectedViewEvent(evt)
-                                  setIsViewEventModalOpen(true)
-                                }}
-                                className="bg-gray-50/60 hover:bg-white rounded-2xl p-4 border border-gray-200/80 hover:border-navy-blue/30 shadow-xs hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-3 group text-left"
-                              >
-                                <div className="space-y-2">
-                                  <div className="flex items-start justify-between gap-2">
-                                    <h4 className="text-xs font-bold text-navy-blue group-hover:text-sig-green transition-colors leading-snug line-clamp-2">
-                                      {evt.name}
-                                    </h4>
-                                    <span className="inline-flex items-center text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-green-100 text-green-800 border border-green-200/60 shrink-0">
-                                      {evt.status}
-                                    </span>
-                                  </div>
-
-                                  <div className="space-y-1 text-[11px] text-gray-600 font-medium">
-                                    <div className="flex items-center space-x-1.5 truncate">
-                                      <Users className="w-3.5 h-3.5 text-navy-blue shrink-0" />
-                                      <span className="truncate">{orgDisplay}</span>
-                                    </div>
-                                    <div className="flex items-center space-x-1.5 truncate">
-                                      <MapPin className="w-3.5 h-3.5 text-sig-green shrink-0" />
-                                      <span className="truncate">
-                                        {evt.location || 'No location set'}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[10px] text-gray-400 font-semibold">
-                                  <div className="flex items-center space-x-1">
-                                    <Calendar className="w-3 h-3 text-navy-blue" />
-                                    <span>{eventDateDisplay}</span>
-                                  </div>
-                                  <span className="text-navy-blue group-hover:text-sig-green font-bold flex items-center gap-0.5">
-                                    View Details &rarr;
-                                  </span>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                        {completedEvents.length > 3 && (
-                          <div className="flex justify-center pt-2">
-                            <button
-                              type="button"
-                              onClick={() => setShowAllCompleted(!showAllCompleted)}
-                              className="px-4 py-1.5 border border-navy-blue/15 text-navy-blue hover:bg-navy-blue/5 rounded-full text-xs font-semibold transition-all duration-150 cursor-pointer"
-                            >
-                              {showAllCompleted ? 'See Less' : 'See More'}
-                            </button>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  {/* Recent reports */}
-                  {myReports.length > 0 && (
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-xs p-5">
-                      <h3 className="text-xs font-extrabold text-navy-blue uppercase tracking-wider mb-4">
-                        Recent Reports
-                      </h3>
-                      <div className="space-y-2.5">
-                        {myReports.slice(0, 5).map((rep) => {
-                          const ev = eventsList.find((e) => e.id === rep.eventId)
-                          const author = usersList.find((u) => u.uid === rep.authorId)
-                          return (
-                            <div
-                              key={rep.id}
-                              className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0"
-                            >
-                              <div className="space-y-0.5">
-                                <div className="flex items-center gap-2">
-                                  <StatusBadge status={rep.status} />
-                                </div>
-                                <p className="text-xs font-semibold text-navy-blue">
-                                  {ev?.name || rep.activityTitle || 'Untitled'}
-                                </p>
-                                <p className="text-[10px] text-gray-400">
-                                  Submitted by{' '}
-                                  <span className="font-semibold text-gray-600">
-                                    {author ? author.name : 'Coordinator'}
-                                  </span>
-                                </p>
-                              </div>
-                              {rep.status === 'submitted' || rep.status === 'approved' ? (
-                                <button
-                                  onClick={() => setSelectedViewerReport(rep)}
-                                  className="text-[10px] font-semibold text-navy-blue hover:text-sig-green transition-colors duration-150 cursor-pointer flex items-center gap-1"
-                                >
-                                  <Eye className="w-3 h-3" />
-                                  View
-                                </button>
-                              ) : (
-                                <div className="flex items-center gap-3">
-                                  <button
-                                    onClick={() => setSelectedViewerReport(rep)}
-                                    className="text-[10px] font-semibold text-navy-blue hover:text-sig-green transition-colors duration-150 cursor-pointer flex items-center gap-1"
-                                  >
-                                    <Eye className="w-3 h-3" />
-                                    View
-                                  </button>
-                                  <button
-                                    onClick={() => openReport(rep)}
-                                    className="text-[10px] font-semibold text-navy-blue hover:text-sig-green transition-colors duration-150 cursor-pointer flex items-center gap-1"
-                                  >
-                                    <Edit3 className="w-3 h-3" />
-                                    Edit
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
                 </div>
-              </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto p-8">
+                  <div className="max-w-5xl mx-auto space-y-6">
+                    {/* Stats row */}
+                    <motion.div
+                      className="grid grid-cols-2 md:grid-cols-5 gap-4"
+                      variants={staggerContainer}
+                      initial="initial"
+                      animate="animate"
+                    >
+                      {[
+                        {
+                          label: 'Total Reports',
+                          value: stats.total,
+                          iconBg: 'bg-blue-50 text-blue-500',
+                          icon: FileText
+                        },
+                        {
+                          label: 'Drafts',
+                          value: stats.drafts,
+                          iconBg: 'bg-gray-100 text-gray-500',
+                          icon: Edit3
+                        },
+                        {
+                          label: 'Submitted',
+                          value: stats.submitted,
+                          iconBg: 'bg-amber-50 text-amber-500',
+                          icon: Layers
+                        },
+                        {
+                          label: 'Approved',
+                          value: stats.approved,
+                          iconBg: 'bg-green-50 text-green-500',
+                          icon: Check
+                        },
+                        {
+                          label: 'Returned',
+                          value: stats.returned,
+                          iconBg: 'bg-red-50 text-red-500',
+                          icon: AlertTriangle
+                        }
+                      ].map((s) => {
+                        const StatIcon = s.icon
+                        return (
+                          <motion.div
+                            key={s.label}
+                            variants={staggerItem}
+                            className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3 hover:shadow-md hover:border-sig-green/30 transition-all duration-200"
+                          >
+                            <div className={`p-2.5 ${s.iconBg} rounded-xl shrink-0`}>
+                              <StatIcon className="w-4.5 h-4.5" />
+                            </div>
+                            <div className="min-w-0">
+                              <span className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider block leading-none mb-1">
+                                {s.label}
+                              </span>
+                              <span className="text-xl font-black text-navy-blue leading-none">
+                                {s.value}
+                              </span>
+                            </div>
+                          </motion.div>
+                        )
+                      })}
+                    </motion.div>
+
+                    {/* Quick actions */}
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => {
+                          resetForm()
+                          setActiveTab('editor')
+                        }}
+                        className="flex items-center gap-2 bg-navy-blue text-white text-xs font-semibold px-4 py-2.5 rounded-xl border-b-2 border-sig-green hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>New Report</span>
+                      </button>
+                      <button
+                        onClick={() => setActiveTab('reports')}
+                        className="flex items-center gap-2 bg-white text-navy-blue text-xs font-semibold px-4 py-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 transition-all duration-150 cursor-pointer"
+                      >
+                        <FolderOpen className="w-3.5 h-3.5" />
+                        <span>View My Reports</span>
+                      </button>
+                    </div>
+
+                    {/* Upcoming Events Calendar Schedule Widget */}
+                    <UpcomingEventsSchedule
+                      events={eventsList}
+                      orgs={orgsList}
+                      onViewEvent={(evt) => {
+                        setSelectedViewEvent(evt)
+                        setIsViewEventModalOpen(true)
+                      }}
+                    />
+                  </div>
+                </div>
+              )
             )}
 
             {/* ── WORD EDITOR ── */}
@@ -687,6 +552,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
             >
               <TextEditor
                 user={user}
+                isOffline={isOffline}
                 workspaceReportId={workspaceReportId}
                 setWorkspaceReportId={setWorkspaceReportId}
                 workspaceReportAY={workspaceReportAY}
@@ -734,230 +600,205 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
             {/* ── COMPILED REPORTS ── */}
             {activeTab === 'reports' && (
-              <div className="flex-1 overflow-y-auto p-8">
-                <div className="max-w-4xl mx-auto space-y-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">Compiled Reports</h1>
-                    <button
-                      onClick={() => {
-                        resetForm()
-                        setActiveTab('editor')
-                      }}
-                      className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-3 py-2 rounded-xl border-b-2 border-sig-green hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>New Report</span>
-                    </button>
+              isOffline ? (
+                <div className="flex-1 overflow-y-auto p-8">
+                  <div className="max-w-4xl mx-auto">
+                    <ReportsSkeleton />
                   </div>
-
-                  {myReports.length === 0 ? (
-                    <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200 text-gray-400 text-xs">
-                      No reports yet. Click "New Report" to get started.
+                </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto p-8">
+                  <div className="max-w-4xl mx-auto space-y-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">Compiled Reports</h1>
+                      <button
+                        onClick={() => {
+                          resetForm()
+                          setActiveTab('editor')
+                        }}
+                        className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-3 py-2 rounded-xl border-b-2 border-sig-green hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>New Report</span>
+                      </button>
                     </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {myReports.map((rep) => {
-                        const ev = eventsList.find((e) => e.id === rep.eventId)
-                        const author = usersList.find((u) => u.uid === rep.authorId)
-                        return (
-                          <div
-                            key={rep.id}
-                            className="bg-white rounded-2xl border border-gray-100 hover:border-sig-green/30 p-4 flex flex-col md:flex-row md:items-center justify-between transition-all duration-200 group shadow-xs"
-                          >
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <StatusBadge status={rep.status} />
-                              </div>
-                              <h4 className="text-sm font-bold text-navy-blue">
-                                {ev?.name || rep.activityTitle || 'Untitled Report'}
-                              </h4>
-                              <p className="text-[10px] text-gray-400">
-                                Submitted by{' '}
-                                <span className="font-semibold text-gray-700">
-                                  {author ? author.name : 'Coordinator'}
-                                </span>{' '}
-                                · Updated {new Date(rep.updatedAt).toLocaleDateString()}
-                              </p>
-                              {rep.status === 'returned' && rep.adminFeedback && (
-                                <p className="text-[10px] text-red-600 font-semibold flex items-center gap-1 mt-0.5">
-                                  <AlertTriangle className="w-3 h-3" />
-                                  {rep.adminFeedback}
-                                </p>
-                              )}
-                            </div>
-                            <div className="mt-3 md:mt-0">
-                              {rep.status === 'submitted' || rep.status === 'approved' ? (
-                                <button
-                                  onClick={() => setSelectedViewerReport(rep)}
-                                  className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-xs"
-                                >
-                                  <Eye className="w-3.5 h-3.5" />
-                                  <span>View</span>
-                                </button>
-                              ) : (
+
+                    {myReports.length === 0 ? (
+                      <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200 text-gray-400 text-xs">
+                        No reports yet. Click "New Report" to get started.
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {myReports.map((rep) => {
+                          const ev = eventsList.find((e) => e.id === rep.eventId)
+                          const author = usersList.find((u) => u.uid === rep.authorId)
+                          return (
+                            <div
+                              key={rep.id}
+                              className="bg-white rounded-2xl border border-gray-100 hover:border-sig-green/30 p-4 flex flex-col md:flex-row md:items-center justify-between transition-all duration-200 group shadow-xs"
+                            >
+                              <div className="space-y-1">
                                 <div className="flex items-center gap-2">
+                                  <StatusBadge status={rep.status} />
+                                </div>
+                                <h4 className="text-sm font-bold text-navy-blue">
+                                  {ev?.name || rep.activityTitle || 'Untitled Report'}
+                                </h4>
+                                <p className="text-[10px] text-gray-400">
+                                  Submitted by{' '}
+                                  <span className="font-semibold text-gray-700">
+                                    {author ? author.name : 'Coordinator'}
+                                  </span>{' '}
+                                  · Updated {new Date(rep.updatedAt).toLocaleDateString()}
+                                </p>
+                                {rep.status === 'returned' && rep.adminFeedback && (
+                                  <p className="text-[10px] text-red-600 font-semibold flex items-center gap-1 mt-0.5">
+                                    <AlertTriangle className="w-3 h-3" />
+                                    {rep.adminFeedback}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="mt-3 md:mt-0">
+                                {rep.status === 'submitted' || rep.status === 'approved' ? (
                                   <button
                                     onClick={() => setSelectedViewerReport(rep)}
-                                    className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
+                                    className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-xs"
                                   >
                                     <Eye className="w-3.5 h-3.5" />
                                     <span>View</span>
                                   </button>
-                                  <button
-                                    onClick={() => openReport(rep)}
-                                    className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-xs"
-                                  >
-                                    <Edit3 className="w-3.5 h-3.5" />
-                                    <span>Edit</span>
-                                  </button>
-                                </div>
-                              )}
+                                ) : (
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={() => setSelectedViewerReport(rep)}
+                                      className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
+                                    >
+                                      <Eye className="w-3.5 h-3.5" />
+                                      <span>View</span>
+                                    </button>
+                                    <button
+                                      onClick={() => openReport(rep)}
+                                      className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-xs"
+                                    >
+                                      <Edit3 className="w-3.5 h-3.5" />
+                                      <span>Edit</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )
             )}
             {/* ── ABOUT MODULE ── */}
             {activeTab === 'about' && (
-              <div className="flex-1 overflow-y-auto p-8 text-left">
-                <div className="max-w-5xl mx-auto space-y-6">
-
-                  {/* ── 1. PAGE HEADER ─────────────────────────────── */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
-                      About DommUnity
-                    </h1>
-                    <AboutVersionCard />
-                  </div>
-
-                  {/* ── 2. SYSTEM DESCRIPTION (full-width) ─────────── */}
-                  <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
-                    <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">
-                      System Description
-                    </h2>
-                    <div>
-                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-                        Project Overview
-                      </span>
-                      <p className="text-sm text-gray-700 mt-1 leading-relaxed">
-                        DommUnity is a desktop-based management system developed for the
-                        Community Extension & Services (CES) Office of Dominican College of
-                        Tarlac, Inc. It is designed to simplify inventory management,
-                        donor management, organization management, and report generation for the
-                        Community Extension Services Office.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* ── 3. CES OFFICE — Vision / Mission / Goal ────── */}
-                  <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-5">
-                    <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">
-                      Community Extension & Services (CES) Office
-                    </h2>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                      {/* Vision */}
-                      <div className="bg-gradient-to-br from-slate-50 to-white rounded-2xl p-5 border border-gray-100 flex flex-col">
-                        <span className="text-xs text-navy-blue font-bold uppercase tracking-wider block mb-2">
-                          Vision
-                        </span>
-                        <p className="text-sm text-gray-700 leading-relaxed flex-1">
-                          The Community Extensions Services (CES) Office of the Dominican College of Tarlac envisions socially awareness,
-                          sensitive and responsive students through active involvement in community extensions, service learning and outreach
-                          activities towards community development.
-                        </p>
-                      </div>
-
-                      {/* Mission */}
-                      <div className="bg-gradient-to-br from-slate-50 to-white rounded-2xl p-5 border border-gray-100 flex flex-col">
-                        <span className="text-xs text-navy-blue font-bold uppercase tracking-wider block mb-2">
-                          Mission
-                        </span>
-                        <p className="text-sm text-gray-700 leading-relaxed flex-1">
-                          The Community and Extension Services Office Shall: Participate in optimistic and relevant social activities for the
-                          promotion of passion for truth and compassion for humanity. Sustain holistic development of communities which are humane,
-                          self-reliant, and sustainable. Encourage volunteerism among the DCT Community for the noble and worthwhile extension activities
-                          thereby cultivating the same spirit in the client partner communities.
-                        </p>
-                      </div>
-
-                      {/* Goal */}
-                      <div className="bg-gradient-to-br from-slate-50 to-white rounded-2xl p-5 border border-gray-100 flex flex-col">
-                        <span className="text-xs text-navy-blue font-bold uppercase tracking-wider block mb-2">
-                          Goal
-                        </span>
-                        <p className="text-sm text-gray-700 leading-relaxed flex-1">
-                          We aim to provide Community Extension Services program for the improvement of our target clientele in accordance with the
-                          Gospel Values to become a productive, self-reliant, and sustainable member of the society.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* ── 4. BOTTOM ROW — Org Chart | Dev Team ─────────── */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Organization Chart */}
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
-                      <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">
-                        Organizational Chart
-                      </h2>
-                      <div className="space-y-3">
-                        {[
-                          { name: 'Sr. Lorna I. Ablog, O.P.', role: 'School Administrator' },
-                          {
-                            name: 'Dr. Augusto R. Dela Cruz',
-                            role: 'Vice President of Academic Affairs'
-                          },
-                          {
-                            name: 'Mrs. Faithful Anne F. Arugay',
-                            role: 'Head of the CES Office'
-                          },
-                          { name: 'Mr. Jonnel B. Manio', role: 'Coordinator of the CES Office' }
-                        ].map((person, idx) => (
-                          <div
-                            key={idx}
-                            className="p-2.5 border-b border-gray-100 last:border-0 text-left"
-                          >
-                            <p className="text-sm font-bold text-navy-blue">{person.name}</p>
-                            <p className="text-xs text-gray-500 font-medium mt-0.5">
-                              {person.role}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Development Team */}
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
-                      <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">
-                        Development Team
-                      </h2>
-                      <div className="space-y-3">
-                        {[
-                          { name: 'Benidict Justin Salunga', role: 'Lead Programmer' },
-                          { name: 'Mc Harry Tolentino', role: 'Project Manager' },
-                          { name: 'Aron Stefan Taruc', role: 'UI-UX Designer' },
-                          { name: 'John Harold Santos', role: 'Tester' }
-                        ].map((dev, idx) => (
-                          <div
-                            key={idx}
-                            className="p-2.5 border-b border-gray-100 last:border-0 text-left"
-                          >
-                            <p className="text-sm font-bold text-navy-blue">{dev.name}</p>
-                            <p className="text-xs text-gray-500 font-semibold mt-0.5">
-                              {dev.role}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+              isOffline ? (
+                <div className="flex-1 overflow-y-auto p-8 text-left">
+                  <div className="max-w-5xl mx-auto">
+                    <AboutSkeleton />
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto p-8 text-left">
+                  <div className="max-w-5xl mx-auto space-y-6">
+
+                    {/* ── 1. PAGE HEADER ─────────────────────────────── */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
+                        About DommUnity
+                      </h1>
+                      <AboutVersionCard />
+                    </div>
+
+                    {/* ── 2. SYSTEM DESCRIPTION (full-width) ─────────── */}
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-4">
+                      <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">
+                        System Description
+                      </h2>
+                      <div>
+                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                          Project Overview
+                        </span>
+                        <p className="text-sm text-gray-700 mt-1 leading-relaxed">
+                          DommUnity is a desktop-based management system developed for the
+                          Community Extension & Services (CES) Office of Dominican College of
+                          Tarlac, Inc. It is designed to simplify inventory management,
+                          donor management, organization management, and report generation for the
+                          Community Extension Services Office.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* ── 3. CES OFFICE — Vision / Mission / Goal ────── */}
+                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-5">
+                      <h2 className="text-lg font-bold text-navy-blue border-b border-gray-200/60 pb-3">
+                        Community Extension & Services (CES) Office
+                      </h2>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                        {/* Vision */}
+                        <div className="group bg-gradient-to-b from-slate-50/80 via-white to-white rounded-2xl p-6 border border-gray-100 shadow-2xs hover:shadow-md hover:border-navy-blue/20 transition-all duration-300 flex flex-col items-center text-center">
+                          {/* Main Icon Badge */}
+                          <div className="w-14 h-14 rounded-full bg-navy-blue flex items-center justify-center mb-4 shadow-sm transition-transform duration-300 group-hover:scale-105">
+                            <Eye className="w-7 h-7 text-sig-green" />
+                          </div>
+                          <h3 className="text-base font-extrabold text-navy-blue uppercase tracking-wider mb-2.5">
+                            Vision
+                          </h3>
+                          <p className="text-sm text-gray-700 leading-relaxed flex-1">
+                            The Community Extensions Services (CES) Office of the Dominican College of Tarlac envisions socially awareness,
+                            sensitive and responsive students through active involvement in community extensions, service learning and outreach
+                            activities towards community development.
+                          </p>
+                        </div>
+
+                        {/* Mission */}
+                        <div className="group bg-gradient-to-b from-slate-50/80 via-white to-white rounded-2xl p-6 border border-gray-100 shadow-2xs hover:shadow-md hover:border-sig-green/30 transition-all duration-300 flex flex-col items-center text-center">
+                          {/* Main Icon Badge */}
+                          <div className="w-14 h-14 rounded-full bg-sig-green flex items-center justify-center mb-4 shadow-sm transition-transform duration-300 group-hover:scale-105">
+                            <Rocket className="w-7 h-7 text-white" />
+                          </div>
+                          <h3 className="text-base font-extrabold text-navy-blue uppercase tracking-wider mb-2.5">
+                            Mission
+                          </h3>
+                          <p className="text-sm text-gray-700 leading-relaxed flex-1">
+                            The Community and Extension Services Office Shall: Participate in optimistic and relevant social activities for the
+                            promotion of passion for truth and compassion for humanity. Sustain holistic development of communities which are humane,
+                            self-reliant, and sustainable. Encourage volunteerism among the DCT Community for the noble and worthwhile extension activities
+                            thereby cultivating the same spirit in the client partner communities.
+                          </p>
+                        </div>
+
+                        {/* Goal */}
+                        <div className="group bg-gradient-to-b from-slate-50/80 via-white to-white rounded-2xl p-6 border border-gray-100 shadow-2xs hover:shadow-md hover:border-navy-blue/20 transition-all duration-300 flex flex-col items-center text-center">
+                          {/* Main Icon Badge */}
+                          <div className="w-14 h-14 rounded-full bg-navy-blue flex items-center justify-center mb-4 shadow-sm transition-transform duration-300 group-hover:scale-105">
+                            <Target className="w-7 h-7 text-sig-green" />
+                          </div>
+                          <h3 className="text-base font-extrabold text-navy-blue uppercase tracking-wider mb-2.5">
+                            Goal
+                          </h3>
+                          <p className="text-sm text-gray-700 leading-relaxed flex-1">
+                            We aim to provide Community Extension Services program for the improvement of our target clientele in accordance with the
+                            Gospel Values to become a productive, self-reliant, and sustainable member of the society.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ── 4. Organizational Chart ─────── */}
+                    <OrganizationalChart />
+
+                    {/* ── 5. Developers ─────── */}
+                    <DevelopersChart />
+                  </div>
+                </div>
+              )
             )}
           </AnimatedPage>
         </main>

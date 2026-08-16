@@ -13,6 +13,7 @@ export default function StatusBar({
   zoom,
   setZoom,
   loading,
+  isOffline = false,
   workspaceIsReadOnly,
   onSaveDraft,
   onSubmit,
@@ -43,6 +44,12 @@ export default function StatusBar({
         <span>
           Margins: <strong className="text-white">{marginKey}</strong>
         </span>
+        {isOffline && (
+          <span className="flex items-center gap-1.5 text-amber-300 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-400/30 text-[9.5px]">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block" />
+            Offline · Draft saved locally
+          </span>
+        )}
       </div>
       <div className="flex items-center gap-3">
         {!workspaceIsReadOnly && (
@@ -50,6 +57,7 @@ export default function StatusBar({
             <button
               onClick={onSaveDraft}
               disabled={loading}
+              title={isOffline ? 'Offline: Draft is preserved in memory. Connect to sync.' : 'Save Draft'}
               className="flex items-center gap-1 bg-white/10 hover:bg-white/20 px-2.5 py-0.5 rounded text-white font-semibold transition cursor-pointer disabled:opacity-50"
             >
               <Save className="w-3 h-3" />
@@ -57,7 +65,8 @@ export default function StatusBar({
             </button>
             <button
               onClick={onSubmit}
-              disabled={loading}
+              disabled={loading || isOffline}
+              title={isOffline ? 'Connect to internet to submit' : 'Submit Report'}
               className="flex items-center gap-1 bg-sig-green text-navy-blue px-2.5 py-0.5 rounded font-bold transition hover:bg-sig-green/90 cursor-pointer disabled:opacity-50"
             >
               <Send className="w-3 h-3" />

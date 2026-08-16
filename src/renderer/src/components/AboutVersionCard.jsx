@@ -1,8 +1,11 @@
+/* eslint-disable */
 import React, { useState, useEffect } from 'react'
 import { RefreshCw, Download, CheckCircle2, AlertCircle, ArrowUpCircle, ShieldCheck, Loader2 } from 'lucide-react'
+import { useNetworkStatus } from '../context/NetworkContext'
 
 export default function AboutVersionCard() {
-  const [currentVersion, setCurrentVersion] = useState('1.0.4')
+  const { isOffline } = useNetworkStatus()
+  const [currentVersion, setCurrentVersion] = useState('1.0.5')
   const [status, setStatus] = useState('idle') // 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'up-to-date' | 'error'
   const [updateInfo, setUpdateInfo] = useState(null)
   const [progress, setProgress] = useState(0)
@@ -58,6 +61,12 @@ export default function AboutVersionCard() {
   }, [])
 
   const handleCheckUpdate = async () => {
+    if (isOffline) {
+      setStatus('error')
+      setStatusMessage('No internet connection. Please connect to the internet to check for updates.')
+      return
+    }
+
     if (!window.api?.checkForUpdates) {
       setStatus('error')
       setStatusMessage('Auto-updater is not available in development preview.')

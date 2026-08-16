@@ -6,6 +6,7 @@ import { login, requestPasswordReset } from '../services/db'
 import { KeyRound, Mail, Eye, EyeOff, CheckCircle2, AlertCircle } from 'lucide-react'
 import logo from '../assets/logo.png'
 import logo3 from '../assets/logo3.png'
+import { useNetworkStatus } from '../context/NetworkContext'
 import {
   modalOverlayVariants,
   modalContentVariants,
@@ -17,6 +18,7 @@ import {
 import AnimatedModal from './motion/AnimatedModal'
 
 export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
+  const { isOffline, registerReconnectHandler } = useNetworkStatus()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -38,6 +40,35 @@ export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
       setError(deactivationNotice)
     }
   }, [deactivationNotice])
+
+  // Automatically clear network-related errors when connection returns
+  useEffect(() => {
+    const unregister = registerReconnectHandler(() => {
+      setError((prev) => {
+        if (
+          prev.includes('network') ||
+          prev.includes('connection') ||
+          prev.includes('Waiting')
+        ) {
+          return ''
+        }
+        return prev
+      })
+      setForgotErr((prev) => {
+        if (
+          prev.includes('network') ||
+          prev.includes('connection') ||
+          prev.includes('Waiting')
+        ) {
+          return ''
+        }
+        return prev
+      })
+    })
+    return () => {
+      if (typeof unregister === 'function') unregister()
+    }
+  }, [registerReconnectHandler])
 
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -79,6 +110,11 @@ export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
       return
     }
 
+    if (isOffline) {
+      setError('Waiting for network connection…')
+      return
+    }
+
     setLoading(true)
     try {
       const user = await login(email, password)
@@ -94,6 +130,14 @@ export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
     } catch (err) {
       const msg = err?.message || ''
       if (
+        msg.includes('auth/network-request-failed') ||
+        msg.includes('network-request-failed') ||
+        msg.includes('Failed to fetch') ||
+        msg.includes('network') ||
+        msg.includes('offline')
+      ) {
+        setError('Waiting for network connection…')
+      } else if (
         msg.includes('auth/invalid-credential') ||
         msg.includes('invalid-credential') ||
         msg.includes('auth/user-not-found') ||
@@ -121,6 +165,11 @@ export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
     setForgotErr('')
     setForgotMsg('')
 
+    if (isOffline) {
+      setForgotErr('Waiting for network connection…')
+      return
+    }
+
     if (!forgotEmail.trim()) {
       setForgotErr('Please enter your email.')
       return
@@ -137,7 +186,16 @@ export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
       await requestPasswordReset(forgotEmail.trim())
       setForgotStep('success')
     } catch (err) {
-      setForgotErr(err.message || 'Unable to process reset request.')
+      const msg = err?.message || ''
+      if (
+        msg.includes('network') ||
+        msg.includes('auth/network-request-failed') ||
+        msg.includes('Failed to fetch')
+      ) {
+        setForgotErr('Waiting for network connection…')
+      } else {
+        setForgotErr(err.message || 'Unable to process reset request.')
+      }
     } finally {
       setForgotLoading(false)
     }
@@ -146,12 +204,27 @@ export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
   const handleResendEmail = async () => {
     setForgotErr('')
     setForgotMsg('')
+
+    if (isOffline) {
+      setForgotErr('Waiting for network connection…')
+      return
+    }
+
     setForgotLoading(true)
     try {
       await requestPasswordReset(forgotEmail.trim())
       setForgotMsg('A new password recovery link has been resent to your email.')
     } catch (err) {
-      setForgotErr(err.message || 'Unable to resend reset request.')
+      const msg = err?.message || ''
+      if (
+        msg.includes('network') ||
+        msg.includes('auth/network-request-failed') ||
+        msg.includes('Failed to fetch')
+      ) {
+        setForgotErr('Waiting for network connection…')
+      } else {
+        setForgotErr(err.message || 'Unable to resend reset request.')
+      }
     } finally {
       setForgotLoading(false)
     }
@@ -289,16 +362,33 @@ export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
 
           <div className="z-10 flex flex-col justify-center w-full">
             <AnimatePresence>
-              {error && (
+              {isOffline && !error && (
                 <motion.div
-                  className="mb-5 p-3.5 bg-error-500/20 backdrop-blur-md text-red-100 rounded-xl text-xs flex items-start space-x-2.5 border border-error-500/30 shadow-glass-sm"
+                  className="mb-5 p-3.5 bg-amber-500/20 backdrop-blur-md text-amber-100 rounded-xl text-xs flex items-center border border-amber-500/30 shadow-glass-sm"
                   initial={{ opacity: 0, y: -8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: duration.fast, ease: easing.easeOut }}
                 >
-                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-300" />
-                  <span className="leading-relaxed">{error}</span>
+                  <span className="leading-relaxed font-semibold">Waiting for network connection…</span>
+                </motion.div>
+              )}
+              {error && (
+                <motion.div
+                  className={`mb-5 p-3.5 rounded-xl text-xs flex items-start space-x-2.5 border shadow-glass-sm ${
+                    error.includes('Waiting') || error.includes('network')
+                      ? 'bg-amber-500/20 backdrop-blur-md text-amber-100 border-amber-500/30'
+                      : 'bg-error-500/20 backdrop-blur-md text-red-100 border-error-500/30'
+                  }`}
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: duration.fast, ease: easing.easeOut }}
+                >
+                  {!(error.includes('Waiting') || error.includes('network')) && (
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-300" />
+                  )}
+                  <span className="leading-relaxed font-medium">{error}</span>
                 </motion.div>
               )}
             </AnimatePresence>

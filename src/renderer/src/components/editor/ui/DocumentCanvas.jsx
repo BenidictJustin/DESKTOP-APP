@@ -284,6 +284,7 @@ export default function DocumentCanvas({
                 return (
                   <div
                     key={i}
+                    id={`doc-viewer-page-${pageNum}`}
                     className="bg-white shadow-xl border border-gray-300/70 rounded-xs shrink-0 relative pointer-events-auto"
                     style={{
                       width: docW,
@@ -471,7 +472,7 @@ export default function DocumentCanvas({
                   setActiveEditingArea('body')
                 }
               }}
-              className={`relative doc-page-container ${showGridlines ? 'bg-grid' : ''}`}
+              className={`relative doc-page doc-page-container select-text ${showGridlines ? 'bg-grid' : ''}`}
               style={{
                 width: docW,
                 minHeight: canvasHeight,
@@ -561,40 +562,44 @@ export default function DocumentCanvas({
                  .ProseMirror img {
                    max-width: 100%; height: auto;
                  }
-                 .ProseMirror table {
-                   border-collapse: collapse; width: 100%; margin: 12px 0;
-                   table-layout: fixed;
-                 }
-                 .ProseMirror th,
-                 .ProseMirror td {
-                   border: 1px solid #c0c0c0; padding: 6px 10px;
-                   font-size: 12px; text-align: left; position: relative;
-                   word-break: break-word; overflow-wrap: break-word;
-                   box-sizing: border-box;
-                 }
-                 .ProseMirror th { background: #f3f4f6; font-weight: 600; }
-                 .ProseMirror tr:nth-child(even) td { background: #fafafa; }
-                 .ProseMirror .selectedCell { background: #d4e4ff !important; }
-                 .ProseMirror .column-resize-handle {
-                   position: absolute; right: -2px; top: 0; bottom: 0;
-                   width: 4px; background: #2563eb; cursor: col-resize;
-                   pointer-events: auto; z-index: 20;
-                 }
-                 .ProseMirror table.movable-table {
-                    border-collapse: collapse;
+                  .ProseMirror table,
+                  table.movable-table {
+                    border-collapse: collapse !important;
+                    border-spacing: 0 !important;
+                    width: 100% !important;
                     margin: 12px 0;
                     table-layout: fixed;
+                    border: 1.5px solid #000000 !important;
+                    border-top: 1.5px solid #000000 !important;
+                    border-bottom: 1.5px solid #000000 !important;
+                    border-left: 1.5px solid #000000 !important;
+                    border-right: 1.5px solid #000000 !important;
+                    box-sizing: border-box !important;
                   }
-                  .ProseMirror table.movable-table th,
-                  .ProseMirror table.movable-table td {
-                    border: 1px solid #c0c0c0;
+                  .ProseMirror table th,
+                  .ProseMirror table td,
+                  table.movable-table th,
+                  table.movable-table td {
+                    border: 1.5px solid #000000 !important;
+                    border-top: 1.5px solid #000000 !important;
+                    border-bottom: 1.5px solid #000000 !important;
+                    border-left: 1.5px solid #000000 !important;
+                    border-right: 1.5px solid #000000 !important;
                     padding: 6px 10px;
                     font-size: 12px;
                     text-align: left;
                     position: relative;
                     word-break: break-word;
                     overflow-wrap: break-word;
-                    box-sizing: border-box;
+                    box-sizing: border-box !important;
+                  }
+                  .ProseMirror th { background: #f3f4f6; font-weight: 600; }
+                  .ProseMirror tr:nth-child(even) td { background: #fafafa; }
+                  .ProseMirror .selectedCell { background: #d4e4ff !important; }
+                  .ProseMirror .column-resize-handle {
+                    position: absolute; right: -2px; top: 0; bottom: 0;
+                    width: 4px; background: #2563eb; cursor: col-resize;
+                    pointer-events: auto; z-index: 20;
                   }
                   .ProseMirror table.movable-table th {
                     background: #f3f4f6;
@@ -679,7 +684,7 @@ export default function DocumentCanvas({
                   }
                `}</style>
 
-              <div className={`doc-page ${hasBeenEdited ? 'has-been-edited' : ''}`}>
+              <div className={`doc-page-content ${hasBeenEdited ? 'has-been-edited' : ''}`}>
                 {editor && <EditorContent editor={editor} className="outline-none" />}
               </div>
             </div>

@@ -506,32 +506,34 @@ export default function DocumentViewer({
           .ProseMirror img {
             max-width: 100%; height: auto;
           }
-          .ProseMirror table {
-            border-collapse: collapse; width: 100%; margin: 6px 0;
-            table-layout: auto;
+          .ProseMirror table,
+          table.movable-table {
+            border-collapse: collapse !important;
+            border-spacing: 0 !important;
+            width: 100% !important;
+            margin: 6px 0 !important;
+            border: 1.5px solid #000000 !important;
+            border-top: 1.5px solid #000000 !important;
+            border-bottom: 1.5px solid #000000 !important;
+            border-left: 1.5px solid #000000 !important;
+            border-right: 1.5px solid #000000 !important;
+            box-sizing: border-box !important;
           }
-          .ProseMirror th,
-          .ProseMirror td {
-            border: 1px solid #c0c0c0; padding: 4px 8px;
-            font-size: 11px; line-height: 1.35; text-align: left; position: relative;
-          }
-          .ProseMirror th { background: #f3f4f6; font-weight: 600; }
-          .ProseMirror tr:nth-child(even) td { background: #fafafa; }
-          .ProseMirror table.movable-table {
-            border-collapse: collapse;
-            margin: 12px 0;
-            table-layout: fixed;
-          }
-          .ProseMirror table.movable-table th,
-          .ProseMirror table.movable-table td {
-            border: 1px solid #c0c0c0;
-            padding: 6px 10px;
-            font-size: 12px;
+          .ProseMirror table th,
+          .ProseMirror table td,
+          table.movable-table th,
+          table.movable-table td {
+            border: 1.5px solid #000000 !important;
+            border-top: 1.5px solid #000000 !important;
+            border-bottom: 1.5px solid #000000 !important;
+            border-left: 1.5px solid #000000 !important;
+            border-right: 1.5px solid #000000 !important;
+            padding: 4px 8px;
+            font-size: 11px;
+            line-height: 1.35;
             text-align: left;
             position: relative;
-            word-break: break-word;
-            overflow-wrap: break-word;
-            box-sizing: border-box;
+            box-sizing: border-box !important;
           }
           .ProseMirror table.movable-table th {
             background: #f3f4f6;
@@ -1015,32 +1017,33 @@ export default function DocumentViewer({
               .ProseMirror img {
                 max-width: 100%; height: auto;
               }
-              .ProseMirror table {
-                border-collapse: collapse; width: 100%; margin: 12px 0;
-                table-layout: auto;
-              }
-              .ProseMirror th,
-              .ProseMirror td {
-                border: 1px solid #c0c0c0; padding: 6px 10px;
-                font-size: 12px; text-align: left; position: relative;
-              }
-              .ProseMirror th { background: #f3f4f6; font-weight: 600; }
-              .ProseMirror tr:nth-child(even) td { background: #fafafa; }
-              .ProseMirror table.movable-table {
-                border-collapse: collapse;
+              .ProseMirror table,
+              table.movable-table {
+                border-collapse: collapse !important;
+                border-spacing: 0 !important;
+                width: 100% !important;
                 margin: 12px 0;
-                table-layout: fixed;
+                border: 1.5px solid #000000 !important;
+                border-top: 1.5px solid #000000 !important;
+                border-bottom: 1.5px solid #000000 !important;
+                border-left: 1.5px solid #000000 !important;
+                border-right: 1.5px solid #000000 !important;
+                box-sizing: border-box !important;
               }
-              .ProseMirror table.movable-table th,
-              .ProseMirror table.movable-table td {
-                border: 1px solid #c0c0c0;
+              .ProseMirror table th,
+              .ProseMirror table td,
+              table.movable-table th,
+              table.movable-table td {
+                border: 1.5px solid #000000 !important;
+                border-top: 1.5px solid #000000 !important;
+                border-bottom: 1.5px solid #000000 !important;
+                border-left: 1.5px solid #000000 !important;
+                border-right: 1.5px solid #000000 !important;
                 padding: 6px 10px;
                 font-size: 12px;
                 text-align: left;
                 position: relative;
-                word-break: break-word;
-                overflow-wrap: break-word;
-                box-sizing: border-box;
+                box-sizing: border-box !important;
               }
               .ProseMirror table.movable-table th {
                 background: #f3f4f6;

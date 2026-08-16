@@ -1,6 +1,6 @@
 {
   "name": "dommunity",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "DommUnity Community Extension Services Management System",
   "main": "./out/main/index.js",
   "author": "example.com",

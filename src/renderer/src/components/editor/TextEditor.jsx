@@ -917,6 +917,7 @@ import {
   loadInitialContentAndResetHistory,
   resolveHeaderHtml
 } from './utils/editorHelpers'
+import { PAPER } from './constants'
 import DocumentCanvas from './ui/DocumentCanvas'
 import PageFlow from './extensions/PageFlow'
 import PageBreak from './extensions/PageBreak'
@@ -929,6 +930,7 @@ import MovableTable from './extensions/MovableTable'
 
 export default function TextEditor({
   user,
+  isOffline = false,
   workspaceReportId,
   setWorkspaceReportId,
   workspaceReportAY,
@@ -982,8 +984,8 @@ export default function TextEditor({
 
   // -- Pagination & Header/Footer States --
   const [activeEditingArea, setActiveEditingArea] = useState('body') // 'body' | 'header' | 'footer'
-  const [showHeader, setShowHeader] = useState(true)
-  const [showFooter, setShowFooter] = useState(true)
+  const [showHeader, setShowHeader] = useState(false)
+  const [showFooter, setShowFooter] = useState(false)
   const [headerText, setHeaderText] = useState('')
   const [footerText, setFooterText] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
@@ -1245,8 +1247,8 @@ export default function TextEditor({
       loadInitialContentAndResetHistory(headerEditor, '<p></p>')
       setFooterText('')
       loadInitialContentAndResetHistory(footerEditor, '<p></p>')
-      setShowHeader(true)
-      setShowFooter(true)
+      setShowHeader(false)
+      setShowFooter(false)
       setPaperKey('Letter')
       setOrientation('portrait')
       setMarginKey('Normal')
@@ -1320,23 +1322,23 @@ export default function TextEditor({
 <p style="text-align: left;"><br></p>
 <p style="text-align: left;"><br></p>
 <p style="text-align: left;"><br></p>
-<table style="width:100%;table-layout:fixed;border-collapse:collapse;border:1px solid #000;font-family:'Times New Roman',serif;background-color:#ffffff !important;">
+<table style="width:100%;table-layout:fixed;border-collapse:collapse;border:1.5px solid #000;font-family:'Times New Roman',serif;background-color:#ffffff !important;">
   <tbody>
     <tr>
-      <td style="width:35%;font-weight:bold;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p>Program:</p></td>
-      <td style="width:65%;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p></p></td>
+      <td style="width:35%;font-weight:bold;border:1.5px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p>Program:</p></td>
+      <td style="width:65%;border:1.5px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p></p></td>
     </tr>
     <tr>
-      <td style="width:35%;font-weight:bold;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p>Volunteer/s:</p></td>
-      <td style="width:65%;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p></p></td>
+      <td style="width:35%;font-weight:bold;border:1.5px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p>Volunteer/s:</p></td>
+      <td style="width:65%;border:1.5px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p></p></td>
     </tr>
     <tr>
-      <td style="width:35%;font-weight:bold;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p>Venue:</p></td>
-      <td style="width:65%;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p></p></td>
+      <td style="width:35%;font-weight:bold;border:1.5px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p>Venue:</p></td>
+      <td style="width:65%;border:1.5px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p></p></td>
     </tr>
     <tr>
-      <td style="width:35%;font-weight:bold;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p>Beneficiaries:</p></td>
-      <td style="width:65%;border:1px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p></p></td>
+      <td style="width:35%;font-weight:bold;border:1.5px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p>Beneficiaries:</p></td>
+      <td style="width:65%;border:1.5px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p></p></td>
     </tr>
   </tbody>
 </table>
@@ -1804,6 +1806,12 @@ export default function TextEditor({
   const handleSave = useCallback(
     async (status, silent = false) => {
       if (!editor) return
+      if (isOffline) {
+        if (!silent) {
+          alert('Cannot save or submit report: Internet connection is offline. Your changes remain safe in the editor. Please reconnect to sync.')
+        }
+        return
+      }
       const html = editor.getHTML()
       if (!html || html === '<p></p>') {
         if (!silent) alert('Please write some content before saving.')
@@ -1822,6 +1830,7 @@ export default function TextEditor({
     },
     [
       editor,
+      isOffline,
       onSave,
       headerText,
       footerText,
@@ -1837,7 +1846,7 @@ export default function TextEditor({
   // ── AutoSave ──
   useEffect(() => {
     if (autoSaveTimer.current) clearInterval(autoSaveTimer.current)
-    if (autoSave && workspaceReportId) {
+    if (autoSave && workspaceReportId && !isOffline) {
       autoSaveTimer.current = setInterval(() => {
         handleSave('draft', true)
       }, 30000)
@@ -1845,7 +1854,16 @@ export default function TextEditor({
     return () => {
       if (autoSaveTimer.current) clearInterval(autoSaveTimer.current)
     }
-  }, [autoSave, workspaceReportId, handleSave])
+  }, [autoSave, workspaceReportId, handleSave, isOffline])
+
+  const docTitle =
+    workspaceReportTitle ||
+    eventsList.find((x) => x.id === workspaceReportEventId)?.name ||
+    'Document1'
+
+  const activePaper = PAPER[paperKey] || PAPER.Letter
+  const activeDocW = orientation === 'landscape' ? activePaper.h : activePaper.w
+  const activeDocH = orientation === 'landscape' ? activePaper.w : activePaper.h
 
   // ── Keyboard Shortcuts ──
   useEffect(() => {
@@ -1856,13 +1874,19 @@ export default function TextEditor({
           handleSave('draft')
         } else if (e.key === 'p' || e.key === 'P') {
           e.preventDefault()
-          handlePrintNative(canvasRef, workspaceReportTitle || 'Report')
+          handlePrintNative(canvasRef, docTitle, {
+            paperKey,
+            orientation,
+            marginKey,
+            paperW: activeDocW,
+            paperH: activeDocH
+          })
         }
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [editor, handleSave])
+  }, [editor, handleSave, docTitle, paperKey, orientation, marginKey, activeDocW, activeDocH])
 
   // ── File menu actions ──
   const fileMenuItems = [
@@ -2017,24 +2041,28 @@ export default function TextEditor({
     {
       icon: Printer,
       l: 'Print (Ctrl+P)',
-      fn: () => handlePrintNative(canvasRef, workspaceReportTitle || 'Report')
+      fn: () =>
+        handlePrintNative(canvasRef, docTitle, {
+          paperKey,
+          orientation,
+          marginKey,
+          paperW: activeDocW,
+          paperH: activeDocH
+        })
     },
     {
       icon: FileDown,
       l: 'Export as PDF',
-      fn: () => handleExportPDF(canvasRef, workspaceReportTitle || 'Report')
-    },
-    {
-      icon: Download,
-      l: 'Export as DOCX',
-      fn: () => handleExportDOCX(editor, workspaceReportTitle || 'Report')
+      fn: () =>
+        handleExportPDF(canvasRef, docTitle, {
+          paperKey,
+          orientation,
+          marginKey,
+          paperW: activeDocW,
+          paperH: activeDocH
+        })
     }
   ]
-
-  const docTitle =
-    workspaceReportTitle ||
-    eventsList.find((x) => x.id === workspaceReportEventId)?.name ||
-    'Document1'
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[#FAFBFD] border border-neutral-200 rounded-lg">
@@ -2167,7 +2195,17 @@ export default function TextEditor({
 
       {/* ── Formatting Toolbar ── */}
       <div className="bg-white border-b border-neutral-200 px-4 py-1.5 shrink-0 print:hidden">
-        <Toolbar onPrint={() => handlePrintNative(canvasRef, workspaceReportTitle || 'Report')} />
+        <Toolbar
+          onPrint={() =>
+            handlePrintNative(canvasRef, docTitle, {
+              paperKey,
+              orientation,
+              marginKey,
+              paperW: activeDocW,
+              paperH: activeDocH
+            })
+          }
+        />
       </div>
 
       {/* ── Document Workspace Area ── */}
@@ -2216,6 +2254,7 @@ export default function TextEditor({
         zoom={zoom}
         setZoom={setZoom}
         loading={loading}
+        isOffline={isOffline}
         workspaceIsReadOnly={workspaceIsReadOnly}
         onSaveDraft={() => handleSave('draft')}
         onSubmit={() => handleSave('submitted')}

@@ -963,8 +963,8 @@ export const listenToAuthChanges = (callback) => {
               }
             },
             (err) => {
-              console.error('Firestore user snapshot listener error:', err)
-              callback(null)
+              console.warn('Firestore user snapshot listener warning (possible network loss):', err)
+              // Do NOT call callback(null) on network or listener errors to avoid accidental logout during offline state
             }
           )
         } else {

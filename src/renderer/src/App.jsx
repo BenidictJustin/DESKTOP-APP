@@ -7,16 +7,25 @@ import AdminDashboard from './modules/admin/AdminDashboard'
 import OfficeCoordinatorDashboard from './modules/office-coordinator/OfficeCoordinatorDashboard'
 import SplashScreen from './components/SplashScreen'
 import UpdateNotification from './components/UpdateNotification'
+import OfflineModal from './components/OfflineModal'
+import { NetworkProvider, useNetworkStatus } from './context/NetworkContext'
 import { authTransitionVariants, authTransition } from './components/motion/motionConfig'
 
-function App() {
+function AppContent() {
+  const { isOffline, openOfflineModal } = useNetworkStatus()
   const [activeUser, setActiveUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showSplash, setShowSplash] = useState(true)
 
   const [deactivationNotice, setDeactivationNotice] = useState('')
 
-  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search || (window.location.hash.includes('?') ? window.location.hash.split('?')[1] : '')) : new URLSearchParams()
+  const searchParams =
+    typeof window !== 'undefined'
+      ? new URLSearchParams(
+          window.location.search ||
+            (window.location.hash.includes('?') ? window.location.hash.split('?')[1] : '')
+        )
+      : new URLSearchParams()
   const oobCode = searchParams.get('oobCode')
   const mode = searchParams.get('mode')
   const isResetMode = mode === 'resetPassword' && !!oobCode
@@ -70,6 +79,10 @@ function App() {
   }
 
   const handleLogout = async () => {
+    if (isOffline) {
+      openOfflineModal()
+      return
+    }
     try {
       await logout()
       setDeactivationNotice('')
@@ -93,6 +106,7 @@ function App() {
   return (
     <div className="min-h-screen w-screen bg-[#F1EFEC] font-poppins relative overflow-hidden">
       <UpdateNotification />
+      <OfflineModal />
       <AnimatePresence>
         {showSplash && <SplashScreen key="splash" onComplete={handleSplashComplete} />}
       </AnimatePresence>
@@ -185,4 +199,11 @@ function App() {
   )
 }
 
-export default App
+export default function App() {
+  return (
+    <NetworkProvider>
+      <AppContent />
+    </NetworkProvider>
+  )
+}
+
