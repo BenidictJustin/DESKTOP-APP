@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { Download, RefreshCw, CheckCircle2, X, AlertCircle } from 'lucide-react'
-import logo3 from '../assets/logo3.png'
+import appIcon from '../../../../resources/icon.png'
 
 export default function UpdateNotification() {
   const [updateInfo, setUpdateInfo] = useState(null)
@@ -62,8 +62,8 @@ export default function UpdateNotification() {
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="relative w-10 h-10 rounded-xl bg-white/10 p-1.5 flex items-center justify-center border border-white/20 flex-shrink-0 shadow-inner">
-              <img src={logo3} alt="DommUnity" className="w-full h-full object-contain" />
+            <div className="relative w-10 h-10 rounded-xl bg-white/10 p-1 flex items-center justify-center border border-white/20 flex-shrink-0 shadow-inner">
+              <img src={appIcon} alt="DommUnity" className="w-full h-full object-contain" />
               {isDownloaded ? (
                 <div className="absolute -bottom-1 -right-1 bg-emerald-500 rounded-full p-0.5 border border-[#020516]">
                   <CheckCircle2 className="w-3 h-3 text-white" />
