@@ -66,7 +66,7 @@ function AppContent() {
     // Safety fallback: ensure loading screen resolves even if auth listener takes long during network recovery
     const fallbackTimer = setTimeout(() => {
       setLoading(false)
-    }, 3000)
+    }, 2000)
 
     return () => {
       unsubscribe()

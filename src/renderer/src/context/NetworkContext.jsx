@@ -19,10 +19,19 @@ export function NetworkProvider({ children }) {
   const isOnlineRef = useRef(isOnline)
   const reconnectListenersRef = useRef(new Set())
   const checkingRef = useRef(false)
+  const isInitialMountRef = useRef(true)
 
   useEffect(() => {
     isOnlineRef.current = isOnline
   }, [isOnline])
+
+  // Clear initial mount flag after 3 seconds (startup phase)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      isInitialMountRef.current = false
+    }, 3000)
+    return () => clearTimeout(timer)
+  }, [])
 
   // Connection verification method
   const checkConnection = useCallback(async () => {
@@ -32,7 +41,10 @@ export function NetworkProvider({ children }) {
 
     if (window.api && typeof window.api.checkInternet === 'function') {
       try {
-        const result = await window.api.checkInternet()
+        const result = await Promise.race([
+          window.api.checkInternet(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
+        ])
         return !!result
       } catch {
         // Fallback to fetch
@@ -41,7 +53,7 @@ export function NetworkProvider({ children }) {
 
     try {
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 3500)
+      const timeoutId = setTimeout(() => controller.abort(), 2000)
       await fetch(`https://www.google.com/generate_204?t=${Date.now()}`, {
         method: 'HEAD',
         mode: 'no-cors',
@@ -56,7 +68,7 @@ export function NetworkProvider({ children }) {
 
     try {
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 3500)
+      const timeoutId = setTimeout(() => controller.abort(), 2000)
       await fetch(`https://clients3.google.com/generate_204?t=${Date.now()}`, {
         method: 'HEAD',
         mode: 'no-cors',
@@ -80,7 +92,7 @@ export function NetworkProvider({ children }) {
         setIsOnline(online)
         isOnlineRef.current = online
 
-        if (!online && prev !== false) {
+        if (!online && prev !== false && !isInitialMountRef.current) {
           setIsOfflineModalOpen(true)
         } else if (online) {
           setIsOfflineModalOpen(false)

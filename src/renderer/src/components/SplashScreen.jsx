@@ -19,33 +19,31 @@ export default function SplashScreen({ onComplete }) {
   }, [isOnline])
 
   // Internet connection verification.
-  // Primary: use Electron main process IPC (no CORS restrictions, reliable).
-  // Fallback: renderer-side fetch with no-cors (opaque response resolves = online, rejects = offline).
+  // Primary: use Electron main process IPC (no CORS restrictions, reliable) with timeout.
+  // Fallback: renderer-side fetch with no-cors.
   const checkInternet = useCallback(async () => {
     // Quick fail if browser API says offline
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       return false
     }
 
-    // Primary: Electron IPC-based check (main process, no CORS)
-    // If IPC succeeds, return the result. If it fails (handler not registered),
-    // fall through to the fetch fallback — do NOT return false here.
+    // Primary: Electron IPC-based check (main process, no CORS) with 2000ms timeout
     if (window.api && typeof window.api.checkInternet === 'function') {
       try {
-        const result = await window.api.checkInternet()
+        const result = await Promise.race([
+          window.api.checkInternet(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
+        ])
         return !!result
       } catch {
-        // IPC handler not registered or errored — fall through to fetch fallback
+        // IPC handler not registered, timed out or errored — fall through to fetch fallback
       }
     }
 
     // Fallback: renderer-side fetch with no-cors.
-    // With mode:'no-cors', the promise resolves with an opaque response when
-    // network is reachable, and rejects with a TypeError when offline.
-    // The resolve/reject itself is the connectivity signal.
     try {
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 4000)
+      const timeoutId = setTimeout(() => controller.abort(), 2000)
       await fetch(`https://www.google.com/generate_204?t=${Date.now()}`, {
         method: 'HEAD',
         mode: 'no-cors',
@@ -61,7 +59,7 @@ export default function SplashScreen({ onComplete }) {
     // Second fallback endpoint
     try {
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 4000)
+      const timeoutId = setTimeout(() => controller.abort(), 2000)
       await fetch(`https://clients3.google.com/generate_204?t=${Date.now()}`, {
         method: 'HEAD',
         mode: 'no-cors',
@@ -124,17 +122,33 @@ export default function SplashScreen({ onComplete }) {
 
   const hasCompletedRef = useRef(false)
 
-  // Proceed only when minimum display time is reached AND internet is verified
-  useEffect(() => {
-    if (minTimePassed && isOnline && !hasCompletedRef.current) {
+  const finishSplash = useCallback(() => {
+    if (!hasCompletedRef.current) {
       hasCompletedRef.current = true
       setIsFadingOut(true)
       const completeTimer = setTimeout(() => {
         if (onComplete) onComplete()
-      }, 500)
+      }, 450)
       return () => clearTimeout(completeTimer)
     }
-  }, [minTimePassed, isOnline, onComplete])
+  }, [onComplete])
+
+  // Normal path: Proceed when minimum display time (1.5s) is reached AND internet is verified
+  useEffect(() => {
+    if (minTimePassed && isOnline && !hasCompletedRef.current) {
+      finishSplash()
+    }
+  }, [minTimePassed, isOnline, finishSplash])
+
+  // Safety maximum splash timeout (2.8s): NEVER hang the app on first launch or slow connection
+  useEffect(() => {
+    const maxTimer = setTimeout(() => {
+      if (!hasCompletedRef.current) {
+        finishSplash()
+      }
+    }, 2800)
+    return () => clearTimeout(maxTimer)
+  }, [finishSplash])
 
   return (
     <motion.div

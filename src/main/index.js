@@ -18,46 +18,53 @@ app.commandLine.appendSwitch('disable-print-preview')
 
 let mainWindow = null
 
-// Robust internet verification in main process using DNS + raw TCP socket
+// Robust internet verification in main process using DNS + raw TCP socket with strict safety timeout
 function verifyInternetConnection() {
   return new Promise((resolve) => {
-    // 1. Try DNS lookup first
-    dns.lookup('google.com', (err) => {
-      if (!err) return resolve(true)
+    let settled = false
+    const done = (result) => {
+      if (!settled) {
+        settled = true
+        clearTimeout(timeoutId)
+        resolve(result)
+      }
+    }
 
-      dns.lookup('cloudflare.com', (err2) => {
-        if (!err2) return resolve(true)
+    // Hard ceiling timeout: 2000ms max to prevent IPC calls from hanging
+    const timeoutId = setTimeout(() => done(false), 2000)
 
-        // 2. Direct TCP socket to public DNS port 53 (instant, no CORS or HTTP parsing)
-        const socket = net.createConnection(53, '8.8.8.8')
-        socket.setTimeout(2500)
-        socket.on('connect', () => {
-          socket.destroy()
-          resolve(true)
-        })
-        socket.on('error', () => {
-          socket.destroy()
-          const socket2 = net.createConnection(53, '1.1.1.1')
-          socket2.setTimeout(2500)
-          socket2.on('connect', () => {
-            socket2.destroy()
-            resolve(true)
-          })
-          socket2.on('error', () => {
-            socket2.destroy()
-            resolve(false)
-          })
-          socket2.on('timeout', () => {
-            socket2.destroy()
-            resolve(false)
-          })
-        })
-        socket.on('timeout', () => {
-          socket.destroy()
-          resolve(false)
+    try {
+      // 1. Try DNS lookup first
+      dns.lookup('google.com', (err) => {
+        if (!err) return done(true)
+
+        dns.lookup('cloudflare.com', (err2) => {
+          if (!err2) return done(true)
+
+          // 2. Direct TCP socket to public DNS port 53 (fast fallback)
+          try {
+            const socket = net.createConnection(53, '8.8.8.8')
+            socket.setTimeout(1200)
+            socket.on('connect', () => {
+              socket.destroy()
+              done(true)
+            })
+            socket.on('error', () => {
+              socket.destroy()
+              done(false)
+            })
+            socket.on('timeout', () => {
+              socket.destroy()
+              done(false)
+            })
+          } catch {
+            done(false)
+          }
         })
       })
-    })
+    } catch {
+      done(false)
+    }
   })
 }
 
@@ -85,11 +92,13 @@ function createWindow() {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
-    // Auto check for updates when window opens in production
+    // Auto check for updates delayed by 4s to prevent blocking initial app startup/splash rendering
     if (!is.dev) {
-      autoUpdater.checkForUpdatesAndNotify().catch((err) => {
-        console.warn('Failed to check for updates on startup:', err)
-      })
+      setTimeout(() => {
+        autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+          console.warn('Failed to check for updates on startup:', err)
+        })
+      }, 4000)
     }
   })
 
