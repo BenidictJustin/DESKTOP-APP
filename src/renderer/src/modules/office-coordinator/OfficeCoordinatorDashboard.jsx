@@ -366,7 +366,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       {/* Top Glass Header Bar */}
       <header className="mx-4 mt-4 glass-header rounded-2xl flex items-center justify-between px-6 py-2.5 shrink-0 shadow-glass-sm">
         {/* Left: Logo and Title */}
-        <div className="flex items-center space-x-3 bg-white/60 backdrop-blur-sm p-2 pr-4 rounded-xl border border-white/60">
+        <div className="flex items-center space-x-3 bg-white/60 backdrop-blur-sm p-2 pr-4 rounded-xl border border-white/60 min-w-0">
           <div className="h-11 w-11 rounded-lg bg-white/90 flex items-center justify-center border border-white/80 overflow-hidden shrink-0 shadow-2xs">
             <img src={logo} alt="CES Logo" className="h-9 w-9 object-contain" />
           </div>
@@ -381,22 +381,14 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         </div>
 
         {/* Right: Info, Home, Profile info */}
-        <div className="flex items-center space-x-6">
+        <div className="flex items-center space-x-6 min-w-0 shrink-0">
           <button
             type="button"
-            onClick={() => setActiveTab('editor')}
+            onClick={() => setActiveTab('about')}
             className="text-navy-blue hover:opacity-85 transition-all duration-150 cursor-pointer p-1"
-            title="Document Editor"
+            title="About DommUnity"
           >
-            <FileText className="w-5 h-5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('dashboard')}
-            className="text-navy-blue hover:opacity-85 transition-all duration-150 cursor-pointer p-1"
-            title="Dashboard"
-          >
-            <Home className="w-5 h-5" />
+            <Info className="w-5 h-5" />
           </button>
 
           <div className="flex items-center space-x-3 bg-white/60 backdrop-blur-sm p-2 pr-4 pl-3 rounded-xl border border-white/60">
@@ -436,7 +428,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         />
 
         {/* Main Panel Content Area */}
-        <main className="flex-1 my-4 mx-4 glass-panel rounded-2xl shadow-glass-md overflow-hidden flex flex-col">
+        <main className="flex-1 min-w-0 my-4 mx-4 glass-panel rounded-2xl shadow-glass-md overflow-hidden flex flex-col">
           <AnimatedPage pageKey={activeTab} className="h-full flex flex-col">
             {/* ── DASHBOARD ── */}
             {activeTab === 'dashboard' && (

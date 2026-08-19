@@ -144,8 +144,13 @@ export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
         msg.includes('auth/wrong-password')
       ) {
         setError('Invalid email or password. Please try again.')
+      } else if (
+        msg.includes('auth/too-many-requests') ||
+        msg.includes('too-many-requests')
+      ) {
+        setError('Too many login attempts. Please wait a moment and try again.')
       } else {
-        setError(err?.message || 'Invalid email or password. Please try again.')
+        setError('Invalid email or password. Please try again.')
       }
       setLoading(false)
     }

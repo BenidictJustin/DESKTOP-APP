@@ -421,8 +421,14 @@ export default function AdminDashboard({ user, onLogout }) {
     }
   }, [isAnyModalOpen])
 
+  const isSuppliesCategory = (cat) => {
+    if (!cat) return false
+    const c = cat.toLowerCase().trim().replace(/ies$/, 'y')
+    return c.includes('supply')
+  }
+
   useEffect(() => {
-    if ((itemCategory || '').toLowerCase().trim() === 'school supplies') {
+    if (isSuppliesCategory(itemCategory)) {
       setItemExpiry('')
     }
   }, [itemCategory])
@@ -1025,7 +1031,7 @@ export default function AdminDashboard({ user, onLogout }) {
       triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
       return
     }
-    const isSchoolSupplies = (itemCategory || '').toLowerCase().trim() === 'school supplies'
+    const isSchoolSupplies = isSuppliesCategory(itemCategory)
 
     const unitLower = (itemUnit || '').toLowerCase().trim()
     const isAlreadyGrouped = ['pack', 'packs', 'box', 'boxes', 'bundle', 'bundles'].includes(
@@ -1461,7 +1467,7 @@ export default function AdminDashboard({ user, onLogout }) {
       if (!/^\d*$/.test(val)) return
     }
     list[idx][field] = val
-    if (field === 'category' && val.toLowerCase().trim() === 'school supplies') {
+    if (field === 'category' && isSuppliesCategory(val)) {
       list[idx].expiryDate = ''
     }
     setDonItems(list)
@@ -1509,7 +1515,7 @@ export default function AdminDashboard({ user, onLogout }) {
     let hasItemErrors = false
     donItems.forEach((item, idx) => {
       const itemErr = {}
-      const isSchoolSupplies = (item.category || '').toLowerCase().trim() === 'school supplies'
+      const isSchoolSupplies = isSuppliesCategory(item.category)
       const unitLower = (item.unit || '').toLowerCase().trim()
       const isAlreadyGrouped = ['pack', 'packs', 'box', 'boxes', 'bundle', 'bundles'].includes(
         unitLower
@@ -1560,7 +1566,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
       // Process and convert grouped items to base units (pieces)
       const processedItems = donItems.map((i) => {
-        const isSchoolSupplies = (i.category || '').toLowerCase().trim() === 'school supplies'
+        const isSchoolSupplies = isSuppliesCategory(i.category)
         const unitLower = (i.unit || '').toLowerCase().trim()
         const isAlreadyGrouped = ['pack', 'packs', 'box', 'boxes', 'bundle', 'bundles'].includes(
           unitLower
@@ -2216,7 +2222,7 @@ export default function AdminDashboard({ user, onLogout }) {
       {/* Top Glass Header Bar */}
       <header className="mx-4 mt-4 glass-header rounded-2xl flex items-center justify-between px-6 py-2.5 shrink-0 shadow-glass-sm">
         {/* Left: Logo and Title */}
-        <div className="flex items-center space-x-3 bg-white/60 backdrop-blur-sm p-2 pr-4 rounded-xl border border-white/60">
+        <div className="flex items-center space-x-3 bg-white/60 backdrop-blur-sm p-2 pr-4 rounded-xl border border-white/60 min-w-0">
           <div className="h-11 w-11 rounded-lg bg-white/90 flex items-center justify-center border border-white/80 overflow-hidden shrink-0 shadow-2xs">
             <img src={logo} alt="CES Logo" className="h-9 w-9 object-contain" />
           </div>
@@ -2231,7 +2237,7 @@ export default function AdminDashboard({ user, onLogout }) {
         </div>
 
         {/* Right: Info, Home, Profile info */}
-        <div className="flex items-center space-x-6">
+        <div className="flex items-center space-x-6 min-w-0 shrink-0">
           <button
             type="button"
             disabled={isAnyModalOpen}
@@ -2241,15 +2247,7 @@ export default function AdminDashboard({ user, onLogout }) {
           >
             <Info className="w-5 h-5" />
           </button>
-          <button
-            type="button"
-            disabled={isAnyModalOpen}
-            onClick={() => setActiveTab('dashboard')}
-            className={`text-navy-blue transition-all duration-150 p-1 ${isAnyModalOpen ? 'opacity-40 cursor-not-allowed' : 'hover:opacity-85 cursor-pointer'}`}
-            title="Dashboard"
-          >
-            <Home className="w-5 h-5" />
-          </button>
+
 
           <div className="flex items-center space-x-3 bg-white/60 backdrop-blur-sm p-2 pr-4 pl-3 rounded-xl border border-white/60">
             <div className="w-9 h-9 rounded-lg border border-navy-blue/15 flex items-center justify-center text-navy-blue bg-white shadow-2xs">
@@ -2299,12 +2297,12 @@ export default function AdminDashboard({ user, onLogout }) {
         {/* Main Panel Content Area */}
         <main
           ref={mainRef}
-          className="flex-1 my-4 mx-4 p-5 overflow-y-auto glass-panel rounded-2xl shadow-glass-md"
+          className="flex-1 min-w-0 my-4 mx-4 p-5 overflow-y-auto glass-panel rounded-2xl shadow-glass-md"
         >
           <AnimatedPage pageKey={activeTab}>
             <div className="flex flex-col xl:flex-row gap-5 max-w-[1600px] mx-auto items-start w-full">
               {/* Left / Center Content Column */}
-              <div className="flex-1 w-full space-y-5">
+              <div className="flex-1 w-full min-w-0 space-y-5">
                 {/* Banner Alert Prompts */}
 
                 {/* ==================================================== */}
@@ -2532,973 +2530,696 @@ export default function AdminDashboard({ user, onLogout }) {
                     <InventorySkeleton />
                   ) : (
                     <div className="space-y-6 animate-fade-in">
-                    {/* Header section */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1">
-                      <div>
-                        <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
-                          Inventory Management
-                        </h1>
-                      </div>
-                      <div>
-                        <button
-                          type="button"
-                          onClick={handleOpenReportPreview}
-                          className="flex items-center space-x-2 bg-navy-blue text-white border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green font-semibold py-2 px-4 rounded-full text-xs cursor-pointer transition shadow-xs"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                          <span>Download Report PDF</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Recommended Release Items Section */}
-                    {(() => {
-                      const recommendedItems = inventoryList.filter(
-                        (item) =>
-                          item.isRecommendedForRelease && item.expiryDate && item.quantity > 0
-                      )
-
-                      // Sort by nearest expiration date
-                      const sortedItems = [...recommendedItems].sort(
-                        (a, b) => new Date(a.expiryDate) - new Date(b.expiryDate)
-                      )
-                      const displayedItems = showAllRecommended
-                        ? sortedItems
-                        : sortedItems.slice(0, 3)
-
-                      return (
-                        <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4 w-full animate-fade-in">
-                          <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                            <h3 className="font-bold text-navy-blue text-sm">
-                              Recommended Release Items
-                            </h3>
-                            <div className="flex items-center space-x-2.5">
-                              <button
-                                type="button"
-                                onClick={() => setIsReleaseModalOpen(true)}
-                                className="flex items-center space-x-1.5 bg-navy-blue text-white border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green font-semibold py-2 px-4 rounded-full text-xs cursor-pointer transition shadow-xs"
-                              >
-                                <Share className="w-3.5 h-3.5 transform rotate-180" />
-                                <span>Release Item</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setIsReviewModalOpen(true)}
-                                className="flex items-center space-x-1.5 bg-navy-blue text-white border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green font-bold py-2 px-4 rounded-full text-xs cursor-pointer transition shadow-xs"
-                              >
-                                <ListFilter className="w-3.5 h-3.5" />
-                                <span>Release Review List ({pendingReleaseItems.length})</span>
-                              </button>
-                            </div>
-                          </div>
-
-                          {recommendedItems.length === 0 ? (
-                            <p className="text-center py-6 text-gray-400 text-xs font-medium">
-                              No items recommended for release.
-                            </p>
-                          ) : (
-                            <>
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {displayedItems.map((item) => (
-                                  <div
-                                    key={item.id}
-                                    className="border border-sig-green/20 bg-sig-green/5 rounded-2xl p-4 flex flex-col justify-between hover:border-sig-green/45 transition"
-                                  >
-                                    <div>
-                                      <div className="flex justify-between items-start">
-                                        <h4 className="font-bold text-navy-blue text-xs">
-                                          {item.name}
-                                        </h4>
-                                        <span className="text-[10px] bg-white border border-sig-green/35 text-navy-blue font-bold px-2 py-0.5 rounded-full capitalize">
-                                          {item.category}
-                                        </span>
-                                      </div>
-                                      <div className="text-[10px] text-gray-500 mt-2 space-y-0.5">
-                                        <div>
-                                          Stock Level:{' '}
-                                          <span className="font-bold text-navy-blue">
-                                            {displayStock(
-                                              item.quantity,
-                                              item.unit,
-                                              item.groupUnit,
-                                              item.piecesPerUnit
-                                            )}
-                                          </span>
-                                        </div>
-                                        <div className="text-red-500 font-semibold flex items-center">
-                                          <Clock className="w-3.5 h-3.5 mr-1" />
-                                          Exp: {new Date(item.expiryDate).toLocaleDateString()}
-                                        </div>
-                                      </div>
-                                    </div>
-                                    <div className="mt-3 flex justify-end">
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setReleaseItemId(item.id)
-                                          const optionText = `${item.name} (${item.category}) - ${displayStock(item.quantity, item.unit, item.groupUnit, item.piecesPerUnit)} left ${item.expiryDate ? `(Exp: ${new Date(item.expiryDate).toLocaleDateString()})` : ''}`
-                                          setReleaseSearch(optionText)
-                                          setReleaseUnitType('base')
-                                          setIsReleaseModalOpen(true)
-                                        }}
-                                        className="px-3 py-1 bg-navy-blue text-white rounded-full text-[10px] font-semibold border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center space-x-1 cursor-pointer"
-                                      >
-                                        <span>Quick Release</span>
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                              {sortedItems.length > 3 && (
-                                <div className="flex justify-center pt-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => setShowAllRecommended(!showAllRecommended)}
-                                    className="px-4 py-1.5 border border-navy-blue/15 text-navy-blue hover:bg-navy-blue/5 rounded-full text-xs font-semibold transition-all duration-150 cursor-pointer"
-                                  >
-                                    {showAllRecommended ? 'See Less' : 'See More'}
-                                  </button>
-                                </div>
-                              )}
-                            </>
-                          )}
+                      {/* Header section */}
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1">
+                        <div>
+                          <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
+                            Inventory Management
+                          </h1>
                         </div>
-                      )
-                    })()}
-
-                    {/* Full-width Stock Table Card */}
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between w-full">
-                      <div id="inventory-table-container">
-                        <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
-                          <h3 className="font-bold text-navy-blue text-sm">
-                            Current Inventory Stock
-                          </h3>
+                        <div>
                           <button
                             type="button"
-                            onClick={() => setIsAddModalOpen(true)}
-                            className="flex items-center space-x-1.5 bg-navy-blue text-white border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green font-semibold py-2 px-4 rounded-full text-xs cursor-pointer transition shadow-xs"
+                            onClick={handleOpenReportPreview}
+                            className="flex items-center space-x-2 bg-navy-blue text-white border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green font-semibold py-2 px-4 rounded-full text-xs cursor-pointer transition shadow-xs"
                           >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Add Item</span>
+                            <Download className="w-3.5 h-3.5" />
+                            <span>Download Report PDF</span>
                           </button>
                         </div>
+                      </div>
 
-                        <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
-                          <table className="w-full text-left border-collapse">
-                            <thead>
-                              <tr className="border-b border-gray-100 bg-gray-50 text-[10px] uppercase font-bold text-gray-500">
-                                <th className="py-3 px-3">Item Details</th>
-                                <th className="py-3 px-2">
-                                  <CustomSelect
-                                    value={categoryFilter}
-                                    onChange={(e) => setCategoryFilter(e.target.value)}
-                                    options={[
-                                      { value: 'all', label: 'Category (All)' },
-                                      ...allCategories.map((cat) => ({ value: cat, label: cat }))
-                                    ]}
-                                    placeholder="Category (All)"
-                                    style={{ height: '36px', minWidth: '130px' }}
-                                  />
-                                </th>
-                                <th className="py-3 px-2">
-                                  <CustomSelect
-                                    value={statusFilter}
-                                    onChange={(e) => setStatusFilter(e.target.value)}
-                                    options={[
-                                      { value: 'all', label: 'Stock Level (All)' },
-                                      { value: 'available', label: 'Available' },
-                                      { value: 'low stock', label: 'Low Stock' },
-                                      { value: 'expired', label: 'Expired' }
-                                    ]}
-                                    placeholder="Stock Level (All)"
-                                    style={{ height: '36px', minWidth: '135px' }}
-                                  />
-                                </th>
-                                <th className="py-3 px-2">Status</th>
-                                <th className="py-3 px-3 text-right">Actions</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50 text-xs">
-                              {inventoryList
-                                .filter(
-                                  (item) =>
-                                    categoryFilter === 'all' || item.category === categoryFilter
-                                )
-                                .filter(
-                                  (item) => statusFilter === 'all' || item.status === statusFilter
-                                )
-                                .map((item) => (
-                                  <tr
-                                    key={item.id}
-                                    className={`hover:bg-gray-50/50 transition ${item.isRecommendedForRelease && item.expiryDate ? 'bg-sig-green/5 font-medium' : ''}`}
-                                  >
-                                    <td className="py-3 px-3">
-                                      <div className="font-bold text-navy-blue flex items-center space-x-1.5">
-                                        <span>{item.name}</span>
-                                        {item.isRecommendedForRelease && item.expiryDate && (
-                                          <span className="bg-sig-green text-navy-blue text-[8px] font-bold px-1.5 py-0.5 rounded-full border border-sig-green/35 flex items-center space-x-0.5">
-                                            <span>Recommended Release</span>
-                                          </span>
-                                        )}
-                                      </div>
-                                      {item.expiryDate && (
-                                        <div className="text-[10px] text-gray-400 mt-0.5">
-                                          <span className="text-red-500 flex items-center">
-                                            <Clock className="w-3 h-3 shrink-0 mr-1" />
-                                            Exp: {new Date(item.expiryDate).toLocaleDateString()}
+                      {/* Recommended Release Items Section */}
+                      {(() => {
+                        const recommendedItems = inventoryList.filter(
+                          (item) =>
+                            item.isRecommendedForRelease && item.expiryDate && item.quantity > 0
+                        )
+
+                        // Sort by nearest expiration date
+                        const sortedItems = [...recommendedItems].sort(
+                          (a, b) => new Date(a.expiryDate) - new Date(b.expiryDate)
+                        )
+                        const displayedItems = showAllRecommended
+                          ? sortedItems
+                          : sortedItems.slice(0, 3)
+
+                        return (
+                          <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4 w-full animate-fade-in">
+                            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                              <h3 className="font-bold text-navy-blue text-sm">
+                                Recommended Release Items
+                              </h3>
+                              <div className="flex items-center space-x-2.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setIsReleaseModalOpen(true)}
+                                  className="flex items-center space-x-1.5 bg-navy-blue text-white border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green font-semibold py-2 px-4 rounded-full text-xs cursor-pointer transition shadow-xs"
+                                >
+                                  <Share className="w-3.5 h-3.5 transform rotate-180" />
+                                  <span>Release Item</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsReviewModalOpen(true)}
+                                  className="flex items-center space-x-1.5 bg-navy-blue text-white border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green font-bold py-2 px-4 rounded-full text-xs cursor-pointer transition shadow-xs"
+                                >
+                                  <ListFilter className="w-3.5 h-3.5" />
+                                  <span>Release Review List ({pendingReleaseItems.length})</span>
+                                </button>
+                              </div>
+                            </div>
+
+                            {recommendedItems.length === 0 ? (
+                              <p className="text-center py-6 text-gray-400 text-xs font-medium">
+                                No items recommended for release.
+                              </p>
+                            ) : (
+                              <>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                  {displayedItems.map((item) => (
+                                    <div
+                                      key={item.id}
+                                      className="border border-sig-green/20 bg-sig-green/5 rounded-2xl p-4 flex flex-col justify-between hover:border-sig-green/45 transition"
+                                    >
+                                      <div>
+                                        <div className="flex justify-between items-start">
+                                          <h4 className="font-bold text-navy-blue text-xs">
+                                            {item.name}
+                                          </h4>
+                                          <span className="text-[10px] bg-white border border-sig-green/35 text-navy-blue font-bold px-2 py-0.5 rounded-full capitalize">
+                                            {item.category}
                                           </span>
                                         </div>
-                                      )}
-                                      {item.description && (
-                                        <p className="text-gray-400 mt-1 max-w-xs truncate">
-                                          {item.description}
-                                        </p>
-                                      )}
-                                    </td>
-                                    <td className="py-3 px-2 capitalize text-gray-500">
-                                      {item.category}
-                                    </td>
-                                    <td className="py-3 px-2 font-bold text-navy-blue">
-                                      <span>
-                                        {item.quantity} {formatUnit(item.quantity, item.unit || 'pieces')}
-                                      </span>
-                                      {item.groupUnit &&
-                                        item.groupUnit !== 'none' &&
-                                        item.piecesPerUnit && (
-                                          <div className="text-[9px] text-gray-400 font-normal mt-0.5">
-                                            {(() => {
-                                              const pPerUnit = parseInt(item.piecesPerUnit, 10) || 12
-                                              const packs = Math.floor(item.quantity / pPerUnit)
-                                              const remainder = item.quantity % pPerUnit
-                                              const packLabel = formatUnit(packs, item.groupUnit)
-                                              const perPieceLabel = formatUnit(pPerUnit, item.unit || 'pieces')
-                                              const perPackLabel = formatUnit(1, item.groupUnit)
-                                              const remainderLabel = remainder > 0 ? ` + ${remainder} ${formatUnit(remainder, item.unit || 'pieces')}` : ''
-                                              return `${packs} ${packLabel} | ${pPerUnit} ${perPieceLabel} per ${perPackLabel}${remainderLabel}`
-                                            })()}
+                                        <div className="text-[10px] text-gray-500 mt-2 space-y-0.5">
+                                          <div>
+                                            Stock Level:{' '}
+                                            <span className="font-bold text-navy-blue">
+                                              {displayStock(
+                                                item.quantity,
+                                                item.unit,
+                                                item.groupUnit,
+                                                item.piecesPerUnit
+                                              )}
+                                            </span>
                                           </div>
-                                        )}
-                                    </td>
-                                    <td className="py-3 px-2">
-                                      <span
-                                        className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${item.status === 'available'
-                                          ? 'bg-green-50 text-green-700 border border-green-200'
-                                          : item.status === 'low stock'
-                                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                            : item.status === 'expired'
-                                              ? 'bg-red-50 text-red-700 border border-red-200'
-                                              : 'bg-red-50 text-red-700 border border-red-200'
-                                          }`}
-                                      >
-                                        {item.status}
-                                      </span>
-                                    </td>
-                                    <td className="py-3 px-3 text-right">
-                                      <div className="flex justify-end space-x-2">
+                                          <div className="text-red-500 font-semibold flex items-center">
+                                            <Clock className="w-3.5 h-3.5 mr-1" />
+                                            Exp: {new Date(item.expiryDate).toLocaleDateString()}
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div className="mt-3 flex justify-end">
                                         <button
+                                          type="button"
                                           onClick={() => {
-                                            setItemEditing(item)
-                                            setItemName(item.name)
-                                            setItemCategory(item.category)
-                                            setItemUnit(item.unit)
-                                            setItemQty(item.quantity.toString())
-                                            setItemExpiry(item.expiryDate || '')
-                                            setItemPiecesPerUnit(
-                                              item.piecesPerUnit
-                                                ? item.piecesPerUnit.toString()
-                                                : ''
-                                            )
-                                            setItemGroupUnit(item.groupUnit || 'none')
+                                            setReleaseItemId(item.id)
+                                            const optionText = `${item.name} (${item.category}) - ${displayStock(item.quantity, item.unit, item.groupUnit, item.piecesPerUnit)} left ${item.expiryDate ? `(Exp: ${new Date(item.expiryDate).toLocaleDateString()})` : ''}`
+                                            setReleaseSearch(optionText)
+                                            setReleaseUnitType('base')
+                                            setIsReleaseModalOpen(true)
                                           }}
-                                          className="p-1 text-gray-400 hover:text-navy-blue transition-all duration-150 cursor-pointer"
+                                          className="px-3 py-1 bg-navy-blue text-white rounded-full text-[10px] font-semibold border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center space-x-1 cursor-pointer"
                                         >
-                                          <Edit2 className="w-3.5 h-3.5" />
-                                        </button>
-                                        <button
-                                          onClick={() => handleDeleteInventory(item.id)}
-                                          className="p-1 text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer"
-                                        >
-                                          <Trash2 className="w-3.5 h-3.5" />
+                                          <span>Quick Release</span>
                                         </button>
                                       </div>
+                                    </div>
+                                  ))}
+                                </div>
+                                {sortedItems.length > 3 && (
+                                  <div className="flex justify-center pt-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowAllRecommended(!showAllRecommended)}
+                                      className="px-4 py-1.5 border border-navy-blue/15 text-navy-blue hover:bg-navy-blue/5 rounded-full text-xs font-semibold transition-all duration-150 cursor-pointer"
+                                    >
+                                      {showAllRecommended ? 'See Less' : 'See More'}
+                                    </button>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        )
+                      })()}
+
+                      {/* Full-width Stock Table Card */}
+                      <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between w-full">
+                        <div id="inventory-table-container">
+                          <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
+                            <h3 className="font-bold text-navy-blue text-sm">
+                              Current Inventory Stock
+                            </h3>
+                            <button
+                              type="button"
+                              onClick={() => setIsAddModalOpen(true)}
+                              className="flex items-center space-x-1.5 bg-navy-blue text-white border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green font-semibold py-2 px-4 rounded-full text-xs cursor-pointer transition shadow-xs"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Add Item</span>
+                            </button>
+                          </div>
+
+                          <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
+                            <table className="w-full text-left border-collapse">
+                              <thead>
+                                <tr className="border-b border-gray-100 bg-gray-50 text-[10px] uppercase font-bold text-gray-500">
+                                  <th className="py-3 px-3">Item Details</th>
+                                  <th className="py-3 px-2">
+                                    <CustomSelect
+                                      value={categoryFilter}
+                                      onChange={(e) => setCategoryFilter(e.target.value)}
+                                      options={[
+                                        { value: 'all', label: 'Category (All)' },
+                                        ...allCategories.map((cat) => ({ value: cat, label: cat }))
+                                      ]}
+                                      placeholder="Category (All)"
+                                      style={{ height: '36px', minWidth: '130px' }}
+                                    />
+                                  </th>
+                                  <th className="py-3 px-2">
+                                    <CustomSelect
+                                      value={statusFilter}
+                                      onChange={(e) => setStatusFilter(e.target.value)}
+                                      options={[
+                                        { value: 'all', label: 'Stock Level (All)' },
+                                        { value: 'available', label: 'Available' },
+                                        { value: 'low stock', label: 'Low Stock' },
+                                        { value: 'expired', label: 'Expired' }
+                                      ]}
+                                      placeholder="Stock Level (All)"
+                                      style={{ height: '36px', minWidth: '135px' }}
+                                    />
+                                  </th>
+                                  <th className="py-3 px-2">Status</th>
+                                  <th className="py-3 px-3 text-right">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-50 text-xs">
+                                {inventoryList
+                                  .filter(
+                                    (item) =>
+                                      categoryFilter === 'all' || item.category === categoryFilter
+                                  )
+                                  .filter(
+                                    (item) => statusFilter === 'all' || item.status === statusFilter
+                                  )
+                                  .map((item) => (
+                                    <tr
+                                      key={item.id}
+                                      className={`hover:bg-gray-50/50 transition ${item.isRecommendedForRelease && item.expiryDate ? 'bg-sig-green/5 font-medium' : ''}`}
+                                    >
+                                      <td className="py-3 px-3">
+                                        <div className="font-bold text-navy-blue flex items-center space-x-1.5">
+                                          <span>{item.name}</span>
+                                          {item.isRecommendedForRelease && item.expiryDate && (
+                                            <span className="bg-sig-green text-navy-blue text-[8px] font-bold px-1.5 py-0.5 rounded-full border border-sig-green/35 flex items-center space-x-0.5">
+                                              <span>Recommended Release</span>
+                                            </span>
+                                          )}
+                                        </div>
+                                        {item.expiryDate && (
+                                          <div className="text-[10px] text-gray-400 mt-0.5">
+                                            <span className="text-red-500 flex items-center">
+                                              <Clock className="w-3 h-3 shrink-0 mr-1" />
+                                              Exp: {new Date(item.expiryDate).toLocaleDateString()}
+                                            </span>
+                                          </div>
+                                        )}
+                                        {item.description && (
+                                          <p className="text-gray-400 mt-1 max-w-xs truncate">
+                                            {item.description}
+                                          </p>
+                                        )}
+                                      </td>
+                                      <td className="py-3 px-2 capitalize text-gray-500">
+                                        {item.category}
+                                      </td>
+                                      <td className="py-3 px-2 font-bold text-navy-blue">
+                                        <span>
+                                          {item.quantity} {formatUnit(item.quantity, item.unit || 'pieces')}
+                                        </span>
+                                        {item.groupUnit &&
+                                          item.groupUnit !== 'none' &&
+                                          item.piecesPerUnit && (
+                                            <div className="text-[9px] text-gray-400 font-normal mt-0.5">
+                                              {(() => {
+                                                const pPerUnit = parseInt(item.piecesPerUnit, 10) || 12
+                                                const packs = Math.floor(item.quantity / pPerUnit)
+                                                const remainder = item.quantity % pPerUnit
+                                                const packLabel = formatUnit(packs, item.groupUnit)
+                                                const perPieceLabel = formatUnit(pPerUnit, item.unit || 'pieces')
+                                                const perPackLabel = formatUnit(1, item.groupUnit)
+                                                const remainderLabel = remainder > 0 ? ` + ${remainder} ${formatUnit(remainder, item.unit || 'pieces')}` : ''
+                                                return `${packs} ${packLabel} | ${pPerUnit} ${perPieceLabel} per ${perPackLabel}${remainderLabel}`
+                                              })()}
+                                            </div>
+                                          )}
+                                      </td>
+                                      <td className="py-3 px-2">
+                                        <span
+                                          className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${item.status === 'available'
+                                            ? 'bg-green-50 text-green-700 border border-green-200'
+                                            : item.status === 'low stock'
+                                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                              : item.status === 'expired'
+                                                ? 'bg-red-50 text-red-700 border border-red-200'
+                                                : 'bg-red-50 text-red-700 border border-red-200'
+                                            }`}
+                                        >
+                                          {item.status}
+                                        </span>
+                                      </td>
+                                      <td className="py-3 px-3 text-right">
+                                        <div className="flex justify-end space-x-2">
+                                          <button
+                                            onClick={() => {
+                                              setItemEditing(item)
+                                              setItemName(item.name)
+                                              setItemCategory(item.category)
+                                              setItemUnit(item.unit)
+                                              setItemQty(item.quantity.toString())
+                                              setItemExpiry(item.expiryDate || '')
+                                              setItemPiecesPerUnit(
+                                                item.piecesPerUnit
+                                                  ? item.piecesPerUnit.toString()
+                                                  : ''
+                                              )
+                                              setItemGroupUnit(item.groupUnit || 'none')
+                                            }}
+                                            className="p-1 text-gray-400 hover:text-navy-blue transition-all duration-150 cursor-pointer"
+                                          >
+                                            <Edit2 className="w-3.5 h-3.5" />
+                                          </button>
+                                          <button
+                                            onClick={() => handleDeleteInventory(item.id)}
+                                            className="p-1 text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                {inventoryList.length === 0 && (
+                                  <tr>
+                                    <td colSpan="5" className="text-center py-6 text-gray-400">
+                                      No inventory entries available.
                                     </td>
                                   </tr>
-                                ))}
-                              {inventoryList.length === 0 && (
-                                <tr>
-                                  <td colSpan="5" className="text-center py-6 text-gray-400">
-                                    No inventory entries available.
-                                  </td>
-                                </tr>
-                              )}
-                            </tbody>
-                          </table>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Modal Overlay for Add Catalog Item */}
-                    {isAddModalOpen &&
-                      createPortal(
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
-                          <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto">
-                            <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-                              <h3 className="font-bold text-navy-blue text-sm">Add Catalog Item</h3>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setIsAddModalOpen(false)
-                                  setItemName('')
-                                  setItemUnit('')
-                                  setItemQty('')
-                                  setItemExpiry('')
-                                  setItemPiecesPerUnit('')
-                                  setItemGroupUnit('none')
-                                  setItemErrors({})
-                                }}
-                                className="text-gray-400 hover:text-navy-blue transition-all duration-150 cursor-pointer"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
+                      {/* Modal Overlay for Add Catalog Item */}
+                      {isAddModalOpen &&
+                        createPortal(
+                          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
+                            <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto">
+                              <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+                                <h3 className="font-bold text-navy-blue text-sm">Add Item</h3>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsAddModalOpen(false)
+                                    setItemName('')
+                                    setItemUnit('')
+                                    setItemQty('')
+                                    setItemExpiry('')
+                                    setItemPiecesPerUnit('')
+                                    setItemGroupUnit('none')
+                                    setItemErrors({})
+                                  }}
+                                  className="text-gray-400 hover:text-navy-blue transition-all duration-150 cursor-pointer"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
 
-                            <form onSubmit={handleSaveInventory} className="space-y-4">
-                              {/* Item Name Suggestions */}
-                              <div>
-                                <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                  Item Name
-                                </label>
-                                <div className="relative">
-                                  <input
-                                    type="text"
-                                    value={itemName}
-                                    onChange={(e) => {
-                                      setItemName(e.target.value)
+                              <form onSubmit={handleSaveInventory} className="space-y-4">
+                                {/* Item Name Suggestions */}
+                                <div>
+                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                    Item Name
+                                  </label>
+                                  <div className="relative">
+                                    <input
+                                      type="text"
+                                      value={itemName}
+                                      onChange={(e) => {
+                                        setItemName(e.target.value)
+                                        setItemErrors((prev) => {
+                                          const copy = { ...prev }
+                                          delete copy.itemName
+                                          return copy
+                                        })
+                                        setShowItemNameSuggestions(true)
+                                      }}
+                                      onFocus={() => setShowItemNameSuggestions(true)}
+                                      onBlur={() =>
+                                        setTimeout(() => setShowItemNameSuggestions(false), 200)
+                                      }
+                                      placeholder="e.g. Corned Beef, Notebooks"
+                                      className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemName ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                      style={{ height: '40px' }}
+                                    />
+                                    {itemErrors.itemName && (
+                                      <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                        {itemErrors.itemName}
+                                      </p>
+                                    )}
+                                    {showItemNameSuggestions && itemName && (
+                                      <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                                        {(() => {
+                                          const matching = inventoryList.filter(
+                                            (item) =>
+                                              item.name
+                                                .toLowerCase()
+                                                .includes(itemName.toLowerCase()) &&
+                                              !deletedItemNames.includes(
+                                                item.name.toLowerCase().trim()
+                                              )
+                                          )
+                                          const uniqueNames = [
+                                            ...new Set(matching.map((item) => item.name))
+                                          ]
+                                          if (uniqueNames.length === 0) return null
+                                          return (
+                                            <div className="py-1">
+                                              {uniqueNames.map((name) => {
+                                                const originalItem = matching.find(
+                                                  (item) => item.name === name
+                                                )
+                                                return (
+                                                  <div
+                                                    key={name}
+                                                    onMouseDown={(e) => e.preventDefault()}
+                                                    onClick={() => {
+                                                      setItemName(name)
+                                                      if (originalItem) {
+                                                        setItemCategory(originalItem.category)
+                                                        setItemUnit(originalItem.unit)
+                                                        if (originalItem.piecesPerUnit) {
+                                                          setItemPiecesPerUnit(
+                                                            originalItem.piecesPerUnit.toString()
+                                                          )
+                                                        }
+                                                        if (originalItem.groupUnit) {
+                                                          setItemGroupUnit(originalItem.groupUnit)
+                                                        }
+                                                      }
+                                                      setShowItemNameSuggestions(false)
+                                                    }}
+                                                    className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left animate-fade-in"
+                                                  >
+                                                    <span className="truncate">
+                                                      {name}{' '}
+                                                      {originalItem?.category && (
+                                                        <span className="text-[10px] text-gray-400 font-normal">
+                                                          ({originalItem.category})
+                                                        </span>
+                                                      )}
+                                                    </span>
+                                                    <button
+                                                      type="button"
+                                                      onMouseDown={(e) => {
+                                                        e.preventDefault()
+                                                        e.stopPropagation()
+                                                      }}
+                                                      onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        handleDeleteItemName(name)
+                                                      }}
+                                                      className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100 shrink-0 ml-2"
+                                                    >
+                                                      <X className="w-3 h-3" />
+                                                    </button>
+                                                  </div>
+                                                )
+                                              })}
+                                            </div>
+                                          )
+                                        })()}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Category Searchable Dropdown */}
+                                <div>
+                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                    Category
+                                  </label>
+                                  <SearchableDropdown
+                                    value={itemCategory}
+                                    onChange={(val) => {
+                                      setItemCategory(val)
                                       setItemErrors((prev) => {
                                         const copy = { ...prev }
-                                        delete copy.itemName
+                                        delete copy.itemCategory
                                         return copy
                                       })
-                                      setShowItemNameSuggestions(true)
                                     }}
-                                    onFocus={() => setShowItemNameSuggestions(true)}
-                                    onBlur={() =>
-                                      setTimeout(() => setShowItemNameSuggestions(false), 200)
-                                    }
-                                    placeholder="e.g. Corned Beef, Notebooks"
-                                    className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemName ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                    style={{ height: '40px' }}
+                                    options={activeCategories}
+                                    onDelete={(cat) => handleDeleteCategory(cat)}
+                                    allowCustom={true}
+                                    placeholder="Select or type category"
+                                    className={itemErrors.itemCategory ? 'border-red-500 ring-2 ring-red-500/10' : ''}
                                   />
-                                  {itemErrors.itemName && (
+                                </div>
+
+                                {/* Unit Searchable Dropdown */}
+                                <div>
+                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                    Unit
+                                  </label>
+                                  <SearchableDropdown
+                                    value={itemUnit}
+                                    onChange={(val) => {
+                                      setItemUnit(val)
+                                      setItemErrors((prev) => {
+                                        const copy = { ...prev }
+                                        delete copy.itemUnit
+                                        return copy
+                                      })
+                                    }}
+                                    options={activeUnits}
+                                    onDelete={(u) => handleDeleteUnit(u)}
+                                    allowCustom={true}
+                                    placeholder="Select or type unit"
+                                    className={itemErrors.itemUnit ? 'border-red-500 ring-2 ring-red-500/10' : ''}
+                                  />
+                                </div>
+
+                                {/* Quantity */}
+                                <div>
+                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                    Quantity
+                                  </label>
+                                  <SearchableDropdown
+                                    value={itemQty}
+                                    onChange={(val) => {
+                                      handleQtyChange(val)
+                                      setItemErrors((prev) => {
+                                        const copy = { ...prev }
+                                        delete copy.itemQty
+                                        return copy
+                                      })
+                                    }}
+                                    options={[5, 10, 20, 50, 100, 250, 500]}
+                                    allowCustom={true}
+                                    placeholder="Select or enter quantity"
+                                    className={itemErrors.itemQty ? 'border-red-500 ring-2 ring-red-500/10' : ''}
+                                  />
+                                </div>
+
+                                {/* Group Stock & Pieces (if Quantity >= 12) */}
+                                {(() => {
+                                  const parsedQty = parseInt(itemQty, 10)
+                                  const unitLower = (itemUnit || '').toLowerCase().trim()
+                                  const isAlreadyGrouped = [
+                                    'pack',
+                                    'packs',
+                                    'box',
+                                    'boxes',
+                                    'bundle',
+                                    'bundles'
+                                  ].includes(unitLower)
+                                  if (!isNaN(parsedQty) && parsedQty >= 12 && !isAlreadyGrouped) {
+                                    return (
+                                      <div className="space-y-4">
+                                        <div>
+                                          <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                            Group stock into (Optional)
+                                          </label>
+                                          <CustomSelect
+                                            value={itemGroupUnit}
+                                            onChange={(e) => {
+                                              setItemGroupUnit(e.target.value)
+                                              if (e.target.value === 'none') {
+                                                setItemPiecesPerUnit('')
+                                              } else if (!itemPiecesPerUnit) {
+                                                setItemPiecesPerUnit('12')
+                                              }
+                                            }}
+                                            options={[
+                                              { value: 'none', label: 'Do not group (Individual pieces)' },
+                                              { value: 'pack', label: 'Packs' },
+                                              { value: 'box', label: 'Boxes' },
+                                              { value: 'bundle', label: 'Bundles' }
+                                            ]}
+                                            placeholder="Do not group (Individual pieces)"
+                                            style={{ height: '40px' }}
+                                          />
+                                        </div>
+                                        {itemGroupUnit !== 'none' && (
+                                          <div className="space-y-4">
+                                            <div>
+                                              <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                                Pieces per Pack/Box/Bundle
+                                              </label>
+                                              <input
+                                                type="text"
+                                                value={itemPiecesPerUnit}
+                                                onChange={(e) =>
+                                                  handlePiecesPerUnitChange(e.target.value)
+                                                }
+                                                placeholder="e.g. 12"
+                                                className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                                                style={{ height: '40px' }}
+                                              />
+                                            </div>
+                                            <div>
+                                              <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                                Remaining Pieces
+                                              </label>
+                                              <input
+                                                type="text"
+                                                readOnly
+                                                value={getRemainingPiecesText(
+                                                  itemQty,
+                                                  itemPiecesPerUnit || '12',
+                                                  itemGroupUnit
+                                                )}
+                                                className="w-full p-2.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none font-bold text-navy-blue"
+                                                style={{ height: '40px' }}
+                                              />
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )
+                                  }
+                                  return null
+                                })()}
+
+                                {/* Pieces per Unit (if Unit is already a Pack, Box, or Bundle) */}
+                                {(() => {
+                                  const unitLower = (itemUnit || '').toLowerCase().trim()
+                                  const isAlreadyGrouped = [
+                                    'pack',
+                                    'packs',
+                                    'box',
+                                    'boxes',
+                                    'bundle',
+                                    'bundles'
+                                  ].includes(unitLower)
+                                  if (isAlreadyGrouped) {
+                                    return (
+                                      <div className="animate-fade-in">
+                                        <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                          Pieces per Unit <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={itemPiecesPerUnit}
+                                          onChange={(e) => {
+                                            handlePiecesPerUnitChange(e.target.value)
+                                            setItemErrors((prev) => {
+                                              const copy = { ...prev }
+                                              delete copy.itemPiecesPerUnit
+                                              return copy
+                                            })
+                                          }}
+                                          placeholder="e.g. 12"
+                                          className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemPiecesPerUnit ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                          style={{ height: '40px' }}
+                                        />
+                                        {itemErrors.itemPiecesPerUnit && (
+                                          <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                            {itemErrors.itemPiecesPerUnit}
+                                          </p>
+                                        )}
+                                      </div>
+                                    )
+                                  }
+                                  return null
+                                })()}
+
+                                {/* Expiration Date */}
+                                <div>
+                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                    Expiration Date{' '}
+                                    {!isSuppliesCategory(itemCategory) && (
+                                      <span className="text-red-500">*</span>
+                                    )}
+                                  </label>
+                                  <div
+                                    className={
+                                      itemErrors.itemExpiry
+                                        ? 'border border-red-500 rounded-xl p-0.5 ring-2 ring-red-500/10'
+                                        : ''
+                                    }
+                                  >
+                                    <GlassDatePicker
+                                      value={itemExpiry ? itemExpiry.split('T')[0] : ''}
+                                      disabled={isSuppliesCategory(itemCategory)}
+                                      onChange={(val) => {
+                                        setItemExpiry(val)
+                                        setItemErrors((prev) => {
+                                          const copy = { ...prev }
+                                          delete copy.itemExpiry
+                                          return copy
+                                        })
+                                      }}
+                                      showTime={false}
+                                      placeholder="dd/mm/yyyy"
+                                    />
+                                  </div>
+                                  {itemErrors.itemExpiry && (
                                     <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                      {itemErrors.itemName}
+                                      {itemErrors.itemExpiry}
                                     </p>
                                   )}
-                                  {showItemNameSuggestions && itemName && (
-                                    <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                      {(() => {
-                                        const matching = inventoryList.filter(
-                                          (item) =>
-                                            item.name
-                                              .toLowerCase()
-                                              .includes(itemName.toLowerCase()) &&
-                                            !deletedItemNames.includes(
-                                              item.name.toLowerCase().trim()
-                                            )
-                                        )
-                                        const uniqueNames = [
-                                          ...new Set(matching.map((item) => item.name))
-                                        ]
-                                        if (uniqueNames.length === 0) return null
-                                        return (
-                                          <div className="py-1">
-                                            {uniqueNames.map((name) => {
-                                              const originalItem = matching.find(
-                                                (item) => item.name === name
-                                              )
-                                              return (
-                                                <div
-                                                  key={name}
-                                                  onMouseDown={(e) => e.preventDefault()}
-                                                  onClick={() => {
-                                                    setItemName(name)
-                                                    if (originalItem) {
-                                                      setItemCategory(originalItem.category)
-                                                      setItemUnit(originalItem.unit)
-                                                      if (originalItem.piecesPerUnit) {
-                                                        setItemPiecesPerUnit(
-                                                          originalItem.piecesPerUnit.toString()
-                                                        )
-                                                      }
-                                                      if (originalItem.groupUnit) {
-                                                        setItemGroupUnit(originalItem.groupUnit)
-                                                      }
-                                                    }
-                                                    setShowItemNameSuggestions(false)
-                                                  }}
-                                                  className="group flex items-center justify-between p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left animate-fade-in"
-                                                >
-                                                  <span className="truncate">
-                                                    {name}{' '}
-                                                    {originalItem?.category && (
-                                                      <span className="text-[10px] text-gray-400 font-normal">
-                                                        ({originalItem.category})
-                                                      </span>
-                                                    )}
-                                                  </span>
-                                                  <button
-                                                    type="button"
-                                                    onMouseDown={(e) => {
-                                                      e.preventDefault()
-                                                      e.stopPropagation()
-                                                    }}
-                                                    onClick={(e) => {
-                                                      e.stopPropagation()
-                                                      handleDeleteItemName(name)
-                                                    }}
-                                                    className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100 shrink-0 ml-2"
-                                                  >
-                                                    <X className="w-3 h-3" />
-                                                  </button>
-                                                </div>
-                                              )
-                                            })}
-                                          </div>
-                                        )
-                                      })()}
-                                    </div>
-                                  )}
                                 </div>
-                              </div>
 
-                              {/* Category Searchable Dropdown */}
-                              <div>
-                                <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                  Category
-                                </label>
-                                <SearchableDropdown
-                                  value={itemCategory}
-                                  onChange={(val) => {
-                                    setItemCategory(val)
-                                    setItemErrors((prev) => {
-                                      const copy = { ...prev }
-                                      delete copy.itemCategory
-                                      return copy
-                                    })
-                                  }}
-                                  options={activeCategories}
-                                  onDelete={(cat) => handleDeleteCategory(cat)}
-                                  allowCustom={true}
-                                  placeholder="Select or type category"
-                                  className={itemErrors.itemCategory ? 'border-red-500 ring-2 ring-red-500/10' : ''}
-                                />
-                              </div>
-
-                              {/* Unit Searchable Dropdown */}
-                              <div>
-                                <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                  Unit
-                                </label>
-                                <SearchableDropdown
-                                  value={itemUnit}
-                                  onChange={(val) => {
-                                    setItemUnit(val)
-                                    setItemErrors((prev) => {
-                                      const copy = { ...prev }
-                                      delete copy.itemUnit
-                                      return copy
-                                    })
-                                  }}
-                                  options={activeUnits}
-                                  onDelete={(u) => handleDeleteUnit(u)}
-                                  allowCustom={true}
-                                  placeholder="Select or type unit"
-                                  className={itemErrors.itemUnit ? 'border-red-500 ring-2 ring-red-500/10' : ''}
-                                />
-                              </div>
-
-                              {/* Quantity */}
-                              <div>
-                                <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                  Quantity
-                                </label>
-                                <SearchableDropdown
-                                  value={itemQty}
-                                  onChange={(val) => {
-                                    handleQtyChange(val)
-                                    setItemErrors((prev) => {
-                                      const copy = { ...prev }
-                                      delete copy.itemQty
-                                      return copy
-                                    })
-                                  }}
-                                  options={[5, 10, 20, 50, 100, 250, 500]}
-                                  allowCustom={true}
-                                  placeholder="Select or enter quantity"
-                                  className={itemErrors.itemQty ? 'border-red-500 ring-2 ring-red-500/10' : ''}
-                                />
-                              </div>
-
-                              {/* Group Stock & Pieces (if Quantity >= 12) */}
-                              {(() => {
-                                const parsedQty = parseInt(itemQty, 10)
-                                const unitLower = (itemUnit || '').toLowerCase().trim()
-                                const isAlreadyGrouped = [
-                                  'pack',
-                                  'packs',
-                                  'box',
-                                  'boxes',
-                                  'bundle',
-                                  'bundles'
-                                ].includes(unitLower)
-                                if (!isNaN(parsedQty) && parsedQty >= 12 && !isAlreadyGrouped) {
-                                  return (
-                                    <div className="space-y-4">
-                                      <div>
-                                        <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                          Group stock into (Optional)
-                                        </label>
-                                        <CustomSelect
-                                          value={itemGroupUnit}
-                                          onChange={(e) => {
-                                            setItemGroupUnit(e.target.value)
-                                            if (e.target.value === 'none') {
-                                              setItemPiecesPerUnit('')
-                                            } else if (!itemPiecesPerUnit) {
-                                              setItemPiecesPerUnit('12')
-                                            }
-                                          }}
-                                          options={[
-                                            { value: 'none', label: 'Do not group (Individual pieces)' },
-                                            { value: 'pack', label: 'Packs' },
-                                            { value: 'box', label: 'Boxes' },
-                                            { value: 'bundle', label: 'Bundles' }
-                                          ]}
-                                          placeholder="Do not group (Individual pieces)"
-                                          style={{ height: '40px' }}
-                                        />
-                                      </div>
-                                      {itemGroupUnit !== 'none' && (
-                                        <div className="space-y-4">
-                                          <div>
-                                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                              Pieces per Pack/Box/Bundle
-                                            </label>
-                                            <input
-                                              type="text"
-                                              value={itemPiecesPerUnit}
-                                              onChange={(e) =>
-                                                handlePiecesPerUnitChange(e.target.value)
-                                              }
-                                              placeholder="e.g. 12"
-                                              className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
-                                              style={{ height: '40px' }}
-                                            />
-                                          </div>
-                                          <div>
-                                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                              Remaining Pieces
-                                            </label>
-                                            <input
-                                              type="text"
-                                              readOnly
-                                              value={getRemainingPiecesText(
-                                                itemQty,
-                                                itemPiecesPerUnit || '12',
-                                                itemGroupUnit
-                                              )}
-                                              className="w-full p-2.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none font-bold text-navy-blue"
-                                              style={{ height: '40px' }}
-                                            />
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )
-                                }
-                                return null
-                              })()}
-
-                              {/* Pieces per Unit (if Unit is already a Pack, Box, or Bundle) */}
-                              {(() => {
-                                const unitLower = (itemUnit || '').toLowerCase().trim()
-                                const isAlreadyGrouped = [
-                                  'pack',
-                                  'packs',
-                                  'box',
-                                  'boxes',
-                                  'bundle',
-                                  'bundles'
-                                ].includes(unitLower)
-                                if (isAlreadyGrouped) {
-                                  return (
-                                    <div className="animate-fade-in">
-                                      <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                        Pieces per Unit <span className="text-red-500">*</span>
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={itemPiecesPerUnit}
-                                        onChange={(e) => {
-                                          handlePiecesPerUnitChange(e.target.value)
-                                          setItemErrors((prev) => {
-                                            const copy = { ...prev }
-                                            delete copy.itemPiecesPerUnit
-                                            return copy
-                                          })
-                                        }}
-                                        placeholder="e.g. 12"
-                                        className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemPiecesPerUnit ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                        style={{ height: '40px' }}
-                                      />
-                                      {itemErrors.itemPiecesPerUnit && (
-                                        <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                          {itemErrors.itemPiecesPerUnit}
-                                        </p>
-                                      )}
-                                    </div>
-                                  )
-                                }
-                                return null
-                              })()}
-
-                              {/* Expiration Date */}
-                              <div>
-                                <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                  Expiration Date{' '}
-                                  {itemCategory.toLowerCase().trim() !== 'school supplies' && (
-                                    <span className="text-red-500">*</span>
-                                  )}
-                                </label>
-                                <div
-                                  className={
-                                    itemErrors.itemExpiry
-                                      ? 'border border-red-500 rounded-xl p-0.5 ring-2 ring-red-500/10'
-                                      : ''
-                                  }
-                                >
-                                  <GlassDatePicker
-                                    value={itemExpiry ? itemExpiry.split('T')[0] : ''}
-                                    disabled={
-                                      itemCategory.toLowerCase().trim() === 'school supplies'
-                                    }
-                                    onChange={(val) => {
-                                      setItemExpiry(val)
-                                      setItemErrors((prev) => {
-                                        const copy = { ...prev }
-                                        delete copy.itemExpiry
-                                        return copy
-                                      })
-                                    }}
-                                    showTime={false}
-                                    placeholder="dd/mm/yyyy"
-                                  />
-                                </div>
-                                {itemErrors.itemExpiry && (
-                                  <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                    {itemErrors.itemExpiry}
-                                  </p>
-                                )}
-                              </div>
-
-                              <button
-                                type="submit"
-                                disabled={loading}
-                                className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center justify-center cursor-pointer animate-fade-in"
-                                style={{ height: '40px' }}
-                              >
-                                {loading ? 'Saving...' : 'Add Item'}
-                              </button>
-                            </form>
-                          </div>
-                        </div>,
-                        document.body
-                      )}
-
-                    {/* Modal Overlay for Edit */}
-                    {itemEditing &&
-                      createPortal(
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
-                          <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto">
-                            <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-                              <h3 className="font-bold text-navy-blue text-sm">
-                                Modify Catalog Item
-                              </h3>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setItemEditing(null)
-                                  setItemName('')
-                                  setItemUnit('')
-                                  setItemQty('')
-                                  setItemExpiry('')
-                                  setItemPiecesPerUnit('')
-                                  setItemGroupUnit('none')
-                                  setItemErrors({})
-                                }}
-                                className="text-gray-400 hover:text-navy-blue transition-all duration-150 cursor-pointer"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
-
-                            <form onSubmit={handleSaveInventory} className="space-y-4">
-                              <div>
-                                <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                  Item Name
-                                </label>
-                                <input
-                                  type="text"
-                                  value={itemName}
-                                  onChange={(e) => {
-                                    setItemName(e.target.value)
-                                    setItemErrors((prev) => {
-                                      const copy = { ...prev }
-                                      delete copy.itemName
-                                      return copy
-                                    })
-                                  }}
-                                  placeholder="e.g. Corned Beef, Notebooks"
-                                  className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemName ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                <button
+                                  type="submit"
+                                  disabled={loading}
+                                  className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center justify-center cursor-pointer animate-fade-in"
                                   style={{ height: '40px' }}
-                                />
-                                {itemErrors.itemName && (
-                                  <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                    {itemErrors.itemName}
-                                  </p>
-                                )}
-                              </div>
-
-                              <div>
-                                <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                  Category
-                                </label>
-                                <SearchableDropdown
-                                  value={itemCategory}
-                                  onChange={(val) => {
-                                    setItemCategory(val)
-                                    setItemErrors((prev) => {
-                                      const copy = { ...prev }
-                                      delete copy.itemCategory
-                                      return copy
-                                    })
-                                  }}
-                                  options={activeCategories}
-                                  onDelete={(cat) => handleDeleteCategory(cat)}
-                                  allowCustom={true}
-                                  placeholder="Select or type category"
-                                  className={itemErrors.itemCategory ? 'border-red-500 ring-2 ring-red-500/10' : ''}
-                                />
-                              </div>
-
-                              {/* Unit Searchable Dropdown */}
-                              <div>
-                                <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                  Unit
-                                </label>
-                                <SearchableDropdown
-                                  value={itemUnit}
-                                  onChange={(val) => {
-                                    setItemUnit(val)
-                                    setItemErrors((prev) => {
-                                      const copy = { ...prev }
-                                      delete copy.itemUnit
-                                      return copy
-                                    })
-                                  }}
-                                  options={activeUnits}
-                                  onDelete={(u) => handleDeleteUnit(u)}
-                                  allowCustom={true}
-                                  placeholder="Select or type unit"
-                                  className={itemErrors.itemUnit ? 'border-red-500 ring-2 ring-red-500/10' : ''}
-                                />
-                              </div>
-
-                              {/* Quantity (directly below Unit) */}
-                              <div>
-                                <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                  Quantity
-                                </label>
-                                <SearchableDropdown
-                                  value={itemQty}
-                                  onChange={(val) => {
-                                    handleQtyChange(val)
-                                    setItemErrors((prev) => {
-                                      const copy = { ...prev }
-                                      delete copy.itemQty
-                                      return copy
-                                    })
-                                  }}
-                                  options={[5, 10, 20, 50, 100, 250, 500]}
-                                  allowCustom={true}
-                                  placeholder="Select or enter quantity"
-                                  className={itemErrors.itemQty ? 'border-red-500 ring-2 ring-red-500/10' : ''}
-                                />
-                              </div>
-
-                              {/* Group Stock & Pieces (if Quantity >= 12) */}
-                              {(() => {
-                                const parsedQty = parseInt(itemQty, 10)
-                                const unitLower = (itemUnit || '').toLowerCase().trim()
-                                const isAlreadyGrouped = [
-                                  'pack',
-                                  'packs',
-                                  'box',
-                                  'boxes',
-                                  'bundle',
-                                  'bundles'
-                                ].includes(unitLower)
-                                if (!isNaN(parsedQty) && parsedQty >= 12 && !isAlreadyGrouped) {
-                                  return (
-                                    <div className="space-y-4">
-                                      <div>
-                                        <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                          Group stock into (Optional)
-                                        </label>
-                                        <CustomSelect
-                                          value={itemGroupUnit}
-                                          onChange={(e) => {
-                                            setItemGroupUnit(e.target.value)
-                                            if (e.target.value === 'none') {
-                                              setItemPiecesPerUnit('')
-                                            } else if (!itemPiecesPerUnit) {
-                                              setItemPiecesPerUnit('12')
-                                            }
-                                          }}
-                                          options={[
-                                            { value: 'none', label: 'Do not group (Individual pieces)' },
-                                            { value: 'pack', label: 'Packs' },
-                                            { value: 'box', label: 'Boxes' },
-                                            { value: 'bundle', label: 'Bundles' }
-                                          ]}
-                                          placeholder="Do not group (Individual pieces)"
-                                          style={{ height: '40px' }}
-                                        />
-                                      </div>
-                                      {itemGroupUnit !== 'none' && (
-                                        <div className="space-y-4">
-                                          <div>
-                                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                              Pieces per Pack/Box/Bundle
-                                            </label>
-                                            <input
-                                              type="text"
-                                              value={itemPiecesPerUnit}
-                                              onChange={(e) =>
-                                                handlePiecesPerUnitChange(e.target.value)
-                                              }
-                                              placeholder="e.g. 12"
-                                              className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
-                                              style={{ height: '40px' }}
-                                            />
-                                          </div>
-                                          <div>
-                                            <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                              Remaining Pieces
-                                            </label>
-                                            <input
-                                              type="text"
-                                              readOnly
-                                              value={getRemainingPiecesText(
-                                                itemQty,
-                                                itemPiecesPerUnit || '12',
-                                                itemGroupUnit
-                                              )}
-                                              className="w-full p-2.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none font-bold text-navy-blue"
-                                              style={{ height: '40px' }}
-                                            />
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )
-                                }
-                                return null
-                              })()}
-
-                              {/* Pieces per Unit (if Unit is already a Pack, Box, or Bundle) */}
-                              {(() => {
-                                const unitLower = (itemUnit || '').toLowerCase().trim()
-                                const isAlreadyGrouped = [
-                                  'pack',
-                                  'packs',
-                                  'box',
-                                  'boxes',
-                                  'bundle',
-                                  'bundles'
-                                ].includes(unitLower)
-                                if (isAlreadyGrouped) {
-                                  return (
-                                    <div className="animate-fade-in">
-                                      <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                        Pieces per Unit <span className="text-red-500">*</span>
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={itemPiecesPerUnit}
-                                        onChange={(e) => {
-                                          handlePiecesPerUnitChange(e.target.value)
-                                          setItemErrors((prev) => {
-                                            const copy = { ...prev }
-                                            delete copy.itemPiecesPerUnit
-                                            return copy
-                                          })
-                                        }}
-                                        placeholder="e.g. 12"
-                                        className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemPiecesPerUnit ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                        style={{ height: '40px' }}
-                                      />
-                                      {itemErrors.itemPiecesPerUnit && (
-                                        <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                          {itemErrors.itemPiecesPerUnit}
-                                        </p>
-                                      )}
-                                    </div>
-                                  )
-                                }
-                                return null
-                              })()}
-
-                              {/* Expiration Date */}
-                              <div>
-                                <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                  Expiration Date{' '}
-                                  {itemCategory.toLowerCase().trim() !== 'school supplies' && (
-                                    <span className="text-red-500">*</span>
-                                  )}
-                                </label>
-                                <div
-                                  className={
-                                    itemErrors.itemExpiry
-                                      ? 'border border-red-500 rounded-xl p-0.5 ring-2 ring-red-500/10'
-                                      : ''
-                                  }
                                 >
-                                  <GlassDatePicker
-                                    value={itemExpiry ? itemExpiry.split('T')[0] : ''}
-                                    disabled={
-                                      itemCategory.toLowerCase().trim() === 'school supplies'
-                                    }
-                                    onChange={(val) => {
-                                      setItemExpiry(val)
-                                      setItemErrors((prev) => {
-                                        const copy = { ...prev }
-                                        delete copy.itemExpiry
-                                        return copy
-                                      })
-                                    }}
-                                    showTime={false}
-                                    placeholder="dd/mm/yyyy"
-                                  />
-                                </div>
-                                {itemErrors.itemExpiry && (
-                                  <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                    {itemErrors.itemExpiry}
-                                  </p>
-                                )}
-                              </div>
+                                  {loading ? 'Saving...' : 'Add Item'}
+                                </button>
+                              </form>
+                            </div>
+                          </div>,
+                          document.body
+                        )}
 
-                              <div className="flex space-x-2 pt-2">
+                      {/* Modal Overlay for Edit */}
+                      {itemEditing &&
+                        createPortal(
+                          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
+                            <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto">
+                              <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+                                <h3 className="font-bold text-navy-blue text-sm">
+                                  Modify Catalog Item
+                                </h3>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -3511,386 +3232,659 @@ export default function AdminDashboard({ user, onLogout }) {
                                     setItemGroupUnit('none')
                                     setItemErrors({})
                                   }}
-                                  className="flex-1 py-2 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition-all duration-150 cursor-pointer"
+                                  className="text-gray-400 hover:text-navy-blue transition-all duration-150 cursor-pointer"
                                 >
-                                  Cancel
-                                </button>
-                                <button
-                                  type="submit"
-                                  disabled={loading}
-                                  className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center justify-center cursor-pointer"
-                                >
-                                  {loading ? 'Saving...' : 'Update Item'}
+                                  <X className="w-4 h-4" />
                                 </button>
                               </div>
-                            </form>
-                          </div>
-                        </div>,
-                        document.body
-                      )}
 
-                    {/* Modal Overlay for Release Item */}
-                    {isReleaseModalOpen &&
-                      createPortal(
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
-                          <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto">
-                            <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-                              <h3 className="font-bold text-navy-blue text-sm">Release Item</h3>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setIsReleaseModalOpen(false)
-                                  setReleaseItemId('')
-                                  setReleaseQty('')
-                                  setReleaseSearch('')
-                                  setReleaseUnitType('base')
-                                }}
-                                className="text-gray-400 hover:text-navy-blue transition-all duration-150 cursor-pointer"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
-
-                            <form onSubmit={handleAddPendingReleaseItem} className="space-y-4">
-                              {/* Select Item */}
-                              <div>
-                                <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                  Select Item
-                                </label>
-                                <div className="relative">
+                              <form onSubmit={handleSaveInventory} className="space-y-4">
+                                <div>
+                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                    Item Name
+                                  </label>
                                   <input
                                     type="text"
-                                    value={releaseSearch}
-                                    onFocus={() => {
-                                      prevReleaseSearchRef.current = releaseSearch
-                                      setReleaseSearch('')
-                                      setShowReleaseDropdown(true)
-                                    }}
-                                    onBlur={() =>
-                                      setTimeout(() => {
-                                        setShowReleaseDropdown(false)
-                                        setReleaseSearch(() => {
-                                          if (releaseItemId) {
-                                            const item = inventoryList.find(
-                                              (i) => i.id === releaseItemId
-                                            )
-                                            if (item) {
-                                              return `${item.name} (${item.category}) - ${displayStock(item.quantity, item.unit, item.groupUnit, item.piecesPerUnit)} left ${item.expiryDate ? `(Exp: ${new Date(item.expiryDate).toLocaleDateString()})` : ''}`
-                                            }
-                                          }
-                                          return ''
-                                        })
-                                      }, 200)
-                                    }
+                                    value={itemName}
                                     onChange={(e) => {
-                                      setReleaseSearch(e.target.value)
-                                      if (!e.target.value) {
-                                        setReleaseItemId('')
-                                      }
+                                      setItemName(e.target.value)
+                                      setItemErrors((prev) => {
+                                        const copy = { ...prev }
+                                        delete copy.itemName
+                                        return copy
+                                      })
                                     }}
-                                    placeholder="Type to search stock item..."
-                                    className={`w-full pl-2.5 pr-16 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('releaseItemId') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                    placeholder="e.g. Corned Beef, Notebooks"
+                                    className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemName ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
                                     style={{ height: '40px' }}
                                   />
-                                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
-                                    {releaseSearch && (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setReleaseSearch('')
-                                          setReleaseItemId('')
-                                          prevReleaseSearchRef.current = ''
-                                        }}
-                                        className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100"
-                                        tabIndex={-1}
-                                      >
-                                        <X className="w-3.5 h-3.5" />
-                                      </button>
-                                    )}
-                                    <div className="pointer-events-none text-gray-400">
-                                      <ChevronRight className="w-4 h-4 transform rotate-90" />
-                                    </div>
-                                  </div>
-                                  {showReleaseDropdown && (
-                                    <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                      {inventoryList
-                                        .filter((item) => item.quantity > 0)
-                                        .filter(
-                                          (item) =>
-                                            !releaseSearch ||
-                                            item.name
-                                              .toLowerCase()
-                                              .includes(releaseSearch.toLowerCase())
-                                        )
-                                        .map((item) => {
-                                          const optionText = `${item.name} (${item.category}) - ${displayStock(item.quantity, item.unit, item.groupUnit, item.piecesPerUnit)} left ${item.expiryDate ? `(Exp: ${new Date(item.expiryDate).toLocaleDateString()})` : ''}`
-                                          return (
-                                            <div
-                                              key={item.id}
-                                              onMouseDown={(e) => e.preventDefault()}
-                                              onClick={() => {
-                                                setReleaseItemId(item.id)
-                                                setReleaseSearch(optionText)
-                                                prevReleaseSearchRef.current = optionText
-                                                clearFieldValError('releaseItemId')
-                                                setShowReleaseDropdown(false)
-                                              }}
-                                              className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
-                                            >
-                                              {item.name}{' '}
-                                              <span className="text-gray-400 font-normal">
-                                                ({item.category})
-                                              </span>{' '}
-                                              -{' '}
-                                              <span className="text-navy-blue font-bold">
-                                                {displayStock(
-                                                  item.quantity,
-                                                  item.unit,
-                                                  item.groupUnit,
-                                                  item.piecesPerUnit
-                                                )}
-                                              </span>{' '}
-                                              left{' '}
-                                              {item.expiryDate ? (
-                                                <span className="text-red-500 font-semibold">
-                                                  (Exp:{' '}
-                                                  {new Date(item.expiryDate).toLocaleDateString()})
-                                                </span>
-                                              ) : (
-                                                ''
-                                              )}
-                                            </div>
-                                          )
-                                        })}
-                                      {inventoryList
-                                        .filter((item) => item.quantity > 0)
-                                        .filter((item) =>
-                                          item.name
-                                            .toLowerCase()
-                                            .includes(releaseSearch.toLowerCase())
-                                        ).length === 0 && (
-                                          <div className="p-2.5 text-xs text-gray-400 text-left font-semibold">
-                                            No matching items found
-                                          </div>
-                                        )}
-                                    </div>
+                                  {itemErrors.itemName && (
+                                    <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                      {itemErrors.itemName}
+                                    </p>
                                   )}
                                 </div>
-                              </div>
 
-                              {/* Quantities to Release */}
-                              {(() => {
-                                const item = inventoryList.find((i) => i.id === releaseItemId)
-                                const hasGroup =
-                                  item &&
-                                  item.groupUnit &&
-                                  item.groupUnit !== 'none' &&
-                                  item.piecesPerUnit
-                                if (hasGroup) {
-                                  const groupLabel =
-                                    item.groupUnit === 'box'
-                                      ? 'Boxes'
-                                      : item.groupUnit === 'bundle'
-                                        ? 'Bundles'
-                                        : 'Packs'
-                                  return (
-                                    <div className="grid grid-cols-2 gap-3 animate-fade-in">
-                                      <div>
+                                <div>
+                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                    Category
+                                  </label>
+                                  <SearchableDropdown
+                                    value={itemCategory}
+                                    onChange={(val) => {
+                                      setItemCategory(val)
+                                      setItemErrors((prev) => {
+                                        const copy = { ...prev }
+                                        delete copy.itemCategory
+                                        return copy
+                                      })
+                                    }}
+                                    options={activeCategories}
+                                    onDelete={(cat) => handleDeleteCategory(cat)}
+                                    allowCustom={true}
+                                    placeholder="Select or type category"
+                                    className={itemErrors.itemCategory ? 'border-red-500 ring-2 ring-red-500/10' : ''}
+                                  />
+                                </div>
+
+                                {/* Unit Searchable Dropdown */}
+                                <div>
+                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                    Unit
+                                  </label>
+                                  <SearchableDropdown
+                                    value={itemUnit}
+                                    onChange={(val) => {
+                                      setItemUnit(val)
+                                      setItemErrors((prev) => {
+                                        const copy = { ...prev }
+                                        delete copy.itemUnit
+                                        return copy
+                                      })
+                                    }}
+                                    options={activeUnits}
+                                    onDelete={(u) => handleDeleteUnit(u)}
+                                    allowCustom={true}
+                                    placeholder="Select or type unit"
+                                    className={itemErrors.itemUnit ? 'border-red-500 ring-2 ring-red-500/10' : ''}
+                                  />
+                                </div>
+
+                                {/* Quantity (directly below Unit) */}
+                                <div>
+                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                    Quantity
+                                  </label>
+                                  <SearchableDropdown
+                                    value={itemQty}
+                                    onChange={(val) => {
+                                      handleQtyChange(val)
+                                      setItemErrors((prev) => {
+                                        const copy = { ...prev }
+                                        delete copy.itemQty
+                                        return copy
+                                      })
+                                    }}
+                                    options={[5, 10, 20, 50, 100, 250, 500]}
+                                    allowCustom={true}
+                                    placeholder="Select or enter quantity"
+                                    className={itemErrors.itemQty ? 'border-red-500 ring-2 ring-red-500/10' : ''}
+                                  />
+                                </div>
+
+                                {/* Group Stock & Pieces (if Quantity >= 12) */}
+                                {(() => {
+                                  const parsedQty = parseInt(itemQty, 10)
+                                  const unitLower = (itemUnit || '').toLowerCase().trim()
+                                  const isAlreadyGrouped = [
+                                    'pack',
+                                    'packs',
+                                    'box',
+                                    'boxes',
+                                    'bundle',
+                                    'bundles'
+                                  ].includes(unitLower)
+                                  if (!isNaN(parsedQty) && parsedQty >= 12 && !isAlreadyGrouped) {
+                                    return (
+                                      <div className="space-y-4">
+                                        <div>
+                                          <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                            Group stock into (Optional)
+                                          </label>
+                                          <CustomSelect
+                                            value={itemGroupUnit}
+                                            onChange={(e) => {
+                                              setItemGroupUnit(e.target.value)
+                                              if (e.target.value === 'none') {
+                                                setItemPiecesPerUnit('')
+                                              } else if (!itemPiecesPerUnit) {
+                                                setItemPiecesPerUnit('12')
+                                              }
+                                            }}
+                                            options={[
+                                              { value: 'none', label: 'Do not group (Individual pieces)' },
+                                              { value: 'pack', label: 'Packs' },
+                                              { value: 'box', label: 'Boxes' },
+                                              { value: 'bundle', label: 'Bundles' }
+                                            ]}
+                                            placeholder="Do not group (Individual pieces)"
+                                            style={{ height: '40px' }}
+                                          />
+                                        </div>
+                                        {itemGroupUnit !== 'none' && (
+                                          <div className="space-y-4">
+                                            <div>
+                                              <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                                Pieces per Pack/Box/Bundle
+                                              </label>
+                                              <input
+                                                type="text"
+                                                value={itemPiecesPerUnit}
+                                                onChange={(e) =>
+                                                  handlePiecesPerUnitChange(e.target.value)
+                                                }
+                                                placeholder="e.g. 12"
+                                                className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                                                style={{ height: '40px' }}
+                                              />
+                                            </div>
+                                            <div>
+                                              <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                                Remaining Pieces
+                                              </label>
+                                              <input
+                                                type="text"
+                                                readOnly
+                                                value={getRemainingPiecesText(
+                                                  itemQty,
+                                                  itemPiecesPerUnit || '12',
+                                                  itemGroupUnit
+                                                )}
+                                                className="w-full p-2.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:outline-none font-bold text-navy-blue"
+                                                style={{ height: '40px' }}
+                                              />
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )
+                                  }
+                                  return null
+                                })()}
+
+                                {/* Pieces per Unit (if Unit is already a Pack, Box, or Bundle) */}
+                                {(() => {
+                                  const unitLower = (itemUnit || '').toLowerCase().trim()
+                                  const isAlreadyGrouped = [
+                                    'pack',
+                                    'packs',
+                                    'box',
+                                    'boxes',
+                                    'bundle',
+                                    'bundles'
+                                  ].includes(unitLower)
+                                  if (isAlreadyGrouped) {
+                                    return (
+                                      <div className="animate-fade-in">
                                         <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                          Quantity ({groupLabel})
+                                          Pieces per Unit <span className="text-red-500">*</span>
                                         </label>
                                         <input
                                           type="text"
-                                          value={releaseQtyGroup}
+                                          value={itemPiecesPerUnit}
                                           onChange={(e) => {
-                                            if (/^\d*$/.test(e.target.value)) {
-                                              setReleaseQtyGroup(e.target.value)
-                                              clearFieldValError('releaseQtyGroup')
-                                            }
+                                            handlePiecesPerUnitChange(e.target.value)
+                                            setItemErrors((prev) => {
+                                              const copy = { ...prev }
+                                              delete copy.itemPiecesPerUnit
+                                              return copy
+                                            })
                                           }}
-                                          placeholder="e.g. 2"
-                                          className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('releaseQtyGroup') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                          placeholder="e.g. 12"
+                                          className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${itemErrors.itemPiecesPerUnit ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
                                           style={{ height: '40px' }}
                                         />
+                                        {itemErrors.itemPiecesPerUnit && (
+                                          <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                            {itemErrors.itemPiecesPerUnit}
+                                          </p>
+                                        )}
                                       </div>
-                                      <div>
-                                        <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                          Quantity (Pieces)
-                                        </label>
-                                        <input
-                                          type="text"
-                                          value={releaseQtyPieces}
-                                          onChange={(e) => {
-                                            if (/^\d*$/.test(e.target.value)) {
-                                              setReleaseQtyPieces(e.target.value)
-                                              clearFieldValError('releaseQtyPieces')
-                                            }
-                                          }}
-                                          placeholder="e.g. 2"
-                                          className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('releaseQtyPieces') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                          style={{ height: '40px' }}
-                                        />
-                                      </div>
-                                    </div>
-                                  )
-                                }
-                                return (
-                                  <div className="animate-fade-in">
-                                    <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                      Quantity (Pieces)
-                                    </label>
-                                    <input
-                                      type="text"
-                                      value={releaseQtyPieces}
-                                      onChange={(e) => {
-                                        if (/^\d*$/.test(e.target.value)) {
-                                          setReleaseQtyPieces(e.target.value)
-                                          clearFieldValError('releaseQtyPieces')
-                                        }
+                                    )
+                                  }
+                                  return null
+                                })()}
+
+                                {/* Expiration Date */}
+                                <div>
+                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                    Expiration Date{' '}
+                                    {!isSuppliesCategory(itemCategory) && (
+                                      <span className="text-red-500">*</span>
+                                    )}
+                                  </label>
+                                  <div
+                                    className={
+                                      itemErrors.itemExpiry
+                                        ? 'border border-red-500 rounded-xl p-0.5 ring-2 ring-red-500/10'
+                                        : ''
+                                    }
+                                  >
+                                    <GlassDatePicker
+                                      value={itemExpiry ? itemExpiry.split('T')[0] : ''}
+                                      disabled={isSuppliesCategory(itemCategory)}
+                                      onChange={(val) => {
+                                        setItemExpiry(val)
+                                        setItemErrors((prev) => {
+                                          const copy = { ...prev }
+                                          delete copy.itemExpiry
+                                          return copy
+                                        })
                                       }}
-                                      placeholder="e.g. 10"
-                                      className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('releaseQtyPieces') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                      style={{ height: '40px' }}
+                                      showTime={false}
+                                      placeholder="dd/mm/yyyy"
                                     />
                                   </div>
-                                )
-                              })()}
+                                  {itemErrors.itemExpiry && (
+                                    <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                      {itemErrors.itemExpiry}
+                                    </p>
+                                  )}
+                                </div>
 
-                              <button
-                                type="submit"
-                                className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center justify-center cursor-pointer animate-fade-in"
-                                style={{ height: '40px' }}
-                              >
-                                Add to Release List
-                              </button>
-                            </form>
-                          </div>
-                        </div>,
-                        document.body
-                      )}
-
-                    {/* Modal Overlay for Review List */}
-                    {isReviewModalOpen &&
-                      createPortal(
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
-                          <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto relative overflow-hidden">
-                            <div className="absolute top-0 left-0 right-0 h-1 bg-sig-green"></div>
-                            <div className="flex justify-between items-center border-b border-dashed border-gray-200 pb-3">
-                              <h3 className="font-bold text-navy-blue text-sm flex items-center space-x-2">
-                                <span>Release Review List</span>
-                                <span className="text-[10px] bg-navy-blue/10 text-navy-blue px-2 py-0.5 rounded-full font-bold">
-                                  {pendingReleaseItems.length}
-                                </span>
-                              </h3>
-                              <button
-                                type="button"
-                                onClick={() => setIsReviewModalOpen(false)}
-                                className="text-gray-400 hover:text-navy-blue transition-all duration-150 cursor-pointer"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
-
-                            {pendingReleaseItems.length === 0 ? (
-                              <div className="py-8 text-center text-gray-400 text-xs font-medium">
-                                No items have been added to the Release Review List yet.
-                              </div>
-                            ) : (
-                              <div className="space-y-3 max-h-60 overflow-y-auto pr-1 pt-4">
-                                {pendingReleaseItems.map((pItem) => (
-                                  <div
-                                    key={pItem.id}
-                                    className="flex justify-between items-center border border-gray-50 p-2.5 rounded-xl bg-gray-50/50 hover:bg-white transition"
+                                <div className="flex space-x-2 pt-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setItemEditing(null)
+                                      setItemName('')
+                                      setItemUnit('')
+                                      setItemQty('')
+                                      setItemExpiry('')
+                                      setItemPiecesPerUnit('')
+                                      setItemGroupUnit('none')
+                                      setItemErrors({})
+                                    }}
+                                    className="flex-1 py-2 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition-all duration-150 cursor-pointer"
                                   >
-                                    <div className="flex-1 min-w-0 pr-3">
-                                      <div className="font-bold text-navy-blue text-xs truncate">
-                                        {pItem.name}
-                                      </div>
-                                      <div className="text-[10px] text-gray-400 capitalize">
-                                        {pItem.category}
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center space-x-3 shrink-0">
-                                      <div className="text-right">
-                                        <div className="text-xs font-bold text-navy-blue capitalize">
-                                          {(() => {
-                                            const hasGroup =
-                                              pItem.groupUnit &&
-                                              pItem.groupUnit !== 'none' &&
-                                              pItem.piecesPerUnit
-                                            if (hasGroup) {
-                                              const groupName =
-                                                pItem.qtyGroup === 1
-                                                  ? pItem.groupUnit
-                                                  : pItem.groupUnit === 'box'
-                                                    ? 'boxes'
-                                                    : pItem.groupUnit === 'bundle'
-                                                      ? 'bundles'
-                                                      : 'packs'
-                                              const parts = []
-                                              if (pItem.qtyGroup > 0)
-                                                parts.push(`${pItem.qtyGroup} ${groupName}`)
-                                              if (pItem.qtyPieces > 0)
-                                                parts.push(`${pItem.qtyPieces} Pieces`)
-                                              return parts.join(' + ') || '0 Pieces'
-                                            }
-                                            return `${pItem.qtyPieces} ${formatUnit(pItem.qtyPieces, pItem.baseUnit)}`
-                                          })()}
-                                        </div>
-                                        <div className="text-[9px] text-gray-400 font-medium">
-                                          ({pItem.baseQty} Total Pieces)
-                                        </div>
-                                      </div>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleRemovePendingItem(pItem.id)}
-                                        className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100"
-                                        title="Remove item"
-                                      >
-                                        <X className="w-4 h-4" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center justify-center cursor-pointer"
+                                  >
+                                    {loading ? 'Saving...' : 'Update Item'}
+                                  </button>
+                                </div>
+                              </form>
+                            </div>
+                          </div>,
+                          document.body
+                        )}
 
-                            {pendingReleaseItems.length > 0 ? (
-                              <div className="flex space-x-2 pt-3 border-t border-dashed border-gray-150 mt-4">
+                      {/* Modal Overlay for Release Item */}
+                      {isReleaseModalOpen &&
+                        createPortal(
+                          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
+                            <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto">
+                              <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+                                <h3 className="font-bold text-navy-blue text-sm">Release Item</h3>
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    setPendingReleaseItems([])
-                                    setIsReviewModalOpen(false)
+                                    setIsReleaseModalOpen(false)
+                                    setReleaseItemId('')
+                                    setReleaseQty('')
+                                    setReleaseSearch('')
+                                    setReleaseUnitType('base')
                                   }}
-                                  className="flex-1 py-2 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition-all duration-150 cursor-pointer text-center"
+                                  className="text-gray-400 hover:text-navy-blue transition-all duration-150 cursor-pointer"
                                 >
-                                  Clear List
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={loading}
-                                  onClick={handleConfirmRelease}
-                                  className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition-all duration-150 cursor-pointer text-center"
-                                >
-                                  {loading ? 'Confirming...' : 'Confirm Release'}
+                                  <X className="w-4 h-4" />
                                 </button>
                               </div>
-                            ) : (
-                              <div className="flex pt-3 border-t border-dashed border-gray-150 mt-4">
+
+                              <form onSubmit={handleAddPendingReleaseItem} className="space-y-4">
+                                {/* Select Item */}
+                                <div>
+                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                    Select Item
+                                  </label>
+                                  <div className="relative">
+                                    <input
+                                      type="text"
+                                      value={releaseSearch}
+                                      onFocus={() => {
+                                        prevReleaseSearchRef.current = releaseSearch
+                                        setReleaseSearch('')
+                                        setShowReleaseDropdown(true)
+                                      }}
+                                      onBlur={() =>
+                                        setTimeout(() => {
+                                          setShowReleaseDropdown(false)
+                                          setReleaseSearch(() => {
+                                            if (releaseItemId) {
+                                              const item = inventoryList.find(
+                                                (i) => i.id === releaseItemId
+                                              )
+                                              if (item) {
+                                                return `${item.name} (${item.category}) - ${displayStock(item.quantity, item.unit, item.groupUnit, item.piecesPerUnit)} left ${item.expiryDate ? `(Exp: ${new Date(item.expiryDate).toLocaleDateString()})` : ''}`
+                                              }
+                                            }
+                                            return ''
+                                          })
+                                        }, 200)
+                                      }
+                                      onChange={(e) => {
+                                        setReleaseSearch(e.target.value)
+                                        if (!e.target.value) {
+                                          setReleaseItemId('')
+                                        }
+                                      }}
+                                      placeholder="Type to search stock item..."
+                                      className={`w-full pl-2.5 pr-16 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('releaseItemId') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                      style={{ height: '40px' }}
+                                    />
+                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
+                                      {releaseSearch && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setReleaseSearch('')
+                                            setReleaseItemId('')
+                                            prevReleaseSearchRef.current = ''
+                                          }}
+                                          className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                          tabIndex={-1}
+                                        >
+                                          <X className="w-3.5 h-3.5" />
+                                        </button>
+                                      )}
+                                      <div className="pointer-events-none text-gray-400">
+                                        <ChevronRight className="w-4 h-4 transform rotate-90" />
+                                      </div>
+                                    </div>
+                                    {showReleaseDropdown && (
+                                      <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
+                                        {inventoryList
+                                          .filter((item) => item.quantity > 0)
+                                          .filter(
+                                            (item) =>
+                                              !releaseSearch ||
+                                              item.name
+                                                .toLowerCase()
+                                                .includes(releaseSearch.toLowerCase())
+                                          )
+                                          .map((item) => {
+                                            const optionText = `${item.name} (${item.category}) - ${displayStock(item.quantity, item.unit, item.groupUnit, item.piecesPerUnit)} left ${item.expiryDate ? `(Exp: ${new Date(item.expiryDate).toLocaleDateString()})` : ''}`
+                                            return (
+                                              <div
+                                                key={item.id}
+                                                onMouseDown={(e) => e.preventDefault()}
+                                                onClick={() => {
+                                                  setReleaseItemId(item.id)
+                                                  setReleaseSearch(optionText)
+                                                  prevReleaseSearchRef.current = optionText
+                                                  clearFieldValError('releaseItemId')
+                                                  setShowReleaseDropdown(false)
+                                                }}
+                                                className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
+                                              >
+                                                {item.name}{' '}
+                                                <span className="text-gray-400 font-normal">
+                                                  ({item.category})
+                                                </span>{' '}
+                                                -{' '}
+                                                <span className="text-navy-blue font-bold">
+                                                  {displayStock(
+                                                    item.quantity,
+                                                    item.unit,
+                                                    item.groupUnit,
+                                                    item.piecesPerUnit
+                                                  )}
+                                                </span>{' '}
+                                                left{' '}
+                                                {item.expiryDate ? (
+                                                  <span className="text-red-500 font-semibold">
+                                                    (Exp:{' '}
+                                                    {new Date(item.expiryDate).toLocaleDateString()})
+                                                  </span>
+                                                ) : (
+                                                  ''
+                                                )}
+                                              </div>
+                                            )
+                                          })}
+                                        {inventoryList
+                                          .filter((item) => item.quantity > 0)
+                                          .filter((item) =>
+                                            item.name
+                                              .toLowerCase()
+                                              .includes(releaseSearch.toLowerCase())
+                                          ).length === 0 && (
+                                            <div className="p-2.5 text-xs text-gray-400 text-left font-semibold">
+                                              No matching items found
+                                            </div>
+                                          )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Quantities to Release */}
+                                {(() => {
+                                  const item = inventoryList.find((i) => i.id === releaseItemId)
+                                  const hasGroup =
+                                    item &&
+                                    item.groupUnit &&
+                                    item.groupUnit !== 'none' &&
+                                    item.piecesPerUnit
+                                  if (hasGroup) {
+                                    const groupLabel =
+                                      item.groupUnit === 'box'
+                                        ? 'Boxes'
+                                        : item.groupUnit === 'bundle'
+                                          ? 'Bundles'
+                                          : 'Packs'
+                                    return (
+                                      <div className="grid grid-cols-2 gap-3 animate-fade-in">
+                                        <div>
+                                          <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                            Quantity ({groupLabel})
+                                          </label>
+                                          <input
+                                            type="text"
+                                            value={releaseQtyGroup}
+                                            onChange={(e) => {
+                                              if (/^\d*$/.test(e.target.value)) {
+                                                setReleaseQtyGroup(e.target.value)
+                                                clearFieldValError('releaseQtyGroup')
+                                              }
+                                            }}
+                                            placeholder="e.g. 2"
+                                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('releaseQtyGroup') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                            style={{ height: '40px' }}
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                            Quantity (Pieces)
+                                          </label>
+                                          <input
+                                            type="text"
+                                            value={releaseQtyPieces}
+                                            onChange={(e) => {
+                                              if (/^\d*$/.test(e.target.value)) {
+                                                setReleaseQtyPieces(e.target.value)
+                                                clearFieldValError('releaseQtyPieces')
+                                              }
+                                            }}
+                                            placeholder="e.g. 2"
+                                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('releaseQtyPieces') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                            style={{ height: '40px' }}
+                                          />
+                                        </div>
+                                      </div>
+                                    )
+                                  }
+                                  return (
+                                    <div className="animate-fade-in">
+                                      <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                        Quantity (Pieces)
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={releaseQtyPieces}
+                                        onChange={(e) => {
+                                          if (/^\d*$/.test(e.target.value)) {
+                                            setReleaseQtyPieces(e.target.value)
+                                            clearFieldValError('releaseQtyPieces')
+                                          }
+                                        }}
+                                        placeholder="e.g. 10"
+                                        className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${validationError?.fields.includes('releaseQtyPieces') ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                        style={{ height: '40px' }}
+                                      />
+                                    </div>
+                                  )
+                                })()}
+
+                                <button
+                                  type="submit"
+                                  className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center justify-center cursor-pointer animate-fade-in"
+                                  style={{ height: '40px' }}
+                                >
+                                  Add to Release List
+                                </button>
+                              </form>
+                            </div>
+                          </div>,
+                          document.body
+                        )}
+
+                      {/* Modal Overlay for Review List */}
+                      {isReviewModalOpen &&
+                        createPortal(
+                          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
+                            <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto relative overflow-hidden">
+                              <div className="absolute top-0 left-0 right-0 h-1 bg-sig-green"></div>
+                              <div className="flex justify-between items-center border-b border-dashed border-gray-200 pb-3">
+                                <h3 className="font-bold text-navy-blue text-sm flex items-center space-x-2">
+                                  <span>Release Review List</span>
+                                  <span className="text-[10px] bg-navy-blue/10 text-navy-blue px-2 py-0.5 rounded-full font-bold">
+                                    {pendingReleaseItems.length}
+                                  </span>
+                                </h3>
                                 <button
                                   type="button"
                                   onClick={() => setIsReviewModalOpen(false)}
-                                  className="w-full py-2 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition-all duration-150 cursor-pointer text-center"
+                                  className="text-gray-400 hover:text-navy-blue transition-all duration-150 cursor-pointer"
                                 >
-                                  Close
+                                  <X className="w-4 h-4" />
                                 </button>
                               </div>
-                            )}
-                          </div>
-                        </div>,
-                        document.body
-                      )}
+
+                              {pendingReleaseItems.length === 0 ? (
+                                <div className="py-8 text-center text-gray-400 text-xs font-medium">
+                                  No items have been added to the Release Review List yet.
+                                </div>
+                              ) : (
+                                <div className="space-y-3 max-h-60 overflow-y-auto pr-1 pt-4">
+                                  {pendingReleaseItems.map((pItem) => (
+                                    <div
+                                      key={pItem.id}
+                                      className="flex justify-between items-center border border-gray-50 p-2.5 rounded-xl bg-gray-50/50 hover:bg-white transition"
+                                    >
+                                      <div className="flex-1 min-w-0 pr-3">
+                                        <div className="font-bold text-navy-blue text-xs truncate">
+                                          {pItem.name}
+                                        </div>
+                                        <div className="text-[10px] text-gray-400 capitalize">
+                                          {pItem.category}
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center space-x-3 shrink-0">
+                                        <div className="text-right">
+                                          <div className="text-xs font-bold text-navy-blue capitalize">
+                                            {(() => {
+                                              const hasGroup =
+                                                pItem.groupUnit &&
+                                                pItem.groupUnit !== 'none' &&
+                                                pItem.piecesPerUnit
+                                              if (hasGroup) {
+                                                const groupName =
+                                                  pItem.qtyGroup === 1
+                                                    ? pItem.groupUnit
+                                                    : pItem.groupUnit === 'box'
+                                                      ? 'boxes'
+                                                      : pItem.groupUnit === 'bundle'
+                                                        ? 'bundles'
+                                                        : 'packs'
+                                                const parts = []
+                                                if (pItem.qtyGroup > 0)
+                                                  parts.push(`${pItem.qtyGroup} ${groupName}`)
+                                                if (pItem.qtyPieces > 0)
+                                                  parts.push(`${pItem.qtyPieces} Pieces`)
+                                                return parts.join(' + ') || '0 Pieces'
+                                              }
+                                              return `${pItem.qtyPieces} ${formatUnit(pItem.qtyPieces, pItem.baseUnit)}`
+                                            })()}
+                                          </div>
+                                          <div className="text-[9px] text-gray-400 font-medium">
+                                            ({pItem.baseQty} Total Pieces)
+                                          </div>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemovePendingItem(pItem.id)}
+                                          className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                          title="Remove item"
+                                        >
+                                          <X className="w-4 h-4" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {pendingReleaseItems.length > 0 ? (
+                                <div className="flex space-x-2 pt-3 border-t border-dashed border-gray-150 mt-4">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPendingReleaseItems([])
+                                      setIsReviewModalOpen(false)
+                                    }}
+                                    className="flex-1 py-2 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition-all duration-150 cursor-pointer text-center"
+                                  >
+                                    Clear List
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={loading}
+                                    onClick={handleConfirmRelease}
+                                    className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition-all duration-150 cursor-pointer text-center"
+                                  >
+                                    {loading ? 'Confirming...' : 'Confirm Release'}
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex pt-3 border-t border-dashed border-gray-150 mt-4">
+                                  <button
+                                    type="button"
+                                    onClick={() => setIsReviewModalOpen(false)}
+                                    className="w-full py-2 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition-all duration-150 cursor-pointer text-center"
+                                  >
+                                    Close
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>,
+                          document.body
+                        )}
                     </div>
                   )
                 )}
@@ -3903,704 +3897,490 @@ export default function AdminDashboard({ user, onLogout }) {
                     <DonationsSkeleton />
                   ) : (
                     <div className="space-y-6 animate-fade-in">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1">
-                      <div>
-                        <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
-                          Donors & Donations
-                        </h1>
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1">
+                        <div>
+                          <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
+                            Donors & Donations
+                          </h1>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={isAnyModalOpen}
+                          onClick={() => {
+                            setDonorName('')
+                            setDonorType('')
+                            setDonPurpose('')
+                            setDonDesc('')
+                            setDonDate('')
+                            setDonItems([
+                              { name: '', category: '', unit: '', quantity: '', expiryDate: '' }
+                            ])
+                            setIsDonationModalOpen(true)
+                          }}
+                          className={`flex items-center space-x-1.5 bg-navy-blue text-white rounded-lg text-xs font-semibold py-2 px-4 border border-navy-blue shadow-xs transition-all duration-150 ${isAnyModalOpen
+                            ? 'opacity-40 cursor-not-allowed'
+                            : 'hover:bg-navy-blue-600 active:bg-navy-blue-700 cursor-pointer'
+                            }`}
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>Donate</span>
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        disabled={isAnyModalOpen}
-                        onClick={() => {
-                          setDonorName('')
-                          setDonorType('')
-                          setDonPurpose('')
-                          setDonDesc('')
-                          setDonDate('')
-                          setDonItems([
-                            { name: '', category: '', unit: '', quantity: '', expiryDate: '' }
-                          ])
-                          setIsDonationModalOpen(true)
-                        }}
-                        className={`flex items-center space-x-1.5 bg-navy-blue text-white rounded-lg text-xs font-semibold py-2 px-4 border border-navy-blue shadow-xs transition-all duration-150 ${isAnyModalOpen
-                          ? 'opacity-40 cursor-not-allowed'
-                          : 'hover:bg-navy-blue-600 active:bg-navy-blue-700 cursor-pointer'
-                          }`}
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>Donate</span>
-                      </button>
-                    </div>
 
-                    {/* Donations History log */}
-                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-                      <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3 mb-4">
-                        Donation Audit History Logs
-                      </h3>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="border-b border-gray-100 bg-gray-50 text-[10px] uppercase font-bold text-gray-500">
-                              <th className="py-3 px-3">Date</th>
-                              <th className="py-3 px-2">Donor</th>
-                              <th className="py-3 px-2">Purpose</th>
-                              <th className="py-3 px-2">Items</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-50 text-xs">
-                            {donationsList.map((d) => {
-                              const donor = donorsList.find((donorObj) => donorObj.id === d.donorId)
-                              return (
-                                <tr key={d.id} className="hover:bg-gray-50/50 transition">
-                                  <td className="py-3 px-3 font-semibold">
-                                    {new Date(d.dateOfDonation).toLocaleDateString()}
-                                  </td>
-                                  <td className="py-3 px-2 text-navy-blue font-semibold">
-                                    {donor ? donor.name : 'Unknown Donor'}
-                                  </td>
-                                  <td className="py-3 px-2 text-gray-600 font-medium">
-                                    {d.purpose}
-                                  </td>
-                                  <td className="py-3 px-2">
-                                    <div className="space-y-1">
-                                      {d.items.map((i, idx) => (
-                                        <span
-                                          key={idx}
-                                          className="inline-block bg-gray-100 text-gray-600 text-[10px] px-2 py-0.5 rounded-lg border border-gray-200/50 mr-1.5"
-                                        >
-                                          {i.name} ({i.quantity} {formatUnit(i.quantity, i.unit)})
-                                          {i.expiryDate && (
-                                            <span className="text-red-500 font-bold ml-1">
-                                              Exp: {new Date(i.expiryDate).toLocaleDateString()}
-                                            </span>
-                                          )}
-                                        </span>
-                                      ))}
-                                    </div>
+                      {/* Donations History log */}
+                      <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+                        <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3 mb-4">
+                          Donation Audit History Logs
+                        </h3>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="border-b border-gray-100 bg-gray-50 text-[10px] uppercase font-bold text-gray-500">
+                                <th className="py-3 px-3">Date</th>
+                                <th className="py-3 px-2">Donor</th>
+                                <th className="py-3 px-2">Purpose</th>
+                                <th className="py-3 px-2">Items</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50 text-xs">
+                              {donationsList.map((d) => {
+                                const donor = donorsList.find((donorObj) => donorObj.id === d.donorId)
+                                return (
+                                  <tr key={d.id} className="hover:bg-gray-50/50 transition">
+                                    <td className="py-3 px-3 font-semibold">
+                                      {new Date(d.dateOfDonation).toLocaleDateString()}
+                                    </td>
+                                    <td className="py-3 px-2 text-navy-blue font-semibold">
+                                      {donor ? donor.name : 'Unknown Donor'}
+                                    </td>
+                                    <td className="py-3 px-2 text-gray-600 font-medium">
+                                      {d.purpose}
+                                    </td>
+                                    <td className="py-3 px-2">
+                                      <div className="space-y-1">
+                                        {d.items.map((i, idx) => (
+                                          <span
+                                            key={idx}
+                                            className="inline-block bg-gray-100 text-gray-600 text-[10px] px-2 py-0.5 rounded-lg border border-gray-200/50 mr-1.5"
+                                          >
+                                            {i.name} ({i.quantity} {formatUnit(i.quantity, i.unit)})
+                                            {i.expiryDate && (
+                                              <span className="text-red-500 font-bold ml-1">
+                                                Exp: {new Date(i.expiryDate).toLocaleDateString()}
+                                              </span>
+                                            )}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                              {donationsList.length === 0 && (
+                                <tr>
+                                  <td colSpan="4" className="text-center py-6 text-gray-400">
+                                    No donations logs available.
                                   </td>
                                 </tr>
-                              )
-                            })}
-                            {donationsList.length === 0 && (
-                              <tr>
-                                <td colSpan="4" className="text-center py-6 text-gray-400">
-                                  No donations logs available.
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )
-              )}
+                  )
+                )}
 
                 {activeTab === 'events' && user.role === 'admin' && (
                   isOffline ? (
                     <EventsSkeleton />
                   ) : (
                     <div className="space-y-6 animate-fade-in">
-                    {/* Header section with top action bar button & view mode switcher */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1">
-                      <div>
-                        <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
-                          Event Scheduler & Calendar
-                        </h1>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2.5 mt-2 md:mt-0">
-                        {/* Display Mode Toggle (Calendar vs Board) */}
-                        <div className="flex items-center bg-gray-100 p-1 rounded-full border border-gray-200/80 shadow-2xs">
+                      {/* Header section with top action bar button & view mode switcher */}
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1">
+                        <div>
+                          <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
+                            Event Scheduler & Calendar
+                          </h1>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2.5 mt-2 md:mt-0">
+                          {/* Display Mode Toggle (Calendar vs Board) */}
+                          <div className="flex items-center bg-gray-100 p-1 rounded-full border border-gray-200/80 shadow-2xs">
+                            <button
+                              type="button"
+                              onClick={() => setEventsDisplayMode('calendar')}
+                              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition duration-150 cursor-pointer ${eventsDisplayMode === 'calendar'
+                                ? 'bg-navy-blue text-white shadow-xs'
+                                : 'text-gray-600 hover:text-navy-blue'
+                                }`}
+                            >
+                              <CalendarDays className="w-3.5 h-3.5" />
+                              <span>Calendar</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEventsDisplayMode('board')}
+                              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition duration-150 cursor-pointer ${eventsDisplayMode === 'board'
+                                ? 'bg-navy-blue text-white shadow-xs'
+                                : 'text-gray-600 hover:text-navy-blue'
+                                }`}
+                            >
+                              <Grid className="w-3.5 h-3.5" />
+                              <span>Status Board</span>
+                            </button>
+                          </div>
+
                           <button
                             type="button"
-                            onClick={() => setEventsDisplayMode('calendar')}
-                            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition duration-150 cursor-pointer ${eventsDisplayMode === 'calendar'
-                              ? 'bg-navy-blue text-white shadow-xs'
-                              : 'text-gray-600 hover:text-navy-blue'
-                              }`}
+                            onClick={() => handleOpenScheduleModal()}
+                            className="flex items-center gap-1.5 bg-navy-blue text-white rounded-full text-xs font-semibold px-4 py-2.5 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition-all duration-150 cursor-pointer animate-fade-in shadow-2xs"
                           >
-                            <CalendarDays className="w-3.5 h-3.5" />
-                            <span>Calendar</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setEventsDisplayMode('board')}
-                            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition duration-150 cursor-pointer ${eventsDisplayMode === 'board'
-                              ? 'bg-navy-blue text-white shadow-xs'
-                              : 'text-gray-600 hover:text-navy-blue'
-                              }`}
-                          >
-                            <Grid className="w-3.5 h-3.5" />
-                            <span>Status Board</span>
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Schedule Event</span>
                           </button>
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleOpenScheduleModal()}
-                          className="flex items-center gap-1.5 bg-navy-blue text-white rounded-full text-xs font-semibold px-4 py-2.5 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition-all duration-150 cursor-pointer animate-fade-in shadow-2xs"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>Schedule Event</span>
-                        </button>
                       </div>
-                    </div>
 
-                    {/* CALENDAR VIEW */}
-                    {eventsDisplayMode === 'calendar' && (
-                      <div className="animate-fade-in">
-                        <EventCalendar
-                          events={eventsList}
-                          orgs={orgsList}
-                          onViewEvent={(evt) => {
-                            setSelectedViewEvent(evt)
-                            setIsViewEventModalOpen(true)
-                          }}
-                          onEditEvent={(evt) => handleEditClick(evt)}
-                          onDeleteEvent={(evt) => handleDeleteEventClick(evt)}
-                          onCompleteEvent={(evt) => handleQuickCompleteEvent(evt)}
-                          onScheduleEvent={(targetDate) => handleOpenScheduleModal(targetDate)}
-                        />
-                      </div>
-                    )}
-
-                    {/* LIST / STATUS BOARD VIEW (Full Width Content Board) */}
-                    {eventsDisplayMode === 'board' && (
-                      <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 animate-fade-in">
-                        <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3 mb-4">
-                          Scheduled Events & Status Board
-                        </h3>
-
-                        {/* Search & Month Filter Controls */}
-                        <div className="flex flex-col sm:flex-row gap-3 mb-6">
-                          <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                            <input
-                              type="text"
-                              placeholder="Search events by name, description, venue..."
-                              value={eventSearchQuery}
-                              onChange={(e) => setEventSearchQuery(e.target.value)}
-                              className="w-full pl-9 pr-4 py-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-medium text-navy-blue"
-                              style={{ height: '38px' }}
-                            />
-                          </div>
-                          <div className="relative w-full sm:w-48">
-                            <CustomSelect
-                              value={eventMonthFilter}
-                              onChange={(e) => setEventMonthFilter(e.target.value)}
-                              options={[
-                                { value: '', label: 'All Months' },
-                                { value: '0', label: 'January' },
-                                { value: '1', label: 'February' },
-                                { value: '2', label: 'March' },
-                                { value: '3', label: 'April' },
-                                { value: '4', label: 'May' },
-                                { value: '5', label: 'June' },
-                                { value: '6', label: 'July' },
-                                { value: '7', label: 'August' },
-                                { value: '8', label: 'September' },
-                                { value: '9', label: 'October' },
-                                { value: '10', label: 'November' },
-                                { value: '11', label: 'December' }
-                              ]}
-                              placeholder="All Months"
-                              style={{ height: '38px' }}
-                            />
-                          </div>
+                      {/* CALENDAR VIEW */}
+                      {eventsDisplayMode === 'calendar' && (
+                        <div className="animate-fade-in">
+                          <EventCalendar
+                            events={eventsList}
+                            orgs={orgsList}
+                            onViewEvent={(evt) => {
+                              setSelectedViewEvent(evt)
+                              setIsViewEventModalOpen(true)
+                            }}
+                            onEditEvent={(evt) => handleEditClick(evt)}
+                            onDeleteEvent={(evt) => handleDeleteEventClick(evt)}
+                            onCompleteEvent={(evt) => handleQuickCompleteEvent(evt)}
+                            onScheduleEvent={(targetDate) => handleOpenScheduleModal(targetDate)}
+                          />
                         </div>
+                      )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                          {(() => {
-                            const filtered = eventsList.filter((evt) => {
-                              const isCompleted = (evt.status || '').toLowerCase().trim() === 'completed'
-                              if (isCompleted) return false
+                      {/* LIST / STATUS BOARD VIEW (Full Width Content Board) */}
+                      {eventsDisplayMode === 'board' && (
+                        <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 animate-fade-in">
+                          <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3 mb-4">
+                            Scheduled Events & Status Board
+                          </h3>
 
-                              const matchesSearch =
-                                evt.name.toLowerCase().includes(eventSearchQuery.toLowerCase()) ||
-                                (evt.description &&
-                                  evt.description
-                                    .toLowerCase()
-                                    .includes(eventSearchQuery.toLowerCase())) ||
-                                (evt.location &&
-                                  evt.location.toLowerCase().includes(eventSearchQuery.toLowerCase()))
+                          {/* Search & Month Filter Controls */}
+                          <div className="flex flex-col sm:flex-row gap-3 mb-6">
+                            <div className="relative flex-1">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                              <input
+                                type="text"
+                                placeholder="Search events by name, description, venue..."
+                                value={eventSearchQuery}
+                                onChange={(e) => setEventSearchQuery(e.target.value)}
+                                className="w-full pl-9 pr-4 py-2 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-medium text-navy-blue"
+                                style={{ height: '38px' }}
+                              />
+                            </div>
+                            <div className="relative w-full sm:w-48">
+                              <CustomSelect
+                                value={eventMonthFilter}
+                                onChange={(e) => setEventMonthFilter(e.target.value)}
+                                options={[
+                                  { value: '', label: 'All Months' },
+                                  { value: '0', label: 'January' },
+                                  { value: '1', label: 'February' },
+                                  { value: '2', label: 'March' },
+                                  { value: '3', label: 'April' },
+                                  { value: '4', label: 'May' },
+                                  { value: '5', label: 'June' },
+                                  { value: '6', label: 'July' },
+                                  { value: '7', label: 'August' },
+                                  { value: '8', label: 'September' },
+                                  { value: '9', label: 'October' },
+                                  { value: '10', label: 'November' },
+                                  { value: '11', label: 'December' }
+                                ]}
+                                placeholder="All Months"
+                                style={{ height: '38px' }}
+                              />
+                            </div>
+                          </div>
 
-                              let matchesMonth = true
-                              if (eventMonthFilter !== '') {
-                                const dateObj = new Date(evt.scheduleDate)
-                                matchesMonth = dateObj.getMonth() === parseInt(eventMonthFilter)
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {(() => {
+                              const filtered = eventsList.filter((evt) => {
+                                const isCompleted = (evt.status || '').toLowerCase().trim() === 'completed'
+                                if (isCompleted) return false
+
+                                const matchesSearch =
+                                  evt.name.toLowerCase().includes(eventSearchQuery.toLowerCase()) ||
+                                  (evt.description &&
+                                    evt.description
+                                      .toLowerCase()
+                                      .includes(eventSearchQuery.toLowerCase())) ||
+                                  (evt.location &&
+                                    evt.location.toLowerCase().includes(eventSearchQuery.toLowerCase()))
+
+                                let matchesMonth = true
+                                if (eventMonthFilter !== '') {
+                                  const dateObj = new Date(evt.scheduleDate)
+                                  matchesMonth = dateObj.getMonth() === parseInt(eventMonthFilter)
+                                }
+
+                                return matchesSearch && matchesMonth
+                              })
+
+                              if (filtered.length === 0) {
+                                return (
+                                  <div className="col-span-3 text-center py-12 text-gray-400 text-xs font-semibold">
+                                    {eventsList.filter(e => (e.status || '').toLowerCase().trim() !== 'completed').length === 0
+                                      ? 'No scheduled active events.'
+                                      : 'No active events match your search or filter criteria.'}
+                                  </div>
+                                )
                               }
 
-                              return matchesSearch && matchesMonth
-                            })
-
-                            if (filtered.length === 0) {
-                              return (
-                                <div className="col-span-3 text-center py-12 text-gray-400 text-xs font-semibold">
-                                  {eventsList.filter(e => (e.status || '').toLowerCase().trim() !== 'completed').length === 0
-                                    ? 'No scheduled active events.'
-                                    : 'No active events match your search or filter criteria.'}
-                                </div>
-                              )
-                            }
-
-                            return filtered.map((evt) => {
-                              const org = orgsList.find((o) => o.id === evt.assignedOrganizationId)
-                              return (
-                                <div
-                                  key={evt.id}
-                                  onClick={() => {
-                                    setSelectedViewEvent(evt)
-                                    setIsViewEventModalOpen(true)
-                                  }}
-                                  className="border border-gray-100 p-5 rounded-2xl bg-gray-50/50 hover:bg-white hover:border-sig-green/30 transition duration-200 flex flex-col justify-between cursor-pointer"
-                                >
-                                  <div>
-                                    <div className="flex justify-between items-start mb-2">
-                                      <span
-                                        className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${evt.status === 'completed'
-                                          ? 'bg-green-100 text-green-800'
-                                          : evt.status === 'cancelled'
-                                            ? 'bg-red-100 text-red-800'
-                                            : evt.status === 'planned'
-                                              ? 'bg-blue-100 text-blue-800'
-                                              : 'bg-gray-100 text-gray-800'
-                                          }`}
-                                      >
-                                        {evt.status}
-                                      </span>
-                                      <div className="flex items-center space-x-2">
-                                        <span className="text-[10px] text-navy-blue font-bold tracking-wider">
-                                          {evt.eventType === 'organization'
-                                            ? `${evt.organizationName} (${org ? org.abbreviation : 'All'})`
-                                            : org
-                                              ? org.abbreviation
-                                              : 'All'}
+                              return filtered.map((evt) => {
+                                const org = orgsList.find((o) => o.id === evt.assignedOrganizationId)
+                                return (
+                                  <div
+                                    key={evt.id}
+                                    onClick={() => {
+                                      setSelectedViewEvent(evt)
+                                      setIsViewEventModalOpen(true)
+                                    }}
+                                    className="border border-gray-100 p-5 rounded-2xl bg-gray-50/50 hover:bg-white hover:border-sig-green/30 transition duration-200 flex flex-col justify-between cursor-pointer"
+                                  >
+                                    <div>
+                                      <div className="flex justify-between items-start mb-2">
+                                        <span
+                                          className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${evt.status === 'completed'
+                                            ? 'bg-green-100 text-green-800'
+                                            : evt.status === 'cancelled'
+                                              ? 'bg-red-100 text-red-800'
+                                              : evt.status === 'planned'
+                                                ? 'bg-blue-100 text-blue-800'
+                                                : 'bg-gray-100 text-gray-800'
+                                            }`}
+                                        >
+                                          {evt.status}
                                         </span>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            handleQuickCompleteEvent(evt)
-                                          }}
-                                          className="text-emerald-600 hover:text-emerald-700 transition p-1 rounded hover:bg-emerald-50 cursor-pointer"
-                                          title="Mark as Completed"
-                                        >
-                                          <CheckCircle className="w-3.5 h-3.5" />
-                                        </button>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            handleEditClick(evt)
-                                          }}
-                                          className="text-navy-blue hover:text-sig-green transition p-1 rounded hover:bg-gray-100 cursor-pointer"
-                                          title="Edit Event"
-                                        >
-                                          <Edit2 className="w-3.5 h-3.5" />
-                                        </button>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            handleDeleteEventClick(evt)
-                                          }}
-                                          className="text-red-550 hover:text-red-700 transition p-1 rounded hover:bg-red-50 cursor-pointer"
-                                          title="Delete Event"
-                                        >
-                                          <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
+                                        <div className="flex items-center space-x-2">
+                                          <span className="text-[10px] text-navy-blue font-bold tracking-wider">
+                                            {evt.eventType === 'organization'
+                                              ? `${evt.organizationName} (${org ? org.abbreviation : 'All'})`
+                                              : org
+                                                ? org.abbreviation
+                                                : 'All'}
+                                          </span>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleQuickCompleteEvent(evt)
+                                            }}
+                                            className="text-emerald-600 hover:text-emerald-700 transition p-1 rounded hover:bg-emerald-50 cursor-pointer"
+                                            title="Mark as Completed"
+                                          >
+                                            <CheckCircle className="w-3.5 h-3.5" />
+                                          </button>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleEditClick(evt)
+                                            }}
+                                            className="text-navy-blue hover:text-sig-green transition p-1 rounded hover:bg-gray-100 cursor-pointer"
+                                            title="Edit Event"
+                                          >
+                                            <Edit2 className="w-3.5 h-3.5" />
+                                          </button>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleDeleteEventClick(evt)
+                                            }}
+                                            className="text-red-550 hover:text-red-700 transition p-1 rounded hover:bg-red-50 cursor-pointer"
+                                            title="Delete Event"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                      <h4 className="font-bold text-navy-blue text-sm mb-1 leading-tight">
+                                        {evt.name}
+                                      </h4>
+                                      <p className="text-gray-500 text-xs leading-relaxed line-clamp-2 mb-3">
+                                        {evt.description}
+                                      </p>
+                                    </div>
+
+                                    <div className="border-t border-gray-100 pt-3 space-y-1.5 text-[10px] text-gray-400">
+                                      <div className="flex items-center space-x-1.5">
+                                        <Clock className="w-3.5 h-3.5 text-navy-blue" />
+                                        <span>{new Date(evt.scheduleDate).toLocaleString()}</span>
+                                      </div>
+                                      <div className="flex items-center space-x-1.5">
+                                        <MapPin className="w-3.5 h-3.5 text-sig-green" />
+                                        <span className="truncate">{evt.location}</span>
                                       </div>
                                     </div>
-                                    <h4 className="font-bold text-navy-blue text-sm mb-1 leading-tight">
-                                      {evt.name}
-                                    </h4>
-                                    <p className="text-gray-500 text-xs leading-relaxed line-clamp-2 mb-3">
-                                      {evt.description}
-                                    </p>
                                   </div>
-
-                                  <div className="border-t border-gray-100 pt-3 space-y-1.5 text-[10px] text-gray-400">
-                                    <div className="flex items-center space-x-1.5">
-                                      <Clock className="w-3.5 h-3.5 text-navy-blue" />
-                                      <span>{new Date(evt.scheduleDate).toLocaleString()}</span>
-                                    </div>
-                                    <div className="flex items-center space-x-1.5">
-                                      <MapPin className="w-3.5 h-3.5 text-sig-green" />
-                                      <span className="truncate">{evt.location}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              )
-                            })
-                          })()}
+                                )
+                              })
+                            })()}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {/* Event Details View Modal */}
-                    <AnimatedModal
-                      isOpen={isViewEventModalOpen}
-                      onClose={() => {
-                        setIsViewEventModalOpen(false)
-                        setSelectedViewEvent(null)
-                      }}
-                      overlayClassName="fixed inset-0 z-[99999] flex items-center justify-center p-4 glass-modal-overlay"
-                      contentClassName="glass-modal rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-white/80 space-y-5 max-h-[90vh] overflow-y-auto"
-                    >
-                      {selectedViewEvent &&
-                        (() => {
-                          const org = orgsList.find(
-                            (o) => o.id === selectedViewEvent.assignedOrganizationId
-                          )
-                          const dateObj = new Date(selectedViewEvent.scheduleDate)
-                          return (
-                            <>
-                              {/* Header */}
-                              <div className="flex items-center justify-between border-b border-gray-200/60 pb-3.5">
-                                <div className="flex items-center space-x-2">
-                                  <div className="p-1.5 bg-navy-blue/5 text-navy-blue rounded-xl">
-                                    <Calendar className="w-5 h-5" />
+                      {/* Event Details View Modal */}
+                      <AnimatedModal
+                        isOpen={isViewEventModalOpen}
+                        onClose={() => {
+                          setIsViewEventModalOpen(false)
+                          setSelectedViewEvent(null)
+                        }}
+                        overlayClassName="fixed inset-0 z-[99999] flex items-center justify-center p-4 glass-modal-overlay"
+                        contentClassName="glass-modal rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-white/80 space-y-5 max-h-[90vh] overflow-y-auto"
+                      >
+                        {selectedViewEvent &&
+                          (() => {
+                            const org = orgsList.find(
+                              (o) => o.id === selectedViewEvent.assignedOrganizationId
+                            )
+                            const dateObj = new Date(selectedViewEvent.scheduleDate)
+                            return (
+                              <>
+                                {/* Header */}
+                                <div className="flex items-center justify-between border-b border-gray-200/60 pb-3.5">
+                                  <div className="flex items-center space-x-2">
+                                    <div className="p-1.5 bg-navy-blue/5 text-navy-blue rounded-xl">
+                                      <Calendar className="w-5 h-5" />
+                                    </div>
+                                    <h3 className="font-extrabold text-navy-blue text-base">
+                                      Event Details
+                                    </h3>
                                   </div>
-                                  <h3 className="font-extrabold text-navy-blue text-base">
-                                    Event Details
-                                  </h3>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setIsViewEventModalOpen(false)
-                                    setSelectedViewEvent(null)
-                                  }}
-                                  className="text-gray-400 hover:text-navy-blue transition-colors cursor-pointer p-1.5 rounded-lg hover:bg-gray-100"
-                                >
-                                  <X className="w-5 h-5" />
-                                </button>
-                              </div>
-
-                              {/* Event Details Content */}
-                              <div className="space-y-4 text-left">
-                                {/* Event Name */}
-                                <div>
-                                  <h4 className="text-lg font-black text-navy-blue leading-snug break-words whitespace-normal">
-                                    {selectedViewEvent.name}
-                                  </h4>
-                                </div>
-
-                                {/* Status & Type Badges */}
-                                <div className="flex flex-wrap gap-2">
-                                  <span
-                                    className={`inline-flex items-center text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${selectedViewEvent.status === 'completed'
-                                      ? 'bg-green-100 text-green-800'
-                                      : selectedViewEvent.status === 'cancelled'
-                                        ? 'bg-red-100 text-red-800'
-                                        : selectedViewEvent.status === 'planned'
-                                          ? 'bg-blue-100 text-blue-800'
-                                          : 'bg-gray-100 text-gray-800'
-                                      }`}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setIsViewEventModalOpen(false)
+                                      setSelectedViewEvent(null)
+                                    }}
+                                    className="text-gray-400 hover:text-navy-blue transition-colors cursor-pointer p-1.5 rounded-lg hover:bg-gray-100"
                                   >
-                                    Status: {selectedViewEvent.status}
-                                  </span>
-                                  <span className="inline-flex items-center text-[10px] font-bold uppercase px-2.5 py-1 rounded-full bg-navy-blue/5 text-navy-blue">
-                                    Type: {selectedViewEvent.eventType}
-                                  </span>
+                                    <X className="w-5 h-5" />
+                                  </button>
                                 </div>
 
-                                {/* Info Grid */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
-                                  {/* Department / Org */}
-                                  <div className="space-y-1">
-                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-                                      Assigned Department / Org
+                                {/* Event Details Content */}
+                                <div className="space-y-4 text-left">
+                                  {/* Event Name */}
+                                  <div>
+                                    <h4 className="text-lg font-black text-navy-blue leading-snug break-words whitespace-normal">
+                                      {selectedViewEvent.name}
+                                    </h4>
+                                  </div>
+
+                                  {/* Status & Type Badges */}
+                                  <div className="flex flex-wrap gap-2">
+                                    <span
+                                      className={`inline-flex items-center text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${selectedViewEvent.status === 'completed'
+                                        ? 'bg-green-100 text-green-800'
+                                        : selectedViewEvent.status === 'cancelled'
+                                          ? 'bg-red-100 text-red-800'
+                                          : selectedViewEvent.status === 'planned'
+                                            ? 'bg-blue-100 text-blue-800'
+                                            : 'bg-gray-100 text-gray-800'
+                                        }`}
+                                    >
+                                      Status: {selectedViewEvent.status}
                                     </span>
-                                    <span className="text-xs text-navy-blue font-bold flex items-center space-x-1.5">
-                                      <Users className="w-3.5 h-3.5 text-navy-blue shrink-0" />
-                                      <span className="break-words whitespace-normal">
-                                        {selectedViewEvent.eventType === 'organization'
-                                          ? `${selectedViewEvent.organizationName} (${org ? org.abbreviation : 'All'})`
-                                          : org
-                                            ? `${org.name} (${org.abbreviation})`
-                                            : 'All'}
+                                    <span className="inline-flex items-center text-[10px] font-bold uppercase px-2.5 py-1 rounded-full bg-navy-blue/5 text-navy-blue">
+                                      Type: {selectedViewEvent.eventType}
+                                    </span>
+                                  </div>
+
+                                  {/* Info Grid */}
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
+                                    {/* Department / Org */}
+                                    <div className="space-y-1">
+                                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                                        Assigned Department / Org
                                       </span>
-                                    </span>
-                                  </div>
-
-                                  {/* Location/Venue */}
-                                  <div className="space-y-1">
-                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-                                      Venue / Location
-                                    </span>
-                                    <span className="text-xs text-navy-blue font-bold flex items-center space-x-1.5">
-                                      <MapPin className="w-3.5 h-3.5 text-sig-green shrink-0" />
-                                      <span className="break-words whitespace-normal">
-                                        {selectedViewEvent.location}
+                                      <span className="text-xs text-navy-blue font-bold flex items-center space-x-1.5">
+                                        <Users className="w-3.5 h-3.5 text-navy-blue shrink-0" />
+                                        <span className="break-words whitespace-normal">
+                                          {selectedViewEvent.eventType === 'organization'
+                                            ? `${selectedViewEvent.organizationName} (${org ? org.abbreviation : 'All'})`
+                                            : org
+                                              ? `${org.name} (${org.abbreviation})`
+                                              : 'All'}
+                                        </span>
                                       </span>
-                                    </span>
-                                  </div>
+                                    </div>
 
-                                  {/* Scheduled Date */}
-                                  <div className="space-y-1 md:col-span-2">
-                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-                                      Date & Time
-                                    </span>
-                                    <span className="text-xs text-navy-blue font-bold flex items-center space-x-1.5">
-                                      <Clock className="w-3.5 h-3.5 text-navy-blue shrink-0" />
-                                      <span>{dateObj.toLocaleString()}</span>
-                                    </span>
-                                  </div>
-                                </div>
+                                    {/* Location/Venue */}
+                                    <div className="space-y-1">
+                                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                                        Venue / Location
+                                      </span>
+                                      <span className="text-xs text-navy-blue font-bold flex items-center space-x-1.5">
+                                        <MapPin className="w-3.5 h-3.5 text-sig-green shrink-0" />
+                                        <span className="break-words whitespace-normal">
+                                          {selectedViewEvent.location}
+                                        </span>
+                                      </span>
+                                    </div>
 
-                                {/* Description */}
-                                {selectedViewEvent.description && (
-                                  <div className="space-y-1.5">
-                                    <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-                                      Description / Narrative
-                                    </span>
-                                    <div className="bg-white border border-gray-150 rounded-xl p-3 text-xs text-gray-650 leading-relaxed font-medium break-words whitespace-pre-wrap">
-                                      {selectedViewEvent.description}
+                                    {/* Scheduled Date */}
+                                    <div className="space-y-1 md:col-span-2">
+                                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                                        Date & Time
+                                      </span>
+                                      <span className="text-xs text-navy-blue font-bold flex items-center space-x-1.5">
+                                        <Clock className="w-3.5 h-3.5 text-navy-blue shrink-0" />
+                                        <span>{dateObj.toLocaleString()}</span>
+                                      </span>
                                     </div>
                                   </div>
-                                )}
-                              </div>
 
-                              {/* Footer */}
-                              <div className="flex justify-end border-t border-gray-100 pt-3 shrink-0">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setIsViewEventModalOpen(false)
-                                    setSelectedViewEvent(null)
-                                  }}
-                                  className="bg-navy-blue hover:bg-navy-blue/90 text-white rounded-xl text-xs font-semibold py-2 px-5 shadow-sm transition-all duration-150 cursor-pointer"
-                                >
-                                  Close
-                                </button>
-                              </div>
-                            </>
-                          )
-                        })()}
-                    </AnimatedModal>
-
-                    {/* SCHEDULE / EDIT EVENT MODAL */}
-                    {isEventModalOpen &&
-                      createPortal(
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
-                          <div className="glass-modal rounded-2xl max-w-lg w-full shadow-2xl border border-white/80 flex flex-col max-h-[80vh] overflow-hidden animate-fade-in-scale">
-                            <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 shrink-0">
-                              <h3 className="font-bold text-navy-blue text-base">
-                                {editingEvent ? 'Edit Event' : 'Schedule Event'}
-                              </h3>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setIsEventModalOpen(false)
-                                  setEditingEvent(null)
-                                  setEvtName('')
-                                  setEvtDesc('')
-                                  setEvtDate('')
-                                  setEvtLoc('')
-                                  setEvtOrgId('')
-                                  setEvtStatus('planned')
-                                  setEvtType('department')
-                                  setEvtOrgName('')
-                                  setEvtParentDeptId('')
-                                  setEvtErrors({})
-                                }}
-                                className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 cursor-pointer"
-                              >
-                                <X className="w-5 h-5" />
-                              </button>
-                            </div>
-
-                            <form
-                              onSubmit={handleCreateEvent}
-                              className="flex flex-col flex-1 min-h-0"
-                            >
-                              <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                                <div>
-                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                    Event Name
-                                  </label>
-                                  <input
-                                    type="text"
-                                    value={evtName}
-                                    onChange={(e) => {
-                                      setEvtName(e.target.value)
-                                      setEvtErrors((prev) => {
-                                        const copy = { ...prev }
-                                        delete copy.evtName
-                                        return copy
-                                      })
-                                    }}
-                                    placeholder="Event name"
-                                    className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${evtErrors.evtName ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                    style={{ height: '40px' }}
-                                  />
-                                  {evtErrors.evtName && (
-                                    <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                      {evtErrors.evtName}
-                                    </p>
+                                  {/* Description */}
+                                  {selectedViewEvent.description && (
+                                    <div className="space-y-1.5">
+                                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                                        Description / Narrative
+                                      </span>
+                                      <div className="bg-white border border-gray-150 rounded-xl p-3 text-xs text-gray-650 leading-relaxed font-medium break-words whitespace-pre-wrap">
+                                        {selectedViewEvent.description}
+                                      </div>
+                                    </div>
                                   )}
                                 </div>
 
-                                <div>
-                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                    Description
-                                  </label>
-                                  <textarea
-                                    value={evtDesc}
-                                    onChange={(e) => setEvtDesc(e.target.value)}
-                                    placeholder="Brief narrative of the event purpose..."
-                                    className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none resize-none font-semibold text-navy-blue"
-                                    rows="3"
-                                  ></textarea>
-                                </div>
-
-                                <div>
-                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                    Scheduled Date & Time
-                                  </label>
-                                  <div
-                                    className={
-                                      evtErrors.evtDate
-                                        ? 'border border-red-500 rounded-xl p-0.5 ring-2 ring-red-500/10'
-                                        : ''
-                                    }
+                                {/* Footer */}
+                                <div className="flex justify-end border-t border-gray-100 pt-3 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setIsViewEventModalOpen(false)
+                                      setSelectedViewEvent(null)
+                                    }}
+                                    className="bg-navy-blue hover:bg-navy-blue/90 text-white rounded-xl text-xs font-semibold py-2 px-5 shadow-sm transition-all duration-150 cursor-pointer"
                                   >
-                                    <GlassDatePicker
-                                      value={evtDate}
-                                      onChange={(val) => {
-                                        setEvtDate(val)
-                                        setEvtErrors((prev) => {
-                                          const copy = { ...prev }
-                                          delete copy.evtDate
-                                          return copy
-                                        })
-                                      }}
-                                      showTime={true}
-                                      placeholder="dd/mm/yyyy, --:-- --"
-                                    />
-                                  </div>
-                                  {evtErrors.evtDate && (
-                                    <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                      {evtErrors.evtDate}
-                                    </p>
-                                  )}
+                                    Close
+                                  </button>
                                 </div>
+                              </>
+                            )
+                          })()}
+                      </AnimatedModal>
 
-                                <div>
-                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                    Target Location
-                                  </label>
-                                  <input
-                                    type="text"
-                                    value={evtLoc}
-                                    onChange={(e) => {
-                                      setEvtLoc(e.target.value)
-                                      setEvtErrors((prev) => {
-                                        const copy = { ...prev }
-                                        delete copy.evtLoc
-                                        return copy
-                                      })
-                                    }}
-                                    placeholder="Location"
-                                    className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${evtErrors.evtLoc ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                                    style={{ height: '40px' }}
-                                  />
-                                  {evtErrors.evtLoc && (
-                                    <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                      {evtErrors.evtLoc}
-                                    </p>
-                                  )}
-                                </div>
-
-                                <div>
-                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                    Event Type
-                                  </label>
-                                  <CustomSelect
-                                    value={evtType}
-                                    onChange={(e) => {
-                                      const nextType = e.target.value
-                                      setEvtType(nextType)
-                                      setEvtOrgId('')
-                                      setEvtErrors((prev) => {
-                                        const copy = { ...prev }
-                                        delete copy.evtOrgId
-                                        return copy
-                                      })
-                                      clearFieldValError('evtType')
-                                    }}
-                                    options={[
-                                      { value: 'department', label: 'Department' },
-                                      { value: 'organization', label: 'Organization' }
-                                    ]}
-                                    placeholder="Select Event Type"
-                                    style={{ height: '40px' }}
-                                  />
-                                </div>
-
-                                {evtType === 'organization' ? (
-                                  <div>
-                                    <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                      Assigned Organization
-                                    </label>
-                                    <SearchableDropdown
-                                      value={evtOrgId}
-                                      onChange={(val) => {
-                                        setEvtOrgId(val)
-                                        setEvtErrors((prev) => {
-                                          const copy = { ...prev }
-                                          delete copy.evtOrgId
-                                          return copy
-                                        })
-                                      }}
-                                      options={orgsList.filter(isOrgItem)}
-                                      onDelete={(o) => handleDeleteOrg(o.id)}
-                                      placeholder="Select organization..."
-                                      className={
-                                        evtErrors.evtOrgId
-                                          ? 'border-red-500 ring-2 ring-red-500/10'
-                                          : ''
-                                      }
-                                    />
-                                    {evtErrors.evtOrgId && (
-                                      <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                        {evtErrors.evtOrgId}
-                                      </p>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <div>
-                                    <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                      Assigned Department{' '}
-                                    </label>
-                                    <SearchableDropdown
-                                      value={evtOrgId}
-                                      onChange={(val) => {
-                                        setEvtOrgId(val)
-                                        setEvtErrors((prev) => {
-                                          const copy = { ...prev }
-                                          delete copy.evtOrgId
-                                          return copy
-                                        })
-                                      }}
-                                      options={orgsList.filter(isDeptItem)}
-                                      onDelete={(o) => handleDeleteOrg(o.id)}
-                                      placeholder="Type to filter co-organizers..."
-                                      className={
-                                        evtErrors.evtOrgId
-                                          ? 'border-red-500 ring-2 ring-red-500/10'
-                                          : ''
-                                      }
-                                    />
-                                    {evtErrors.evtOrgId && (
-                                      <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                        {evtErrors.evtOrgId}
-                                      </p>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="flex items-center space-x-2 px-6 py-4 border-t border-gray-100 shrink-0 bg-white/40">
+                      {/* SCHEDULE / EDIT EVENT MODAL */}
+                      {isEventModalOpen &&
+                        createPortal(
+                          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
+                            <div className="glass-modal rounded-2xl max-w-lg w-full shadow-2xl border border-white/80 flex flex-col max-h-[80vh] overflow-hidden animate-fade-in-scale">
+                              <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 shrink-0">
+                                <h3 className="font-bold text-navy-blue text-base">
+                                  {editingEvent ? 'Edit Event' : 'Schedule Event'}
+                                </h3>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -4617,25 +4397,237 @@ export default function AdminDashboard({ user, onLogout }) {
                                     setEvtParentDeptId('')
                                     setEvtErrors({})
                                   }}
-                                  className="flex-1 bg-gray-100 hover:bg-red-500 hover:text-white text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition-all duration-150 cursor-pointer text-center"
-                                  style={{ height: '40px' }}
+                                  className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 cursor-pointer"
                                 >
-                                  Cancel
-                                </button>
-                                <button
-                                  type="submit"
-                                  disabled={loading}
-                                  className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition-all duration-150 cursor-pointer flex items-center justify-center gap-1.5"
-                                  style={{ height: '40px' }}
-                                >
-                                  {editingEvent ? 'Save Changes' : 'Schedule Event'}
+                                  <X className="w-5 h-5" />
                                 </button>
                               </div>
-                            </form>
-                          </div>
-                        </div>,
-                        document.body
-                      )}
+
+                              <form
+                                onSubmit={handleCreateEvent}
+                                className="flex flex-col flex-1 min-h-0"
+                              >
+                                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                                  <div>
+                                    <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                      Event Name
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={evtName}
+                                      onChange={(e) => {
+                                        setEvtName(e.target.value)
+                                        setEvtErrors((prev) => {
+                                          const copy = { ...prev }
+                                          delete copy.evtName
+                                          return copy
+                                        })
+                                      }}
+                                      placeholder="Event name"
+                                      className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${evtErrors.evtName ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                      style={{ height: '40px' }}
+                                    />
+                                    {evtErrors.evtName && (
+                                      <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                        {evtErrors.evtName}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                      Description
+                                    </label>
+                                    <textarea
+                                      value={evtDesc}
+                                      onChange={(e) => setEvtDesc(e.target.value)}
+                                      placeholder="Brief narrative of the event purpose..."
+                                      className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none resize-none font-semibold text-navy-blue"
+                                      rows="3"
+                                    ></textarea>
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                      Scheduled Date & Time
+                                    </label>
+                                    <div
+                                      className={
+                                        evtErrors.evtDate
+                                          ? 'border border-red-500 rounded-xl p-0.5 ring-2 ring-red-500/10'
+                                          : ''
+                                      }
+                                    >
+                                      <GlassDatePicker
+                                        value={evtDate}
+                                        onChange={(val) => {
+                                          setEvtDate(val)
+                                          setEvtErrors((prev) => {
+                                            const copy = { ...prev }
+                                            delete copy.evtDate
+                                            return copy
+                                          })
+                                        }}
+                                        showTime={true}
+                                        placeholder="dd/mm/yyyy, --:-- --"
+                                      />
+                                    </div>
+                                    {evtErrors.evtDate && (
+                                      <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                        {evtErrors.evtDate}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                      Target Location
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={evtLoc}
+                                      onChange={(e) => {
+                                        setEvtLoc(e.target.value)
+                                        setEvtErrors((prev) => {
+                                          const copy = { ...prev }
+                                          delete copy.evtLoc
+                                          return copy
+                                        })
+                                      }}
+                                      placeholder="Location"
+                                      className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${evtErrors.evtLoc ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                      style={{ height: '40px' }}
+                                    />
+                                    {evtErrors.evtLoc && (
+                                      <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                        {evtErrors.evtLoc}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                      Event Type
+                                    </label>
+                                    <CustomSelect
+                                      value={evtType}
+                                      onChange={(e) => {
+                                        const nextType = e.target.value
+                                        setEvtType(nextType)
+                                        setEvtOrgId('')
+                                        setEvtErrors((prev) => {
+                                          const copy = { ...prev }
+                                          delete copy.evtOrgId
+                                          return copy
+                                        })
+                                        clearFieldValError('evtType')
+                                      }}
+                                      options={[
+                                        { value: 'department', label: 'Department' },
+                                        { value: 'organization', label: 'Organization' }
+                                      ]}
+                                      placeholder="Select Event Type"
+                                      style={{ height: '40px' }}
+                                    />
+                                  </div>
+
+                                  {evtType === 'organization' ? (
+                                    <div>
+                                      <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                        Assigned Organization
+                                      </label>
+                                      <SearchableDropdown
+                                        value={evtOrgId}
+                                        onChange={(val) => {
+                                          setEvtOrgId(val)
+                                          setEvtErrors((prev) => {
+                                            const copy = { ...prev }
+                                            delete copy.evtOrgId
+                                            return copy
+                                          })
+                                        }}
+                                        options={orgsList.filter(isOrgItem)}
+                                        placeholder="Select organization..."
+                                        className={
+                                          evtErrors.evtOrgId
+                                            ? 'border-red-500 ring-2 ring-red-500/10'
+                                            : ''
+                                        }
+                                      />
+                                      {evtErrors.evtOrgId && (
+                                        <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                          {evtErrors.evtOrgId}
+                                        </p>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div>
+                                      <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                        Assigned Department{' '}
+                                      </label>
+                                      <SearchableDropdown
+                                        value={evtOrgId}
+                                        onChange={(val) => {
+                                          setEvtOrgId(val)
+                                          setEvtErrors((prev) => {
+                                            const copy = { ...prev }
+                                            delete copy.evtOrgId
+                                            return copy
+                                          })
+                                        }}
+                                        options={orgsList.filter(isDeptItem)}
+                                        placeholder="Select department..."
+                                        className={
+                                          evtErrors.evtOrgId
+                                            ? 'border-red-500 ring-2 ring-red-500/10'
+                                            : ''
+                                        }
+                                      />
+                                      {evtErrors.evtOrgId && (
+                                        <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                          {evtErrors.evtOrgId}
+                                        </p>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center space-x-2 px-6 py-4 border-t border-gray-100 shrink-0 bg-white/40">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setIsEventModalOpen(false)
+                                      setEditingEvent(null)
+                                      setEvtName('')
+                                      setEvtDesc('')
+                                      setEvtDate('')
+                                      setEvtLoc('')
+                                      setEvtOrgId('')
+                                      setEvtStatus('planned')
+                                      setEvtType('department')
+                                      setEvtOrgName('')
+                                      setEvtParentDeptId('')
+                                      setEvtErrors({})
+                                    }}
+                                    className="flex-1 bg-gray-100 hover:bg-red-500 hover:text-white text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition-all duration-150 cursor-pointer text-center"
+                                    style={{ height: '40px' }}
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition-all duration-150 cursor-pointer flex items-center justify-center gap-1.5"
+                                    style={{ height: '40px' }}
+                                  >
+                                    {editingEvent ? 'Save Changes' : 'Schedule Event'}
+                                  </button>
+                                </div>
+                              </form>
+                            </div>
+                          </div>,
+                          document.body
+                        )}
                     </div>
                   )
                 )}
@@ -4648,560 +4640,611 @@ export default function AdminDashboard({ user, onLogout }) {
                     <OrganizationSkeleton />
                   ) : (
                     <div className="space-y-6 animate-fade-in">
-                    {/* Organization Header Dashboard */}
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between justify-start gap-4 pb-1">
-                      <div>
-                        <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
-                          Organization & Departments
-                        </h1>
+                      {/* Organization Header Dashboard */}
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between justify-start gap-4 pb-1">
+                        <div>
+                          <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
+                            Organization & Departments
+                          </h1>
+                        </div>
+
+                        {/* Top-Right Add New Dropdown Button */}
+                        {(selectedOrgSubTab === 'department' ||
+                          selectedOrgSubTab === 'organization') && (
+                            <div className="relative self-start sm:self-auto" ref={addOrgDropdownRef}>
+                              <button
+                                type="button"
+                                onClick={() => setIsAddDropdownOpen((prev) => !prev)}
+                                className="flex items-center gap-1.5 bg-navy-blue text-white rounded-full text-xs font-semibold px-4 py-2.5 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition-all duration-150 cursor-pointer shadow-xs"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Add New</span>
+                                <ChevronDown
+                                  className={`w-3.5 h-3.5 transition-transform duration-200 ${isAddDropdownOpen ? 'rotate-180' : ''}`}
+                                />
+                              </button>
+
+                              <AnimatePresence>
+                                {isAddDropdownOpen && (
+                                  <motion.div
+                                    initial={{ opacity: 0, y: -5, scale: 0.95 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: -5, scale: 0.95 }}
+                                    transition={{ duration: 0.15, ease: 'easeOut' }}
+                                    className="absolute right-0 top-full mt-2 w-44 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-30 overflow-hidden"
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setIsAddDropdownOpen(false)
+                                        handleCancelOrgEdit()
+                                        setIsAddOrgModalOpen(true)
+                                      }}
+                                      className="w-full px-4 py-2.5 text-left text-xs font-semibold text-navy-blue hover:bg-navy-blue/5 hover:text-sig-green transition flex items-center gap-2 cursor-pointer"
+                                    >
+                                      <Building2 className="w-3.5 h-3.5 text-sig-green" />
+                                      <span>Organization</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setIsAddDropdownOpen(false)
+                                        handleCancelOrgEdit()
+                                        setIsAddDeptModalOpen(true)
+                                      }}
+                                      className="w-full px-4 py-2.5 text-left text-xs font-semibold text-navy-blue hover:bg-navy-blue/5 hover:text-sig-green transition flex items-center gap-2 cursor-pointer"
+                                    >
+                                      <Users className="w-3.5 h-3.5 text-sig-green" />
+                                      <span>Department</span>
+                                    </button>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          )}
                       </div>
 
-                      {/* Top-Right Add New Dropdown Button */}
+                      {/* Directory Navigation Bar & Directory Card Grids */}
                       {(selectedOrgSubTab === 'department' ||
                         selectedOrgSubTab === 'organization') && (
-                          <div className="relative self-start sm:self-auto" ref={addOrgDropdownRef}>
-                            <button
-                              type="button"
-                              onClick={() => setIsAddDropdownOpen((prev) => !prev)}
-                              className="flex items-center gap-1.5 bg-navy-blue text-white rounded-full text-xs font-semibold px-4 py-2.5 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition-all duration-150 cursor-pointer shadow-xs"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                              <span>Add New</span>
-                              <ChevronDown
-                                className={`w-3.5 h-3.5 transition-transform duration-200 ${isAddDropdownOpen ? 'rotate-180' : ''}`}
-                              />
-                            </button>
-
-                            <AnimatePresence>
-                              {isAddDropdownOpen && (
-                                <motion.div
-                                  initial={{ opacity: 0, y: -5, scale: 0.95 }}
-                                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                                  exit={{ opacity: 0, y: -5, scale: 0.95 }}
-                                  transition={{ duration: 0.15, ease: 'easeOut' }}
-                                  className="absolute right-0 top-full mt-2 w-44 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 z-30 overflow-hidden"
+                          <div className="space-y-4">
+                            {/* Tab Bar */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-100 pb-3 gap-3">
+                              <div className="flex items-center gap-2 bg-gray-100/80 p-1 rounded-2xl w-fit">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedOrgSubTab('department')}
+                                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all duration-150 cursor-pointer ${selectedOrgSubTab === 'department'
+                                    ? 'bg-navy-blue text-white shadow-xs'
+                                    : 'text-gray-600 hover:text-navy-blue hover:bg-white/60'
+                                    }`}
                                 >
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setIsAddDropdownOpen(false)
-                                      handleCancelOrgEdit()
-                                      setIsAddOrgModalOpen(true)
-                                    }}
-                                    className="w-full px-4 py-2.5 text-left text-xs font-semibold text-navy-blue hover:bg-navy-blue/5 hover:text-sig-green transition flex items-center gap-2 cursor-pointer"
-                                  >
-                                    <Building2 className="w-3.5 h-3.5 text-sig-green" />
-                                    <span>Organization</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setIsAddDropdownOpen(false)
-                                      handleCancelOrgEdit()
-                                      setIsAddDeptModalOpen(true)
-                                    }}
-                                    className="w-full px-4 py-2.5 text-left text-xs font-semibold text-navy-blue hover:bg-navy-blue/5 hover:text-sig-green transition flex items-center gap-2 cursor-pointer"
-                                  >
-                                    <Users className="w-3.5 h-3.5 text-sig-green" />
-                                    <span>Department</span>
-                                  </button>
+                                  Departments
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedOrgSubTab('organization')}
+                                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all duration-150 cursor-pointer ${selectedOrgSubTab === 'organization'
+                                    ? 'bg-navy-blue text-white shadow-xs'
+                                    : 'text-gray-600 hover:text-navy-blue hover:bg-white/60'
+                                    }`}
+                                >
+                                  Organizations
+                                </button>
+                              </div>
+
+                              <h3 className="font-bold text-navy-blue text-sm">
+                                {selectedOrgSubTab === 'department'
+                                  ? 'Registered Departments Directory'
+                                  : 'Registered Organizations Directory'}
+                              </h3>
+                            </div>
+
+                            {/* Directory Views with Motion Transitions */}
+                            <AnimatePresence mode="wait">
+                              {selectedOrgSubTab === 'department' && (
+                                <motion.div
+                                  key="department-directory"
+                                  variants={pageVariants}
+                                  initial="initial"
+                                  animate="animate"
+                                  exit="exit"
+                                  transition={pageTransition}
+                                >
+                                  {(() => {
+                                    const filtered = orgsList.filter(isDeptItem)
+
+                                    if (filtered.length === 0) {
+                                      return (
+                                        <p className="text-center py-10 text-gray-400 text-xs font-semibold">
+                                          No departments registered yet.
+                                        </p>
+                                      )
+                                    }
+
+                                    return (
+                                      <motion.div
+                                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-center max-w-5xl mx-auto py-4"
+                                        variants={staggerContainer}
+                                        initial="initial"
+                                        animate="animate"
+                                      >
+                                        {filtered.map((org) => {
+                                          return (
+                                            <motion.div
+                                              key={org.id}
+                                              variants={staggerItem}
+                                              whileHover={{ y: -2, scale: 1.01 }}
+                                              whileTap={{ scale: 0.98 }}
+                                              onClick={() => setSelectedOrgSubTab(org.id)}
+                                              className="bg-white rounded-3xl p-8 border border-gray-200/60 shadow-xs hover:shadow-md hover:border-sig-green/45 transition duration-200 cursor-pointer flex flex-col items-center justify-center text-center group space-y-5 relative h-72"
+                                            >
+                                              {/* Centered Logo */}
+                                              <div className="w-32 h-32 flex items-center justify-center overflow-hidden transition-transform duration-200 group-hover:scale-105">
+                                                {org.logo ? (
+                                                  <img
+                                                    src={org.logo}
+                                                    alt={`${org.name} logo`}
+                                                    className="w-full h-full object-contain"
+                                                  />
+                                                ) : (
+                                                  <div className="w-24 h-24 rounded-full bg-navy-blue/5 border border-navy-blue/10 flex items-center justify-center">
+                                                    <span className="text-2xl font-bold text-navy-blue/70">
+                                                      {org.abbreviation?.toUpperCase()}
+                                                    </span>
+                                                  </div>
+                                                )}
+                                              </div>
+
+                                              {/* Name below logo */}
+                                              <div className="space-y-1">
+                                                <h4 className="text-xs font-bold text-navy-blue group-hover:text-sig-green transition-colors duration-200 line-clamp-2 leading-tight px-2">
+                                                  {org.name}
+                                                </h4>
+                                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">
+                                                  {org.abbreviation?.toUpperCase()}
+                                                </span>
+                                              </div>
+
+                                              {/* Absolute controls to edit/delete */}
+                                              <div
+                                                className="absolute top-4 right-4 flex items-center space-x-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200"
+                                                onClick={(e) => e.stopPropagation()}
+                                              >
+                                                <button
+                                                  onClick={() => handleEditOrgClick(org)}
+                                                  className="p-1.5 text-navy-blue hover:bg-navy-blue/5 rounded-lg cursor-pointer transition"
+                                                  title="Edit"
+                                                >
+                                                  <Edit2 className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                  onClick={() => handleDeleteOrg(org.id)}
+                                                  className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer transition"
+                                                  title="Delete"
+                                                >
+                                                  <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                              </div>
+                                            </motion.div>
+                                          )
+                                        })}
+                                      </motion.div>
+                                    )
+                                  })()}
+                                </motion.div>
+                              )}
+
+                              {selectedOrgSubTab === 'organization' && (
+                                <motion.div
+                                  key="organization-directory"
+                                  variants={pageVariants}
+                                  initial="initial"
+                                  animate="animate"
+                                  exit="exit"
+                                  transition={pageTransition}
+                                >
+                                  {(() => {
+                                    const filtered = orgsList.filter(isOrgItem)
+
+                                    if (filtered.length === 0) {
+                                      return (
+                                        <p className="text-center py-10 text-gray-400 text-xs font-semibold">
+                                          No organizations registered yet.
+                                        </p>
+                                      )
+                                    }
+
+                                    return (
+                                      <motion.div
+                                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-center max-w-5xl mx-auto py-4"
+                                        variants={staggerContainer}
+                                        initial="initial"
+                                        animate="animate"
+                                      >
+                                        {filtered.map((org) => {
+                                          return (
+                                            <motion.div
+                                              key={org.id}
+                                              variants={staggerItem}
+                                              whileHover={{ y: -2, scale: 1.01 }}
+                                              whileTap={{ scale: 0.98 }}
+                                              onClick={() => setSelectedOrgSubTab(org.id)}
+                                              className="bg-white rounded-3xl p-8 border border-gray-200/60 shadow-xs hover:shadow-md hover:border-sig-green/45 transition duration-200 cursor-pointer flex flex-col items-center justify-center text-center group space-y-5 relative h-72"
+                                            >
+                                              {/* Centered Logo */}
+                                              <div className="w-32 h-32 flex items-center justify-center overflow-hidden transition-transform duration-200 group-hover:scale-105">
+                                                {org.logo ? (
+                                                  <img
+                                                    src={org.logo}
+                                                    alt={`${org.name} logo`}
+                                                    className="w-full h-full object-contain"
+                                                  />
+                                                ) : (
+                                                  <div className="w-24 h-24 rounded-full bg-navy-blue/5 border border-navy-blue/10 flex items-center justify-center">
+                                                    <span className="text-2xl font-bold text-navy-blue/70">
+                                                      {org.abbreviation?.toUpperCase()}
+                                                    </span>
+                                                  </div>
+                                                )}
+                                              </div>
+
+                                              {/* Name below logo */}
+                                              <div className="space-y-1">
+                                                <h4 className="text-xs font-bold text-navy-blue group-hover:text-sig-green transition-colors duration-200 line-clamp-2 leading-tight px-2">
+                                                  {org.name}
+                                                </h4>
+                                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">
+                                                  {org.abbreviation?.toUpperCase()}
+                                                </span>
+                                              </div>
+
+                                              {/* Absolute controls to edit/delete */}
+                                              <div
+                                                className="absolute top-4 right-4 flex items-center space-x-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200"
+                                                onClick={(e) => e.stopPropagation()}
+                                              >
+                                                <button
+                                                  onClick={() => handleEditOrgClick(org)}
+                                                  className="p-1.5 text-navy-blue hover:bg-navy-blue/5 rounded-lg cursor-pointer transition"
+                                                  title="Edit"
+                                                >
+                                                  <Edit2 className="w-3.5 h-3.5" />
+                                                </button>
+                                                <button
+                                                  onClick={() => handleDeleteOrg(org.id)}
+                                                  className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer transition"
+                                                  title="Delete"
+                                                >
+                                                  <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                              </div>
+                                            </motion.div>
+                                          )
+                                        })}
+                                      </motion.div>
+                                    )
+                                  })()}
                                 </motion.div>
                               )}
                             </AnimatePresence>
                           </div>
                         )}
-                    </div>
 
-                    {/* Directory Navigation Bar & Directory Card Grids */}
-                    {(selectedOrgSubTab === 'department' ||
-                      selectedOrgSubTab === 'organization') && (
-                        <div className="space-y-4">
-                          {/* Tab Bar */}
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-100 pb-3 gap-3">
-                            <div className="flex items-center gap-2 bg-gray-100/80 p-1 rounded-2xl w-fit">
-                              <button
-                                type="button"
-                                onClick={() => setSelectedOrgSubTab('department')}
-                                className={`px-4 py-2 text-xs font-bold rounded-xl transition-all duration-150 cursor-pointer ${selectedOrgSubTab === 'department'
-                                  ? 'bg-navy-blue text-white shadow-xs'
-                                  : 'text-gray-600 hover:text-navy-blue hover:bg-white/60'
-                                  }`}
-                              >
-                                Departments
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setSelectedOrgSubTab('organization')}
-                                className={`px-4 py-2 text-xs font-bold rounded-xl transition-all duration-150 cursor-pointer ${selectedOrgSubTab === 'organization'
-                                  ? 'bg-navy-blue text-white shadow-xs'
-                                  : 'text-gray-600 hover:text-navy-blue hover:bg-white/60'
-                                  }`}
-                              >
-                                Organizations
-                              </button>
-                            </div>
-
-                            <h3 className="font-bold text-navy-blue text-sm">
-                              {selectedOrgSubTab === 'department'
-                                ? 'Registered Departments Directory'
-                                : 'Registered Organizations Directory'}
-                            </h3>
-                          </div>
-
-                          {/* Directory Views with Motion Transitions */}
-                          <AnimatePresence mode="wait">
-                            {selectedOrgSubTab === 'department' && (
-                              <motion.div
-                                key="department-directory"
-                                variants={pageVariants}
-                                initial="initial"
-                                animate="animate"
-                                exit="exit"
-                                transition={pageTransition}
-                              >
-                                {(() => {
-                                  const filtered = orgsList.filter(isDeptItem)
-
-                                  if (filtered.length === 0) {
-                                    return (
-                                      <p className="text-center py-10 text-gray-400 text-xs font-semibold">
-                                        No departments registered yet.
-                                      </p>
-                                    )
-                                  }
-
+                      {/* Specific Organization / Department Profile Panel Content */}
+                      <AnimatePresence mode="wait">
+                        {selectedOrgSubTab !== 'organization' &&
+                          selectedOrgSubTab !== 'department' && (
+                            <motion.div
+                              key={selectedOrgSubTab}
+                              variants={pageVariants}
+                              initial="initial"
+                              animate="animate"
+                              exit="exit"
+                              transition={pageTransition}
+                            >
+                              {(() => {
+                                const selectedOrgObj = orgsList.find(
+                                  (o) => o.id === selectedOrgSubTab
+                                )
+                                if (!selectedOrgObj)
                                   return (
-                                    <motion.div
-                                      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-center max-w-5xl mx-auto py-4"
-                                      variants={staggerContainer}
-                                      initial="initial"
-                                      animate="animate"
-                                    >
-                                      {filtered.map((org) => {
-                                        return (
-                                          <motion.div
-                                            key={org.id}
-                                            variants={staggerItem}
-                                            whileHover={{ y: -2, scale: 1.01 }}
-                                            whileTap={{ scale: 0.98 }}
-                                            onClick={() => setSelectedOrgSubTab(org.id)}
-                                            className="bg-white rounded-3xl p-8 border border-gray-200/60 shadow-xs hover:shadow-md hover:border-sig-green/45 transition duration-200 cursor-pointer flex flex-col items-center justify-center text-center group space-y-5 relative h-72"
-                                          >
-                                            {/* Centered Logo */}
-                                            <div className="w-32 h-32 flex items-center justify-center overflow-hidden transition-transform duration-200 group-hover:scale-105">
-                                              {org.logo ? (
-                                                <img
-                                                  src={org.logo}
-                                                  alt={`${org.name} logo`}
-                                                  className="w-full h-full object-contain"
-                                                />
-                                              ) : (
-                                                <div className="w-24 h-24 rounded-full bg-navy-blue/5 border border-navy-blue/10 flex items-center justify-center">
-                                                  <span className="text-2xl font-bold text-navy-blue/70">
-                                                    {org.abbreviation?.toUpperCase()}
-                                                  </span>
-                                                </div>
-                                              )}
-                                            </div>
-
-                                            {/* Name below logo */}
-                                            <div className="space-y-1">
-                                              <h4 className="text-xs font-bold text-navy-blue group-hover:text-sig-green transition-colors duration-200 line-clamp-2 leading-tight px-2">
-                                                {org.name}
-                                              </h4>
-                                              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">
-                                                {org.abbreviation?.toUpperCase()}
-                                              </span>
-                                            </div>
-
-                                            {/* Absolute controls to edit/delete */}
-                                            <div
-                                              className="absolute top-4 right-4 flex items-center space-x-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200"
-                                              onClick={(e) => e.stopPropagation()}
-                                            >
-                                              <button
-                                                onClick={() => handleEditOrgClick(org)}
-                                                className="p-1.5 text-navy-blue hover:bg-navy-blue/5 rounded-lg cursor-pointer transition"
-                                                title="Edit"
-                                              >
-                                                <Edit2 className="w-3.5 h-3.5" />
-                                              </button>
-                                              <button
-                                                onClick={() => handleDeleteOrg(org.id)}
-                                                className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer transition"
-                                                title="Delete"
-                                              >
-                                                <Trash2 className="w-3.5 h-3.5" />
-                                              </button>
-                                            </div>
-                                          </motion.div>
-                                        )
-                                      })}
-                                    </motion.div>
+                                    <p className="text-center py-10 text-gray-400">
+                                      Profile not found.
+                                    </p>
                                   )
-                                })()}
-                              </motion.div>
-                            )}
 
-                            {selectedOrgSubTab === 'organization' && (
-                              <motion.div
-                                key="organization-directory"
-                                variants={pageVariants}
-                                initial="initial"
-                                animate="animate"
-                                exit="exit"
-                                transition={pageTransition}
-                              >
-                                {(() => {
-                                  const filtered = orgsList.filter(isOrgItem)
-
-                                  if (filtered.length === 0) {
-                                    return (
-                                      <p className="text-center py-10 text-gray-400 text-xs font-semibold">
-                                        No organizations registered yet.
-                                      </p>
-                                    )
-                                  }
-
-                                  return (
-                                    <motion.div
-                                      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-center max-w-5xl mx-auto py-4"
-                                      variants={staggerContainer}
-                                      initial="initial"
-                                      animate="animate"
-                                    >
-                                      {filtered.map((org) => {
-                                        return (
-                                          <motion.div
-                                            key={org.id}
-                                            variants={staggerItem}
-                                            whileHover={{ y: -2, scale: 1.01 }}
-                                            whileTap={{ scale: 0.98 }}
-                                            onClick={() => setSelectedOrgSubTab(org.id)}
-                                            className="bg-white rounded-3xl p-8 border border-gray-200/60 shadow-xs hover:shadow-md hover:border-sig-green/45 transition duration-200 cursor-pointer flex flex-col items-center justify-center text-center group space-y-5 relative h-72"
-                                          >
-                                            {/* Centered Logo */}
-                                            <div className="w-32 h-32 flex items-center justify-center overflow-hidden transition-transform duration-200 group-hover:scale-105">
-                                              {org.logo ? (
-                                                <img
-                                                  src={org.logo}
-                                                  alt={`${org.name} logo`}
-                                                  className="w-full h-full object-contain"
-                                                />
-                                              ) : (
-                                                <div className="w-24 h-24 rounded-full bg-navy-blue/5 border border-navy-blue/10 flex items-center justify-center">
-                                                  <span className="text-2xl font-bold text-navy-blue/70">
-                                                    {org.abbreviation?.toUpperCase()}
-                                                  </span>
-                                                </div>
-                                              )}
-                                            </div>
-
-                                            {/* Name below logo */}
-                                            <div className="space-y-1">
-                                              <h4 className="text-xs font-bold text-navy-blue group-hover:text-sig-green transition-colors duration-200 line-clamp-2 leading-tight px-2">
-                                                {org.name}
-                                              </h4>
-                                              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">
-                                                {org.abbreviation?.toUpperCase()}
-                                              </span>
-                                            </div>
-
-                                            {/* Absolute controls to edit/delete */}
-                                            <div
-                                              className="absolute top-4 right-4 flex items-center space-x-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200"
-                                              onClick={(e) => e.stopPropagation()}
-                                            >
-                                              <button
-                                                onClick={() => handleEditOrgClick(org)}
-                                                className="p-1.5 text-navy-blue hover:bg-navy-blue/5 rounded-lg cursor-pointer transition"
-                                                title="Edit"
-                                              >
-                                                <Edit2 className="w-3.5 h-3.5" />
-                                              </button>
-                                              <button
-                                                onClick={() => handleDeleteOrg(org.id)}
-                                                className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer transition"
-                                                title="Delete"
-                                              >
-                                                <Trash2 className="w-3.5 h-3.5" />
-                                              </button>
-                                            </div>
-                                          </motion.div>
-                                        )
-                                      })}
-                                    </motion.div>
-                                  )
-                                })()}
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                      )}
-
-                    {/* Specific Organization / Department Profile Panel Content */}
-                    <AnimatePresence mode="wait">
-                      {selectedOrgSubTab !== 'organization' &&
-                        selectedOrgSubTab !== 'department' && (
-                          <motion.div
-                            key={selectedOrgSubTab}
-                            variants={pageVariants}
-                            initial="initial"
-                            animate="animate"
-                            exit="exit"
-                            transition={pageTransition}
-                          >
-                            {(() => {
-                              const selectedOrgObj = orgsList.find(
-                                (o) => o.id === selectedOrgSubTab
-                              )
-                              if (!selectedOrgObj)
-                                return (
-                                  <p className="text-center py-10 text-gray-400">
-                                    Profile not found.
-                                  </p>
+                                const isDept = isDeptItem(selectedOrgObj)
+                                const coord = usersList.find(
+                                  (u) =>
+                                    u.uid === selectedOrgObj.coordinatorId ||
+                                    u.organizationId === selectedOrgObj.id
                                 )
 
-                              const isDept = isDeptItem(selectedOrgObj)
-                              const coord = usersList.find(
-                                (u) =>
-                                  u.uid === selectedOrgObj.coordinatorId ||
-                                  u.organizationId === selectedOrgObj.id
-                              )
+                                // Filters for events
+                                const ongoingActivities = eventsList.filter((e) => {
+                                  const isAssigned = e.assignedOrganizationId === selectedOrgObj.id
+                                  const isUnderDept =
+                                    isDept &&
+                                    e.eventType === 'organization' &&
+                                    (e.parentDepartmentId === selectedOrgObj.id ||
+                                      e.assignedOrganizationId === selectedOrgObj.id)
+                                  return (isAssigned || isUnderDept) && e.status === 'ongoing'
+                                })
+                                const upcomingActivities = eventsList.filter((e) => {
+                                  const isAssigned = e.assignedOrganizationId === selectedOrgObj.id
+                                  const isUnderDept =
+                                    isDept &&
+                                    e.eventType === 'organization' &&
+                                    (e.parentDepartmentId === selectedOrgObj.id ||
+                                      e.assignedOrganizationId === selectedOrgObj.id)
+                                  return (
+                                    (isAssigned || isUnderDept) &&
+                                    (e.status === 'scheduled' || e.status === 'planned')
+                                  )
+                                })
+                                const completedActivities = eventsList.filter((e) => {
+                                  const isAssigned = e.assignedOrganizationId === selectedOrgObj.id
+                                  const isUnderDept =
+                                    isDept &&
+                                    e.eventType === 'organization' &&
+                                    (e.parentDepartmentId === selectedOrgObj.id ||
+                                      e.assignedOrganizationId === selectedOrgObj.id)
+                                  return (isAssigned || isUnderDept) && e.status === 'completed'
+                                })
 
-                              // Filters for events
-                              const ongoingActivities = eventsList.filter((e) => {
-                                const isAssigned = e.assignedOrganizationId === selectedOrgObj.id
-                                const isUnderDept =
-                                  isDept &&
-                                  e.eventType === 'organization' &&
-                                  (e.parentDepartmentId === selectedOrgObj.id ||
-                                    e.assignedOrganizationId === selectedOrgObj.id)
-                                return (isAssigned || isUnderDept) && e.status === 'ongoing'
-                              })
-                              const upcomingActivities = eventsList.filter((e) => {
-                                const isAssigned = e.assignedOrganizationId === selectedOrgObj.id
-                                const isUnderDept =
-                                  isDept &&
-                                  e.eventType === 'organization' &&
-                                  (e.parentDepartmentId === selectedOrgObj.id ||
-                                    e.assignedOrganizationId === selectedOrgObj.id)
                                 return (
-                                  (isAssigned || isUnderDept) &&
-                                  (e.status === 'scheduled' || e.status === 'planned')
-                                )
-                              })
-                              const completedActivities = eventsList.filter((e) => {
-                                const isAssigned = e.assignedOrganizationId === selectedOrgObj.id
-                                const isUnderDept =
-                                  isDept &&
-                                  e.eventType === 'organization' &&
-                                  (e.parentDepartmentId === selectedOrgObj.id ||
-                                    e.assignedOrganizationId === selectedOrgObj.id)
-                                return (isAssigned || isUnderDept) && e.status === 'completed'
-                              })
-
-                              return (
-                                <div className="space-y-6">
-                                  {/* Profile Details Card (Full Width) */}
-                                  <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col space-y-4 w-full relative overflow-hidden">
-                                    {selectedOrgObj.logo && (
-                                      <div className="absolute right-[-10px] bottom-[-26px] w-[500px] h-[270px] opacity-50 pointer-events-none select-none z-0 overflow-hidden">
-                                        <img
-                                          src={selectedOrgObj.logo}
-                                          alt=""
-                                          className="w-full h-[500px] object-contain object-top"
-                                        />
-                                      </div>
-                                    )}
-
-                                    <div className="pb-3 flex items-center justify-between flex-wrap gap-2 relative z-10">
-                                      <h3 className="font-bold text-navy-blue text-sm flex items-center gap-2">
-                                        {isDept ? (
-                                          <Users className="w-4 h-4 text-sig-green" />
-                                        ) : (
-                                          <Building2 className="w-4 h-4 text-sig-green" />
-                                        )}
-                                        {isDept
-                                          ? 'Department Profile Details'
-                                          : 'Organization Profile Details'}
-                                      </h3>
-                                      <div className="flex space-x-2">
-                                        <button
-                                          onClick={() =>
-                                            setSelectedOrgSubTab(
-                                              isDept ? 'department' : 'organization'
-                                            )
-                                          }
-                                          className="flex items-center gap-1.5 px-3 py-1.5 bg-navy-blue text-white hover:bg-navy-blue/90 text-xs font-semibold rounded-xl transition-all duration-150 cursor-pointer"
-                                        >
-                                          Return to {isDept ? 'Department' : 'Organization'}{' '}
-                                          Directory
-                                        </button>
-                                        <button
-                                          onClick={() => {
-                                            handleEditOrgClick(selectedOrgObj)
-                                          }}
-                                          className="flex items-center gap-1.5 px-3 py-1.5 bg-navy-blue/5 hover:bg-navy-blue/10 text-navy-blue text-xs font-semibold rounded-xl transition-all duration-150 cursor-pointer"
-                                        >
-                                          <Edit2 className="w-3.5 h-3.5" /> Edit Profile
-                                        </button>
-                                        <button
-                                          onClick={() => handleDeleteOrg(selectedOrgObj.id)}
-                                          className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 text-xs font-semibold rounded-xl transition-all duration-150 cursor-pointer"
-                                        >
-                                          <Trash2 className="w-3.5 h-3.5" /> Delete{' '}
-                                          {isDept ? 'Department' : 'Organization'}
-                                        </button>
-                                      </div>
-                                    </div>
-                                    <div className="border-b border-gray-100 w-[60%] relative z-10" />
-
-                                    <div className="flex flex-col md:flex-row gap-6 items-start md:items-center relative z-10">
-                                      <div className="w-24 h-24 rounded-3xl border border-gray-100 bg-gray-50 flex items-center justify-center overflow-hidden shadow-inner shrink-0">
-                                        {selectedOrgObj.logo ? (
+                                  <div className="space-y-6">
+                                    {/* Profile Details Card (Full Width) */}
+                                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col space-y-4 w-full relative overflow-hidden">
+                                      {selectedOrgObj.logo && (
+                                        <div className="absolute right-[-10px] bottom-[-26px] w-[500px] h-[270px] opacity-50 pointer-events-none select-none z-0 overflow-hidden">
                                           <img
                                             src={selectedOrgObj.logo}
-                                            alt={`${selectedOrgObj.name} logo`}
-                                            className="w-full h-full object-cover"
+                                            alt=""
+                                            className="w-full h-[500px] object-contain object-top"
                                           />
-                                        ) : (
-                                          <span className="text-2xl font-bold text-navy-blue/70">
-                                            {selectedOrgObj.abbreviation?.toUpperCase()}
-                                          </span>
+                                        </div>
+                                      )}
+
+                                      <div className="pb-3 flex items-center justify-between flex-wrap gap-2 relative z-10">
+                                        <h3 className="font-bold text-navy-blue text-sm flex items-center gap-2">
+                                          {isDept ? (
+                                            <Users className="w-4 h-4 text-sig-green" />
+                                          ) : (
+                                            <Building2 className="w-4 h-4 text-sig-green" />
+                                          )}
+                                          {isDept
+                                            ? 'Department Profile Details'
+                                            : 'Organization Profile Details'}
+                                        </h3>
+                                        <div className="flex space-x-2">
+                                          <button
+                                            onClick={() =>
+                                              setSelectedOrgSubTab(
+                                                isDept ? 'department' : 'organization'
+                                              )
+                                            }
+                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-navy-blue text-white hover:bg-navy-blue/90 text-xs font-semibold rounded-xl transition-all duration-150 cursor-pointer"
+                                          >
+                                            Return to {isDept ? 'Department' : 'Organization'}{' '}
+                                            Directory
+                                          </button>
+                                          <button
+                                            onClick={() => {
+                                              handleEditOrgClick(selectedOrgObj)
+                                            }}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-navy-blue/5 hover:bg-navy-blue/10 text-navy-blue text-xs font-semibold rounded-xl transition-all duration-150 cursor-pointer"
+                                          >
+                                            <Edit2 className="w-3.5 h-3.5" /> Edit Profile
+                                          </button>
+                                          <button
+                                            onClick={() => handleDeleteOrg(selectedOrgObj.id)}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-500 text-xs font-semibold rounded-xl transition-all duration-150 cursor-pointer"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" /> Delete{' '}
+                                            {isDept ? 'Department' : 'Organization'}
+                                          </button>
+                                        </div>
+                                      </div>
+                                      <div className="border-b border-gray-100 w-[60%] relative z-10" />
+
+                                      <div className="flex flex-col md:flex-row gap-6 items-start md:items-center relative z-10">
+                                        <div className="w-24 h-24 rounded-3xl border border-gray-100 bg-gray-50 flex items-center justify-center overflow-hidden shadow-inner shrink-0">
+                                          {selectedOrgObj.logo ? (
+                                            <img
+                                              src={selectedOrgObj.logo}
+                                              alt={`${selectedOrgObj.name} logo`}
+                                              className="w-full h-full object-cover"
+                                            />
+                                          ) : (
+                                            <span className="text-2xl font-bold text-navy-blue/70">
+                                              {selectedOrgObj.abbreviation?.toUpperCase()}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="flex flex-wrap gap-x-16 gap-y-4 flex-1">
+                                          <div>
+                                            <p className="text-[10px] uppercase font-bold text-gray-400">
+                                              {isDept ? 'Department Name' : 'Organization Name'}
+                                            </p>
+                                            <p className="text-sm font-semibold text-navy-blue mt-0.5">
+                                              {selectedOrgObj.name}
+                                            </p>
+                                          </div>
+                                          <div>
+                                            <p className="text-[10px] uppercase font-bold text-gray-400">
+                                              Abbreviation
+                                            </p>
+                                            <p className="text-sm font-semibold text-navy-blue mt-0.5">
+                                              {selectedOrgObj.abbreviation?.toUpperCase()}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <div className="w-[45%] border-t border-gray-300 relative z-10" />
+                                      <div className="pt-2 relative z-10">
+                                        <p className="text-[10px] uppercase font-bold text-gray-400">
+                                          Description
+                                        </p>
+                                        <p className="text-xs text-gray-600 mt-1 leading-relaxed font-medium max-w-sm wrap-break-word whitespace-pre-wrap">
+                                          {selectedOrgObj.description || 'No description provided.'}
+                                        </p>
+                                      </div>
+
+                                      {/* Department link for organizations */}
+                                      {!isDept &&
+                                        (selectedOrgObj.departmentId ||
+                                          selectedOrgObj.parentDepartmentId) && (
+                                          <>
+                                            <div className="w-[45%] border-t border-gray-300 relative z-10" />
+                                            <div className="pt-2 relative z-10">
+                                              <p className="text-[10px] uppercase font-bold text-gray-400">
+                                                Department
+                                              </p>
+                                              <p className="text-xs font-semibold text-navy-blue mt-1">
+                                                {(() => {
+                                                  const pDept = orgsList.find(
+                                                    (o) =>
+                                                      o.id ===
+                                                      (selectedOrgObj.departmentId ||
+                                                        selectedOrgObj.parentDepartmentId)
+                                                  )
+                                                  return pDept
+                                                    ? `${pDept.name} (${pDept.abbreviation?.toUpperCase()})`
+                                                    : 'N/A'
+                                                })()}
+                                              </p>
+                                            </div>
+                                          </>
                                         )}
-                                      </div>
-                                      <div className="flex flex-wrap gap-x-16 gap-y-4 flex-1">
-                                        <div>
-                                          <p className="text-[10px] uppercase font-bold text-gray-400">
-                                            {isDept ? 'Department Name' : 'Organization Name'}
-                                          </p>
-                                          <p className="text-sm font-semibold text-navy-blue mt-0.5">
-                                            {selectedOrgObj.name}
-                                          </p>
-                                        </div>
-                                        <div>
-                                          <p className="text-[10px] uppercase font-bold text-gray-400">
-                                            Abbreviation
-                                          </p>
-                                          <p className="text-sm font-semibold text-navy-blue mt-0.5">
-                                            {selectedOrgObj.abbreviation?.toUpperCase()}
-                                          </p>
-                                        </div>
-                                      </div>
-                                    </div>
 
-                                    <div className="w-[45%] border-t border-gray-300 relative z-10" />
-                                    <div className="pt-2 relative z-10">
-                                      <p className="text-[10px] uppercase font-bold text-gray-400">
-                                        Description
-                                      </p>
-                                      <p className="text-xs text-gray-600 mt-1 leading-relaxed font-medium max-w-sm wrap-break-word whitespace-pre-wrap">
-                                        {selectedOrgObj.description || 'No description provided.'}
-                                      </p>
-                                    </div>
-
-                                    {/* Department link for organizations */}
-                                    {!isDept &&
-                                      (selectedOrgObj.departmentId ||
-                                        selectedOrgObj.parentDepartmentId) && (
+                                      {isDept && (
                                         <>
                                           <div className="w-[45%] border-t border-gray-300 relative z-10" />
                                           <div className="pt-2 relative z-10">
                                             <p className="text-[10px] uppercase font-bold text-gray-400">
-                                              Department
+                                              Organizations under this Department
                                             </p>
-                                            <p className="text-xs font-semibold text-navy-blue mt-1">
-                                              {(() => {
-                                                const pDept = orgsList.find(
-                                                  (o) =>
-                                                    o.id ===
-                                                    (selectedOrgObj.departmentId ||
-                                                      selectedOrgObj.parentDepartmentId)
+                                            {(() => {
+                                              const orgsUnderDept = [
+                                                ...new Set([
+                                                  ...orgsList
+                                                    .filter(
+                                                      (o) =>
+                                                        isOrgItem(o) &&
+                                                        (o.departmentId === selectedOrgObj.id ||
+                                                          o.parentDepartmentId === selectedOrgObj.id)
+                                                    )
+                                                    .map((o) => o.name),
+                                                  ...eventsList
+                                                    .filter(
+                                                      (evt) =>
+                                                        evt.eventType === 'organization' &&
+                                                        evt.parentDepartmentId === selectedOrgObj.id
+                                                    )
+                                                    .map((evt) => evt.organizationName)
+                                                    .filter(Boolean)
+                                                ])
+                                              ]
+                                              if (orgsUnderDept.length === 0) {
+                                                return (
+                                                  <p className="text-xs text-gray-400 mt-1">
+                                                    No organizations recorded under this department.
+                                                  </p>
                                                 )
-                                                return pDept
-                                                  ? `${pDept.name} (${pDept.abbreviation?.toUpperCase()})`
-                                                  : 'N/A'
-                                              })()}
-                                            </p>
+                                              }
+                                              return (
+                                                <div className="flex flex-wrap gap-2 mt-1.5">
+                                                  {orgsUnderDept.map((orgName, idx) => (
+                                                    <span
+                                                      key={idx}
+                                                      className="bg-sig-green/10 text-navy-blue text-xs font-semibold px-2.5 py-1 rounded-full"
+                                                    >
+                                                      {orgName}
+                                                    </span>
+                                                  ))}
+                                                </div>
+                                              )
+                                            })()}
                                           </div>
                                         </>
                                       )}
+                                    </div>
 
-                                    {isDept && (
-                                      <>
-                                        <div className="w-[45%] border-t border-gray-300 relative z-10" />
-                                        <div className="pt-2 relative z-10">
-                                          <p className="text-[10px] uppercase font-bold text-gray-400">
-                                            Organizations under this Department
-                                          </p>
-                                          {(() => {
-                                            const orgsUnderDept = [
-                                              ...new Set([
-                                                ...orgsList
-                                                  .filter(
-                                                    (o) =>
-                                                      isOrgItem(o) &&
-                                                      (o.departmentId === selectedOrgObj.id ||
-                                                        o.parentDepartmentId === selectedOrgObj.id)
-                                                  )
-                                                  .map((o) => o.name),
-                                                ...eventsList
-                                                  .filter(
-                                                    (evt) =>
-                                                      evt.eventType === 'organization' &&
-                                                      evt.parentDepartmentId === selectedOrgObj.id
-                                                  )
-                                                  .map((evt) => evt.organizationName)
-                                                  .filter(Boolean)
-                                              ])
-                                            ]
-                                            if (orgsUnderDept.length === 0) {
-                                              return (
-                                                <p className="text-xs text-gray-400 mt-1">
-                                                  No organizations recorded under this department.
-                                                </p>
-                                              )
-                                            }
-                                            return (
-                                              <div className="flex flex-wrap gap-2 mt-1.5">
-                                                {orgsUnderDept.map((orgName, idx) => (
-                                                  <span
-                                                    key={idx}
-                                                    className="bg-sig-green/10 text-navy-blue text-xs font-semibold px-2.5 py-1 rounded-full"
+                                    {/* Activities & Statistics (Same Row Grid) */}
+                                    <div
+                                      className={`grid grid-cols-1 ${isDept ? 'lg:grid-cols-2' : 'lg:grid-cols-3'
+                                        } gap-6`}
+                                    >
+                                      {/* Ongoing Activities */}
+                                      {!isDept && (
+                                        <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
+                                          <h4 className="font-bold text-navy-blue text-xs border-b border-gray-100 pb-2 flex items-center justify-between">
+                                            <span>Ongoing Activities</span>
+                                            <span className="bg-amber-100 text-amber-800 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase">
+                                              {ongoingActivities.length} Active
+                                            </span>
+                                          </h4>
+                                          {ongoingActivities.length === 0 ? (
+                                            <p className="text-center py-6 text-gray-400 text-xs font-medium">
+                                              No ongoing activities.
+                                            </p>
+                                          ) : (
+                                            <div className="space-y-3">
+                                              {ongoingActivities.map((act) => {
+                                                const orgLabel =
+                                                  act.eventType === 'organization'
+                                                    ? act.organizationName
+                                                    : orgsList.find(
+                                                      (o) => o.id === act.assignedOrganizationId
+                                                    )?.abbreviation || 'CES'
+                                                return (
+                                                  <div
+                                                    key={act.id}
+                                                    className="p-3 bg-gray-50/50 border border-gray-100 rounded-2xl flex justify-between items-center gap-2"
                                                   >
-                                                    {orgName}
-                                                  </span>
-                                                ))}
-                                              </div>
-                                            )
-                                          })()}
+                                                    <div className="min-w-0 flex-1 pr-1 text-left">
+                                                      <p className="text-xs font-bold text-navy-blue truncate">
+                                                        {act.title || act.name}
+                                                      </p>
+                                                      <p className="text-[10px] text-gray-400 font-medium truncate">
+                                                        {act.date ||
+                                                          (act.scheduleDate
+                                                            ? new Date(
+                                                              act.scheduleDate
+                                                            ).toLocaleDateString()
+                                                            : '')}{' '}
+                                                        • {act.location}
+                                                      </p>
+                                                    </div>
+                                                    <span className="bg-navy-blue/5 text-navy-blue text-[8px] font-bold px-2 py-1 rounded shrink-0">
+                                                      {orgLabel}
+                                                    </span>
+                                                  </div>
+                                                )
+                                              })}
+                                            </div>
+                                          )}
                                         </div>
-                                      </>
-                                    )}
-                                  </div>
+                                      )}
 
-                                  {/* Activities & Statistics (Same Row Grid) */}
-                                  <div
-                                    className={`grid grid-cols-1 ${isDept ? 'lg:grid-cols-2' : 'lg:grid-cols-3'
-                                      } gap-6`}
-                                  >
-                                    {/* Ongoing Activities */}
-                                    {!isDept && (
+                                      {/* Upcoming Activities */}
                                       <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
                                         <h4 className="font-bold text-navy-blue text-xs border-b border-gray-100 pb-2 flex items-center justify-between">
-                                          <span>Ongoing Activities</span>
-                                          <span className="bg-amber-100 text-amber-800 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase">
-                                            {ongoingActivities.length} Active
+                                          <span>Upcoming Activities</span>
+                                          <span className="bg-blue-100 text-blue-800 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase">
+                                            {upcomingActivities.length} Scheduled
                                           </span>
                                         </h4>
-                                        {ongoingActivities.length === 0 ? (
+                                        {upcomingActivities.length === 0 ? (
                                           <p className="text-center py-6 text-gray-400 text-xs font-medium">
-                                            No ongoing activities.
+                                            No upcoming activities.
                                           </p>
                                         ) : (
                                           <div className="space-y-3">
-                                            {ongoingActivities.map((act) => {
+                                            {upcomingActivities.map((act) => {
                                               const orgLabel =
                                                 act.eventType === 'organization'
                                                   ? act.organizationName
@@ -5236,452 +5279,401 @@ export default function AdminDashboard({ user, onLogout }) {
                                           </div>
                                         )}
                                       </div>
-                                    )}
 
-                                    {/* Upcoming Activities */}
-                                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
-                                      <h4 className="font-bold text-navy-blue text-xs border-b border-gray-100 pb-2 flex items-center justify-between">
-                                        <span>Upcoming Activities</span>
-                                        <span className="bg-blue-100 text-blue-800 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase">
-                                          {upcomingActivities.length} Scheduled
-                                        </span>
-                                      </h4>
-                                      {upcomingActivities.length === 0 ? (
-                                        <p className="text-center py-6 text-gray-400 text-xs font-medium">
-                                          No upcoming activities.
-                                        </p>
-                                      ) : (
-                                        <div className="space-y-3">
-                                          {upcomingActivities.map((act) => {
-                                            const orgLabel =
-                                              act.eventType === 'organization'
-                                                ? act.organizationName
-                                                : orgsList.find(
-                                                  (o) => o.id === act.assignedOrganizationId
-                                                )?.abbreviation || 'CES'
-                                            return (
-                                              <div
-                                                key={act.id}
-                                                className="p-3 bg-gray-50/50 border border-gray-100 rounded-2xl flex justify-between items-center gap-2"
-                                              >
-                                                <div className="min-w-0 flex-1 pr-1 text-left">
-                                                  <p className="text-xs font-bold text-navy-blue truncate">
-                                                    {act.title || act.name}
-                                                  </p>
-                                                  <p className="text-[10px] text-gray-400 font-medium truncate">
-                                                    {act.date ||
-                                                      (act.scheduleDate
-                                                        ? new Date(
-                                                          act.scheduleDate
-                                                        ).toLocaleDateString()
-                                                        : '')}{' '}
-                                                    • {act.location}
-                                                  </p>
-                                                </div>
-                                                <span className="bg-navy-blue/5 text-navy-blue text-[8px] font-bold px-2 py-1 rounded shrink-0">
-                                                  {orgLabel}
-                                                </span>
-                                              </div>
-                                            )
-                                          })}
-                                        </div>
-                                      )}
-                                    </div>
-
-                                    {/* Outreach Statistics */}
-                                    <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
-                                      <h4 className="font-bold text-navy-blue text-xs border-b border-gray-100 pb-2 text-left">
-                                        Outreach Statistics
-                                      </h4>
-                                      <div className="grid grid-cols-2 gap-4">
-                                        <div className="bg-navy-blue/5 p-3 rounded-2xl flex flex-col justify-between h-20 text-left">
-                                          <span className="text-[9px] font-bold text-navy-blue uppercase">
-                                            Total Scheduled
-                                          </span>
-                                          <span className="text-xl font-bold text-navy-blue">
-                                            {upcomingActivities.length + ongoingActivities.length}
-                                          </span>
-                                        </div>
-                                        <div
-                                          onClick={() => handleOpenCompletedModal(selectedOrgObj)}
-                                          className="bg-sig-green/10 p-3 rounded-2xl flex flex-col justify-between h-20 text-left cursor-pointer hover:bg-sig-green/20 hover:shadow-xs transition duration-200"
-                                        >
-                                          <span className="text-[9px] font-bold text-navy-blue uppercase">
-                                            Completed Activities
-                                          </span>
-                                          <span className="text-xl font-bold text-navy-blue">
-                                            {completedActivities.length}
-                                          </span>
+                                      {/* Outreach Statistics */}
+                                      <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
+                                        <h4 className="font-bold text-navy-blue text-xs border-b border-gray-100 pb-2 text-left">
+                                          Outreach Statistics
+                                        </h4>
+                                        <div className="grid grid-cols-2 gap-4">
+                                          <div className="bg-navy-blue/5 p-3 rounded-2xl flex flex-col justify-between h-20 text-left">
+                                            <span className="text-[9px] font-bold text-navy-blue uppercase">
+                                              Total Scheduled
+                                            </span>
+                                            <span className="text-xl font-bold text-navy-blue">
+                                              {upcomingActivities.length + ongoingActivities.length}
+                                            </span>
+                                          </div>
+                                          <div
+                                            onClick={() => handleOpenCompletedModal(selectedOrgObj)}
+                                            className="bg-sig-green/10 p-3 rounded-2xl flex flex-col justify-between h-20 text-left cursor-pointer hover:bg-sig-green/20 hover:shadow-xs transition duration-200"
+                                          >
+                                            <span className="text-[9px] font-bold text-navy-blue uppercase">
+                                              Completed Activities
+                                            </span>
+                                            <span className="text-xl font-bold text-navy-blue">
+                                              {completedActivities.length}
+                                            </span>
+                                          </div>
                                         </div>
                                       </div>
                                     </div>
                                   </div>
-                                </div>
-                              )
-                            })()}
-                          </motion.div>
-                        )}
-                    </AnimatePresence>
-
-                    {/* ADD / EDIT ORGANIZATION MODAL */}
-                    <AnimatedModal
-                      isOpen={isAddOrgModalOpen}
-                      onClose={handleCancelOrgEdit}
-                      overlayClassName="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay"
-                      contentClassName="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto"
-                    >
-                      <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                        <h3 className="font-bold text-navy-blue text-base">
-                          {editingOrg ? 'Update Organization Profile' : 'Add New Organization'}
-                        </h3>
-                        <button
-                          onClick={handleCancelOrgEdit}
-                          className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 cursor-pointer"
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                      </div>
-                      <form onSubmit={handleCreateOrg} className="space-y-4">
-                        {/* Organization Name (Required) */}
-                        <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">
-                            Organization Name
-                          </label>
-                          <input
-                            type="text"
-                            value={orgName}
-                            onChange={(e) => {
-                              setOrgName(e.target.value)
-                              setOrgErrors((prev) => {
-                                const copy = { ...prev }
-                                delete copy.orgName
-                                return copy
-                              })
-                            }}
-                            placeholder="Supreme Student Council"
-                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${orgErrors.orgName ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                            style={{ height: '40px' }}
-                          />
-                          {orgErrors.orgName && (
-                            <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                              {orgErrors.orgName}
-                            </p>
+                                )
+                              })()}
+                            </motion.div>
                           )}
-                        </div>
+                      </AnimatePresence>
 
-                        {/* Abbreviation (Required) */}
-                        <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">
-                            Abbreviation
-                          </label>
-                          <input
-                            type="text"
-                            value={orgAbbr}
-                            onChange={(e) => {
-                              setOrgAbbr(e.target.value.toUpperCase())
-                              setOrgErrors((prev) => {
-                                const copy = { ...prev }
-                                delete copy.orgAbbr
-                                return copy
-                              })
-                            }}
-                            placeholder="SSC"
-                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${orgErrors.orgAbbr ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                            style={{ height: '40px' }}
-                          />
-                          {orgErrors.orgAbbr && (
-                            <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                              {orgErrors.orgAbbr}
-                            </p>
-                          )}
+                      {/* ADD / EDIT ORGANIZATION MODAL */}
+                      <AnimatedModal
+                        isOpen={isAddOrgModalOpen}
+                        onClose={handleCancelOrgEdit}
+                        overlayClassName="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay"
+                        contentClassName="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto"
+                      >
+                        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                          <h3 className="font-bold text-navy-blue text-base">
+                            {editingOrg ? 'Update Organization Profile' : 'Add New Organization'}
+                          </h3>
+                          <button
+                            onClick={handleCancelOrgEdit}
+                            className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 cursor-pointer"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
                         </div>
-
-                        {/* Description (Required) */}
-                        <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">
-                            Description
-                          </label>
-                          <textarea
-                            value={orgDesc}
-                            onChange={(e) => {
-                              setOrgDesc(e.target.value)
-                              setOrgErrors((prev) => {
-                                const copy = { ...prev }
-                                delete copy.orgDesc
-                                return copy
-                              })
-                            }}
-                            placeholder="Student leadership and outreach programs"
-                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-medium text-navy-blue h-20 resize-none ${orgErrors.orgDesc ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                          />
-                          {orgErrors.orgDesc && (
-                            <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                              {orgErrors.orgDesc}
-                            </p>
-                          )}
-                        </div>
-
-                        {/* Organization Logo (Required) */}
-                        <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">
-                            Organization Logo
-                          </label>
-                          <div className="flex items-center space-x-4">
-                            <div
-                              className={`w-16 h-16 rounded-2xl border bg-gray-50 flex items-center justify-center overflow-hidden ${orgErrors.orgLogo ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                            >
-                              {orgLogo ? (
-                                <img
-                                  src={orgLogo}
-                                  alt="Logo preview"
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <Building2 className="w-8 h-8 text-gray-400" />
-                              )}
-                            </div>
-                            <label
-                              htmlFor="org-logo-upload"
-                              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-navy-blue text-xs font-bold rounded-xl transition-all duration-150 cursor-pointer"
-                            >
-                              Upload Logo
+                        <form onSubmit={handleCreateOrg} className="space-y-4">
+                          {/* Organization Name (Required) */}
+                          <div>
+                            <label className="block text-gray-700 text-xs font-semibold mb-1">
+                              Organization Name
                             </label>
                             <input
-                              type="file"
-                              accept="image/*"
+                              type="text"
+                              value={orgName}
                               onChange={(e) => {
-                                const file = e.target.files[0]
-                                if (file) {
-                                  const reader = new FileReader()
-                                  reader.onloadend = () => {
-                                    setOrgLogo(reader.result)
-                                    setOrgErrors((prev) => {
-                                      const copy = { ...prev }
-                                      delete copy.orgLogo
-                                      return copy
-                                    })
-                                  }
-                                  reader.readAsDataURL(file)
-                                }
+                                setOrgName(e.target.value)
+                                setOrgErrors((prev) => {
+                                  const copy = { ...prev }
+                                  delete copy.orgName
+                                  return copy
+                                })
                               }}
-                              className="hidden"
-                              id="org-logo-upload"
+                              placeholder="Supreme Student Council"
+                              className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${orgErrors.orgName ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                              style={{ height: '40px' }}
                             />
-                            {orgLogo && (
-                              <button
-                                type="button"
-                                onClick={() => setOrgLogo('')}
-                                className="text-red-500 text-xs font-bold cursor-pointer"
-                              >
-                                Remove
-                              </button>
+                            {orgErrors.orgName && (
+                              <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                {orgErrors.orgName}
+                              </p>
                             )}
                           </div>
-                          {orgErrors.orgLogo && (
-                            <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                              {orgErrors.orgLogo}
-                            </p>
-                          )}
-                        </div>
 
-                        {/* Department (Optional) */}
-                        <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">
-                            Department (optional, if organization is under a department)
-                          </label>
-                          <SearchableDropdown
-                            value={orgDepartmentId}
-                            onChange={(val) => setOrgDepartmentId(val)}
-                            options={orgsList.filter(isDeptItem)}
-                            placeholder="Select department (optional)..."
-                          />
-                        </div>
-
-                        <div className="flex items-center space-x-2 pt-2 border-t border-gray-100">
-                          <button
-                            type="button"
-                            onClick={handleCancelOrgEdit}
-                            className="flex-1 bg-gray-100 hover:bg-red-500 hover:text-white text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition-all duration-150 cursor-pointer text-center"
-                            style={{ height: '40px' }}
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="submit"
-                            disabled={loading}
-                            className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition-all duration-150 cursor-pointer flex items-center justify-center gap-1.5"
-                            style={{ height: '40px' }}
-                          >
-                            {editingOrg ? (
-                              <Check className="w-3.5 h-3.5" />
-                            ) : (
-                              <Plus className="w-3.5 h-3.5" />
-                            )}
-                            {editingOrg ? 'Save Changes' : 'Save Organization'}
-                          </button>
-                        </div>
-                      </form>
-                    </AnimatedModal>
-
-                    {/* ADD / EDIT DEPARTMENT MODAL */}
-                    <AnimatedModal
-                      isOpen={isAddDeptModalOpen}
-                      onClose={handleCancelOrgEdit}
-                      overlayClassName="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay"
-                      contentClassName="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto"
-                    >
-                      <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                        <h3 className="font-bold text-navy-blue text-base">
-                          {editingOrg ? 'Update Department Profile' : 'Add New Department'}
-                        </h3>
-                        <button
-                          onClick={handleCancelOrgEdit}
-                          className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 cursor-pointer"
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                      </div>
-                      <form onSubmit={handleCreateOrg} className="space-y-4">
-                        <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">
-                            Department Name
-                          </label>
-                          <input
-                            type="text"
-                            value={orgName}
-                            onChange={(e) => {
-                              setOrgName(e.target.value)
-                              setDeptErrors((prev) => {
-                                const copy = { ...prev }
-                                delete copy.orgName
-                                return copy
-                              })
-                            }}
-                            placeholder="College of Business Administration"
-                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${deptErrors.orgName ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                            style={{ height: '40px' }}
-                          />
-                          {deptErrors.orgName && (
-                            <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                              {deptErrors.orgName}
-                            </p>
-                          )}
-                        </div>
-                        <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">
-                            Abbreviation
-                          </label>
-                          <input
-                            type="text"
-                            value={orgAbbr}
-                            onChange={(e) => {
-                              setOrgAbbr(e.target.value.toUpperCase())
-                              setDeptErrors((prev) => {
-                                const copy = { ...prev }
-                                delete copy.orgAbbr
-                                return copy
-                              })
-                            }}
-                            placeholder="CBA"
-                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${deptErrors.orgAbbr ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                            style={{ height: '40px' }}
-                          />
-                          {deptErrors.orgAbbr && (
-                            <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                              {deptErrors.orgAbbr}
-                            </p>
-                          )}
-                        </div>
-                        <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">
-                            Description
-                          </label>
-                          <textarea
-                            value={orgDesc}
-                            onChange={(e) => setOrgDesc(e.target.value)}
-                            placeholder="IT Literacy Extension services"
-                            className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-medium text-navy-blue h-20 resize-none"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-gray-700 text-xs font-semibold mb-1">
-                            Department Logo
-                          </label>
-                          <div className="flex items-center space-x-4">
-                            <div className="w-16 h-16 rounded-2xl border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
-                              {deptLogo ? (
-                                <img
-                                  src={deptLogo}
-                                  alt="Logo preview"
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <Users className="w-8 h-8 text-gray-400" />
-                              )}
-                            </div>
-                            <label
-                              htmlFor="dept-logo-upload"
-                              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-navy-blue text-xs font-bold rounded-xl transition-all duration-150 cursor-pointer"
-                            >
-                              Upload Logo
+                          {/* Abbreviation (Required) */}
+                          <div>
+                            <label className="block text-gray-700 text-xs font-semibold mb-1">
+                              Abbreviation
                             </label>
                             <input
-                              type="file"
-                              accept="image/*"
+                              type="text"
+                              value={orgAbbr}
                               onChange={(e) => {
-                                const file = e.target.files[0]
-                                if (file) {
-                                  const reader = new FileReader()
-                                  reader.onloadend = () => {
-                                    setDeptLogo(reader.result)
-                                  }
-                                  reader.readAsDataURL(file)
-                                }
+                                setOrgAbbr(e.target.value.toUpperCase())
+                                setOrgErrors((prev) => {
+                                  const copy = { ...prev }
+                                  delete copy.orgAbbr
+                                  return copy
+                                })
                               }}
-                              className="hidden"
-                              id="dept-logo-upload"
+                              placeholder="SSC"
+                              className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${orgErrors.orgAbbr ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                              style={{ height: '40px' }}
                             />
-                            {deptLogo && (
-                              <button
-                                type="button"
-                                onClick={() => setDeptLogo('')}
-                                className="text-red-500 text-xs font-bold cursor-pointer"
-                              >
-                                Remove
-                              </button>
+                            {orgErrors.orgAbbr && (
+                              <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                {orgErrors.orgAbbr}
+                              </p>
                             )}
                           </div>
-                        </div>
 
-                        <div className="flex items-center space-x-2 pt-2 border-t border-gray-100">
-                          <button
-                            type="button"
-                            onClick={handleCancelOrgEdit}
-                            className="flex-1 bg-gray-100 hover:bg-red-500 hover:text-white text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition-all duration-150 cursor-pointer text-center"
-                            style={{ height: '40px' }}
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="submit"
-                            disabled={loading}
-                            className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition-all duration-150 cursor-pointer flex items-center justify-center gap-1.5"
-                            style={{ height: '40px' }}
-                          >
-                            {editingOrg ? (
-                              <Check className="w-3.5 h-3.5" />
-                            ) : (
-                              <Plus className="w-3.5 h-3.5" />
+                          {/* Description (Required) */}
+                          <div>
+                            <label className="block text-gray-700 text-xs font-semibold mb-1">
+                              Description
+                            </label>
+                            <textarea
+                              value={orgDesc}
+                              onChange={(e) => {
+                                setOrgDesc(e.target.value)
+                                setOrgErrors((prev) => {
+                                  const copy = { ...prev }
+                                  delete copy.orgDesc
+                                  return copy
+                                })
+                              }}
+                              placeholder="Student leadership and outreach programs"
+                              className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-medium text-navy-blue h-20 resize-none ${orgErrors.orgDesc ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                            />
+                            {orgErrors.orgDesc && (
+                              <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                {orgErrors.orgDesc}
+                              </p>
                             )}
-                            {editingOrg ? 'Save Changes' : 'Save Department'}
+                          </div>
+
+                          {/* Organization Logo (Required) */}
+                          <div>
+                            <label className="block text-gray-700 text-xs font-semibold mb-1">
+                              Organization Logo
+                            </label>
+                            <div className="flex items-center space-x-4">
+                              <div
+                                className={`w-16 h-16 rounded-2xl border bg-gray-50 flex items-center justify-center overflow-hidden ${orgErrors.orgLogo ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                              >
+                                {orgLogo ? (
+                                  <img
+                                    src={orgLogo}
+                                    alt="Logo preview"
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <Building2 className="w-8 h-8 text-gray-400" />
+                                )}
+                              </div>
+                              <label
+                                htmlFor="org-logo-upload"
+                                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-navy-blue text-xs font-bold rounded-xl transition-all duration-150 cursor-pointer"
+                              >
+                                Upload Logo
+                              </label>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files[0]
+                                  if (file) {
+                                    const reader = new FileReader()
+                                    reader.onloadend = () => {
+                                      setOrgLogo(reader.result)
+                                      setOrgErrors((prev) => {
+                                        const copy = { ...prev }
+                                        delete copy.orgLogo
+                                        return copy
+                                      })
+                                    }
+                                    reader.readAsDataURL(file)
+                                  }
+                                }}
+                                className="hidden"
+                                id="org-logo-upload"
+                              />
+                              {orgLogo && (
+                                <button
+                                  type="button"
+                                  onClick={() => setOrgLogo('')}
+                                  className="text-red-500 text-xs font-bold cursor-pointer"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                            {orgErrors.orgLogo && (
+                              <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                {orgErrors.orgLogo}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Department (Optional) */}
+                          <div>
+                            <label className="block text-gray-700 text-xs font-semibold mb-1">
+                              Department (optional, if organization is under a department)
+                            </label>
+                            <SearchableDropdown
+                              value={orgDepartmentId}
+                              onChange={(val) => setOrgDepartmentId(val)}
+                              options={orgsList.filter(isDeptItem)}
+                              placeholder="Select department (optional)..."
+                            />
+                          </div>
+
+                          <div className="flex items-center space-x-2 pt-2 border-t border-gray-100">
+                            <button
+                              type="button"
+                              onClick={handleCancelOrgEdit}
+                              className="flex-1 bg-gray-100 hover:bg-red-500 hover:text-white text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition-all duration-150 cursor-pointer text-center"
+                              style={{ height: '40px' }}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="submit"
+                              disabled={loading}
+                              className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition-all duration-150 cursor-pointer flex items-center justify-center gap-1.5"
+                              style={{ height: '40px' }}
+                            >
+                              {editingOrg ? (
+                                <Check className="w-3.5 h-3.5" />
+                              ) : (
+                                <Plus className="w-3.5 h-3.5" />
+                              )}
+                              {editingOrg ? 'Save Changes' : 'Save Organization'}
+                            </button>
+                          </div>
+                        </form>
+                      </AnimatedModal>
+
+                      {/* ADD / EDIT DEPARTMENT MODAL */}
+                      <AnimatedModal
+                        isOpen={isAddDeptModalOpen}
+                        onClose={handleCancelOrgEdit}
+                        overlayClassName="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay"
+                        contentClassName="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto"
+                      >
+                        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                          <h3 className="font-bold text-navy-blue text-base">
+                            {editingOrg ? 'Update Department Profile' : 'Add New Department'}
+                          </h3>
+                          <button
+                            onClick={handleCancelOrgEdit}
+                            className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 cursor-pointer"
+                          >
+                            <X className="w-5 h-5" />
                           </button>
                         </div>
-                      </form>
-                    </AnimatedModal>
-                  </div>
-                )
-              )}
+                        <form onSubmit={handleCreateOrg} className="space-y-4">
+                          <div>
+                            <label className="block text-gray-700 text-xs font-semibold mb-1">
+                              Department Name
+                            </label>
+                            <input
+                              type="text"
+                              value={orgName}
+                              onChange={(e) => {
+                                setOrgName(e.target.value)
+                                setDeptErrors((prev) => {
+                                  const copy = { ...prev }
+                                  delete copy.orgName
+                                  return copy
+                                })
+                              }}
+                              placeholder="College of Business Administration"
+                              className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${deptErrors.orgName ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                              style={{ height: '40px' }}
+                            />
+                            {deptErrors.orgName && (
+                              <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                {deptErrors.orgName}
+                              </p>
+                            )}
+                          </div>
+                          <div>
+                            <label className="block text-gray-700 text-xs font-semibold mb-1">
+                              Abbreviation
+                            </label>
+                            <input
+                              type="text"
+                              value={orgAbbr}
+                              onChange={(e) => {
+                                setOrgAbbr(e.target.value.toUpperCase())
+                                setDeptErrors((prev) => {
+                                  const copy = { ...prev }
+                                  delete copy.orgAbbr
+                                  return copy
+                                })
+                              }}
+                              placeholder="CBA"
+                              className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${deptErrors.orgAbbr ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                              style={{ height: '40px' }}
+                            />
+                            {deptErrors.orgAbbr && (
+                              <p className="text-red-500 text-[10px] mt-1 font-semibold">
+                                {deptErrors.orgAbbr}
+                              </p>
+                            )}
+                          </div>
+                          <div>
+                            <label className="block text-gray-700 text-xs font-semibold mb-1">
+                              Description
+                            </label>
+                            <textarea
+                              value={orgDesc}
+                              onChange={(e) => setOrgDesc(e.target.value)}
+                              placeholder="IT Literacy Extension services"
+                              className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-medium text-navy-blue h-20 resize-none"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-gray-700 text-xs font-semibold mb-1">
+                              Department Logo
+                            </label>
+                            <div className="flex items-center space-x-4">
+                              <div className="w-16 h-16 rounded-2xl border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
+                                {deptLogo ? (
+                                  <img
+                                    src={deptLogo}
+                                    alt="Logo preview"
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <Users className="w-8 h-8 text-gray-400" />
+                                )}
+                              </div>
+                              <label
+                                htmlFor="dept-logo-upload"
+                                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-navy-blue text-xs font-bold rounded-xl transition-all duration-150 cursor-pointer"
+                              >
+                                Upload Logo
+                              </label>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files[0]
+                                  if (file) {
+                                    const reader = new FileReader()
+                                    reader.onloadend = () => {
+                                      setDeptLogo(reader.result)
+                                    }
+                                    reader.readAsDataURL(file)
+                                  }
+                                }}
+                                className="hidden"
+                                id="dept-logo-upload"
+                              />
+                              {deptLogo && (
+                                <button
+                                  type="button"
+                                  onClick={() => setDeptLogo('')}
+                                  className="text-red-500 text-xs font-bold cursor-pointer"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center space-x-2 pt-2 border-t border-gray-100">
+                            <button
+                              type="button"
+                              onClick={handleCancelOrgEdit}
+                              className="flex-1 bg-gray-100 hover:bg-red-500 hover:text-white text-gray-700 font-semibold py-2 px-4 rounded-full text-xs transition-all duration-150 cursor-pointer text-center"
+                              style={{ height: '40px' }}
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="submit"
+                              disabled={loading}
+                              className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition-all duration-150 cursor-pointer flex items-center justify-center gap-1.5"
+                              style={{ height: '40px' }}
+                            >
+                              {editingOrg ? (
+                                <Check className="w-3.5 h-3.5" />
+                              ) : (
+                                <Plus className="w-3.5 h-3.5" />
+                              )}
+                              {editingOrg ? 'Save Changes' : 'Save Department'}
+                            </button>
+                          </div>
+                        </form>
+                      </AnimatedModal>
+                    </div>
+                  )
+                )}
 
                 {/* ==================================================== */}
                 {/* NARRATIVES REVIEW QUEUE TAB PANEL */}
@@ -5691,251 +5683,251 @@ export default function AdminDashboard({ user, onLogout }) {
                     <ReportsSkeleton />
                   ) : (
                     <div className="space-y-6 animate-fade-in">
-                    <div className="pb-1">
-                      <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
-                        Narrative Reports
-                      </h1>
-                    </div>
+                      <div className="pb-1">
+                        <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
+                          Narrative Reports
+                        </h1>
+                      </div>
 
-                    {/* View Mode Switching Container with Motion Animation */}
-                    <AnimatePresence mode="wait">
-                      {reportsSubTab === 'pending' ? (
-                        <motion.div
-                          key="pending-queue"
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: 10 }}
-                          transition={{ duration: 0.2, ease: 'easeInOut' }}
-                          className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4"
-                        >
-                          <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-2">
-                            <h3 className="font-bold text-navy-blue text-sm">
-                              Pending Review
-                            </h3>
-                            <button
-                              onClick={() => setReportsSubTab('approved')}
-                              className="bg-navy-blue hover:bg-navy-blue/90 text-white font-semibold py-1.5 px-4 rounded-full text-xs transition-all duration-150 cursor-pointer flex items-center space-x-1.5 shadow-xs"
-                            >
-                              <span>Approved</span>
-                              <ChevronRight className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-
-                          <div className="space-y-3">
-                            {reportsList
-                              .filter(
-                                (r) => r.status === 'submitted' || r.status === 'returned'
-                              )
-                              .sort(
-                                (a, b) =>
-                                  getPendingReportTimestamp(a) - getPendingReportTimestamp(b)
-                              )
-                              .map((rep) => {
-                                const event = eventsList.find((e) => e.id === rep.eventId)
-                                const org = orgsList.find((o) => o.id === rep.organizationId)
-                                const author = usersList.find((u) => u.uid === rep.authorId)
-
-                                return (
-                                  <div
-                                    key={rep.id}
-                                    className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-gray-50/50 hover:bg-white border border-gray-100 hover:border-sig-green/30 rounded-2xl transition duration-200"
-                                  >
-                                    <div className="space-y-1">
-                                      <div className="flex items-center space-x-2">
-                                        <span
-                                          className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${rep.status === 'submitted'
-                                            ? 'bg-amber-100 text-amber-800'
-                                            : 'bg-red-100 text-red-800'
-                                            }`}
-                                        >
-                                          {rep.status}
-                                        </span>
-                                        <span className="text-[10px] text-navy-blue font-bold">
-                                          {org
-                                            ? org.name
-                                            : rep.organizationId
-                                              ? 'Unknown Department'
-                                              : 'CES Office'}{' '}
-                                          ({org ? org.abbreviation : rep.organizationId ? '' : 'CES'})
-                                          {(rep.semester || rep.academicYear) && (
-                                            <span className="text-gray-400 font-normal ml-1">
-                                              • {[rep.semester, rep.academicYear].filter(Boolean).join(' | ')}
-                                            </span>
-                                          )}
-                                        </span>
-                                      </div>
-                                      <h4 className="font-bold text-navy-blue text-sm">
-                                        {event ? event.name : rep.activityTitle || rep.title || 'Outreach Activity'}
-                                      </h4>
-                                      <div className="text-[10px] text-gray-400">
-                                        Submitted by {author ? author.name : rep.submittedBy || 'Coordinator'} on{' '}
-                                        {new Date(getPendingReportTimestamp(rep)).toLocaleDateString()}
-                                      </div>
-                                    </div>
-
-                                    <div className="flex items-center space-x-2 mt-4 md:mt-0">
-                                      <button
-                                        onClick={() => {
-                                          setSelectedReport(rep)
-                                          setFeedbackNote('')
-                                        }}
-                                        className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-1.5 px-3 rounded-full text-[11px] flex items-center space-x-1 cursor-pointer"
-                                      >
-                                        <Eye className="w-3.5 h-3.5" />
-                                        <span>Inspect Report</span>
-                                      </button>
-                                    </div>
-                                  </div>
-                                )
-                              })}
-
-                            {reportsList.filter(
-                              (r) => r.status === 'submitted' || r.status === 'returned'
-                            ).length === 0 && (
-                                <div className="text-center py-8 text-gray-400 text-xs">
-                                  No reports pending review.
-                                </div>
-                              )}
-                          </div>
-                        </motion.div>
-                      ) : (
-                        <motion.div
-                          key="approved-queue"
-                          initial={{ opacity: 0, x: 10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: -10 }}
-                          transition={{ duration: 0.2, ease: 'easeInOut' }}
-                          className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4"
-                        >
-                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-gray-100 pb-3 mb-2">
-                            <h3 className="font-bold text-navy-blue text-sm">
-                              Approved Reports
-                            </h3>
-                            <button
-                              onClick={() => setReportsSubTab('pending')}
-                              className="bg-gray-100 hover:bg-gray-200 text-navy-blue font-semibold py-1.5 px-3.5 rounded-full text-xs transition-all duration-150 cursor-pointer flex items-center space-x-1.5"
-                            >
-                              <ChevronLeft className="w-3.5 h-3.5" />
-                              <span>Pending Review Queue</span>
-                            </button>
-                          </div>
-
-                          {/* Search Input Field */}
-                          <div className="relative">
-                            <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                            <input
-                              type="text"
-                              value={approvedSearchQuery}
-                              onChange={(e) => setApprovedSearchQuery(e.target.value)}
-                              placeholder="Search approved reports by title, author, venue, program, department, beneficiaries, objectives..."
-                              className="w-full pl-9 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-navy-blue placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-navy-blue/20 focus:border-navy-blue transition duration-150"
-                            />
-                            {approvedSearchQuery && (
+                      {/* View Mode Switching Container with Motion Animation */}
+                      <AnimatePresence mode="wait">
+                        {reportsSubTab === 'pending' ? (
+                          <motion.div
+                            key="pending-queue"
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 10 }}
+                            transition={{ duration: 0.2, ease: 'easeInOut' }}
+                            className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4"
+                          >
+                            <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-2">
+                              <h3 className="font-bold text-navy-blue text-sm">
+                                Pending Review
+                              </h3>
                               <button
-                                onClick={() => setApprovedSearchQuery('')}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-navy-blue p-0.5 rounded-full"
+                                onClick={() => setReportsSubTab('approved')}
+                                className="bg-navy-blue hover:bg-navy-blue/90 text-white font-semibold py-1.5 px-4 rounded-full text-xs transition-all duration-150 cursor-pointer flex items-center space-x-1.5 shadow-xs"
                               >
-                                <X className="w-3.5 h-3.5" />
+                                <span>Approved</span>
+                                <ChevronRight className="w-3.5 h-3.5" />
                               </button>
-                            )}
-                          </div>
+                            </div>
 
-                          <div className="space-y-3 pt-1">
-                            {reportsList
-                              .filter((r) => r.status === 'approved')
-                              .filter((rep) => {
-                                if (!approvedSearchQuery.trim()) return true
-                                const query = approvedSearchQuery.toLowerCase().trim()
-                                const searchableText = getReportSearchableText(rep)
-                                return searchableText.includes(query)
-                              })
-                              .map((rep) => {
-                                const event = eventsList.find((e) => e.id === rep.eventId)
-                                const org = orgsList.find((o) => o.id === rep.organizationId)
-                                const author = usersList.find((u) => u.uid === rep.authorId)
-
-                                return (
-                                  <div
-                                    key={rep.id}
-                                    className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-gray-50/50 hover:bg-white border border-gray-100 hover:border-sig-green/30 rounded-2xl transition duration-200"
-                                  >
-                                    <div className="space-y-1">
-                                      <div className="flex items-center space-x-2">
-                                        <span className="inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full bg-green-100 text-green-800">
-                                          Approved
-                                        </span>
-                                        <span className="text-[10px] text-navy-blue font-bold">
-                                          {org
-                                            ? org.name
-                                            : rep.organizationId
-                                              ? 'Unknown Department'
-                                              : 'CES Office'}{' '}
-                                          ({org ? org.abbreviation : rep.organizationId ? '' : 'CES'})
-                                          {(rep.semester || rep.academicYear) && (
-                                            <span className="text-gray-400 font-normal ml-1">
-                                              • {[rep.semester, rep.academicYear].filter(Boolean).join(' | ')}
-                                            </span>
-                                          )}
-                                        </span>
-                                      </div>
-                                      <h4 className="font-bold text-navy-blue text-sm">
-                                        {event ? event.name : rep.activityTitle || rep.title || 'Outreach Activity'}
-                                      </h4>
-                                      <div className="text-[10px] text-gray-400">
-                                        Submitted by {author ? author.name : rep.submittedBy || 'Coordinator'} on{' '}
-                                        {new Date(rep.updatedAt || rep.createdAt).toLocaleDateString()}
-                                      </div>
-                                    </div>
-
-                                    <div className="flex items-center space-x-2 mt-4 md:mt-0">
-                                      <button
-                                        onClick={() => {
-                                          setSelectedReport(rep)
-                                          setFeedbackNote('')
-                                        }}
-                                        className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-1.5 px-3 rounded-full text-[11px] flex items-center space-x-1 cursor-pointer"
-                                      >
-                                        <Eye className="w-3.5 h-3.5" />
-                                        <span>Inspect Report</span>
-                                      </button>
-                                      <button
-                                        onClick={() => compileReportPDF(rep)}
-                                        className="bg-sig-green text-navy-blue font-semibold py-1.5 px-3 rounded-full text-[11px] flex items-center space-x-1 hover:bg-sig-green-600 transition-all duration-150 cursor-pointer"
-                                      >
-                                        <Download className="w-3.5 h-3.5" />
-                                        <span>Export PDF</span>
-                                      </button>
-                                    </div>
-                                  </div>
+                            <div className="space-y-3">
+                              {reportsList
+                                .filter(
+                                  (r) => r.status === 'submitted' || r.status === 'returned'
                                 )
-                              })}
+                                .sort(
+                                  (a, b) =>
+                                    getPendingReportTimestamp(a) - getPendingReportTimestamp(b)
+                                )
+                                .map((rep) => {
+                                  const event = eventsList.find((e) => e.id === rep.eventId)
+                                  const org = orgsList.find((o) => o.id === rep.organizationId)
+                                  const author = usersList.find((u) => u.uid === rep.authorId)
 
-                            {reportsList.filter((r) => r.status === 'approved').length === 0 && (
-                              <div className="text-center py-8 text-gray-400 text-xs">
-                                No approved reports found.
-                              </div>
-                            )}
+                                  return (
+                                    <div
+                                      key={rep.id}
+                                      className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-gray-50/50 hover:bg-white border border-gray-100 hover:border-sig-green/30 rounded-2xl transition duration-200"
+                                    >
+                                      <div className="space-y-1">
+                                        <div className="flex items-center space-x-2">
+                                          <span
+                                            className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${rep.status === 'submitted'
+                                              ? 'bg-amber-100 text-amber-800'
+                                              : 'bg-red-100 text-red-800'
+                                              }`}
+                                          >
+                                            {rep.status}
+                                          </span>
+                                          <span className="text-[10px] text-navy-blue font-bold">
+                                            {org
+                                              ? org.name
+                                              : rep.organizationId
+                                                ? 'Unknown Department'
+                                                : 'CES Office'}{' '}
+                                            ({org ? org.abbreviation : rep.organizationId ? '' : 'CES'})
+                                            {(rep.semester || rep.academicYear) && (
+                                              <span className="text-gray-400 font-normal ml-1">
+                                                • {[rep.semester, rep.academicYear].filter(Boolean).join(' | ')}
+                                              </span>
+                                            )}
+                                          </span>
+                                        </div>
+                                        <h4 className="font-bold text-navy-blue text-sm">
+                                          {event ? event.name : rep.activityTitle || rep.title || 'Outreach Activity'}
+                                        </h4>
+                                        <div className="text-[10px] text-gray-400">
+                                          Submitted by {author ? author.name : rep.submittedBy || 'Coordinator'} on{' '}
+                                          {new Date(getPendingReportTimestamp(rep)).toLocaleDateString()}
+                                        </div>
+                                      </div>
 
-                            {reportsList.filter((r) => r.status === 'approved').length > 0 &&
-                              reportsList
+                                      <div className="flex items-center space-x-2 mt-4 md:mt-0">
+                                        <button
+                                          onClick={() => {
+                                            setSelectedReport(rep)
+                                            setFeedbackNote('')
+                                          }}
+                                          className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-1.5 px-3 rounded-full text-[11px] flex items-center space-x-1 cursor-pointer"
+                                        >
+                                          <Eye className="w-3.5 h-3.5" />
+                                          <span>Inspect Report</span>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+
+                              {reportsList.filter(
+                                (r) => r.status === 'submitted' || r.status === 'returned'
+                              ).length === 0 && (
+                                  <div className="text-center py-8 text-gray-400 text-xs">
+                                    No reports pending review.
+                                  </div>
+                                )}
+                            </div>
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            key="approved-queue"
+                            initial={{ opacity: 0, x: 10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -10 }}
+                            transition={{ duration: 0.2, ease: 'easeInOut' }}
+                            className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4"
+                          >
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-gray-100 pb-3 mb-2">
+                              <h3 className="font-bold text-navy-blue text-sm">
+                                Approved Reports
+                              </h3>
+                              <button
+                                onClick={() => setReportsSubTab('pending')}
+                                className="bg-gray-100 hover:bg-gray-200 text-navy-blue font-semibold py-1.5 px-3.5 rounded-full text-xs transition-all duration-150 cursor-pointer flex items-center space-x-1.5"
+                              >
+                                <ChevronLeft className="w-3.5 h-3.5" />
+                                <span>Pending Review Queue</span>
+                              </button>
+                            </div>
+
+                            {/* Search Input Field */}
+                            <div className="relative">
+                              <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                              <input
+                                type="text"
+                                value={approvedSearchQuery}
+                                onChange={(e) => setApprovedSearchQuery(e.target.value)}
+                                placeholder="Search approved reports by title, author, venue, program, department, beneficiaries, objectives..."
+                                className="w-full pl-9 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-navy-blue placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-navy-blue/20 focus:border-navy-blue transition duration-150"
+                              />
+                              {approvedSearchQuery && (
+                                <button
+                                  onClick={() => setApprovedSearchQuery('')}
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-navy-blue p-0.5 rounded-full"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+
+                            <div className="space-y-3 pt-1">
+                              {reportsList
                                 .filter((r) => r.status === 'approved')
                                 .filter((rep) => {
                                   if (!approvedSearchQuery.trim()) return true
                                   const query = approvedSearchQuery.toLowerCase().trim()
                                   const searchableText = getReportSearchableText(rep)
                                   return searchableText.includes(query)
-                                }).length === 0 && (
+                                })
+                                .map((rep) => {
+                                  const event = eventsList.find((e) => e.id === rep.eventId)
+                                  const org = orgsList.find((o) => o.id === rep.organizationId)
+                                  const author = usersList.find((u) => u.uid === rep.authorId)
+
+                                  return (
+                                    <div
+                                      key={rep.id}
+                                      className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-gray-50/50 hover:bg-white border border-gray-100 hover:border-sig-green/30 rounded-2xl transition duration-200"
+                                    >
+                                      <div className="space-y-1">
+                                        <div className="flex items-center space-x-2">
+                                          <span className="inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full bg-green-100 text-green-800">
+                                            Approved
+                                          </span>
+                                          <span className="text-[10px] text-navy-blue font-bold">
+                                            {org
+                                              ? org.name
+                                              : rep.organizationId
+                                                ? 'Unknown Department'
+                                                : 'CES Office'}{' '}
+                                            ({org ? org.abbreviation : rep.organizationId ? '' : 'CES'})
+                                            {(rep.semester || rep.academicYear) && (
+                                              <span className="text-gray-400 font-normal ml-1">
+                                                • {[rep.semester, rep.academicYear].filter(Boolean).join(' | ')}
+                                              </span>
+                                            )}
+                                          </span>
+                                        </div>
+                                        <h4 className="font-bold text-navy-blue text-sm">
+                                          {event ? event.name : rep.activityTitle || rep.title || 'Outreach Activity'}
+                                        </h4>
+                                        <div className="text-[10px] text-gray-400">
+                                          Submitted by {author ? author.name : rep.submittedBy || 'Coordinator'} on{' '}
+                                          {new Date(rep.updatedAt || rep.createdAt).toLocaleDateString()}
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center space-x-2 mt-4 md:mt-0">
+                                        <button
+                                          onClick={() => {
+                                            setSelectedReport(rep)
+                                            setFeedbackNote('')
+                                          }}
+                                          className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-1.5 px-3 rounded-full text-[11px] flex items-center space-x-1 cursor-pointer"
+                                        >
+                                          <Eye className="w-3.5 h-3.5" />
+                                          <span>Inspect Report</span>
+                                        </button>
+                                        <button
+                                          onClick={() => compileReportPDF(rep)}
+                                          className="bg-sig-green text-navy-blue font-semibold py-1.5 px-3 rounded-full text-[11px] flex items-center space-x-1 hover:bg-sig-green-600 transition-all duration-150 cursor-pointer"
+                                        >
+                                          <Download className="w-3.5 h-3.5" />
+                                          <span>Export PDF</span>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+
+                              {reportsList.filter((r) => r.status === 'approved').length === 0 && (
                                 <div className="text-center py-8 text-gray-400 text-xs">
-                                  No approved reports match your search criteria &quot;{approvedSearchQuery}&quot;.
+                                  No approved reports found.
                                 </div>
                               )}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                )
-              )}
+
+                              {reportsList.filter((r) => r.status === 'approved').length > 0 &&
+                                reportsList
+                                  .filter((r) => r.status === 'approved')
+                                  .filter((rep) => {
+                                    if (!approvedSearchQuery.trim()) return true
+                                    const query = approvedSearchQuery.toLowerCase().trim()
+                                    const searchableText = getReportSearchableText(rep)
+                                    return searchableText.includes(query)
+                                  }).length === 0 && (
+                                  <div className="text-center py-8 text-gray-400 text-xs">
+                                    No approved reports match your search criteria &quot;{approvedSearchQuery}&quot;.
+                                  </div>
+                                )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )
+                )}
 
                 {/* ==================================================== */}
                 {/* USER ACCOUNT MANAGEMENT TAB PANEL */}
@@ -5945,159 +5937,159 @@ export default function AdminDashboard({ user, onLogout }) {
                     <AccountsSkeleton />
                   ) : (
                     <div className="space-y-6 animate-fade-in w-full">
-                    {/* Header section */}
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1">
-                      <div>
-                        <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
-                          User Account Management
-                        </h1>
+                      {/* Header section */}
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-1">
+                        <div>
+                          <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
+                            User Account Management
+                          </h1>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setEditingUser(null)
+                            setCoordFirstName('')
+                            setCoordLastName('')
+                            setCoordEmail('')
+                            setCoordRole('office_coordinator')
+                            setCoordOrgId('')
+                            setDeptSearchVal('')
+                            setCoordErrors({})
+                            setIsAddUserModalOpen(true)
+                          }}
+                          className="flex items-center space-x-1.5 bg-navy-blue hover:bg-navy-blue-600 text-white rounded-lg text-xs font-semibold py-2 px-4 border border-navy-blue shadow-xs transition-all duration-150 cursor-pointer"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>Add User</span>
+                        </button>
                       </div>
-                      <button
-                        onClick={() => {
-                          setEditingUser(null)
-                          setCoordFirstName('')
-                          setCoordLastName('')
-                          setCoordEmail('')
-                          setCoordRole('office_coordinator')
-                          setCoordOrgId('')
-                          setDeptSearchVal('')
-                          setCoordErrors({})
-                          setIsAddUserModalOpen(true)
-                        }}
-                        className="flex items-center space-x-1.5 bg-navy-blue hover:bg-navy-blue-600 text-white rounded-lg text-xs font-semibold py-2 px-4 border border-navy-blue shadow-xs transition-all duration-150 cursor-pointer"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>Add User</span>
-                      </button>
-                    </div>
 
-                    {/* Full Width User Accounts Directory Table */}
-                    <div className="glass-card rounded-2xl p-6">
-                      <h3 className="font-bold text-navy-blue text-sm border-b border-gray-200/60 pb-3 mb-4">
-                        User Accounts Directory
-                      </h3>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="border-b border-gray-200/60 bg-gray-50/80 text-[10px] uppercase font-bold text-gray-500">
-                              <th className="py-3 px-4">Full Name</th>
-                              <th className="py-3 px-3">Role</th>
-                              <th className="py-3 px-3">Status</th>
-                              <th className="py-3 px-4 text-right">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100 text-xs">
-                            {usersList.map((u) => {
-                              const isSelf = u.uid === user.uid
-                              return (
-                                <tr key={u.uid} className="hover:bg-gray-50/60 transition">
-                                  <td className="py-3.5 px-4 font-semibold text-navy-blue">
-                                    <div>
-                                      {u.name}{' '}
-                                      {isSelf && (
-                                        <span className="text-[9px] bg-navy-blue/10 text-navy-blue px-1.5 py-0.2 rounded font-bold ml-1">
-                                          You
-                                        </span>
-                                      )}
-                                    </div>
-                                    <span className="text-[10px] text-gray-400 font-normal">
-                                      {u.email}
-                                    </span>
-                                  </td>
-                                  <td className="py-3.5 px-3 text-gray-600 font-medium capitalize">
-                                    {u.role.replace('_', ' ')}
-                                  </td>
-                                  <td className="py-3.5 px-3">
-                                    <span
-                                      className={`inline-block text-[9px] font-bold px-2.5 py-0.5 rounded-full uppercase ${u.status === 'inactive'
-                                        ? 'bg-red-50 text-red-700 border border-red-200'
-                                        : 'bg-green-50 text-green-700 border border-green-200'
-                                        }`}
-                                    >
-                                      {u.status || 'active'}
-                                    </span>
-                                  </td>
-                                  <td className="py-3.5 px-4 text-right space-x-1.5 shrink-0">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setEditingUser(u)
-                                        const nameParts = (u.name || '').trim().split(' ')
-                                        let first = ''
-                                        let last = ''
-                                        if (nameParts.length > 1) {
-                                          last = nameParts.pop()
-                                          first = nameParts.join(' ')
-                                        } else {
-                                          first = u.name || ''
-                                          last = ''
-                                        }
-                                        setCoordFirstName(first)
-                                        setCoordLastName(last)
-                                        setCoordName(u.name || '')
-                                        setCoordEmail(u.email || '')
-                                        setCoordUsername(u.username || '')
-                                        setCoordRole(u.role)
-                                        setCoordOrgId(u.organizationId || '')
-                                        const matchedOrg = orgsList.find(
-                                          (o) => o.id === u.organizationId
-                                        )
-                                        setDeptSearchVal(
-                                          matchedOrg ? matchedOrg.name : u.organizationId || ''
-                                        )
-                                        setCoordErrors({})
-                                        setIsAddUserModalOpen(true)
-                                      }}
-                                      className="py-1 px-2.5 rounded-lg text-xs font-semibold border bg-white hover:bg-gray-50 text-navy-blue border-gray-200 shadow-2xs transition-all duration-150 cursor-pointer"
-                                    >
-                                      Edit
-                                    </button>
-                                    {u.role === 'office_coordinator' && (
+                      {/* Full Width User Accounts Directory Table */}
+                      <div className="glass-card rounded-2xl p-6">
+                        <h3 className="font-bold text-navy-blue text-sm border-b border-gray-200/60 pb-3 mb-4">
+                          User Accounts Directory
+                        </h3>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="border-b border-gray-200/60 bg-gray-50/80 text-[10px] uppercase font-bold text-gray-500">
+                                <th className="py-3 px-4">Full Name</th>
+                                <th className="py-3 px-3">Role</th>
+                                <th className="py-3 px-3">Status</th>
+                                <th className="py-3 px-4 text-right">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 text-xs">
+                              {usersList.map((u) => {
+                                const isSelf = u.uid === user.uid
+                                return (
+                                  <tr key={u.uid} className="hover:bg-gray-50/60 transition">
+                                    <td className="py-3.5 px-4 font-semibold text-navy-blue">
+                                      <div>
+                                        {u.name}{' '}
+                                        {isSelf && (
+                                          <span className="text-[9px] bg-navy-blue/10 text-navy-blue px-1.5 py-0.2 rounded font-bold ml-1">
+                                            You
+                                          </span>
+                                        )}
+                                      </div>
+                                      <span className="text-[10px] text-gray-400 font-normal">
+                                        {u.email}
+                                      </span>
+                                    </td>
+                                    <td className="py-3.5 px-3 text-gray-600 font-medium capitalize">
+                                      {u.role.replace('_', ' ')}
+                                    </td>
+                                    <td className="py-3.5 px-3">
+                                      <span
+                                        className={`inline-block text-[9px] font-bold px-2.5 py-0.5 rounded-full uppercase ${u.status === 'inactive'
+                                          ? 'bg-red-50 text-red-700 border border-red-200'
+                                          : 'bg-green-50 text-green-700 border border-green-200'
+                                          }`}
+                                      >
+                                        {u.status || 'active'}
+                                      </span>
+                                    </td>
+                                    <td className="py-3.5 px-4 text-right space-x-1.5 shrink-0">
                                       <button
                                         type="button"
-                                        onClick={() => handleSendCoordinatorReset(u)}
-                                        className="py-1 px-2.5 rounded-lg text-xs font-semibold border bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200/80 shadow-2xs transition-all duration-150 cursor-pointer"
+                                        onClick={() => {
+                                          setEditingUser(u)
+                                          const nameParts = (u.name || '').trim().split(' ')
+                                          let first = ''
+                                          let last = ''
+                                          if (nameParts.length > 1) {
+                                            last = nameParts.pop()
+                                            first = nameParts.join(' ')
+                                          } else {
+                                            first = u.name || ''
+                                            last = ''
+                                          }
+                                          setCoordFirstName(first)
+                                          setCoordLastName(last)
+                                          setCoordName(u.name || '')
+                                          setCoordEmail(u.email || '')
+                                          setCoordUsername(u.username || '')
+                                          setCoordRole(u.role)
+                                          setCoordOrgId(u.organizationId || '')
+                                          const matchedOrg = orgsList.find(
+                                            (o) => o.id === u.organizationId
+                                          )
+                                          setDeptSearchVal(
+                                            matchedOrg ? matchedOrg.name : u.organizationId || ''
+                                          )
+                                          setCoordErrors({})
+                                          setIsAddUserModalOpen(true)
+                                        }}
+                                        className="py-1 px-2.5 rounded-lg text-xs font-semibold border bg-white hover:bg-gray-50 text-navy-blue border-gray-200 shadow-2xs transition-all duration-150 cursor-pointer"
                                       >
-                                        Reset Password
+                                        Edit
                                       </button>
-                                    )}
-                                    <button
-                                      type="button"
-                                      disabled={isSelf}
-                                      onClick={() =>
-                                        handleToggleStatus(u.uid, u.status || 'active')
-                                      }
-                                      className={`py-1 px-2.5 rounded-lg text-xs font-semibold border shadow-2xs transition-all duration-150 cursor-pointer ${isSelf
-                                        ? 'opacity-40 cursor-not-allowed bg-gray-100 text-gray-400 border-gray-200'
-                                        : u.status === 'inactive'
-                                          ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
-                                          : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
-                                        }`}
-                                    >
-                                      {u.status === 'inactive' ? 'Activate' : 'Deactivate'}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={isSelf}
-                                      onClick={() => handleDeleteUser(u)}
-                                      className={`py-1 px-2.5 rounded-lg text-xs font-semibold border shadow-2xs transition-all duration-150 cursor-pointer ${isSelf
-                                        ? 'opacity-40 cursor-not-allowed bg-gray-100 text-gray-400 border-gray-200'
-                                        : 'bg-red-50 hover:bg-red-500 hover:text-white text-red-600 border-red-200/80'
-                                        }`}
-                                    >
-                                      Delete
-                                    </button>
-                                  </td>
-                                </tr>
-                              )
-                            })}
-                          </tbody>
-                        </table>
+                                      {u.role === 'office_coordinator' && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSendCoordinatorReset(u)}
+                                          className="py-1 px-2.5 rounded-lg text-xs font-semibold border bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200/80 shadow-2xs transition-all duration-150 cursor-pointer"
+                                        >
+                                          Reset Password
+                                        </button>
+                                      )}
+                                      <button
+                                        type="button"
+                                        disabled={isSelf}
+                                        onClick={() =>
+                                          handleToggleStatus(u.uid, u.status || 'active')
+                                        }
+                                        className={`py-1 px-2.5 rounded-lg text-xs font-semibold border shadow-2xs transition-all duration-150 cursor-pointer ${isSelf
+                                          ? 'opacity-40 cursor-not-allowed bg-gray-100 text-gray-400 border-gray-200'
+                                          : u.status === 'inactive'
+                                            ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
+                                            : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
+                                          }`}
+                                      >
+                                        {u.status === 'inactive' ? 'Activate' : 'Deactivate'}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={isSelf}
+                                        onClick={() => handleDeleteUser(u)}
+                                        className={`py-1 px-2.5 rounded-lg text-xs font-semibold border shadow-2xs transition-all duration-150 cursor-pointer ${isSelf
+                                          ? 'opacity-40 cursor-not-allowed bg-gray-100 text-gray-400 border-gray-200'
+                                          : 'bg-red-50 hover:bg-red-500 hover:text-white text-red-600 border-red-200/80'
+                                          }`}
+                                      >
+                                        Delete
+                                      </button>
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )
-              )}
+                  )
+                )}
 
                 {/* ==================================================== */}
                 {/* ABOUT TAB PANEL */}

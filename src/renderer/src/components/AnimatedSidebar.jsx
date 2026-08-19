@@ -36,7 +36,7 @@ export default function AnimatedSidebar({
 
   return (
     <motion.aside
-      className="glass-sidebar flex flex-col justify-between shrink-0 relative rounded-2xl my-4 ml-4 shadow-glass-navy select-none z-20"
+      className="glass-sidebar flex flex-col justify-between shrink-0 relative rounded-2xl my-4 ml-4 shadow-glass-navy select-none z-20 max-w-full"
       animate={{ width: isCollapsed ? 80 : 256 }}
       transition={sidebarTransition}
     >

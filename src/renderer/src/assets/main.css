@@ -205,6 +205,24 @@ body {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════
+   WINDOW RESPONSIVENESS — Flex-child overflow prevention
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* Prevent flex children from forcing parent overflow (blowout protection) */
+.glass-header > *,
+.glass-panel > *,
+.glass-sidebar > * {
+  min-width: 0;
+}
+
+/* Ensure header text truncates cleanly when window is narrow */
+.glass-header .truncate-responsive {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
    MODERN & MINIMAL SCROLLBARS (PAGE FLOWS INSPIRED)
    ══════════════════════════════════════════════════════════════════════════════ */
 
