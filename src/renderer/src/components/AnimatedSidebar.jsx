@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { ChevronLeft, ChevronRight, LogOut } from 'lucide-react'
 import { sidebarTransition, tooltipVariants, duration, easing } from './motion/motionConfig'
@@ -21,6 +21,22 @@ export default function AnimatedSidebar({
     }
   })
 
+  const [windowWidth, setWindowWidth] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth : 1440
+  )
+
+  useEffect(() => {
+    const handleResize = () => {
+      const w = window.innerWidth
+      setWindowWidth(w)
+      if (w < 1024) {
+        setIsCollapsed(true)
+      }
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   const [hoveredTab, setHoveredTab] = useState(null)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
@@ -34,10 +50,12 @@ export default function AnimatedSidebar({
 
   const activeIndex = tabs.findIndex((t) => t.id === activeTab)
 
+  const expandedWidth = windowWidth < 1280 ? 220 : 256
+
   return (
     <motion.aside
-      className="glass-sidebar flex flex-col justify-between shrink-0 relative rounded-2xl my-4 ml-4 shadow-glass-navy select-none z-20 max-w-full"
-      animate={{ width: isCollapsed ? 80 : 256 }}
+      className="glass-sidebar flex flex-col justify-between shrink-0 relative rounded-2xl my-2 sm:my-4 ml-2 sm:ml-4 shadow-glass-navy select-none z-20 max-h-[calc(100vh-1rem)] sm:max-h-[calc(100vh-2rem)] overflow-hidden"
+      animate={{ width: isCollapsed ? 76 : expandedWidth }}
       transition={sidebarTransition}
     >
       {/* Top Header Row with Collapse Toggle */}

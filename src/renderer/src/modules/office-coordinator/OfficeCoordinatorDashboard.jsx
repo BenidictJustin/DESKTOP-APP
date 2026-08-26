@@ -42,7 +42,10 @@ import {
   X,
   MapPin,
   Clock,
-  CheckCircle2
+  CheckCircle2,
+  ChevronRight,
+  ChevronLeft,
+  Search
 } from 'lucide-react'
 import TextEditor from '../../components/editor/TextEditor'
 import DocumentViewer from '../../components/DocumentViewer'
@@ -108,6 +111,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   const [selectedViewEvent, setSelectedViewEvent] = useState(null)
   const [isViewEventModalOpen, setIsViewEventModalOpen] = useState(false)
   const [showAllCompleted, setShowAllCompleted] = useState(false)
+  const [compiledReportsTab, setCompiledReportsTab] = useState('draft') // 'draft' | 'returned' | 'approved'
+  const [approvedSearchQuery, setApprovedSearchQuery] = useState('')
 
   // ── Database ──
   const [reportsList, setReportsList] = useState([])
@@ -344,6 +349,100 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     setExportingReport(report)
   }, [])
 
+  // Helper to extract timestamp for chronological sorting (oldest first)
+  const getReportTimestamp = (rep, targetStatus) => {
+    if (!rep) return 0
+    if (targetStatus === 'draft') {
+      if (rep.createdAt) {
+        const t = new Date(rep.createdAt).getTime()
+        if (!isNaN(t)) return t
+      }
+      if (rep.updatedAt) {
+        const t = new Date(rep.updatedAt).getTime()
+        if (!isNaN(t)) return t
+      }
+    }
+    if (targetStatus === 'returned') {
+      if (rep.returnedAt) {
+        const t = new Date(rep.returnedAt).getTime()
+        if (!isNaN(t)) return t
+      }
+      if (Array.isArray(rep.history) && rep.history.length > 0) {
+        const retEntry = [...rep.history].reverse().find((h) => h.status === 'returned')
+        if (retEntry?.timestamp) {
+          const t = new Date(retEntry.timestamp).getTime()
+          if (!isNaN(t)) return t
+        }
+      }
+    }
+    if (targetStatus === 'approved') {
+      if (rep.approvedAt) {
+        const t = new Date(rep.approvedAt).getTime()
+        if (!isNaN(t)) return t
+      }
+      if (Array.isArray(rep.history) && rep.history.length > 0) {
+        const appEntry = [...rep.history].reverse().find((h) => h.status === 'approved')
+        if (appEntry?.timestamp) {
+          const t = new Date(appEntry.timestamp).getTime()
+          if (!isNaN(t)) return t
+        }
+      }
+    }
+    if (rep.submittedAt) {
+      const t = new Date(rep.submittedAt).getTime()
+      if (!isNaN(t)) return t
+    }
+    if (Array.isArray(rep.history) && rep.history.length > 0) {
+      const lastEntry = rep.history[rep.history.length - 1]
+      if (lastEntry?.timestamp) {
+        const t = new Date(lastEntry.timestamp).getTime()
+        if (!isNaN(t)) return t
+      }
+    }
+    if (rep.updatedAt) {
+      const t = new Date(rep.updatedAt).getTime()
+      if (!isNaN(t)) return t
+    }
+    if (rep.createdAt) {
+      const t = new Date(rep.createdAt).getTime()
+      if (!isNaN(t)) return t
+    }
+    return 0
+  }
+
+  // Helper for searching approved reports
+  const getReportSearchableText = useCallback(
+    (rep) => {
+      if (!rep) return ''
+      const ev = eventsList.find((e) => e.id === rep.eventId)
+      const org = orgsList.find((o) => o.id === rep.organizationId)
+      const author = usersList.find((u) => u.uid === rep.authorId)
+      const rawNarrativeText = rep.narrative ? rep.narrative.replace(/<[^>]*>/g, ' ') : ''
+
+      const fields = [
+        rep.activityTitle,
+        rep.title,
+        rep.narrativeReportName,
+        ev?.name,
+        ev?.venue,
+        ev?.location,
+        ev?.description,
+        author?.name,
+        rep.authorName,
+        rep.location,
+        rep.beneficiaries,
+        rep.academicYear,
+        rep.semester,
+        org?.name,
+        org?.abbreviation,
+        rawNarrativeText
+      ]
+
+      return fields.filter(Boolean).join(' ').toLowerCase()
+    },
+    [eventsList, orgsList, usersList]
+  )
+
   // ── Derived ──
   const myReports = reportsList.filter((r) => {
     const ev = eventsList.find((e) => e.id === r.eventId)
@@ -364,24 +463,24 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   return (
     <div className="h-screen max-h-screen flex flex-col font-poppins selection:bg-sig-green/20 selection:text-navy-blue overflow-hidden bg-[#F1EFEC]">
       {/* Top Glass Header Bar */}
-      <header className="mx-4 mt-4 glass-header rounded-2xl flex items-center justify-between px-6 py-2.5 shrink-0 shadow-glass-sm">
+      <header className="mx-2 sm:mx-4 mt-2 sm:mt-4 glass-header rounded-2xl flex items-center justify-between px-3 sm:px-6 py-2 sm:py-2.5 shrink-0 shadow-glass-sm gap-2">
         {/* Left: Logo and Title */}
-        <div className="flex items-center space-x-3 bg-white/60 backdrop-blur-sm p-2 pr-4 rounded-xl border border-white/60 min-w-0">
-          <div className="h-11 w-11 rounded-lg bg-white/90 flex items-center justify-center border border-white/80 overflow-hidden shrink-0 shadow-2xs">
-            <img src={logo} alt="CES Logo" className="h-9 w-9 object-contain" />
+        <div className="flex items-center space-x-2 sm:space-x-3 bg-white/60 backdrop-blur-sm p-1.5 sm:p-2 pr-3 sm:pr-4 rounded-xl border border-white/60 min-w-0">
+          <div className="h-9 w-9 sm:h-11 sm:w-11 rounded-lg bg-white/90 flex items-center justify-center border border-white/80 overflow-hidden shrink-0 shadow-2xs">
+            <img src={logo} alt="CES Logo" className="h-7 w-7 sm:h-9 sm:w-9 object-contain" />
           </div>
-          <div className="flex flex-col text-left leading-none">
-            <span className="text-[12px] font-bold text-navy-blue tracking-wide uppercase leading-tight">
+          <div className="flex flex-col text-left leading-none min-w-0">
+            <span className="text-[10px] sm:text-[12px] font-bold text-navy-blue tracking-wide uppercase leading-tight truncate">
               COMMUNITY EXTENSION & SERVICES
             </span>
-            <span className="text-[10px] font-semibold text-sig-green tracking-wide uppercase mt-0.5 leading-tight">
+            <span className="text-[8px] sm:text-[10px] font-semibold text-sig-green tracking-wide uppercase mt-0.5 leading-tight truncate">
               DOMINICAN COLLEGE OF TARLAC
             </span>
           </div>
         </div>
 
         {/* Right: Info, Home, Profile info */}
-        <div className="flex items-center space-x-6 min-w-0 shrink-0">
+        <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
           <button
             type="button"
             onClick={() => setActiveTab('about')}
@@ -391,15 +490,15 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
             <Info className="w-5 h-5" />
           </button>
 
-          <div className="flex items-center space-x-3 bg-white/60 backdrop-blur-sm p-2 pr-4 pl-3 rounded-xl border border-white/60">
-            <div className="w-9 h-9 rounded-lg border border-navy-blue/15 flex items-center justify-center text-navy-blue bg-white shadow-2xs">
-              <Users className="w-4.5 h-4.5" />
+          <div className="flex items-center space-x-2 sm:space-x-3 bg-white/60 backdrop-blur-sm p-1.5 sm:p-2 pr-3 sm:pr-4 pl-2 sm:pl-3 rounded-xl border border-white/60">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg border border-navy-blue/15 flex items-center justify-center text-navy-blue bg-white shadow-2xs shrink-0">
+              <Users className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
             </div>
             <div className="text-left leading-none">
-              <div className="text-xs font-bold text-navy-blue">
+              <div className="text-xs font-bold text-navy-blue truncate max-w-[100px] sm:max-w-[140px]">
                 {user.username || user.name || 'coordinator123'}
               </div>
-              <div className="text-[9px] text-gray-400 font-medium mt-0.5">{user.email}</div>
+              <div className="text-[9px] text-gray-400 font-medium mt-0.5 truncate max-w-[100px] sm:max-w-[140px] hidden sm:block">{user.email}</div>
             </div>
           </div>
         </div>
@@ -428,22 +527,22 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         />
 
         {/* Main Panel Content Area */}
-        <main className="flex-1 min-w-0 my-4 mx-4 glass-panel rounded-2xl shadow-glass-md overflow-hidden flex flex-col">
+        <main className="flex-1 my-2 sm:my-4 mx-2 sm:mx-4 glass-panel rounded-2xl shadow-glass-md overflow-hidden flex flex-col min-w-0">
           <AnimatedPage pageKey={activeTab} className="h-full flex flex-col">
             {/* ── DASHBOARD ── */}
             {activeTab === 'dashboard' && (
               isOffline ? (
-                <div className="flex-1 overflow-y-auto p-8">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
                   <div className="max-w-5xl mx-auto">
                     <CoordinatorDashboardSkeleton />
                   </div>
                 </div>
               ) : (
-                <div className="flex-1 overflow-y-auto p-8">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
                   <div className="max-w-5xl mx-auto space-y-6">
                     {/* Stats row */}
                     <motion.div
-                      className="grid grid-cols-2 md:grid-cols-5 gap-4"
+                      className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4"
                       variants={staggerContainer}
                       initial="initial"
                       animate="animate"
@@ -506,18 +605,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                     {/* Quick actions */}
                     <div className="flex gap-3">
                       <button
-                        onClick={() => {
-                          resetForm()
-                          setActiveTab('editor')
-                        }}
-                        className="flex items-center gap-2 bg-navy-blue text-white text-xs font-semibold px-4 py-2.5 rounded-xl border-b-2 border-sig-green hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>New Report</span>
-                      </button>
-                      <button
                         onClick={() => setActiveTab('reports')}
-                        className="flex items-center gap-2 bg-white text-navy-blue text-xs font-semibold px-4 py-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 transition-all duration-150 cursor-pointer"
+                        className="flex items-center gap-2 bg-navy-blue text-white text-xs font-semibold px-4 py-2.5 rounded-xl border-b-2 border-sig-green hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer"
                       >
                         <FolderOpen className="w-3.5 h-3.5" />
                         <span>View My Reports</span>
@@ -599,90 +688,382 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                   </div>
                 </div>
               ) : (
-                <div className="flex-1 overflow-y-auto p-8">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
                   <div className="max-w-4xl mx-auto space-y-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">Compiled Reports</h1>
-                      <button
-                        onClick={() => {
-                          resetForm()
-                          setActiveTab('editor')
-                        }}
-                        className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-3 py-2 rounded-xl border-b-2 border-sig-green hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>New Report</span>
-                      </button>
+                    {/* Header with Title and Segmented Tabs */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                      <div>
+                        <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">Compiled Reports</h1>
+                      </div>
+                      <div className="flex items-center gap-3 sm:gap-4 flex-wrap sm:flex-nowrap">
+                        {/* Segmented Status Navigation Control */}
+                        <div className="bg-gray-100/90 p-1 rounded-full flex items-center gap-1 border border-gray-200/80 shadow-2xs">
+                          {/* Draft Tab */}
+                          <button
+                            type="button"
+                            onClick={() => setCompiledReportsTab('draft')}
+                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${
+                              compiledReportsTab === 'draft'
+                                ? 'bg-navy-blue text-white shadow-sm'
+                                : 'text-gray-600 hover:text-navy-blue hover:bg-white/50'
+                            }`}
+                          >
+                            <span>Draft</span>
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${
+                                compiledReportsTab === 'draft'
+                                  ? 'bg-white/20 text-white'
+                                  : 'bg-gray-200 text-gray-700'
+                              }`}
+                            >
+                              {stats.drafts}
+                            </span>
+                          </button>
+
+                          {/* Returned Tab */}
+                          <button
+                            type="button"
+                            onClick={() => setCompiledReportsTab('returned')}
+                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${
+                              compiledReportsTab === 'returned'
+                                ? 'bg-navy-blue text-white shadow-sm'
+                                : 'text-gray-600 hover:text-navy-blue hover:bg-white/50'
+                            }`}
+                          >
+                            <span>Returned</span>
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${
+                                stats.returned > 0
+                                  ? 'bg-red-500 text-white shadow-xs'
+                                  : compiledReportsTab === 'returned'
+                                    ? 'bg-white/20 text-white'
+                                    : 'bg-gray-200 text-gray-700'
+                              }`}
+                            >
+                              {stats.returned}
+                            </span>
+                          </button>
+
+                          {/* Approved Tab */}
+                          <button
+                            type="button"
+                            onClick={() => setCompiledReportsTab('approved')}
+                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${
+                              compiledReportsTab === 'approved'
+                                ? 'bg-navy-blue text-white shadow-sm'
+                                : 'text-gray-600 hover:text-navy-blue hover:bg-white/50'
+                            }`}
+                          >
+                            <span>Approved</span>
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${
+                                compiledReportsTab === 'approved'
+                                  ? 'bg-white/20 text-white'
+                                  : 'bg-gray-200 text-gray-700'
+                              }`}
+                            >
+                              {stats.approved}
+                            </span>
+                          </button>
+                        </div>
+
+                        {/* Separate New Report Action Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            resetForm()
+                            setActiveTab('editor')
+                          }}
+                          className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-bold px-4 py-2 rounded-full border-b-2 border-sig-green hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-sm shrink-0"
+                        >
+                          <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                          <span>New Report</span>
+                        </button>
+                      </div>
                     </div>
 
-                    {myReports.length === 0 ? (
-                      <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200 text-gray-400 text-xs">
-                        No reports yet. Click "New Report" to get started.
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {myReports.map((rep) => {
-                          const ev = eventsList.find((e) => e.id === rep.eventId)
-                          const author = usersList.find((u) => u.uid === rep.authorId)
-                          return (
-                            <div
-                              key={rep.id}
-                              className="bg-white rounded-2xl border border-gray-100 hover:border-sig-green/30 p-4 flex flex-col md:flex-row md:items-center justify-between transition-all duration-200 group shadow-xs"
-                            >
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <StatusBadge status={rep.status} />
+                    {/* View Modes with Motion Transition */}
+                    <AnimatePresence mode="wait">
+                      {compiledReportsTab === 'draft' && (
+                        <motion.div
+                          key="coordinator-drafts-tab"
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 10 }}
+                          transition={{ duration: 0.2, ease: 'easeInOut' }}
+                          className="space-y-4"
+                        >
+                          {(() => {
+                            const draftReports = myReports
+                              .filter((r) => r.status === 'draft')
+                              .sort((a, b) => getReportTimestamp(a, 'draft') - getReportTimestamp(b, 'draft'))
+
+                            if (draftReports.length === 0) {
+                              return (
+                                <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200 text-gray-400 text-xs">
+                                  No draft reports yet. Click &quot;New Report&quot; to get started.
                                 </div>
-                                <h4 className="text-sm font-bold text-navy-blue">
-                                  {ev?.name || rep.activityTitle || 'Untitled Report'}
-                                </h4>
-                                <p className="text-[10px] text-gray-400">
-                                  Submitted by{' '}
-                                  <span className="font-semibold text-gray-700">
-                                    {author ? author.name : 'Coordinator'}
-                                  </span>{' '}
-                                  · Updated {new Date(rep.updatedAt).toLocaleDateString()}
-                                </p>
-                                {rep.status === 'returned' && rep.adminFeedback && (
-                                  <p className="text-[10px] text-red-600 font-semibold flex items-center gap-1 mt-0.5">
-                                    <AlertTriangle className="w-3 h-3" />
-                                    {rep.adminFeedback}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="mt-3 md:mt-0">
-                                {rep.status === 'submitted' || rep.status === 'approved' ? (
-                                  <button
-                                    onClick={() => setSelectedViewerReport(rep)}
-                                    className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-xs"
-                                  >
-                                    <Eye className="w-3.5 h-3.5" />
-                                    <span>View</span>
-                                  </button>
-                                ) : (
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      onClick={() => setSelectedViewerReport(rep)}
-                                      className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
+                              )
+                            }
+
+                            return (
+                              <div className="space-y-3">
+                                {draftReports.map((rep) => {
+                                  const ev = eventsList.find((e) => e.id === rep.eventId)
+                                  const org = orgsList.find((o) => o.id === rep.organizationId)
+                                  const author = usersList.find((u) => u.uid === rep.authorId)
+                                  return (
+                                    <div
+                                      key={rep.id}
+                                      className="bg-white rounded-2xl border border-gray-100 hover:border-sig-green/30 p-4 flex flex-col md:flex-row md:items-center justify-between transition-all duration-200 group shadow-xs"
                                     >
-                                      <Eye className="w-3.5 h-3.5" />
-                                      <span>View</span>
-                                    </button>
-                                    <button
-                                      onClick={() => openReport(rep)}
-                                      className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-xs"
-                                    >
-                                      <Edit3 className="w-3.5 h-3.5" />
-                                      <span>Edit</span>
-                                    </button>
-                                  </div>
-                                )}
+                                      <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                          <StatusBadge status={rep.status} />
+                                          {org && (
+                                            <span className="text-[10px] text-navy-blue font-bold">
+                                              {org.name} ({org.abbreviation})
+                                            </span>
+                                          )}
+                                        </div>
+                                        <h4 className="text-sm font-bold text-navy-blue">
+                                          {ev?.name || rep.activityTitle || 'Untitled Draft'}
+                                        </h4>
+                                        <p className="text-[10px] text-gray-400">
+                                          Created by{' '}
+                                          <span className="font-semibold text-gray-700">
+                                            {author ? author.name : 'Coordinator'}
+                                          </span>{' '}
+                                          · Draft dated {new Date(getReportTimestamp(rep, 'draft')).toLocaleDateString()}
+                                        </p>
+                                      </div>
+                                      <div className="mt-3 md:mt-0 flex items-center gap-2">
+                                        <button
+                                          onClick={() => setSelectedViewerReport(rep)}
+                                          className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
+                                        >
+                                          <Eye className="w-3.5 h-3.5" />
+                                          <span>View</span>
+                                        </button>
+                                        <button
+                                          onClick={() => openReport(rep)}
+                                          className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-xs"
+                                        >
+                                          <Edit3 className="w-3.5 h-3.5" />
+                                          <span>Edit</span>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
                               </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
+                            )
+                          })()}
+                        </motion.div>
+                      )}
+
+                      {compiledReportsTab === 'returned' && (
+                        <motion.div
+                          key="coordinator-returned-tab"
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 10 }}
+                          transition={{ duration: 0.2, ease: 'easeInOut' }}
+                          className="space-y-4"
+                        >
+                          {(() => {
+                            const returnedReports = myReports
+                              .filter((r) => r.status === 'returned')
+                              .sort((a, b) => getReportTimestamp(a, 'returned') - getReportTimestamp(b, 'returned'))
+
+                            if (returnedReports.length === 0) {
+                              return (
+                                <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200 text-gray-400 text-xs">
+                                  No returned reports for revision.
+                                </div>
+                              )
+                            }
+
+                            return (
+                              <div className="space-y-3">
+                                {returnedReports.map((rep) => {
+                                  const ev = eventsList.find((e) => e.id === rep.eventId)
+                                  const org = orgsList.find((o) => o.id === rep.organizationId)
+                                  const author = usersList.find((u) => u.uid === rep.authorId)
+                                  return (
+                                    <div
+                                      key={rep.id}
+                                      className="bg-white rounded-2xl border border-red-100 hover:border-red-300 p-4 flex flex-col md:flex-row md:items-center justify-between transition-all duration-200 group shadow-xs"
+                                    >
+                                      <div className="space-y-1.5 max-w-2xl">
+                                        <div className="flex items-center gap-2">
+                                          <StatusBadge status={rep.status} />
+                                          {org && (
+                                            <span className="text-[10px] text-navy-blue font-bold">
+                                              {org.name} ({org.abbreviation})
+                                            </span>
+                                          )}
+                                        </div>
+                                        <h4 className="text-sm font-bold text-navy-blue">
+                                          {ev?.name || rep.activityTitle || 'Untitled Report'}
+                                        </h4>
+                                        <p className="text-[10px] text-gray-400">
+                                          Submitted by{' '}
+                                          <span className="font-semibold text-gray-700">
+                                            {author ? author.name : 'Coordinator'}
+                                          </span>{' '}
+                                          · Returned on {new Date(getReportTimestamp(rep, 'returned')).toLocaleDateString()}
+                                        </p>
+                                        {rep.adminFeedback && (
+                                          <div className="bg-red-50/80 border border-red-150 rounded-xl p-2.5 mt-1 text-[11px] text-red-700 font-medium flex items-start gap-2">
+                                            <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0 mt-0.5" />
+                                            <div>
+                                              <span className="font-bold block text-red-800 text-[10px] uppercase tracking-wider">
+                                                Admin Revision Feedback:
+                                              </span>
+                                              {rep.adminFeedback}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div className="mt-3 md:mt-0 flex items-center gap-2 shrink-0">
+                                        <button
+                                          onClick={() => setSelectedViewerReport(rep)}
+                                          className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
+                                        >
+                                          <Eye className="w-3.5 h-3.5" />
+                                          <span>View</span>
+                                        </button>
+                                        <button
+                                          onClick={() => openReport(rep)}
+                                          className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-xs"
+                                        >
+                                          <Edit3 className="w-3.5 h-3.5" />
+                                          <span>Edit & Revise</span>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )
+                          })()}
+                        </motion.div>
+                      )}
+
+                      {compiledReportsTab === 'approved' && (
+                        <motion.div
+                          key="coordinator-approved-tab"
+                          initial={{ opacity: 0, x: 10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -10 }}
+                          transition={{ duration: 0.2, ease: 'easeInOut' }}
+                          className="space-y-4"
+                        >
+                          {/* Live Search Input */}
+                          <div className="relative">
+                            <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                            <input
+                              type="text"
+                              value={approvedSearchQuery}
+                              onChange={(e) => setApprovedSearchQuery(e.target.value)}
+                              placeholder="Search approved reports by title, author, venue, program, department, beneficiaries..."
+                              className="w-full pl-9 pr-8 py-2 bg-white border border-gray-200 rounded-xl text-xs text-navy-blue placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-navy-blue/20 focus:border-navy-blue transition duration-150 shadow-2xs"
+                            />
+                            {approvedSearchQuery && (
+                              <button
+                                onClick={() => setApprovedSearchQuery('')}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-navy-blue p-0.5 rounded-full"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+
+                          {(() => {
+                            const approvedReports = myReports
+                              .filter((r) => r.status === 'approved')
+                              .sort((a, b) => getReportTimestamp(a, 'approved') - getReportTimestamp(b, 'approved'))
+
+                            const filteredApproved = approvedReports.filter((rep) => {
+                              if (!approvedSearchQuery.trim()) return true
+                              const query = approvedSearchQuery.toLowerCase().trim()
+                              const searchableText = getReportSearchableText(rep)
+                              return searchableText.includes(query)
+                            })
+
+                            if (approvedReports.length === 0) {
+                              return (
+                                <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200 text-gray-400 text-xs">
+                                  No approved reports yet.
+                                </div>
+                              )
+                            }
+
+                            if (filteredApproved.length === 0) {
+                              return (
+                                <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200 text-gray-400 text-xs">
+                                  No approved reports match your search criteria &quot;{approvedSearchQuery}&quot;.
+                                </div>
+                              )
+                            }
+
+                            return (
+                              <div className="space-y-3">
+                                {filteredApproved.map((rep) => {
+                                  const ev = eventsList.find((e) => e.id === rep.eventId)
+                                  const org = orgsList.find((o) => o.id === rep.organizationId)
+                                  const author = usersList.find((u) => u.uid === rep.authorId)
+                                  return (
+                                    <div
+                                      key={rep.id}
+                                      className="bg-white rounded-2xl border border-gray-100 hover:border-sig-green/30 p-4 flex flex-col md:flex-row md:items-center justify-between transition-all duration-200 group shadow-xs"
+                                    >
+                                      <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                          <StatusBadge status={rep.status} />
+                                          {org && (
+                                            <span className="text-[10px] text-navy-blue font-bold">
+                                              {org.name} ({org.abbreviation})
+                                            </span>
+                                          )}
+                                        </div>
+                                        <h4 className="text-sm font-bold text-navy-blue">
+                                          {ev?.name || rep.activityTitle || 'Untitled Report'}
+                                        </h4>
+                                        <p className="text-[10px] text-gray-400">
+                                          Submitted by{' '}
+                                          <span className="font-semibold text-gray-700">
+                                            {author ? author.name : 'Coordinator'}
+                                          </span>{' '}
+                                          · Approved on {new Date(getReportTimestamp(rep, 'approved')).toLocaleDateString()}
+                                        </p>
+                                      </div>
+                                      <div className="mt-3 md:mt-0 flex items-center gap-2">
+                                        <button
+                                          onClick={() => setSelectedViewerReport(rep)}
+                                          className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
+                                        >
+                                          <Eye className="w-3.5 h-3.5" />
+                                          <span>View</span>
+                                        </button>
+                                        <button
+                                          onClick={() => compileReportPDF(rep)}
+                                          className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
+                                        >
+                                          <Download className="w-3.5 h-3.5" />
+                                          <span>Export PDF</span>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )
+                          })()}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
               )

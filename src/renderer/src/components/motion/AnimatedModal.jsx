@@ -23,8 +23,8 @@ import {
 export default function AnimatedModal({
   isOpen,
   onClose,
-  overlayClassName = 'fixed inset-0 z-[99999] flex items-center justify-center bg-navy-blue/40 backdrop-blur-xs p-4',
-  contentClassName = 'bg-white rounded-3xl p-6 shadow-2xl border border-gray-100 max-w-sm w-full text-center space-y-4',
+  overlayClassName = 'fixed inset-0 z-[99999] flex items-center justify-center bg-navy-blue/40 backdrop-blur-xs p-3 sm:p-4 md:p-6 overflow-y-auto',
+  contentClassName = 'bg-white rounded-3xl p-5 sm:p-6 shadow-2xl border border-gray-100 max-w-sm w-full text-center space-y-4 max-h-[90vh] overflow-y-auto',
   children
 }) {
   useEffect(() => {

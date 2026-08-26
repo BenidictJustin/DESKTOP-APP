@@ -21,8 +21,8 @@ export default function StatusBar({
   totalPages = 1
 }) {
   return (
-    <div className="bg-navy-blue text-gray-300 flex items-center justify-between px-4 py-1 text-[10px] shrink-0 select-none">
-      <div className="flex items-center gap-4">
+    <div className="bg-navy-blue text-gray-300 flex items-center justify-between px-3 sm:px-4 py-1 text-[10px] shrink-0 select-none overflow-x-auto gap-3">
+      <div className="flex items-center gap-2 sm:gap-4 whitespace-nowrap min-w-0">
         <span>
           Page <strong className="text-white">{currentPage}</strong> of{' '}
           <strong className="text-white">{totalPages}</strong>
@@ -31,17 +31,17 @@ export default function StatusBar({
         <span>
           Words: <strong className="text-white">{wordCount}</strong>
         </span>
-        <span>
+        <span className="hidden md:inline">
           Characters: <strong className="text-white">{charCount}</strong>
         </span>
-        <span>
+        <span className="hidden sm:inline">
           Paper:{' '}
           <strong className="text-white">
             {paperKey}
             {orientation === 'landscape' ? ' (L)' : ''}
           </strong>
         </span>
-        <span>
+        <span className="hidden lg:inline">
           Margins: <strong className="text-white">{marginKey}</strong>
         </span>
         {isOffline && (
@@ -51,23 +51,23 @@ export default function StatusBar({
           </span>
         )}
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         {!workspaceIsReadOnly && (
           <>
             <button
               onClick={onSaveDraft}
               disabled={loading}
               title={isOffline ? 'Offline: Draft is preserved in memory. Connect to sync.' : 'Save Draft'}
-              className="flex items-center gap-1 bg-white/10 hover:bg-white/20 px-2.5 py-0.5 rounded text-white font-semibold transition cursor-pointer disabled:opacity-50"
+              className="flex items-center gap-1 bg-white/10 hover:bg-white/20 px-2 sm:px-2.5 py-0.5 rounded text-white font-semibold transition cursor-pointer disabled:opacity-50"
             >
               <Save className="w-3 h-3" />
-              <span>Save Draft</span>
+              <span className="hidden xs:inline">Save Draft</span>
             </button>
             <button
               onClick={onSubmit}
               disabled={loading || isOffline}
               title={isOffline ? 'Connect to internet to submit' : 'Submit Report'}
-              className="flex items-center gap-1 bg-sig-green text-navy-blue px-2.5 py-0.5 rounded font-bold transition hover:bg-sig-green/90 cursor-pointer disabled:opacity-50"
+              className="flex items-center gap-1 bg-sig-green text-navy-blue px-2 sm:px-2.5 py-0.5 rounded font-bold transition hover:bg-sig-green/90 cursor-pointer disabled:opacity-50"
             >
               <Send className="w-3 h-3" />
               <span>Submit</span>
@@ -77,16 +77,16 @@ export default function StatusBar({
         <div className="flex items-center gap-1">
           <button
             onClick={() => setZoom((z) => Math.max(50, z - 10))}
-            className="hover:text-white cursor-pointer transition"
+            className="hover:text-white cursor-pointer transition p-0.5"
           >
             <ZoomOut className="w-3 h-3" />
           </button>
-          <span className="w-8 text-center">
+          <span className="w-7 sm:w-8 text-center">
             <strong className="text-white">{zoom}%</strong>
           </span>
           <button
             onClick={() => setZoom((z) => Math.min(200, z + 10))}
-            className="hover:text-white cursor-pointer transition"
+            className="hover:text-white cursor-pointer transition p-0.5"
           >
             <ZoomIn className="w-3 h-3" />
           </button>

@@ -104,10 +104,6 @@ export default function UpcomingEventsSchedule({
                 January – December {selectedYear}
               </span>
             </div>
-            <p className="text-[11px] text-gray-400 font-medium">
-              12-Month Calendar Schedule · {totalYearEvents} event{totalYearEvents === 1 ? '' : 's'}{' '}
-              in {selectedYear}
-            </p>
           </div>
         </div>
 

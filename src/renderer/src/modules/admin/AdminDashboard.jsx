@@ -65,6 +65,7 @@ import {
 } from '../../services/db'
 import logo from '../../assets/logo.png'
 import logo2Img from '../../assets/logo2.png'
+import appIcon from '../../../../../resources/icon.png'
 import {
   Users,
   Package,
@@ -1379,7 +1380,7 @@ export default function AdminDashboard({ user, onLogout }) {
           'released',
           item.name,
           baseQtyToRelease,
-          item.baseUnit,
+          pending.baseUnit || item.unit || 'pieces',
           'Released for outreach program'
         )
       }
@@ -1506,7 +1507,6 @@ export default function AdminDashboard({ user, onLogout }) {
 
     const errors = {}
     if (!donorName.trim()) errors.donorName = 'Donor name is required.'
-    if (!donorType) errors.donorType = 'Donor type is required.'
     if (!donPurpose.trim()) errors.donPurpose = 'Purpose is required.'
     if (!donDate) errors.donDate = 'Donation date is required.'
 
@@ -1552,13 +1552,10 @@ export default function AdminDashboard({ user, onLogout }) {
       let finalDonorId = ''
       if (donor) {
         finalDonorId = donor.id
-        if (donor.type !== donorType) {
-          await updateDonor(donor.id, { ...donor, type: donorType })
-        }
       } else {
         const newDonor = await addDonor({
           name: donorName.trim(),
-          type: donorType,
+          type: 'individual',
           createdAt: new Date().toISOString()
         })
         finalDonorId = newDonor.id
@@ -1703,7 +1700,6 @@ export default function AdminDashboard({ user, onLogout }) {
 
     if (determinedType === 'organization') {
       if (!orgDesc.trim()) errors.orgDesc = 'Description is required.'
-      if (!orgLogo) errors.orgLogo = 'Organization logo is required.'
 
       // Check unique organization name
       const duplicateOrg = orgsList.find(
@@ -1913,6 +1909,14 @@ export default function AdminDashboard({ user, onLogout }) {
     setEvtName('')
     setEvtDesc('')
     if (targetDate) {
+      const target = new Date(targetDate)
+      target.setHours(0, 0, 0, 0)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      if (target.getTime() < today.getTime()) {
+        triggerError('Cannot schedule events on past dates. Please select today or a future date.')
+        return
+      }
       try {
         const localDate = new Date(targetDate)
         const offset = localDate.getTimezoneOffset()
@@ -2030,7 +2034,17 @@ export default function AdminDashboard({ user, onLogout }) {
 
     const errors = {}
     if (!evtName.trim()) errors.evtName = 'Activity name is required.'
-    if (!evtDate) errors.evtDate = 'Schedule date is required.'
+    if (!evtDate) {
+      errors.evtDate = 'Schedule date is required.'
+    } else if (!editingEvent) {
+      const selectedDay = new Date(evtDate)
+      selectedDay.setHours(0, 0, 0, 0)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      if (selectedDay.getTime() < today.getTime()) {
+        errors.evtDate = 'Cannot schedule an event on a past date. Please select today or a future date.'
+      }
+    }
     if (!evtLoc.trim()) errors.evtLoc = 'Target location is required.'
     if (isOrg) {
       if (!evtOrgId) errors.evtOrgId = 'Assigned Organization is required.'
@@ -2220,24 +2234,24 @@ export default function AdminDashboard({ user, onLogout }) {
   return (
     <div className="h-screen max-h-screen flex flex-col font-poppins selection:bg-sig-green/20 selection:text-navy-blue overflow-hidden bg-[#F1EFEC]">
       {/* Top Glass Header Bar */}
-      <header className="mx-4 mt-4 glass-header rounded-2xl flex items-center justify-between px-6 py-2.5 shrink-0 shadow-glass-sm">
+      <header className="mx-2 sm:mx-4 mt-2 sm:mt-4 glass-header rounded-2xl flex items-center justify-between px-3 sm:px-6 py-2 sm:py-2.5 shrink-0 shadow-glass-sm gap-2">
         {/* Left: Logo and Title */}
-        <div className="flex items-center space-x-3 bg-white/60 backdrop-blur-sm p-2 pr-4 rounded-xl border border-white/60 min-w-0">
-          <div className="h-11 w-11 rounded-lg bg-white/90 flex items-center justify-center border border-white/80 overflow-hidden shrink-0 shadow-2xs">
-            <img src={logo} alt="CES Logo" className="h-9 w-9 object-contain" />
+        <div className="flex items-center space-x-2 sm:space-x-3 bg-white/60 backdrop-blur-sm p-1.5 sm:p-2 pr-3 sm:pr-4 rounded-xl border border-white/60 min-w-0">
+          <div className="h-9 w-9 sm:h-11 sm:w-11 rounded-lg bg-white/90 flex items-center justify-center border border-white/80 overflow-hidden shrink-0 shadow-2xs">
+            <img src={logo} alt="CES Logo" className="h-7 w-7 sm:h-9 sm:w-9 object-contain" />
           </div>
-          <div className="flex flex-col text-left leading-none">
-            <span className="text-[12px] font-bold text-navy-blue tracking-wide uppercase leading-tight">
+          <div className="flex flex-col text-left leading-none min-w-0">
+            <span className="text-[10px] sm:text-[12px] font-bold text-navy-blue tracking-wide uppercase leading-tight truncate">
               Community Extension & Services
             </span>
-            <span className="text-[10px] font-semibold text-sig-green tracking-wide uppercase mt-0.5 leading-tight">
+            <span className="text-[8px] sm:text-[10px] font-semibold text-sig-green tracking-wide uppercase mt-0.5 leading-tight truncate">
               Dominican College of Tarlac
             </span>
           </div>
         </div>
 
         {/* Right: Info, Home, Profile info */}
-        <div className="flex items-center space-x-6 min-w-0 shrink-0">
+        <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
           <button
             type="button"
             disabled={isAnyModalOpen}
@@ -2248,16 +2262,15 @@ export default function AdminDashboard({ user, onLogout }) {
             <Info className="w-5 h-5" />
           </button>
 
-
-          <div className="flex items-center space-x-3 bg-white/60 backdrop-blur-sm p-2 pr-4 pl-3 rounded-xl border border-white/60">
-            <div className="w-9 h-9 rounded-lg border border-navy-blue/15 flex items-center justify-center text-navy-blue bg-white shadow-2xs">
-              <Users className="w-4.5 h-4.5" />
+          <div className="flex items-center space-x-2 sm:space-x-3 bg-white/60 backdrop-blur-sm p-1.5 sm:p-2 pr-3 sm:pr-4 pl-2 sm:pl-3 rounded-xl border border-white/60">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg border border-navy-blue/15 flex items-center justify-center text-navy-blue bg-white shadow-2xs shrink-0">
+              <Users className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
             </div>
             <div className="text-left leading-none">
-              <div className="text-xs font-bold text-navy-blue">
+              <div className="text-xs font-bold text-navy-blue truncate max-w-[100px] sm:max-w-[140px]">
                 {user.username || user.name || 'admin123'}
               </div>
-              <div className="text-[9px] text-gray-400 font-medium mt-0.5">{user.email}</div>
+              <div className="text-[9px] text-gray-400 font-medium mt-0.5 truncate max-w-[100px] sm:max-w-[140px] hidden sm:block">{user.email}</div>
             </div>
           </div>
         </div>
@@ -2297,12 +2310,12 @@ export default function AdminDashboard({ user, onLogout }) {
         {/* Main Panel Content Area */}
         <main
           ref={mainRef}
-          className="flex-1 min-w-0 my-4 mx-4 p-5 overflow-y-auto glass-panel rounded-2xl shadow-glass-md"
+          className="flex-1 my-2 sm:my-4 mx-2 sm:mx-4 p-3 sm:p-5 overflow-y-auto glass-panel rounded-2xl shadow-glass-md min-w-0"
         >
           <AnimatedPage pageKey={activeTab}>
-            <div className="flex flex-col xl:flex-row gap-5 max-w-[1600px] mx-auto items-start w-full">
+            <div className="flex flex-col xl:flex-row gap-4 sm:gap-5 max-w-[1600px] mx-auto items-start w-full min-w-0">
               {/* Left / Center Content Column */}
-              <div className="flex-1 w-full min-w-0 space-y-5">
+              <div className="flex-1 w-full space-y-4 sm:space-y-5 min-w-0">
                 {/* Banner Alert Prompts */}
 
                 {/* ==================================================== */}
@@ -2312,7 +2325,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   isOffline ? (
                     <DashboardSkeleton />
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-4 min-w-0">
                       {/* Header row */}
                       <div>
                         <h1 className="text-xl font-extrabold text-navy-blue tracking-tight">
@@ -2322,7 +2335,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
                       {/* Quick Stats Grid */}
                       <motion.div
-                        className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"
+                        className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3"
                         variants={staggerContainer}
                         initial="initial"
                         animate="animate"
@@ -2681,7 +2694,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             </button>
                           </div>
 
-                          <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
+                          <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
                             <table className="w-full text-left border-collapse">
                               <thead>
                                 <tr className="border-b border-gray-100 bg-gray-50 text-[10px] uppercase font-bold text-gray-500">
@@ -3767,9 +3780,8 @@ export default function AdminDashboard({ user, onLogout }) {
                       {isReviewModalOpen &&
                         createPortal(
                           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
-                            <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto relative overflow-hidden">
-                              <div className="absolute top-0 left-0 right-0 h-1 bg-sig-green"></div>
-                              <div className="flex justify-between items-center border-b border-dashed border-gray-200 pb-3">
+                            <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto">
+                              <div className="flex justify-between items-center border-b border-gray-100 pb-3">
                                 <h3 className="font-bold text-navy-blue text-sm flex items-center space-x-2">
                                   <span>Release Review List</span>
                                   <span className="text-[10px] bg-navy-blue/10 text-navy-blue px-2 py-0.5 rounded-full font-bold">
@@ -3790,96 +3802,86 @@ export default function AdminDashboard({ user, onLogout }) {
                                   No items have been added to the Release Review List yet.
                                 </div>
                               ) : (
-                                <div className="space-y-3 max-h-60 overflow-y-auto pr-1 pt-4">
-                                  {pendingReleaseItems.map((pItem) => (
-                                    <div
-                                      key={pItem.id}
-                                      className="flex justify-between items-center border border-gray-50 p-2.5 rounded-xl bg-gray-50/50 hover:bg-white transition"
-                                    >
-                                      <div className="flex-1 min-w-0 pr-3">
-                                        <div className="font-bold text-navy-blue text-xs truncate">
-                                          {pItem.name}
-                                        </div>
-                                        <div className="text-[10px] text-gray-400 capitalize">
-                                          {pItem.category}
-                                        </div>
-                                      </div>
-                                      <div className="flex items-center space-x-3 shrink-0">
-                                        <div className="text-right">
-                                          <div className="text-xs font-bold text-navy-blue capitalize">
-                                            {(() => {
-                                              const hasGroup =
-                                                pItem.groupUnit &&
-                                                pItem.groupUnit !== 'none' &&
-                                                pItem.piecesPerUnit
-                                              if (hasGroup) {
-                                                const groupName =
-                                                  pItem.qtyGroup === 1
-                                                    ? pItem.groupUnit
-                                                    : pItem.groupUnit === 'box'
-                                                      ? 'boxes'
-                                                      : pItem.groupUnit === 'bundle'
-                                                        ? 'bundles'
-                                                        : 'packs'
-                                                const parts = []
-                                                if (pItem.qtyGroup > 0)
-                                                  parts.push(`${pItem.qtyGroup} ${groupName}`)
-                                                if (pItem.qtyPieces > 0)
-                                                  parts.push(`${pItem.qtyPieces} Pieces`)
-                                                return parts.join(' + ') || '0 Pieces'
-                                              }
-                                              return `${pItem.qtyPieces} ${formatUnit(pItem.qtyPieces, pItem.baseUnit)}`
-                                            })()}
+                                <>
+                                  <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                                    {pendingReleaseItems.map((pItem) => (
+                                      <div
+                                        key={pItem.id}
+                                        className="flex justify-between items-center border border-gray-50 p-2.5 rounded-xl bg-gray-50/50 hover:bg-white transition"
+                                      >
+                                        <div className="flex-1 min-w-0 pr-3">
+                                          <div className="font-bold text-navy-blue text-xs truncate">
+                                            {pItem.name}
                                           </div>
-                                          <div className="text-[9px] text-gray-400 font-medium">
-                                            ({pItem.baseQty} Total Pieces)
+                                          <div className="text-[10px] text-gray-400 capitalize">
+                                            {pItem.category}
                                           </div>
                                         </div>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleRemovePendingItem(pItem.id)}
-                                          className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100"
-                                          title="Remove item"
-                                        >
-                                          <X className="w-4 h-4" />
-                                        </button>
+                                        <div className="flex items-center space-x-3 shrink-0">
+                                          <div className="text-right">
+                                            <div className="text-xs font-bold text-navy-blue capitalize">
+                                              {(() => {
+                                                const hasGroup =
+                                                  pItem.groupUnit &&
+                                                  pItem.groupUnit !== 'none' &&
+                                                  pItem.piecesPerUnit
+                                                if (hasGroup) {
+                                                  const groupName =
+                                                    pItem.qtyGroup === 1
+                                                      ? pItem.groupUnit
+                                                      : pItem.groupUnit === 'box'
+                                                        ? 'boxes'
+                                                        : pItem.groupUnit === 'bundle'
+                                                          ? 'bundles'
+                                                          : 'packs'
+                                                  const parts = []
+                                                  if (pItem.qtyGroup > 0)
+                                                    parts.push(`${pItem.qtyGroup} ${groupName}`)
+                                                  if (pItem.qtyPieces > 0)
+                                                    parts.push(`${pItem.qtyPieces} Pieces`)
+                                                  return parts.join(' + ') || '0 Pieces'
+                                                }
+                                                return `${pItem.qtyPieces} ${formatUnit(pItem.qtyPieces, pItem.baseUnit)}`
+                                              })()}
+                                            </div>
+                                            <div className="text-[9px] text-gray-400 font-medium">
+                                              ({pItem.baseQty} Total Pieces)
+                                            </div>
+                                          </div>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleRemovePendingItem(pItem.id)}
+                                            className="text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer p-0.5 rounded hover:bg-gray-100"
+                                            title="Remove item"
+                                          >
+                                            <X className="w-4 h-4" />
+                                          </button>
+                                        </div>
                                       </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
+                                    ))}
+                                  </div>
 
-                              {pendingReleaseItems.length > 0 ? (
-                                <div className="flex space-x-2 pt-3 border-t border-dashed border-gray-150 mt-4">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setPendingReleaseItems([])
-                                      setIsReviewModalOpen(false)
-                                    }}
-                                    className="flex-1 py-2 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition-all duration-150 cursor-pointer text-center"
-                                  >
-                                    Clear List
-                                  </button>
-                                  <button
-                                    type="button"
-                                    disabled={loading}
-                                    onClick={handleConfirmRelease}
-                                    className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition-all duration-150 cursor-pointer text-center"
-                                  >
-                                    {loading ? 'Confirming...' : 'Confirm Release'}
-                                  </button>
-                                </div>
-                              ) : (
-                                <div className="flex pt-3 border-t border-dashed border-gray-150 mt-4">
-                                  <button
-                                    type="button"
-                                    onClick={() => setIsReviewModalOpen(false)}
-                                    className="w-full py-2 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition-all duration-150 cursor-pointer text-center"
-                                  >
-                                    Close
-                                  </button>
-                                </div>
+                                  <div className="flex space-x-2 pt-3 border-t border-gray-100 mt-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setPendingReleaseItems([])
+                                        setIsReviewModalOpen(false)
+                                      }}
+                                      className="flex-1 py-2 border border-gray-200 text-gray-500 rounded-full text-xs font-semibold hover:bg-red-500 hover:text-white hover:border-red-500 transition-all duration-150 cursor-pointer text-center"
+                                    >
+                                      Clear List
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={loading}
+                                      onClick={handleConfirmRelease}
+                                      className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition-all duration-150 cursor-pointer text-center"
+                                    >
+                                      {loading ? 'Confirming...' : 'Confirm Release'}
+                                    </button>
+                                  </div>
+                                </>
                               )}
                             </div>
                           </div>,
@@ -3917,9 +3919,9 @@ export default function AdminDashboard({ user, onLogout }) {
                             ])
                             setIsDonationModalOpen(true)
                           }}
-                          className={`flex items-center space-x-1.5 bg-navy-blue text-white rounded-lg text-xs font-semibold py-2 px-4 border border-navy-blue shadow-xs transition-all duration-150 ${isAnyModalOpen
+                          className={`flex items-center space-x-1.5 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue shadow-xs transition-all duration-150 ${isAnyModalOpen
                             ? 'opacity-40 cursor-not-allowed'
-                            : 'hover:bg-navy-blue-600 active:bg-navy-blue-700 cursor-pointer'
+                            : 'hover:bg-white hover:text-sig-green hover:border-sig-green cursor-pointer'
                             }`}
                         >
                           <Plus className="w-4 h-4" />
@@ -3928,12 +3930,12 @@ export default function AdminDashboard({ user, onLogout }) {
                       </div>
 
                       {/* Donations History log */}
-                      <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
+                      <div className="bg-white rounded-3xl p-4 sm:p-6 shadow-sm border border-gray-100 min-w-0">
                         <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3 mb-4">
                           Donation Audit History Logs
                         </h3>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left border-collapse">
+                        <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+                          <table className="w-full text-left border-collapse min-w-[500px]">
                             <thead>
                               <tr className="border-b border-gray-100 bg-gray-50 text-[10px] uppercase font-bold text-gray-500">
                                 <th className="py-3 px-3">Date</th>
@@ -4468,6 +4470,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                             return copy
                                           })
                                         }}
+                                        disablePast={!editingEvent}
                                         showTime={true}
                                         placeholder="dd/mm/yyyy, --:-- --"
                                       />
@@ -5018,7 +5021,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                             ? 'Department Profile Details'
                                             : 'Organization Profile Details'}
                                         </h3>
-                                        <div className="flex space-x-2">
+                                        <div className="flex flex-wrap gap-2">
                                           <button
                                             onClick={() =>
                                               setSelectedOrgSubTab(
@@ -5047,7 +5050,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                           </button>
                                         </div>
                                       </div>
-                                      <div className="border-b border-gray-100 w-[60%] relative z-10" />
+                                      <div className="border-b border-gray-100 w-full max-w-md relative z-10" />
 
                                       <div className="flex flex-col md:flex-row gap-6 items-start md:items-center relative z-10">
                                         <div className="w-24 h-24 rounded-3xl border border-gray-100 bg-gray-50 flex items-center justify-center overflow-hidden shadow-inner shrink-0">
@@ -5413,15 +5416,13 @@ export default function AdminDashboard({ user, onLogout }) {
                             )}
                           </div>
 
-                          {/* Organization Logo (Required) */}
+                          {/* Organization Logo (Optional) */}
                           <div>
                             <label className="block text-gray-700 text-xs font-semibold mb-1">
                               Organization Logo
                             </label>
                             <div className="flex items-center space-x-4">
-                              <div
-                                className={`w-16 h-16 rounded-2xl border bg-gray-50 flex items-center justify-center overflow-hidden ${orgErrors.orgLogo ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                              >
+                              <div className="w-16 h-16 rounded-2xl border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden">
                                 {orgLogo ? (
                                   <img
                                     src={orgLogo}
@@ -5469,11 +5470,6 @@ export default function AdminDashboard({ user, onLogout }) {
                                 </button>
                               )}
                             </div>
-                            {orgErrors.orgLogo && (
-                              <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                                {orgErrors.orgLogo}
-                              </p>
-                            )}
                           </div>
 
                           {/* Department (Optional) */}
@@ -5956,7 +5952,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             setCoordErrors({})
                             setIsAddUserModalOpen(true)
                           }}
-                          className="flex items-center space-x-1.5 bg-navy-blue hover:bg-navy-blue-600 text-white rounded-lg text-xs font-semibold py-2 px-4 border border-navy-blue shadow-xs transition-all duration-150 cursor-pointer"
+                          className="flex items-center space-x-1.5 bg-navy-blue text-white border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green font-semibold py-2 px-4 rounded-full text-xs cursor-pointer transition-all duration-150 shadow-xs"
                         >
                           <Plus className="w-4 h-4" />
                           <span>Add User</span>
@@ -5964,12 +5960,12 @@ export default function AdminDashboard({ user, onLogout }) {
                       </div>
 
                       {/* Full Width User Accounts Directory Table */}
-                      <div className="glass-card rounded-2xl p-6">
+                      <div className="glass-card rounded-2xl p-4 sm:p-6 min-w-0">
                         <h3 className="font-bold text-navy-blue text-sm border-b border-gray-200/60 pb-3 mb-4">
                           User Accounts Directory
                         </h3>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left border-collapse">
+                        <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+                          <table className="w-full text-left border-collapse min-w-[500px]">
                             <thead>
                               <tr className="border-b border-gray-200/60 bg-gray-50/80 text-[10px] uppercase font-bold text-gray-500">
                                 <th className="py-3 px-4">Full Name</th>
@@ -6109,21 +6105,30 @@ export default function AdminDashboard({ user, onLogout }) {
                       </div>
 
                       {/* ── 2. SYSTEM DESCRIPTION (full-width) ─────────── */}
-                      <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
-                        <h2 className="text-lg font-bold text-navy-blue border-b border-gray-100 pb-3">
-                          System Description
-                        </h2>
-                        <div>
-                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
-                            Project Overview
-                          </span>
-                          <p className="text-sm text-gray-700 mt-1 leading-relaxed">
-                            DommUnity is a desktop-based management system developed for the
-                            Community Extension & Services (CES) Office of Dominican College of
-                            Tarlac, Inc. It is designed to simplify inventory management,
-                            donor management, organization management, and report generation for the
-                            Community Extension Services Office.
-                          </p>
+                      <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4 relative overflow-hidden">
+                        <div className="absolute right-[-158px] bottom-[-20px] w-[400px] h-[260px] opacity-50 pointer-events-none select-none z-0 overflow-hidden">
+                          <img
+                            src={appIcon}
+                            alt=""
+                            className="w-full h-[400px] object-contain object-top"
+                          />
+                        </div>
+                        <div className="relative z-10 space-y-4">
+                          <h2 className="text-lg font-bold text-navy-blue border-b border-gray-100 pb-3 w-[280px]">
+                            System Description
+                          </h2>
+                          <div>
+                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                              Project Overview
+                            </span>
+                            <p className="text-sm text-gray-700 mt-1 leading-relaxed">
+                              DommUnity is a desktop-based management system developed for the
+                              Community Extension & Services (CES) Office <br></br>of Dominican College of
+                              Tarlac, Inc. It is designed to simplify inventory management,
+                              donor management, organization management,<br></br> and report generation for the
+                              Community Extension Services Office.
+                            </p>
+                          </div>
                         </div>
                       </div>
 
@@ -6251,7 +6256,7 @@ export default function AdminDashboard({ user, onLogout }) {
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="border-b border-gray-200 text-xs font-bold text-[#0f2c59]">
-                      <th className="py-2.5 px-2">Date</th>
+                      <th className="py-2.5 px-2">Transaction Date</th>
                       <th className="py-2.5 px-2">Item Name</th>
                       <th className="py-2.5 px-2">Action Type</th>
                       <th className="py-2.5 px-2 text-right">Quantity</th>
@@ -6259,27 +6264,32 @@ export default function AdminDashboard({ user, onLogout }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 text-xs">
-                    {txHistory.map((tx, idx) => (
-                      <tr key={tx.id || idx}>
-                        <td className="py-2.5 px-2 text-gray-600">
-                          {new Date(tx.date).toLocaleString()}
-                        </td>
-                        <td className="py-2.5 px-2 text-gray-800 font-semibold">{tx.itemName}</td>
-                        <td className="py-2.5 px-2 font-medium">
-                          {tx.action === 'added' ? (
-                            <span className="text-[#2e7d32]">Added</span>
-                          ) : tx.action === 'released' ? (
-                            <span className="text-[#dc2626]">Released</span>
-                          ) : (
-                            <span className="text-[#dc2626] capitalize">{tx.action}</span>
-                          )}
-                        </td>
-                        <td className="py-2.5 px-2 text-right text-gray-800 font-semibold">
-                          {tx.quantity}
-                        </td>
-                        <td className="py-2.5 px-2 text-gray-600 capitalize">{tx.unit}</td>
-                      </tr>
-                    ))}
+                    {txHistory.map((tx, idx) => {
+                      const act = (tx.action || tx.type || '').toLowerCase().trim()
+                      return (
+                        <tr key={tx.id || idx}>
+                          <td className="py-2.5 px-2 text-gray-600">
+                            {new Date(tx.date).toLocaleString()}
+                          </td>
+                          <td className="py-2.5 px-2 text-gray-800 font-semibold">{tx.itemName}</td>
+                          <td className="py-2.5 px-2 font-medium">
+                            {act === 'added' || act === 'item added' ? (
+                              <span className="text-[#2e7d32]">Added</span>
+                            ) : act === 'released' || act === 'item released' || act === 'release' ? (
+                              <span className="text-[#dc2626]">Released</span>
+                            ) : act === 'deleted' || act === 'item deleted' || act === 'delete' ? (
+                              <span className="text-[#dc2626]">Deleted</span>
+                            ) : (
+                              <span className="text-gray-700 capitalize">{tx.action || tx.type}</span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-2 text-right text-gray-800 font-semibold">
+                            {tx.quantity}
+                          </td>
+                          <td className="py-2.5 px-2 text-gray-600 capitalize">{tx.unit || tx.baseUnit || 'pieces'}</td>
+                        </tr>
+                      )
+                    })}
                     {txHistory.length === 0 && (
                       <tr>
                         <td colSpan="5" className="text-center py-8 text-gray-400">
@@ -6467,27 +6477,32 @@ export default function AdminDashboard({ user, onLogout }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {txHistory.map((tx, idx) => (
-                  <tr key={tx.id || idx} className="text-xs">
-                    <td className="py-3 px-2 text-gray-700">
-                      {new Date(tx.date).toLocaleString()}
-                    </td>
-                    <td className="py-3 px-2 text-gray-800 font-semibold">{tx.itemName}</td>
-                    <td className="py-3 px-2 font-medium">
-                      {tx.action === 'added' ? (
-                        <span className="text-[#2e7d32]">Added</span>
-                      ) : tx.action === 'released' ? (
-                        <span className="text-[#dc2626]">Released</span>
-                      ) : (
-                        <span className="text-[#dc2626] capitalize">{tx.action}</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-2 text-right text-gray-800 font-semibold">
-                      {tx.quantity}
-                    </td>
-                    <td className="py-3 px-2 text-gray-700 capitalize">{tx.unit}</td>
-                  </tr>
-                ))}
+                {txHistory.map((tx, idx) => {
+                  const act = (tx.action || tx.type || '').toLowerCase().trim()
+                  return (
+                    <tr key={tx.id || idx} className="text-xs">
+                      <td className="py-3 px-2 text-gray-700">
+                        {new Date(tx.date).toLocaleString()}
+                      </td>
+                      <td className="py-3 px-2 text-gray-800 font-semibold">{tx.itemName}</td>
+                      <td className="py-3 px-2 font-medium">
+                        {act === 'added' || act === 'item added' ? (
+                          <span className="text-[#2e7d32]">Added</span>
+                        ) : act === 'released' || act === 'item released' || act === 'release' ? (
+                          <span className="text-[#dc2626]">Released</span>
+                        ) : act === 'deleted' || act === 'item deleted' || act === 'delete' ? (
+                          <span className="text-[#dc2626]">Deleted</span>
+                        ) : (
+                          <span className="text-gray-700 capitalize">{tx.action || tx.type}</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-2 text-right text-gray-800 font-semibold">
+                        {tx.quantity}
+                      </td>
+                      <td className="py-3 px-2 text-gray-700 capitalize">{tx.unit || tx.baseUnit || 'pieces'}</td>
+                    </tr>
+                  )
+                })}
                 {txHistory.length === 0 && (
                   <tr>
                     <td colSpan="5" className="text-center py-8 text-gray-400">
@@ -6522,7 +6537,7 @@ export default function AdminDashboard({ user, onLogout }) {
               </h3>
 
               <form onSubmit={handleCreateDonation} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-gray-700 text-xs font-semibold mb-1">
                       Donor Name
@@ -6549,107 +6564,6 @@ export default function AdminDashboard({ user, onLogout }) {
                       <p className="text-red-500 text-[10px] mt-1 font-semibold">
                         {donErrors.fields.donorName}
                       </p>
-                    )}
-                  </div>
-                  <div className="relative">
-                    <label className="block text-gray-700 text-xs font-semibold mb-1">
-                      Donor Type
-                    </label>
-                    <input
-                      type="text"
-                      value={donorType}
-                      onChange={(e) => {
-                        setDonorType(e.target.value)
-                        setDonErrors((prev) => {
-                          const copy = { ...prev }
-                          if (copy.fields) {
-                            copy.fields = { ...copy.fields }
-                            delete copy.fields.donorType
-                          }
-                          return copy
-                        })
-                      }}
-                      onFocus={() => setIsDonorTypeSuggestionsOpen(true)}
-                      onBlur={() => setTimeout(() => setIsDonorTypeSuggestionsOpen(false), 200)}
-                      placeholder="Donor Type"
-                      className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${donErrors.fields?.donorType ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
-                      style={{ height: '40px' }}
-                    />
-                    {donErrors.fields?.donorType && (
-                      <p className="text-red-500 text-[10px] mt-1 font-semibold">
-                        {donErrors.fields.donorType}
-                      </p>
-                    )}
-                    {isDonorTypeSuggestionsOpen && (
-                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                        <div className="py-1">
-                          {(() => {
-                            const suggestions = [
-                              ...new Set([
-                                'external_sponsor',
-                                'internal_department',
-                                'individual',
-                                ...donorsList.map((d) => d.type)
-                              ])
-                            ]
-                              .filter(Boolean)
-                              .filter((type) => !deletedDonorTypes.includes(type))
-                            const filtered = suggestions.filter(
-                              (type) =>
-                                !donorType || type.toLowerCase().includes(donorType.toLowerCase())
-                            )
-                            if (filtered.length === 0) {
-                              return null
-                            }
-                            return filtered.map((type) => (
-                              <div
-                                key={type}
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={() => {
-                                  setDonorType(type)
-                                  setDonErrors((prev) => {
-                                    const copy = { ...prev }
-                                    if (copy.fields) {
-                                      copy.fields = { ...copy.fields }
-                                      delete copy.fields.donorType
-                                    }
-                                    return copy
-                                  })
-                                  setIsDonorTypeSuggestionsOpen(false)
-                                }}
-                                className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold flex justify-between items-center"
-                              >
-                                <span>{type}</span>
-                                <button
-                                  type="button"
-                                  onMouseDown={(e) => {
-                                    e.preventDefault()
-                                    e.stopPropagation()
-                                  }}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    const updated = [...deletedDonorTypes, type]
-                                    setDeletedDonorTypes(updated)
-                                    localStorage.setItem(
-                                      'dommunity_deleted_donor_types',
-                                      JSON.stringify(updated)
-                                    )
-                                  }}
-                                  className="text-gray-400 hover:text-red-500 font-bold transition p-0.5 rounded hover:bg-gray-100 flex items-center justify-center cursor-pointer"
-                                  style={{
-                                    width: '18px',
-                                    height: '18px',
-                                    fontSize: '10px'
-                                  }}
-                                  title="Delete suggestion"
-                                >
-                                  ✕
-                                </button>
-                              </div>
-                            ))
-                          })()}
-                        </div>
-                      </div>
                     )}
                   </div>
                   <div>

@@ -2431,7 +2431,12 @@ export const uploadPhoto = async (academicYear, eventId, file) => {
 
 export const getInventoryTransactions = async () => {
   if (isDemoMode) {
-    const list = getLocalData('dommunity_inventory_transactions') || []
+    const list = (getLocalData('dommunity_inventory_transactions') || []).map((d) => ({
+      ...d,
+      action: d.action || d.type || 'added',
+      unit: d.unit || d.baseUnit || 'pieces',
+      itemName: d.itemName || d.name || 'Unknown Item'
+    }))
     return list.sort((a, b) => new Date(b.date) - new Date(a.date))
   } else {
     try {
@@ -2442,6 +2447,9 @@ export const getInventoryTransactions = async () => {
         list.push({
           id: snap.id,
           ...d,
+          action: d.action || d.type || 'added',
+          unit: d.unit || d.baseUnit || 'pieces',
+          itemName: d.itemName || d.name || 'Unknown Item',
           date:
             d.date && typeof d.date.toDate === 'function' ? d.date.toDate().toISOString() : d.date
         })
@@ -2449,7 +2457,12 @@ export const getInventoryTransactions = async () => {
       return list.sort((a, b) => new Date(b.date) - new Date(a.date))
     } catch (e) {
       console.warn('Failed Firestore transactions load, falling back:', e)
-      const list = getLocalData('dommunity_inventory_transactions') || []
+      const list = (getLocalData('dommunity_inventory_transactions') || []).map((d) => ({
+        ...d,
+        action: d.action || d.type || 'added',
+        unit: d.unit || d.baseUnit || 'pieces',
+        itemName: d.itemName || d.name || 'Unknown Item'
+      }))
       return list.sort((a, b) => new Date(b.date) - new Date(a.date))
     }
   }

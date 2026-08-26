@@ -74,6 +74,15 @@ function isToday(d) {
   return isSameDay(d, new Date())
 }
 
+function isPastDay(d) {
+  if (!d) return false
+  const target = new Date(d)
+  target.setHours(0, 0, 0, 0)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return target.getTime() < today.getTime()
+}
+
 function getEventStatus(evt) {
   const status = (evt?.status || 'planned').toLowerCase().trim()
   if (status === 'completed') return 'completed'
@@ -465,11 +474,10 @@ export default function EventCalendar({
           {/* Search Input Container */}
           <div ref={searchContainerRef} className="relative w-full" style={{ zIndex: 50 }}>
             <div
-              className={`flex items-center bg-gray-50/80 border rounded-xl transition duration-150 ${
-                isSearchFocused
+              className={`flex items-center bg-gray-50/80 border rounded-xl transition duration-150 ${isSearchFocused
                   ? 'bg-white border-navy-blue ring-2 ring-navy-blue/15 shadow-xs'
                   : 'border-gray-200 hover:border-gray-300'
-              }`}
+                }`}
               style={{ height: '38px' }}
             >
               <Search className="w-4 h-4 text-gray-400 ml-3 shrink-0" />
@@ -560,11 +568,10 @@ export default function EventCalendar({
                             key={evt.id}
                             onClick={() => handleSelectMatch(idx)}
                             style={{ contain: 'content' }}
-                            className={`p-2.5 px-3 transition-colors duration-100 cursor-pointer flex flex-col space-y-0.5 ${
-                              isCurrentActive
+                            className={`p-2.5 px-3 transition-colors duration-100 cursor-pointer flex flex-col space-y-0.5 ${isCurrentActive
                                 ? 'bg-sig-green/15 border-l-[3px] border-sig-green'
                                 : 'hover:bg-gray-50'
-                            }`}
+                              }`}
                           >
                             <div className="flex items-center justify-between gap-2">
                               <span className="font-bold text-xs text-navy-blue truncate">
@@ -654,33 +661,30 @@ export default function EventCalendar({
             <button
               type="button"
               onClick={() => setViewMode('month')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition duration-150 cursor-pointer ${
-                viewMode === 'month'
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition duration-150 cursor-pointer ${viewMode === 'month'
                   ? 'bg-white text-navy-blue shadow-xs'
                   : 'text-gray-500 hover:text-navy-blue'
-              }`}
+                }`}
             >
               Month
             </button>
             <button
               type="button"
               onClick={() => setViewMode('week')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition duration-150 cursor-pointer ${
-                viewMode === 'week'
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition duration-150 cursor-pointer ${viewMode === 'week'
                   ? 'bg-white text-navy-blue shadow-xs'
                   : 'text-gray-500 hover:text-navy-blue'
-              }`}
+                }`}
             >
               Week
             </button>
             <button
               type="button"
               onClick={() => setViewMode('day')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition duration-150 cursor-pointer ${
-                viewMode === 'day'
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition duration-150 cursor-pointer ${viewMode === 'day'
                   ? 'bg-white text-navy-blue shadow-xs'
                   : 'text-gray-500 hover:text-navy-blue'
-              }`}
+                }`}
             >
               Day
             </button>
@@ -692,9 +696,8 @@ export default function EventCalendar({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* ── LEFT SIDEBAR (OUTLOOK MINI-CALENDAR & FILTERS) ── */}
         <div
-          className={`lg:col-span-3 space-y-4 transition-all duration-200 ${
-            sidebarOpen ? 'block' : 'hidden lg:block'
-          }`}
+          className={`lg:col-span-3 space-y-4 transition-all duration-200 ${sidebarOpen ? 'block' : 'hidden lg:block'
+            }`}
         >
           {/* Mini Calendar Card */}
           <div className="bg-white rounded-3xl p-4.5 shadow-sm border border-gray-100">
@@ -768,8 +771,7 @@ export default function EventCalendar({
                       setSelectedDate(item.date)
                       setCurrentDate(item.date)
                     }}
-                    className={`relative py-1.5 text-[11px] rounded-lg font-semibold transition cursor-pointer flex flex-col items-center justify-center ${
-                      hasMatch
+                    className={`relative py-1.5 text-[11px] rounded-lg font-semibold transition cursor-pointer flex flex-col items-center justify-center ${hasMatch
                         ? 'font-bold bg-sig-green/25 text-navy-blue border-2 border-sig-green'
                         : isSelected
                           ? 'bg-navy-blue text-white shadow-xs'
@@ -778,18 +780,17 @@ export default function EventCalendar({
                             : item.isCurrentMonth
                               ? 'text-gray-700 hover:bg-gray-100'
                               : 'text-gray-300 hover:bg-gray-50'
-                    }`}
+                      }`}
                   >
                     <span>{item.date.getDate()}</span>
                     {hasEvents && (
                       <span
-                        className={`w-1 h-1 rounded-full mt-0.5 ${
-                          hasMatch
+                        className={`w-1 h-1 rounded-full mt-0.5 ${hasMatch
                             ? 'bg-sig-green'
                             : isSelected
                               ? 'bg-sig-green'
                               : 'bg-navy-blue'
-                        }`}
+                          }`}
                       />
                     )}
                   </button>
@@ -798,178 +799,99 @@ export default function EventCalendar({
             </div>
           </div>
 
-          {/* Status Filter Card */}
-          <div className="bg-white rounded-3xl p-4.5 shadow-sm border border-gray-100">
-            <h4 className="text-xs font-bold text-navy-blue uppercase tracking-wider mb-3">
-              Event Status
-            </h4>
-            <div className="space-y-1.5">
-              <button
-                type="button"
-                onClick={() => setStatusFilter('all')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                  statusFilter === 'all'
-                    ? 'bg-navy-blue text-white'
-                    : 'text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                <div className="flex items-center space-x-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-gray-400" />
-                  <span>All Events</span>
-                </div>
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    statusFilter === 'all'
-                      ? 'bg-white/20 text-white'
-                      : 'bg-gray-100 text-gray-600'
-                  }`}
-                >
-                  {counts.total}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setStatusFilter('planned')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                  statusFilter === 'planned'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-600 hover:bg-blue-50/60'
-                }`}
-              >
-                <div className="flex items-center space-x-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                  <span>Planned / Upcoming</span>
-                </div>
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    statusFilter === 'planned'
-                      ? 'bg-white/20 text-white'
-                      : 'bg-blue-50 text-blue-700'
-                  }`}
-                >
-                  {counts.planned}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setStatusFilter('completed')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${
-                  statusFilter === 'completed'
-                    ? 'bg-emerald-600 text-white'
-                    : 'text-gray-600 hover:bg-emerald-50/60'
-                }`}
-              >
-                <div className="flex items-center space-x-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                  <span>Completed</span>
-                </div>
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    statusFilter === 'completed'
-                      ? 'bg-white/20 text-white'
-                      : 'bg-emerald-50 text-emerald-700'
-                  }`}
-                >
-                  {counts.completed}
-                </span>
-              </button>
-            </div>
-          </div>
-
-          {/* Organization / Department Filter */}
-          {orgs.length > 0 && (
-            <div className="bg-white rounded-3xl p-4.5 shadow-sm border border-gray-100">
-              <h4 className="text-xs font-bold text-navy-blue uppercase tracking-wider mb-2.5">
-                Department / Org
+          {/* Combined Status & Department/Org Filter Card */}
+          <div className="bg-white rounded-3xl p-4.5 shadow-sm border border-gray-100 space-y-4">
+            <div>
+              <h4 className="text-xs font-bold text-navy-blue uppercase tracking-wider mb-3">
+                Event Status
               </h4>
-              <select
-                value={orgFilter}
-                onChange={(e) => setOrgFilter(e.target.value)}
-                className="w-full p-2.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue cursor-pointer"
-              >
-                <option value="all">All Departments / Orgs</option>
-                {orgs.map((org) => (
-                  <option key={org.id} value={org.id}>
-                    {org.name} ({org.abbreviation})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Selected Day Quick Agenda Panel */}
-          <div className="bg-white rounded-3xl p-4.5 shadow-sm border border-gray-100 space-y-3">
-            <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-              <div className="flex items-center space-x-1.5">
-                <Clock className="w-3.5 h-3.5 text-sig-green" />
-                <span className="text-xs font-bold text-navy-blue">
-                  {FULL_DAYS[selectedDate.getDay()]}, {selectedDate.getDate()}
-                </span>
-              </div>
-              <span className="text-[10px] font-bold text-gray-400">
-                {selectedDayEvents.length}{' '}
-                {selectedDayEvents.length === 1 ? 'event' : 'events'}
-              </span>
-            </div>
-
-            {selectedDayEvents.length === 0 ? (
-              <div className="text-center py-4 text-gray-400 text-xs font-medium">
-                No events scheduled on this date.
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                {selectedDayEvents.map((evt) => {
-                  const style = getStatusBadgeStyle(getEventStatus(evt))
-                  const isMatch = matchedEventIdsSet.has(evt.id)
-                  const isActive = evt.id === activeMatchedEventId
-                  const timeStr = new Date(evt.scheduleDate).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })
-                  return (
-                    <div
-                      key={evt.id}
-                      onClick={() => onViewEvent && onViewEvent(evt)}
-                      className={`p-2.5 rounded-xl border transition duration-150 cursor-pointer space-y-1 ${
-                        isActive
-                          ? 'bg-sig-green/20 border-sig-green border-2 shadow-xs'
-                          : isMatch
-                            ? 'bg-sig-green/10 border-sig-green/70 border-2'
-                            : `${style.border} ${style.bg} hover:shadow-xs`
+              <div className="space-y-1.5">
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('all')}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${statusFilter === 'all'
+                      ? 'bg-navy-blue text-white'
+                      : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                >
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-gray-400" />
+                    <span>All Events</span>
+                  </div>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusFilter === 'all'
+                        ? 'bg-white/20 text-white'
+                        : 'bg-gray-100 text-gray-600'
                       }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-navy-blue flex items-center gap-1">
-                          <Clock className="w-3 h-3 text-gray-400" />
-                          {timeStr}
-                        </span>
-                        <div className="flex items-center gap-1">
-                          {isMatch && (
-                            <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full bg-sig-green text-navy-blue">
-                              Match
-                            </span>
-                          )}
-                          <span
-                            className={`text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-full ${style.bg} ${style.text} border ${style.border}`}
-                          >
-                            {evt.status || 'planned'}
-                          </span>
-                        </div>
-                      </div>
-                      <h5 className="font-bold text-xs text-navy-blue line-clamp-1">
-                        {evt.name}
-                      </h5>
-                      {evt.location && (
-                        <p className="text-[10px] text-gray-500 flex items-center gap-1 truncate">
-                          <MapPin className="w-3 h-3 text-sig-green shrink-0" />
-                          <span className="truncate">{evt.location}</span>
-                        </p>
-                      )}
-                    </div>
-                  )
-                })}
+                  >
+                    {counts.total}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('planned')}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${statusFilter === 'planned'
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-600 hover:bg-blue-50/60'
+                    }`}
+                >
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                    <span>Planned / Upcoming</span>
+                  </div>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusFilter === 'planned'
+                        ? 'bg-white/20 text-white'
+                        : 'bg-blue-50 text-blue-700'
+                      }`}
+                  >
+                    {counts.planned}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('completed')}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition cursor-pointer ${statusFilter === 'completed'
+                      ? 'bg-emerald-600 text-white'
+                      : 'text-gray-600 hover:bg-emerald-50/60'
+                    }`}
+                >
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    <span>Completed</span>
+                  </div>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusFilter === 'completed'
+                        ? 'bg-white/20 text-white'
+                        : 'bg-emerald-50 text-emerald-700'
+                      }`}
+                  >
+                    {counts.completed}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Department / Org Filter */}
+            {orgs.length > 0 && (
+              <div className="pt-3 border-t border-gray-100">
+                <h4 className="text-xs font-bold text-navy-blue uppercase tracking-wider mb-2.5">
+                  Department / Organization
+                </h4>
+                <select
+                  value={orgFilter}
+                  onChange={(e) => setOrgFilter(e.target.value)}
+                  className="w-full p-2.5 text-xs bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue cursor-pointer"
+                >
+                  <option value="all">All Departments / Organizations</option>
+                  {orgs.map((org) => (
+                    <option key={org.id} value={org.id}>
+                      {org.name} ({org.abbreviation})
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
           </div>
@@ -1010,37 +932,34 @@ export default function EventCalendar({
                     <div
                       key={idx}
                       onClick={() => setSelectedDate(cell.date)}
-                      className={`min-h-[110px] sm:min-h-[125px] p-2 flex flex-col justify-between transition-colors relative group ${
-                        !cell.isCurrentMonth
+                      className={`min-h-[110px] sm:min-h-[125px] p-2 flex flex-col justify-between transition-colors relative group ${!cell.isCurrentMonth
                           ? 'bg-gray-50/40 text-gray-300'
                           : 'bg-white text-gray-800 hover:bg-gray-50/70'
-                      } ${
-                        hasMatchInCell
+                        } ${hasMatchInCell
                           ? 'bg-sig-green/10'
                           : isSelected
                             ? 'bg-blue-50/30'
                             : ''
-                      }`}
+                        }`}
                       style={hasMatchInCell ? { boxShadow: 'inset 0 0 0 2px var(--color-sig-green, #4ade80)' } : isSelected ? { boxShadow: 'inset 0 0 0 2px rgba(29,53,87,0.15)' } : undefined}
                     >
                       {/* Cell Top Header */}
                       <div className="flex items-center justify-between mb-1">
                         <span
-                          className={`text-xs font-bold inline-flex items-center justify-center w-6 h-6 rounded-full transition ${
-                            hasMatchInCell
+                          className={`text-xs font-bold inline-flex items-center justify-center w-6 h-6 rounded-full transition ${hasMatchInCell
                               ? 'bg-sig-green text-navy-blue font-bold shadow-xs'
                               : isCurrent
                                 ? 'bg-navy-blue text-white shadow-xs font-black'
                                 : cell.isCurrentMonth
                                   ? 'text-gray-700'
                                   : 'text-gray-400'
-                          }`}
+                            }`}
                         >
                           {cell.dayNumber}
                         </span>
 
-                        {/* Quick schedule button on hover */}
-                        {onScheduleEvent && cell.isCurrentMonth && (
+                        {/* Quick schedule button on hover (disabled for past dates) */}
+                        {onScheduleEvent && cell.isCurrentMonth && !isPastDay(cell.date) && (
                           <button
                             type="button"
                             onClick={(e) => {
@@ -1074,20 +993,18 @@ export default function EventCalendar({
                                 e.stopPropagation()
                                 if (onViewEvent) onViewEvent(evt)
                               }}
-                              className={`group/chip px-2 py-1 rounded-md text-[10px] font-semibold flex items-center justify-between gap-1 truncate cursor-pointer transition border ${
-                                isActiveMatch
+                              className={`group/chip px-2 py-1 rounded-md text-[10px] font-semibold flex items-center justify-between gap-1 truncate cursor-pointer transition border ${isActiveMatch
                                   ? 'bg-sig-green text-navy-blue font-bold border-sig-green shadow-xs'
                                   : isMatch
                                     ? 'bg-sig-green/25 text-navy-blue font-bold border-sig-green/60'
                                     : style.chip
-                              }`}
+                                }`}
                               title={`${evt.name} - ${timeStr} (${evt.status})`}
                             >
                               <div className="flex items-center space-x-1 min-w-0 truncate">
                                 <span
-                                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                    isMatch ? 'bg-navy-blue' : style.dot
-                                  }`}
+                                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${isMatch ? 'bg-navy-blue' : style.dot
+                                    }`}
                                 />
                                 <span className="text-[9px] font-bold opacity-80 shrink-0">
                                   {timeStr}
@@ -1145,27 +1062,25 @@ export default function EventCalendar({
                     <div
                       key={i}
                       onClick={() => setSelectedDate(d)}
-                      className={`py-3 text-center cursor-pointer transition border-r border-gray-100 ${
-                        hasMatchInDay
+                      className={`py-3 text-center cursor-pointer transition border-r border-gray-100 ${hasMatchInDay
                           ? 'bg-sig-green/15 font-bold'
                           : isCurrent
                             ? 'bg-navy-blue/5 font-bold'
                             : isSelected
                               ? 'bg-blue-50/30'
                               : ''
-                      }`}
+                        }`}
                     >
                       <span className="text-[10px] uppercase font-bold text-gray-400 block">
                         {SHORT_DAYS[d.getDay()]}
                       </span>
                       <span
-                        className={`text-sm font-extrabold inline-flex items-center justify-center w-7 h-7 rounded-full mt-0.5 ${
-                          hasMatchInDay
+                        className={`text-sm font-extrabold inline-flex items-center justify-center w-7 h-7 rounded-full mt-0.5 ${hasMatchInDay
                             ? 'bg-sig-green text-navy-blue font-bold shadow-xs'
                             : isCurrent
                               ? 'bg-navy-blue text-white shadow-xs'
                               : 'text-navy-blue'
-                        }`}
+                          }`}
                       >
                         {d.getDate()}
                       </span>
@@ -1190,19 +1105,22 @@ export default function EventCalendar({
                         const evtHour = new Date(evt.scheduleDate).getHours()
                         return evtHour === hour
                       })
+                      const isPast = isPastDay(d)
 
                       return (
                         <div
                           key={dayIdx}
                           onClick={() => {
                             setSelectedDate(d)
-                            if (onScheduleEvent && hourEvents.length === 0) {
+                            if (onScheduleEvent && hourEvents.length === 0 && !isPast) {
                               const targetDate = new Date(d)
                               targetDate.setHours(hour, 0, 0, 0)
                               onScheduleEvent(targetDate)
                             }
                           }}
-                          className="p-1 border-r border-gray-100 relative hover:bg-gray-50/60 transition group cursor-pointer"
+                          className={`p-1 border-r border-gray-100 relative transition ${
+                            isPast ? 'bg-gray-50/20' : 'hover:bg-gray-50/60 cursor-pointer group'
+                          }`}
                         >
                           {hourEvents.map((evt) => {
                             const status = getEventStatus(evt)
@@ -1223,13 +1141,12 @@ export default function EventCalendar({
                                   e.stopPropagation()
                                   if (onViewEvent) onViewEvent(evt)
                                 }}
-                                className={`p-1.5 rounded-lg border text-[10px] font-semibold space-y-0.5 transition ${
-                                  isActiveMatch
+                                className={`p-1.5 rounded-lg border text-[10px] font-semibold space-y-0.5 transition ${isActiveMatch
                                     ? 'bg-sig-green/25 border-sig-green text-navy-blue font-bold shadow-xs'
                                     : isMatch
                                       ? 'bg-sig-green/15 border-sig-green/80 text-navy-blue font-bold'
                                       : `${style.chip} shadow-2xs hover:shadow-sm`
-                                }`}
+                                  }`}
                               >
                                 <div className="flex items-center justify-between">
                                   <span className="font-extrabold truncate text-navy-blue">
@@ -1303,19 +1220,21 @@ export default function EventCalendar({
                       {/* Content Slot */}
                       <div className="flex-1 p-3 space-y-2">
                         {hourEvents.length === 0 ? (
-                          <div
-                            onClick={() => {
-                              if (onScheduleEvent) {
-                                const targetDate = new Date(currentDate)
-                                targetDate.setHours(hour, 0, 0, 0)
-                                onScheduleEvent(targetDate)
-                              }
-                            }}
-                            className="h-full w-full opacity-0 group-hover:opacity-100 text-[11px] text-gray-400 flex items-center gap-1 cursor-pointer transition py-1"
-                          >
-                            <Plus className="w-3 h-3 text-navy-blue" />
-                            <span>Click to schedule at {formatHour(hour)}</span>
-                          </div>
+                          !isPastDay(currentDate) ? (
+                            <div
+                              onClick={() => {
+                                if (onScheduleEvent) {
+                                  const targetDate = new Date(currentDate)
+                                  targetDate.setHours(hour, 0, 0, 0)
+                                  onScheduleEvent(targetDate)
+                                }
+                              }}
+                              className="h-full w-full opacity-0 group-hover:opacity-100 text-[11px] text-gray-400 flex items-center gap-1 cursor-pointer transition py-1"
+                            >
+                              <Plus className="w-3 h-3 text-navy-blue" />
+                              <span>Click to schedule at {formatHour(hour)}</span>
+                            </div>
+                          ) : null
                         ) : (
                           hourEvents.map((evt) => {
                             const status = getEventStatus(evt)
@@ -1336,13 +1255,12 @@ export default function EventCalendar({
                               <div
                                 key={evt.id}
                                 onClick={() => onViewEvent && onViewEvent(evt)}
-                                className={`p-3.5 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between gap-3 transition duration-150 cursor-pointer ${
-                                  isActiveMatch
+                                className={`p-3.5 rounded-2xl border flex flex-col md:flex-row md:items-center justify-between gap-3 transition duration-150 cursor-pointer ${isActiveMatch
                                     ? 'bg-sig-green/20 border-sig-green border-2 shadow-xs'
                                     : isMatch
                                       ? 'bg-sig-green/10 border-sig-green/70 border-2'
                                       : `${style.border} ${style.bg} shadow-2xs hover:shadow-xs`
-                                }`}
+                                  }`}
                               >
                                 <div className="space-y-1.5">
                                   <div className="flex items-center gap-2">
@@ -1482,13 +1400,12 @@ export default function EventCalendar({
                       setOverflowModalDay(null)
                       if (onViewEvent) onViewEvent(evt)
                     }}
-                    className={`p-3 rounded-2xl border transition duration-150 cursor-pointer space-y-1 ${
-                      isActive
+                    className={`p-3 rounded-2xl border transition duration-150 cursor-pointer space-y-1 ${isActive
                         ? 'bg-sig-green/20 border-sig-green border-2 shadow-xs'
                         : isMatch
                           ? 'bg-sig-green/10 border-sig-green/70 border-2'
                           : `${style.border} ${style.bg} hover:shadow-xs`
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-navy-blue flex items-center gap-1.5">

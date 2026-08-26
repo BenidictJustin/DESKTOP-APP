@@ -2067,40 +2067,40 @@ export default function TextEditor({
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[#FAFBFD] border border-neutral-200 rounded-lg">
       {/* ── Title Bar ── */}
-      <div className="bg-navy-blue text-white flex items-center justify-between px-4 py-2 shrink-0 select-none">
-        <div className="flex items-center gap-3">
-          <div className="bg-white text-navy-blue rounded w-6 h-6 flex items-center justify-center font-bold text-sm shadow">
+      <div className="bg-navy-blue text-white flex items-center justify-between px-3 sm:px-4 py-1.5 sm:py-2 shrink-0 select-none gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="bg-white text-navy-blue rounded w-6 h-6 flex items-center justify-center font-bold text-sm shadow shrink-0">
             W
           </div>
-          <span className="text-sm font-semibold text-gray-100 truncate max-w-md">
+          <span className="text-xs sm:text-sm font-semibold text-gray-100 truncate max-w-[160px] sm:max-w-xs md:max-w-md">
             {docTitle} – DommUnity Rich Editor
           </span>
           {workspaceIsReadOnly && (
-            <span className="text-[10px] bg-green-600 text-white px-2 py-0.5 rounded-full font-bold">
+            <span className="text-[9px] sm:text-[10px] bg-green-600 text-white px-2 py-0.5 rounded-full font-bold shrink-0">
               Read-Only
             </span>
           )}
         </div>
-        <div className="flex items-center gap-4 text-xs text-gray-300">
+        <div className="flex items-center gap-2 sm:gap-4 text-[11px] sm:text-xs text-gray-300 shrink-0">
           {saveStatus === 'saving' && (
             <span className="flex items-center gap-1.5">
               <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-              Saving…
+              <span className="hidden xs:inline">Saving…</span>
             </span>
           )}
           {saveStatus === 'saved' && (
             <span className="flex items-center gap-1.5 text-green-400">
               <Check className="w-3.5 h-3.5" />
-              Saved
+              <span className="hidden xs:inline">Saved</span>
             </span>
           )}
           {saveStatus === 'error' && <span className="text-red-400">Save failed</span>}
-          {autoSave && <span className="text-green-400 font-semibold">AutoSave ON</span>}
+          {autoSave && <span className="text-green-400 font-semibold hidden sm:inline">AutoSave ON</span>}
         </div>
       </div>
 
       {/* ── Menu & Actions Row ── */}
-      <div className="bg-neutral-100 border-b border-neutral-200 flex items-center px-4 py-1.5 gap-2 shrink-0 select-none print:hidden">
+      <div className="bg-neutral-100 border-b border-neutral-200 flex items-center px-3 sm:px-4 py-1.5 gap-2 shrink-0 select-none print:hidden overflow-x-auto">
         {/* File Dropdown */}
         <div className="relative" ref={fileMenuRef}>
           <button

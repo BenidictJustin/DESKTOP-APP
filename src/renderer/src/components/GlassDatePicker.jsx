@@ -20,6 +20,8 @@ export default function GlassDatePicker({
   showTime = false,
   placeholder = showTime ? 'dd/mm/yyyy, --:-- --' : 'dd/mm/yyyy',
   disabled = false,
+  disablePast = false,
+  minDate = null,
   className = ''
 }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -257,6 +259,18 @@ export default function GlassDatePicker({
   const isSelected = (day) =>
     selectedDay === day && selectedMonth === viewMonth && selectedYear === viewYear
 
+  const isPastDay = (day) => {
+    if (!disablePast && !minDate) return false
+    const d = new Date(viewYear, viewMonth, day)
+    d.setHours(0, 0, 0, 0)
+    let threshold = new Date()
+    if (minDate) {
+      threshold = new Date(minDate)
+    }
+    threshold.setHours(0, 0, 0, 0)
+    return d.getTime() < threshold.getTime()
+  }
+
   // Year options list for quick dropdown (5 years past to 15 years future)
   const currentYearNum = today.getFullYear()
   const yearOptions = Array.from({ length: 20 }, (_, i) => currentYearNum - 5 + i)
@@ -384,6 +398,21 @@ export default function GlassDatePicker({
                   const day = idx + 1
                   const sel = isSelected(day)
                   const tod = isToday(day)
+                  const past = isPastDay(day)
+
+                  if (past) {
+                    return (
+                      <button
+                        key={`day-${day}`}
+                        type="button"
+                        disabled={true}
+                        className="py-1.5 rounded-lg text-xs font-normal text-gray-300 cursor-not-allowed select-none bg-gray-50/40"
+                      >
+                        {day}
+                      </button>
+                    )
+                  }
+
                   return (
                     <button
                       key={`day-${day}`}

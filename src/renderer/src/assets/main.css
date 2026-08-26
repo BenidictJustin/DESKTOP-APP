@@ -205,24 +205,6 @@ body {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════
-   WINDOW RESPONSIVENESS — Flex-child overflow prevention
-   ══════════════════════════════════════════════════════════════════════════════ */
-
-/* Prevent flex children from forcing parent overflow (blowout protection) */
-.glass-header > *,
-.glass-panel > *,
-.glass-sidebar > * {
-  min-width: 0;
-}
-
-/* Ensure header text truncates cleanly when window is narrow */
-.glass-header .truncate-responsive {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ══════════════════════════════════════════════════════════════════════════════
    MODERN & MINIMAL SCROLLBARS (PAGE FLOWS INSPIRED)
    ══════════════════════════════════════════════════════════════════════════════ */
 
@@ -629,4 +611,31 @@ select:focus {
   padding: 0.2rem 0.6rem;
   border-radius: 9999px;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   RESPONSIVE LAYOUT & CONTAINER UTILITIES
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* Fluid Table Scroll Container */
+.table-responsive-container {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 1rem;
+}
+
+/* Ensure flex children don't burst bounds */
+.min-w-zero {
+  min-width: 0 !important;
+}
+
+/* Responsive Modal Scrollable Content Area */
+.modal-body-scroll {
+  max-height: calc(85vh - 120px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+}
+
 
