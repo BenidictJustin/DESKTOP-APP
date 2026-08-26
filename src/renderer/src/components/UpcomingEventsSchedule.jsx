@@ -100,7 +100,7 @@ export default function UpcomingEventsSchedule({
               <h3 className="font-extrabold text-navy-blue text-base sm:text-lg tracking-tight">
                 {title}
               </h3>
-              <span className="inline-flex items-center text-[10.5px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-sig-green/10 text-sig-green border border-sig-green/20">
+              <span className="inline-flex items-center text-xs font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-sig-green/10 text-sig-green border border-sig-green/20">
                 January – December {selectedYear}
               </span>
             </div>
@@ -116,7 +116,7 @@ export default function UpcomingEventsSchedule({
                 key={st}
                 type="button"
                 onClick={() => setStatusFilter(st)}
-                className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold capitalize transition-all cursor-pointer ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer ${
                   statusFilter === st
                     ? 'bg-navy-blue text-white shadow-2xs'
                     : 'text-gray-500 hover:text-navy-blue'
@@ -183,7 +183,7 @@ export default function UpcomingEventsSchedule({
           return (
             <div
               key={m.name}
-              className={`h-[265px] rounded-2xl p-3.5 border transition-all duration-200 flex flex-col justify-between overflow-hidden ${
+              className={`h-[275px] rounded-2xl p-3.5 border transition-all duration-200 flex flex-col justify-between overflow-hidden ${
                 m.isCurrent
                   ? 'bg-gradient-to-b from-white via-white to-sig-green/5 border-sig-green/40 shadow-xs ring-1 ring-sig-green/20'
                   : 'bg-gradient-to-b from-slate-50/70 to-white border-gray-200/80 hover:border-navy-blue/25 hover:shadow-2xs'
@@ -196,13 +196,13 @@ export default function UpcomingEventsSchedule({
                     {m.name}
                   </h4>
                   {m.isCurrent && (
-                    <span className="bg-sig-green text-white text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded tracking-wider leading-none">
+                    <span className="bg-sig-green text-white text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded tracking-wider leading-none">
                       This Month
                     </span>
                   )}
                 </div>
                 <span
-                  className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full leading-none ${
+                  className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full leading-none ${
                     m.events.length > 0
                       ? 'bg-navy-blue text-sig-green'
                       : 'bg-gray-100 text-gray-400'
@@ -216,7 +216,7 @@ export default function UpcomingEventsSchedule({
               <div className="flex-1 overflow-y-auto pr-1 space-y-1.5 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-300">
                 {m.events.length === 0 ? (
                   <div className="h-full flex items-center justify-center py-6 text-center">
-                    <p className="text-[11px] text-gray-400 font-medium italic select-none">
+                    <p className="text-xs text-gray-400 font-medium italic select-none">
                       No scheduled events
                     </p>
                   </div>
@@ -242,15 +242,15 @@ export default function UpcomingEventsSchedule({
                               isCompleted ? 'bg-green-500' : 'bg-sig-green'
                             }`}
                           />
-                          <span className="font-bold text-navy-blue text-[11px] uppercase tracking-tight group-hover:text-sig-green transition-colors leading-tight line-clamp-1">
+                          <span className="font-bold text-navy-blue text-xs uppercase tracking-tight group-hover:text-sig-green transition-colors leading-tight line-clamp-1">
                             {evt.name}
                           </span>
                         </div>
 
                         {/* Short Info Metadata Row */}
-                        <div className="mt-1 pl-3 flex items-center justify-between text-[9.5px] text-gray-500 font-medium gap-1">
+                        <div className="mt-1 pl-3 flex items-center justify-between text-xs text-gray-500 font-medium gap-1">
                           <span className="flex items-center gap-1 text-navy-blue font-semibold shrink-0">
-                            <CalendarIcon className="w-2.5 h-2.5 text-navy-blue shrink-0" />
+                            <CalendarIcon className="w-3 h-3 text-navy-blue shrink-0" />
                             <span>
                               {m.name.slice(0, 3)} {dayStr}
                             </span>
@@ -262,7 +262,7 @@ export default function UpcomingEventsSchedule({
                             </span>
                           )}
 
-                          <span className="bg-navy-blue/5 text-navy-blue text-[8px] font-bold px-1.5 py-0.2 rounded shrink-0">
+                          <span className="bg-navy-blue/5 text-navy-blue text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0">
                             {org ? org.abbreviation : 'CES'}
                           </span>
                         </div>
@@ -273,7 +273,7 @@ export default function UpcomingEventsSchedule({
               </div>
 
               {/* Month Footer Status / Scroll Hint */}
-              <div className="pt-1.5 border-t border-gray-100 flex items-center justify-between text-[8.5px] text-gray-400 font-semibold shrink-0">
+              <div className="pt-1.5 border-t border-gray-100 flex items-center justify-between text-[9.5px] text-gray-400 font-semibold shrink-0">
                 <span>
                   {hasOverflow ? (
                     <span className="text-sig-green font-bold">

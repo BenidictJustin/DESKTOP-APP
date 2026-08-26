@@ -1,12 +1,9 @@
 <mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.3.6 Chrome/140.0.7339.249 Electron/38.8.0 Safari/537.36" version="29.3.6">
   <diagram id="dommunity_nosql_data_model" name="DommUnity NoSQL Data Model">
-    <mxGraphModel dx="1737" dy="1043" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1480" pageHeight="1160" math="0" shadow="0">
+    <mxGraphModel dx="595" dy="1518" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1480" pageHeight="1160" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="canvas_frame" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D5D5E2;strokeWidth=1.5;pointerEvents=0;" value="" vertex="1">
-          <mxGeometry height="1120" width="1440" x="20" y="20" as="geometry" />
-        </mxCell>
         <mxCell id="tbl_users" parent="1" style="shape=table;startSize=26;container=1;collapsible=0;childLayout=tableLayout;fixedRows=1;rowLines=1;fontStyle=1;align=center;resizeLast=0;html=1;strokeColor=#9998B8;fillColor=#EAE8F7;strokeWidth=1.2;fontSize=12;fontColor=#2C2B4B;fontFamily=Helvetica, Arial, sans-serif;" value="users" vertex="1">
           <mxGeometry height="242" width="230" x="60" y="50" as="geometry" />
         </mxCell>
@@ -128,7 +125,7 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="tbl_organizations" parent="1" style="shape=table;startSize=26;container=1;collapsible=0;childLayout=tableLayout;fixedRows=1;rowLines=1;fontStyle=1;align=center;resizeLast=0;html=1;strokeColor=#9998B8;fillColor=#EAE8F7;strokeWidth=1.2;fontSize=12;fontColor=#2C2B4B;fontFamily=Helvetica, Arial, sans-serif;" value="organizations" vertex="1">
-          <mxGeometry height="218" width="250" x="390" y="50" as="geometry" />
+          <mxGeometry height="218" width="250" x="390" y="-80" as="geometry" />
         </mxCell>
         <mxCell id="orgs_row_0" parent="tbl_organizations" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;bubbleStyle=none;collapsible=0;dropTarget=0;fillColor=none;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;strokeColor=inherit;strokeWidth=1;" value="" vertex="1">
           <mxGeometry height="24" width="250" y="26" as="geometry" />
@@ -235,7 +232,7 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="tbl_events" parent="1" style="shape=table;startSize=26;container=1;collapsible=0;childLayout=tableLayout;fixedRows=1;rowLines=1;fontStyle=1;align=center;resizeLast=0;html=1;strokeColor=#9998B8;fillColor=#EAE8F7;strokeWidth=1.2;fontSize=12;fontColor=#2C2B4B;fontFamily=Helvetica, Arial, sans-serif;" value="events" vertex="1">
-          <mxGeometry height="242" width="260" x="740" y="50" as="geometry" />
+          <mxGeometry height="242" width="260" x="700" y="-92" as="geometry" />
         </mxCell>
         <mxCell id="events_row_0" parent="tbl_events" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;bubbleStyle=none;collapsible=0;dropTarget=0;fillColor=none;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;strokeColor=inherit;strokeWidth=1;" value="" vertex="1">
           <mxGeometry height="24" width="260" y="26" as="geometry" />
@@ -355,7 +352,7 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="tbl_narrative_reports" parent="1" style="shape=table;startSize=26;container=1;collapsible=0;childLayout=tableLayout;fixedRows=1;rowLines=1;fontStyle=1;align=center;resizeLast=0;html=1;strokeColor=#9998B8;fillColor=#EAE8F7;strokeWidth=1.2;fontSize=12;fontColor=#2C2B4B;fontFamily=Helvetica, Arial, sans-serif;" value="narrative_reports" vertex="1">
-          <mxGeometry height="362" width="260" x="1100" y="50" as="geometry" />
+          <mxGeometry height="362" width="260" x="1060" y="70" as="geometry" />
         </mxCell>
         <mxCell id="rep_row_0" parent="tbl_narrative_reports" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;bubbleStyle=none;collapsible=0;dropTarget=0;fillColor=none;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;strokeColor=inherit;strokeWidth=1;" value="" vertex="1">
           <mxGeometry height="24" width="260" y="26" as="geometry" />
@@ -540,7 +537,7 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="tbl_report_history" parent="1" style="shape=table;startSize=26;container=1;collapsible=0;childLayout=tableLayout;fixedRows=1;rowLines=1;fontStyle=2;align=center;resizeLast=0;html=1;strokeColor=#9998B8;fillColor=#F3F1FA;strokeWidth=1.2;fontSize=11;fontColor=#2C2B4B;fontFamily=Helvetica, Arial, sans-serif;" value="history [Embedded Item]" vertex="1">
-          <mxGeometry height="122" width="260" x="1100" y="460" as="geometry" />
+          <mxGeometry height="122" width="260" x="1060" y="519" as="geometry" />
         </mxCell>
         <mxCell id="rh_row_0" parent="tbl_report_history" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;bubbleStyle=none;collapsible=0;dropTarget=0;fillColor=none;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;strokeColor=inherit;strokeWidth=1;" value="" vertex="1">
           <mxGeometry height="24" width="260" y="26" as="geometry" />
@@ -595,7 +592,7 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="tbl_donors" parent="1" style="shape=table;startSize=26;container=1;collapsible=0;childLayout=tableLayout;fixedRows=1;rowLines=1;fontStyle=1;align=center;resizeLast=0;html=1;strokeColor=#9998B8;fillColor=#EAE8F7;strokeWidth=1.2;fontSize=12;fontColor=#2C2B4B;fontFamily=Helvetica, Arial, sans-serif;" value="donors" vertex="1">
-          <mxGeometry height="194" width="230" x="60" y="380" as="geometry" />
+          <mxGeometry height="194" width="230" x="100" y="400" as="geometry" />
         </mxCell>
         <mxCell id="donors_row_0" parent="tbl_donors" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;bubbleStyle=none;collapsible=0;dropTarget=0;fillColor=none;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;strokeColor=inherit;strokeWidth=1;" value="" vertex="1">
           <mxGeometry height="24" width="230" y="26" as="geometry" />
@@ -689,7 +686,7 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="tbl_donations" parent="1" style="shape=table;startSize=26;container=1;collapsible=0;childLayout=tableLayout;fixedRows=1;rowLines=1;fontStyle=1;align=center;resizeLast=0;html=1;strokeColor=#9998B8;fillColor=#EAE8F7;strokeWidth=1.2;fontSize=12;fontColor=#2C2B4B;fontFamily=Helvetica, Arial, sans-serif;" value="donations" vertex="1">
-          <mxGeometry height="194" width="250" x="390" y="380" as="geometry" />
+          <mxGeometry height="194" width="250" x="400" y="270" as="geometry" />
         </mxCell>
         <mxCell id="donations_row_0" parent="tbl_donations" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;bubbleStyle=none;collapsible=0;dropTarget=0;fillColor=none;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;strokeColor=inherit;strokeWidth=1;" value="" vertex="1">
           <mxGeometry height="24" width="250" y="26" as="geometry" />
@@ -783,7 +780,7 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="tbl_donation_item" parent="1" style="shape=table;startSize=26;container=1;collapsible=0;childLayout=tableLayout;fixedRows=1;rowLines=1;fontStyle=2;align=center;resizeLast=0;html=1;strokeColor=#9998B8;fillColor=#F3F1FA;strokeWidth=1.2;fontSize=11;fontColor=#2C2B4B;fontFamily=Helvetica, Arial, sans-serif;" value="items [Embedded Item]" vertex="1">
-          <mxGeometry height="170" width="250" x="740" y="390" as="geometry" />
+          <mxGeometry height="170" width="250" x="705" y="282" as="geometry" />
         </mxCell>
         <mxCell id="di_row_0" parent="tbl_donation_item" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;bubbleStyle=none;collapsible=0;dropTarget=0;fillColor=none;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;strokeColor=inherit;strokeWidth=1;" value="" vertex="1">
           <mxGeometry height="24" width="250" y="26" as="geometry" />
@@ -864,7 +861,7 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="tbl_inventory" parent="1" style="shape=table;startSize=26;container=1;collapsible=0;childLayout=tableLayout;fixedRows=1;rowLines=1;fontStyle=1;align=center;resizeLast=0;html=1;strokeColor=#9998B8;fillColor=#EAE8F7;strokeWidth=1.2;fontSize=12;fontColor=#2C2B4B;fontFamily=Helvetica, Arial, sans-serif;" value="inventory" vertex="1">
-          <mxGeometry height="386" width="260" x="390" y="660" as="geometry" />
+          <mxGeometry height="386" width="260" x="420" y="550" as="geometry" />
         </mxCell>
         <mxCell id="inv_row_0" parent="tbl_inventory" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;bubbleStyle=none;collapsible=0;dropTarget=0;fillColor=none;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;strokeColor=inherit;strokeWidth=1;" value="" vertex="1">
           <mxGeometry height="24" width="260" y="26" as="geometry" />
@@ -1062,7 +1059,7 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="tbl_inv_tx" parent="1" style="shape=table;startSize=26;container=1;collapsible=0;childLayout=tableLayout;fixedRows=1;rowLines=1;fontStyle=1;align=center;resizeLast=0;html=1;strokeColor=#9998B8;fillColor=#EAE8F7;strokeWidth=1.2;fontSize=12;fontColor=#2C2B4B;fontFamily=Helvetica, Arial, sans-serif;" value="inventory_transactions" vertex="1">
-          <mxGeometry height="194" width="260" x="740" y="760" as="geometry" />
+          <mxGeometry height="194" width="260" x="750" y="550" as="geometry" />
         </mxCell>
         <mxCell id="tx_row_0" parent="tbl_inv_tx" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;bubbleStyle=none;collapsible=0;dropTarget=0;fillColor=none;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;strokeColor=inherit;strokeWidth=1;" value="" vertex="1">
           <mxGeometry height="24" width="260" y="26" as="geometry" />
@@ -1155,66 +1152,85 @@
             <mxRectangle height="24" width="185" as="alternateBounds" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="edge_users_org" edge="1" parent="1" source="tbl_users" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;exitX=1;exitY=0.62;exitDx=0;exitDy=0;entryX=0;entryY=0.62;entryDx=0;entryDy=0;" target="tbl_organizations" value="belongs to">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="edge_org_coordinator" edge="1" parent="1" source="tbl_organizations" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;exitX=0;exitY=0.4;exitDx=0;exitDy=0;entryX=1;entryY=0.4;entryDx=0;entryDy=0;" target="tbl_users" value="assigned coordinator">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="edge_events_org" edge="1" parent="1" source="tbl_events" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="tbl_organizations" value="assigned to">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="edge_reports_event" edge="1" parent="1" source="tbl_narrative_reports" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;exitX=0;exitY=0.18;exitDx=0;exitDy=0;entryX=1;entryY=0.3;entryDx=0;entryDy=0;" target="tbl_events" value="documents event">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="edge_reports_author" edge="1" parent="1" source="tbl_narrative_reports" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;exitX=0;exitY=0.25;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;edgeStyle=orthogonalEdgeStyle;" target="tbl_users" value="authored by">
+        <mxCell id="edge_users_org" edge="1" parent="1" source="tbl_users" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;exitX=1;exitY=0.62;exitDx=0;exitDy=0;entryX=0;entryY=0.62;entryDx=0;entryDy=0;" target="tbl_organizations" value="">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="1050" y="141" />
-              <mxPoint x="1050" y="30" />
-              <mxPoint x="175" y="30" />
+              <mxPoint x="360" y="200" />
+              <mxPoint x="360" y="55" />
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="edge_reports_org" edge="1" parent="1" source="tbl_narrative_reports" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;exitX=0;exitY=0.32;exitDx=0;exitDy=0;entryX=0.75;entryY=1;entryDx=0;entryDy=0;edgeStyle=orthogonalEdgeStyle;" target="tbl_organizations" value="department ref">
+        <mxCell id="edge_org_coordinator" edge="1" parent="1" source="tbl_organizations" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;exitX=0;exitY=0.4;exitDx=0;exitDy=0;" value="">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="1030" y="166" />
-              <mxPoint x="1030" y="320" />
-              <mxPoint x="578" y="320" />
+              <mxPoint x="330" y="7" />
+              <mxPoint x="330" y="110" />
             </Array>
+            <mxPoint x="290" y="110" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="edge_reports_history" edge="1" parent="1" source="tbl_narrative_reports" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="tbl_report_history" value="contains history">
+        <mxCell id="edge_events_org" edge="1" parent="1" source="tbl_events" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="tbl_organizations" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge_donations_donor" edge="1" parent="1" source="tbl_donations" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;exitX=0;exitY=0.35;exitDx=0;exitDy=0;entryX=1;entryY=0.35;entryDx=0;entryDy=0;" target="tbl_donors" value="donated by">
+        <mxCell id="edge_reports_event" edge="1" parent="1" source="rep_row_0" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1.012;entryY=0.272;entryDx=0;entryDy=0;entryPerimeter=0;" target="events_row_7" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="edge_donations_receiver" edge="1" parent="1" source="tbl_donations" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;exitX=0.2;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;edgeStyle=orthogonalEdgeStyle;" target="tbl_users" value="received by">
+        <mxCell id="edge_reports_author" edge="1" parent="1" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;entryX=0.5;entryY=0;entryDx=0;entryDy=0;edgeStyle=orthogonalEdgeStyle;" target="tbl_users" value="">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="440" y="340" />
-              <mxPoint x="175" y="340" />
+              <mxPoint x="1180" y="-120" />
+              <mxPoint x="175" y="-120" />
             </Array>
+            <mxPoint x="1180" y="60" as="sourcePoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="edge_donations_items" edge="1" parent="1" source="tbl_donations" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="tbl_donation_item" value="contains items">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="edge_inventory_donation" edge="1" parent="1" source="tbl_inventory" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" target="tbl_donations" value="stocked from donation">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="edge_inventory_user" edge="1" parent="1" source="tbl_inventory" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;exitX=0;exitY=0.62;exitDx=0;exitDy=0;entryX=0.25;entryY=1;entryDx=0;entryDy=0;edgeStyle=orthogonalEdgeStyle;" target="tbl_users" value="updated by">
+        <mxCell id="edge_reports_org" edge="1" parent="1" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;edgeStyle=orthogonalEdgeStyle;" value="">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="320" y="900" />
-              <mxPoint x="320" y="360" />
-              <mxPoint x="118" y="360" />
+              <mxPoint x="990" y="220" />
+              <mxPoint x="578" y="220" />
             </Array>
+            <mxPoint x="1060" y="220" as="sourcePoint" />
+            <mxPoint x="578" y="140" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="edge_inv_tx" edge="1" parent="1" source="tbl_inventory" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="tbl_inv_tx" value="movement logs">
+        <mxCell id="edge_reports_history" edge="1" parent="1" source="tbl_narrative_reports" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="tbl_report_history" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_donations_donor" edge="1" parent="1" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="399" y="450" as="sourcePoint" />
+            <mxPoint x="333" y="450" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_donations_receiver" edge="1" parent="1" source="donations_row_1" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;entryX=0.5;entryY=1;entryDx=0;entryDy=0;edgeStyle=orthogonalEdgeStyle;exitX=-0.001;exitY=0.013;exitDx=0;exitDy=0;exitPerimeter=0;" target="tbl_users" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="175" y="320" />
+            </Array>
+            <mxPoint x="390" y="320" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_donations_items" edge="1" parent="1" source="tbl_donations" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="tbl_donation_item" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_inventory_donation" edge="1" parent="1" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;entryX=0.451;entryY=1.234;entryDx=0;entryDy=0;entryPerimeter=0;" target="donations_row_6" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="513" y="550" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_inventory_user" edge="1" parent="1" source="inv_row_2" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;edgeStyle=orthogonalEdgeStyle;exitX=-0.007;exitY=0.264;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.041;entryY=1.093;entryDx=0;entryDy=0;entryPerimeter=0;" target="users_row_8" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="70" y="630" />
+              <mxPoint x="70" y="320" />
+              <mxPoint x="69" y="320" />
+            </Array>
+            <mxPoint x="390" y="650" as="sourcePoint" />
+            <mxPoint x="70" y="300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_inv_tx" edge="1" parent="1" source="inv_row_3" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;exitX=1.007;exitY=-0.024;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitPerimeter=0;" target="tbl_inv_tx" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
       </root>

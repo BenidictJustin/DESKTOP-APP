@@ -542,12 +542,12 @@ export default function EventCalendar({
                   </div>
                 ) : (
                   <div>
-                    <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100 flex items-center justify-between">
+                    <div className="px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100 flex items-center justify-between">
                       <span>Search Matches ({matchedEvents.length})</span>
                       <button
                         type="button"
                         onClick={() => setIsSearchFocused(false)}
-                        className="text-[10px] text-navy-blue font-bold hover:underline cursor-pointer flex items-center gap-0.5"
+                        className="text-xs text-navy-blue font-bold hover:underline cursor-pointer flex items-center gap-0.5"
                       >
                         <span>Dismiss</span>
                       </button>
@@ -578,12 +578,12 @@ export default function EventCalendar({
                                 {evt.name}
                               </span>
                               <span
-                                className={`text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-full ${statusStyle.bg} ${statusStyle.text} shrink-0`}
+                                className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${statusStyle.bg} ${statusStyle.text} shrink-0`}
                               >
                                 {evt.status || 'planned'}
                               </span>
                             </div>
-                            <div className="flex flex-wrap items-center gap-2.5 text-[10px] text-gray-500 font-semibold">
+                            <div className="flex flex-wrap items-center gap-2.5 text-xs text-gray-500 font-semibold">
                               <span className="flex items-center gap-1 text-navy-blue">
                                 <CalendarIcon className="w-3 h-3 text-navy-blue" />
                                 {dateObj.toLocaleDateString(undefined, {
@@ -819,7 +819,7 @@ export default function EventCalendar({
                     <span>All Events</span>
                   </div>
                   <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusFilter === 'all'
+                    className={`text-xs font-bold px-2 py-0.5 rounded-full ${statusFilter === 'all'
                         ? 'bg-white/20 text-white'
                         : 'bg-gray-100 text-gray-600'
                       }`}
@@ -841,7 +841,7 @@ export default function EventCalendar({
                     <span>Planned / Upcoming</span>
                   </div>
                   <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusFilter === 'planned'
+                    className={`text-xs font-bold px-2 py-0.5 rounded-full ${statusFilter === 'planned'
                         ? 'bg-white/20 text-white'
                         : 'bg-blue-50 text-blue-700'
                       }`}
@@ -863,7 +863,7 @@ export default function EventCalendar({
                     <span>Completed</span>
                   </div>
                   <span
-                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${statusFilter === 'completed'
+                    className={`text-xs font-bold px-2 py-0.5 rounded-full ${statusFilter === 'completed'
                         ? 'bg-white/20 text-white'
                         : 'bg-emerald-50 text-emerald-700'
                       }`}
@@ -993,7 +993,7 @@ export default function EventCalendar({
                                 e.stopPropagation()
                                 if (onViewEvent) onViewEvent(evt)
                               }}
-                              className={`group/chip px-2 py-1 rounded-md text-[10px] font-semibold flex items-center justify-between gap-1 truncate cursor-pointer transition border ${isActiveMatch
+                              className={`group/chip px-2 py-1 rounded-md text-[11px] font-semibold flex items-center justify-between gap-1 truncate cursor-pointer transition border ${isActiveMatch
                                   ? 'bg-sig-green text-navy-blue font-bold border-sig-green shadow-xs'
                                   : isMatch
                                     ? 'bg-sig-green/25 text-navy-blue font-bold border-sig-green/60'
@@ -1006,7 +1006,7 @@ export default function EventCalendar({
                                   className={`w-1.5 h-1.5 rounded-full shrink-0 ${isMatch ? 'bg-navy-blue' : style.dot
                                     }`}
                                 />
-                                <span className="text-[9px] font-bold opacity-80 shrink-0">
+                                <span className="text-[10px] font-bold opacity-80 shrink-0">
                                   {timeStr}
                                 </span>
                                 <span className="truncate font-bold">
@@ -1028,7 +1028,7 @@ export default function EventCalendar({
                                 events: dayEvents
                               })
                             }}
-                            className="w-full text-left px-1.5 py-0.5 text-[9px] font-bold text-navy-blue hover:text-sig-green hover:underline cursor-pointer transition block"
+                            className="w-full text-left px-1.5 py-0.5 text-[10px] font-bold text-navy-blue hover:text-sig-green hover:underline cursor-pointer transition block"
                           >
                             +{dayEvents.length - 3} more events
                           </button>
@@ -1265,12 +1265,12 @@ export default function EventCalendar({
                                 <div className="space-y-1.5">
                                   <div className="flex items-center gap-2">
                                     {isMatch && (
-                                      <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-sig-green text-navy-blue">
+                                      <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-sig-green text-navy-blue">
                                         Match Found
                                       </span>
                                     )}
                                     <span
-                                      className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full ${style.bg} ${style.text} border ${style.border}`}
+                                      className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${style.bg} ${style.text} border ${style.border}`}
                                     >
                                       {evt.status || 'planned'}
                                     </span>
@@ -1290,7 +1290,7 @@ export default function EventCalendar({
                                       {evt.description}
                                     </p>
                                   )}
-                                  <div className="flex flex-wrap items-center gap-4 text-[11px] text-gray-400 font-semibold pt-1">
+                                  <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400 font-semibold pt-1">
                                     <div className="flex items-center gap-1.5">
                                       <Clock className="w-3.5 h-3.5 text-navy-blue" />
                                       <span>{timeStr}</span>
@@ -1414,12 +1414,12 @@ export default function EventCalendar({
                       </span>
                       <div className="flex items-center gap-1">
                         {isMatch && (
-                          <span className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-sig-green text-navy-blue">
+                          <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-sig-green text-navy-blue">
                             Match
                           </span>
                         )}
                         <span
-                          className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full ${style.bg} ${style.text} border ${style.border}`}
+                          className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${style.bg} ${style.text} border ${style.border}`}
                         >
                           {evt.status || 'planned'}
                         </span>
@@ -1429,7 +1429,7 @@ export default function EventCalendar({
                       {evt.name}
                     </h4>
                     {evt.location && (
-                      <p className="text-[10px] text-gray-500 flex items-center gap-1">
+                      <p className="text-xs text-gray-500 flex items-center gap-1">
                         <MapPin className="w-3 h-3 text-sig-green shrink-0" />
                         <span>{evt.location}</span>
                       </p>

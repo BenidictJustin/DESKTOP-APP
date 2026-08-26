@@ -63,7 +63,8 @@ import { useNetworkStatus } from '../../context/NetworkContext'
 import {
   CoordinatorDashboardSkeleton,
   ReportsSkeleton,
-  AboutSkeleton
+  AboutSkeleton,
+  DocumentEditorSkeleton
 } from '../../components/skeletons'
 
 // ─── Status Badge helper ───────────────────────────────────────────────────────
@@ -631,52 +632,56 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
             <div
               className={`flex-1 flex flex-col overflow-hidden ${activeTab === 'editor' ? '' : 'hidden'}`}
             >
-              <TextEditor
-                user={user}
-                isOffline={isOffline}
-                workspaceReportId={workspaceReportId}
-                setWorkspaceReportId={setWorkspaceReportId}
-                workspaceReportAY={workspaceReportAY}
-                setWorkspaceReportAY={setWorkspaceReportAY}
-                workspaceReportSem={workspaceReportSem}
-                setWorkspaceReportSem={setWorkspaceReportSem}
-                workspaceReportType={workspaceReportType}
-                setWorkspaceReportType={setWorkspaceReportType}
-                workspaceReportEventId={workspaceReportEventId}
-                setWorkspaceReportEventId={setWorkspaceReportEventId}
-                workspaceReportTitle={workspaceReportTitle}
-                setWorkspaceReportTitle={setWorkspaceReportTitle}
-                workspaceReportDate={workspaceReportDate}
-                setWorkspaceReportDate={setWorkspaceReportDate}
-                workspaceReportLocation={workspaceReportLocation}
-                setWorkspaceReportLocation={setWorkspaceReportLocation}
-                workspaceReportBenef={workspaceReportBenef}
-                setWorkspaceReportBenef={setWorkspaceReportBenef}
-                workspaceReportOrgId={workspaceReportOrgId}
-                setWorkspaceReportOrgId={setWorkspaceReportOrgId}
-                workspaceReportPhotos={workspaceReportPhotos}
-                setWorkspaceReportPhotos={setWorkspaceReportPhotos}
-                workspaceIsReadOnly={workspaceIsReadOnly}
-                setWorkspaceIsReadOnly={setWorkspaceIsReadOnly}
-                workspaceFeedback={workspaceFeedback}
-                linkToEvent={linkToEvent}
-                setLinkToEvent={setLinkToEvent}
-                loading={loading}
-                setLoading={setLoading}
-                saveStatus={saveStatus}
-                setSaveStatus={setSaveStatus}
-                autoSave={autoSave}
-                setAutoSave={setAutoSave}
-                reportsList={reportsList}
-                orgsList={orgsList}
-                eventsList={eventsList}
-                onSave={handleSave}
-                onResetForm={resetForm}
-                onOpenReport={openReport}
-                onLoadData={loadData}
-                setActiveTab={setActiveTab}
-                StatusBadge={StatusBadge}
-              />
+              {isOffline ? (
+                <DocumentEditorSkeleton />
+              ) : (
+                <TextEditor
+                  user={user}
+                  isOffline={isOffline}
+                  workspaceReportId={workspaceReportId}
+                  setWorkspaceReportId={setWorkspaceReportId}
+                  workspaceReportAY={workspaceReportAY}
+                  setWorkspaceReportAY={setWorkspaceReportAY}
+                  workspaceReportSem={workspaceReportSem}
+                  setWorkspaceReportSem={setWorkspaceReportSem}
+                  workspaceReportType={workspaceReportType}
+                  setWorkspaceReportType={setWorkspaceReportType}
+                  workspaceReportEventId={workspaceReportEventId}
+                  setWorkspaceReportEventId={setWorkspaceReportEventId}
+                  workspaceReportTitle={workspaceReportTitle}
+                  setWorkspaceReportTitle={setWorkspaceReportTitle}
+                  workspaceReportDate={workspaceReportDate}
+                  setWorkspaceReportDate={setWorkspaceReportDate}
+                  workspaceReportLocation={workspaceReportLocation}
+                  setWorkspaceReportLocation={setWorkspaceReportLocation}
+                  workspaceReportBenef={workspaceReportBenef}
+                  setWorkspaceReportBenef={setWorkspaceReportBenef}
+                  workspaceReportOrgId={workspaceReportOrgId}
+                  setWorkspaceReportOrgId={setWorkspaceReportOrgId}
+                  workspaceReportPhotos={workspaceReportPhotos}
+                  setWorkspaceReportPhotos={setWorkspaceReportPhotos}
+                  workspaceIsReadOnly={workspaceIsReadOnly}
+                  setWorkspaceIsReadOnly={setWorkspaceIsReadOnly}
+                  workspaceFeedback={workspaceFeedback}
+                  linkToEvent={linkToEvent}
+                  setLinkToEvent={setLinkToEvent}
+                  loading={loading}
+                  setLoading={setLoading}
+                  saveStatus={saveStatus}
+                  setSaveStatus={setSaveStatus}
+                  autoSave={autoSave}
+                  setAutoSave={setAutoSave}
+                  reportsList={reportsList}
+                  orgsList={orgsList}
+                  eventsList={eventsList}
+                  onSave={handleSave}
+                  onResetForm={resetForm}
+                  onOpenReport={openReport}
+                  onLoadData={loadData}
+                  setActiveTab={setActiveTab}
+                  StatusBadge={StatusBadge}
+                />
+              )}
             </div>
 
             {/* ── COMPILED REPORTS ── */}

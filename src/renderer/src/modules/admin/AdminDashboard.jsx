@@ -2241,10 +2241,10 @@ export default function AdminDashboard({ user, onLogout }) {
             <img src={logo} alt="CES Logo" className="h-7 w-7 sm:h-9 sm:w-9 object-contain" />
           </div>
           <div className="flex flex-col text-left leading-none min-w-0">
-            <span className="text-[10px] sm:text-[12px] font-bold text-navy-blue tracking-wide uppercase leading-tight truncate">
+            <span className="text-xs sm:text-[13px] font-bold text-navy-blue tracking-wide uppercase leading-tight truncate">
               Community Extension & Services
             </span>
-            <span className="text-[8px] sm:text-[10px] font-semibold text-sig-green tracking-wide uppercase mt-0.5 leading-tight truncate">
+            <span className="text-[10px] sm:text-[11px] font-semibold text-sig-green tracking-wide uppercase mt-0.5 leading-tight truncate">
               Dominican College of Tarlac
             </span>
           </div>
@@ -2267,10 +2267,10 @@ export default function AdminDashboard({ user, onLogout }) {
               <Users className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
             </div>
             <div className="text-left leading-none">
-              <div className="text-xs font-bold text-navy-blue truncate max-w-[100px] sm:max-w-[140px]">
+              <div className="text-sm font-bold text-navy-blue truncate max-w-[120px] sm:max-w-[160px]">
                 {user.username || user.name || 'admin123'}
               </div>
-              <div className="text-[9px] text-gray-400 font-medium mt-0.5 truncate max-w-[100px] sm:max-w-[140px] hidden sm:block">{user.email}</div>
+              <div className="text-xs text-gray-400 font-medium mt-0.5 truncate max-w-[120px] sm:max-w-[160px] hidden sm:block">{user.email}</div>
             </div>
           </div>
         </div>
@@ -2348,7 +2348,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             <Users className="w-4.5 h-4.5" />
                           </div>
                           <div className="min-w-0">
-                            <span className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider block leading-none mb-1">
+                            <span className="text-xs text-gray-500 font-bold uppercase tracking-wider block leading-none mb-1">
                               Coordinators
                             </span>
                             <span className="text-xl font-black text-navy-blue leading-none">
@@ -2369,7 +2369,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             <Package className="w-4.5 h-4.5" />
                           </div>
                           <div className="min-w-0">
-                            <span className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider block leading-none mb-1">
+                            <span className="text-xs text-gray-500 font-bold uppercase tracking-wider block leading-none mb-1">
                               Stock Items
                             </span>
                             <span className="text-xl font-black text-navy-blue leading-none">
@@ -2386,7 +2386,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             <FolderOpen className="w-4.5 h-4.5" />
                           </div>
                           <div className="min-w-0">
-                            <span className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider block leading-none mb-1">
+                            <span className="text-xs text-gray-500 font-bold uppercase tracking-wider block leading-none mb-1">
                               Departments
                             </span>
                             <span className="text-xl font-black text-navy-blue leading-none">
@@ -2403,7 +2403,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             <Calendar className="w-4.5 h-4.5" />
                           </div>
                           <div className="min-w-0">
-                            <span className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider block leading-none mb-1">
+                            <span className="text-xs text-gray-500 font-bold uppercase tracking-wider block leading-none mb-1">
                               Scheduled
                             </span>
                             <span className="text-xl font-black text-navy-blue leading-none">
@@ -2429,7 +2429,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             <Check className="w-4.5 h-4.5" />
                           </div>
                           <div className="min-w-0">
-                            <span className="text-[9.5px] text-gray-400 font-bold uppercase tracking-wider block leading-none mb-1">
+                            <span className="text-xs text-gray-500 font-bold uppercase tracking-wider block leading-none mb-1">
                               Completed
                             </span>
                             <span className="text-xl font-black text-navy-blue leading-none">
@@ -2451,22 +2451,22 @@ export default function AdminDashboard({ user, onLogout }) {
                       <div className="glass-card rounded-2xl p-4 space-y-3 w-full">
                         <div className="flex items-center justify-between border-b border-gray-200/50 pb-2.5">
                           <div className="flex items-center gap-2">
-                            <FileText className="w-3.5 h-3.5 text-navy-blue" />
-                            <h3 className="font-bold text-navy-blue text-[12.5px]">
+                            <FileText className="w-4 h-4 text-navy-blue" />
+                            <h3 className="font-bold text-navy-blue text-sm">
                               Pending Submitted Reports
                             </h3>
                             {reportsList.filter((r) => r.status === 'submitted').length > 0 && (
-                              <span className="bg-amber-500 text-white rounded-full px-1.5 py-px text-[9px] font-bold leading-none">
+                              <span className="bg-amber-500 text-white rounded-full px-2 py-0.5 text-xs font-bold leading-none">
                                 {reportsList.filter((r) => r.status === 'submitted').length}
                               </span>
                             )}
                           </div>
                           <button
                             onClick={() => setActiveTab('reports')}
-                            className="text-[10px] text-sig-green-600 font-bold hover:underline cursor-pointer flex items-center gap-0.5"
+                            className="text-xs text-sig-green-600 font-bold hover:underline cursor-pointer flex items-center gap-1"
                           >
                             <span>Review All Reports</span>
-                            <ChevronRight className="w-3 h-3" />
+                            <ChevronRight className="w-3.5 h-3.5" />
                           </button>
                         </div>
 
@@ -2486,17 +2486,17 @@ export default function AdminDashboard({ user, onLogout }) {
                                   >
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-1.5 mb-0.5">
-                                        <span className="text-[9px] font-extrabold text-navy-blue uppercase bg-navy-blue/8 px-1.5 py-0.5 rounded">
+                                        <span className="text-[10px] font-extrabold text-navy-blue uppercase bg-navy-blue/8 px-2 py-0.5 rounded">
                                           {org ? org.abbreviation : 'CES'}
                                         </span>
-                                        <span className="text-[9px] text-gray-400">
+                                        <span className="text-xs text-gray-400 font-medium">
                                           {new Date(rep.updatedAt || Date.now()).toLocaleDateString()}
                                         </span>
                                       </div>
-                                      <h4 className="font-bold text-navy-blue text-[11.5px] truncate">
+                                      <h4 className="font-bold text-navy-blue text-sm truncate">
                                         {ev ? ev.name : rep.activityTitle || 'Submitted Report'}
                                       </h4>
-                                      <p className="text-[10px] text-gray-400 mt-px">
+                                      <p className="text-xs text-gray-500 mt-0.5">
                                         Submitted by {author ? author.name : 'Coordinator'}
                                       </p>
                                     </div>
@@ -2505,9 +2505,9 @@ export default function AdminDashboard({ user, onLogout }) {
                                         setSelectedReport(rep)
                                         setFeedbackNote('')
                                       }}
-                                      className="bg-navy-blue hover:bg-navy-blue-600 text-white font-semibold py-1.5 px-2.5 rounded-lg text-[10px] flex items-center gap-1 shadow-xs transition-all cursor-pointer shrink-0"
+                                      className="bg-navy-blue hover:bg-navy-blue-600 text-white font-semibold py-1.5 px-3 rounded-lg text-xs flex items-center gap-1 shadow-xs transition-all cursor-pointer shrink-0"
                                     >
-                                      <Eye className="w-3 h-3" />
+                                      <Eye className="w-3.5 h-3.5" />
                                       <span>Inspect Report</span>
                                     </button>
                                   </div>
@@ -2616,15 +2616,15 @@ export default function AdminDashboard({ user, onLogout }) {
                                       className="border border-sig-green/20 bg-sig-green/5 rounded-2xl p-4 flex flex-col justify-between hover:border-sig-green/45 transition"
                                     >
                                       <div>
-                                        <div className="flex justify-between items-start">
-                                          <h4 className="font-bold text-navy-blue text-xs">
+                                        <div className="flex justify-between items-start gap-2">
+                                          <h4 className="font-bold text-navy-blue text-sm leading-snug">
                                             {item.name}
                                           </h4>
-                                          <span className="text-[10px] bg-white border border-sig-green/35 text-navy-blue font-bold px-2 py-0.5 rounded-full capitalize">
+                                          <span className="text-xs bg-white border border-sig-green/35 text-navy-blue font-bold px-2.5 py-0.5 rounded-full capitalize shrink-0">
                                             {item.category}
                                           </span>
                                         </div>
-                                        <div className="text-[10px] text-gray-500 mt-2 space-y-0.5">
+                                        <div className="text-xs text-gray-500 mt-2.5 space-y-1">
                                           <div>
                                             Stock Level:{' '}
                                             <span className="font-bold text-navy-blue">
@@ -2637,12 +2637,12 @@ export default function AdminDashboard({ user, onLogout }) {
                                             </span>
                                           </div>
                                           <div className="text-red-500 font-semibold flex items-center">
-                                            <Clock className="w-3.5 h-3.5 mr-1" />
+                                            <Clock className="w-3.5 h-3.5 mr-1 shrink-0" />
                                             Exp: {new Date(item.expiryDate).toLocaleDateString()}
                                           </div>
                                         </div>
                                       </div>
-                                      <div className="mt-3 flex justify-end">
+                                      <div className="mt-3.5 flex justify-end">
                                         <button
                                           type="button"
                                           onClick={() => {
@@ -2652,7 +2652,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                             setReleaseUnitType('base')
                                             setIsReleaseModalOpen(true)
                                           }}
-                                          className="px-3 py-1 bg-navy-blue text-white rounded-full text-[10px] font-semibold border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center space-x-1 cursor-pointer"
+                                          className="px-3.5 py-1.5 bg-navy-blue text-white rounded-full text-xs font-semibold border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center space-x-1 cursor-pointer"
                                         >
                                           <span>Quick Release</span>
                                         </button>
@@ -2681,7 +2681,7 @@ export default function AdminDashboard({ user, onLogout }) {
                       <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between w-full">
                         <div id="inventory-table-container">
                           <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
-                            <h3 className="font-bold text-navy-blue text-sm">
+                            <h3 className="font-bold text-navy-blue text-base">
                               Current Inventory Stock
                             </h3>
                             <button
@@ -2697,7 +2697,7 @@ export default function AdminDashboard({ user, onLogout }) {
                           <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
                             <table className="w-full text-left border-collapse">
                               <thead>
-                                <tr className="border-b border-gray-100 bg-gray-50 text-[10px] uppercase font-bold text-gray-500">
+                                <tr className="border-b border-gray-100 bg-gray-50 text-xs uppercase font-bold text-gray-500">
                                   <th className="py-3 px-3">Item Details</th>
                                   <th className="py-3 px-2">
                                     <CustomSelect
@@ -2744,39 +2744,39 @@ export default function AdminDashboard({ user, onLogout }) {
                                       className={`hover:bg-gray-50/50 transition ${item.isRecommendedForRelease && item.expiryDate ? 'bg-sig-green/5 font-medium' : ''}`}
                                     >
                                       <td className="py-3 px-3">
-                                        <div className="font-bold text-navy-blue flex items-center space-x-1.5">
+                                        <div className="font-bold text-navy-blue text-sm flex items-center space-x-1.5">
                                           <span>{item.name}</span>
                                           {item.isRecommendedForRelease && item.expiryDate && (
-                                            <span className="bg-sig-green text-navy-blue text-[8px] font-bold px-1.5 py-0.5 rounded-full border border-sig-green/35 flex items-center space-x-0.5">
+                                            <span className="bg-sig-green text-navy-blue text-[10px] font-bold px-2 py-0.5 rounded-full border border-sig-green/35 flex items-center space-x-0.5">
                                               <span>Recommended Release</span>
                                             </span>
                                           )}
                                         </div>
                                         {item.expiryDate && (
-                                          <div className="text-[10px] text-gray-400 mt-0.5">
-                                            <span className="text-red-500 flex items-center">
-                                              <Clock className="w-3 h-3 shrink-0 mr-1" />
+                                          <div className="text-xs text-gray-400 mt-1">
+                                            <span className="text-red-500 font-semibold flex items-center">
+                                              <Clock className="w-3.5 h-3.5 shrink-0 mr-1" />
                                               Exp: {new Date(item.expiryDate).toLocaleDateString()}
                                             </span>
                                           </div>
                                         )}
                                         {item.description && (
-                                          <p className="text-gray-400 mt-1 max-w-xs truncate">
+                                          <p className="text-xs text-gray-400 mt-1 max-w-xs truncate">
                                             {item.description}
                                           </p>
                                         )}
                                       </td>
-                                      <td className="py-3 px-2 capitalize text-gray-500">
+                                      <td className="py-3 px-2 capitalize text-gray-600 font-medium text-xs">
                                         {item.category}
                                       </td>
                                       <td className="py-3 px-2 font-bold text-navy-blue">
-                                        <span>
+                                        <span className="text-sm font-bold text-navy-blue">
                                           {item.quantity} {formatUnit(item.quantity, item.unit || 'pieces')}
                                         </span>
                                         {item.groupUnit &&
                                           item.groupUnit !== 'none' &&
                                           item.piecesPerUnit && (
-                                            <div className="text-[9px] text-gray-400 font-normal mt-0.5">
+                                            <div className="text-xs text-gray-500 font-medium mt-1">
                                               {(() => {
                                                 const pPerUnit = parseInt(item.piecesPerUnit, 10) || 12
                                                 const packs = Math.floor(item.quantity / pPerUnit)
@@ -2792,7 +2792,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                       </td>
                                       <td className="py-3 px-2">
                                         <span
-                                          className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${item.status === 'available'
+                                          className={`inline-block text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide ${item.status === 'available'
                                             ? 'bg-green-50 text-green-700 border border-green-200'
                                             : item.status === 'low stock'
                                               ? 'bg-amber-50 text-amber-700 border border-amber-200'
@@ -2823,13 +2823,13 @@ export default function AdminDashboard({ user, onLogout }) {
                                             }}
                                             className="p-1 text-gray-400 hover:text-navy-blue transition-all duration-150 cursor-pointer"
                                           >
-                                            <Edit2 className="w-3.5 h-3.5" />
+                                            <Edit2 className="w-4 h-4" />
                                           </button>
                                           <button
                                             onClick={() => handleDeleteInventory(item.id)}
                                             className="p-1 text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer"
                                           >
-                                            <Trash2 className="w-3.5 h-3.5" />
+                                            <Trash2 className="w-4 h-4" />
                                           </button>
                                         </div>
                                       </td>
@@ -2837,7 +2837,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                   ))}
                                 {inventoryList.length === 0 && (
                                   <tr>
-                                    <td colSpan="5" className="text-center py-6 text-gray-400">
+                                    <td colSpan="5" className="text-center py-6 text-gray-400 text-xs font-medium">
                                       No inventory entries available.
                                     </td>
                                   </tr>
@@ -3810,16 +3810,16 @@ export default function AdminDashboard({ user, onLogout }) {
                                         className="flex justify-between items-center border border-gray-50 p-2.5 rounded-xl bg-gray-50/50 hover:bg-white transition"
                                       >
                                         <div className="flex-1 min-w-0 pr-3">
-                                          <div className="font-bold text-navy-blue text-xs truncate">
+                                          <div className="font-bold text-navy-blue text-sm truncate">
                                             {pItem.name}
                                           </div>
-                                          <div className="text-[10px] text-gray-400 capitalize">
+                                          <div className="text-xs text-gray-500 capitalize">
                                             {pItem.category}
                                           </div>
                                         </div>
                                         <div className="flex items-center space-x-3 shrink-0">
                                           <div className="text-right">
-                                            <div className="text-xs font-bold text-navy-blue capitalize">
+                                            <div className="text-sm font-bold text-navy-blue capitalize">
                                               {(() => {
                                                 const hasGroup =
                                                   pItem.groupUnit &&
@@ -3844,7 +3844,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                                 return `${pItem.qtyPieces} ${formatUnit(pItem.qtyPieces, pItem.baseUnit)}`
                                               })()}
                                             </div>
-                                            <div className="text-[9px] text-gray-400 font-medium">
+                                            <div className="text-xs text-gray-500 font-medium">
                                               ({pItem.baseQty} Total Pieces)
                                             </div>
                                           </div>
@@ -3931,13 +3931,13 @@ export default function AdminDashboard({ user, onLogout }) {
 
                       {/* Donations History log */}
                       <div className="bg-white rounded-3xl p-4 sm:p-6 shadow-sm border border-gray-100 min-w-0">
-                        <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3 mb-4">
+                        <h3 className="font-bold text-navy-blue text-base border-b border-gray-100 pb-3 mb-4">
                           Donation Audit History Logs
                         </h3>
                         <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
                           <table className="w-full text-left border-collapse min-w-[500px]">
                             <thead>
-                              <tr className="border-b border-gray-100 bg-gray-50 text-[10px] uppercase font-bold text-gray-500">
+                              <tr className="border-b border-gray-100 bg-gray-50 text-xs uppercase font-bold text-gray-500">
                                 <th className="py-3 px-3">Date</th>
                                 <th className="py-3 px-2">Donor</th>
                                 <th className="py-3 px-2">Purpose</th>
@@ -3949,13 +3949,13 @@ export default function AdminDashboard({ user, onLogout }) {
                                 const donor = donorsList.find((donorObj) => donorObj.id === d.donorId)
                                 return (
                                   <tr key={d.id} className="hover:bg-gray-50/50 transition">
-                                    <td className="py-3 px-3 font-semibold">
+                                    <td className="py-3 px-3 font-semibold text-xs text-gray-600">
                                       {new Date(d.dateOfDonation).toLocaleDateString()}
                                     </td>
-                                    <td className="py-3 px-2 text-navy-blue font-semibold">
+                                    <td className="py-3 px-2 text-navy-blue font-bold text-sm">
                                       {donor ? donor.name : 'Unknown Donor'}
                                     </td>
-                                    <td className="py-3 px-2 text-gray-600 font-medium">
+                                    <td className="py-3 px-2 text-gray-600 font-medium text-xs">
                                       {d.purpose}
                                     </td>
                                     <td className="py-3 px-2">
@@ -3963,11 +3963,11 @@ export default function AdminDashboard({ user, onLogout }) {
                                         {d.items.map((i, idx) => (
                                           <span
                                             key={idx}
-                                            className="inline-block bg-gray-100 text-gray-600 text-[10px] px-2 py-0.5 rounded-lg border border-gray-200/50 mr-1.5"
+                                            className="inline-block bg-gray-100 text-gray-700 text-xs font-medium px-2.5 py-1 rounded-lg border border-gray-200/50 mr-1.5 mb-1"
                                           >
                                             {i.name} ({i.quantity} {formatUnit(i.quantity, i.unit)})
                                             {i.expiryDate && (
-                                              <span className="text-red-500 font-bold ml-1">
+                                              <span className="text-red-500 font-bold ml-1.5">
                                                 Exp: {new Date(i.expiryDate).toLocaleDateString()}
                                               </span>
                                             )}
@@ -4064,7 +4064,7 @@ export default function AdminDashboard({ user, onLogout }) {
                       {/* LIST / STATUS BOARD VIEW (Full Width Content Board) */}
                       {eventsDisplayMode === 'board' && (
                         <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 animate-fade-in">
-                          <h3 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-3 mb-4">
+                          <h3 className="font-bold text-navy-blue text-base border-b border-gray-100 pb-3 mb-4">
                             Scheduled Events & Status Board
                           </h3>
 
@@ -4154,7 +4154,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                     <div>
                                       <div className="flex justify-between items-start mb-2">
                                         <span
-                                          className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${evt.status === 'completed'
+                                          className={`inline-block text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${evt.status === 'completed'
                                             ? 'bg-green-100 text-green-800'
                                             : evt.status === 'cancelled'
                                               ? 'bg-red-100 text-red-800'
@@ -4166,7 +4166,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                           {evt.status}
                                         </span>
                                         <div className="flex items-center space-x-2">
-                                          <span className="text-[10px] text-navy-blue font-bold tracking-wider">
+                                          <span className="text-xs text-navy-blue font-bold tracking-wider">
                                             {evt.eventType === 'organization'
                                               ? `${evt.organizationName} (${org ? org.abbreviation : 'All'})`
                                               : org
@@ -4181,7 +4181,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                             className="text-emerald-600 hover:text-emerald-700 transition p-1 rounded hover:bg-emerald-50 cursor-pointer"
                                             title="Mark as Completed"
                                           >
-                                            <CheckCircle className="w-3.5 h-3.5" />
+                                            <CheckCircle className="w-4 h-4" />
                                           </button>
                                           <button
                                             onClick={(e) => {
@@ -4191,7 +4191,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                             className="text-navy-blue hover:text-sig-green transition p-1 rounded hover:bg-gray-100 cursor-pointer"
                                             title="Edit Event"
                                           >
-                                            <Edit2 className="w-3.5 h-3.5" />
+                                            <Edit2 className="w-4 h-4" />
                                           </button>
                                           <button
                                             onClick={(e) => {
@@ -4201,19 +4201,19 @@ export default function AdminDashboard({ user, onLogout }) {
                                             className="text-red-550 hover:text-red-700 transition p-1 rounded hover:bg-red-50 cursor-pointer"
                                             title="Delete Event"
                                           >
-                                            <Trash2 className="w-3.5 h-3.5" />
+                                            <Trash2 className="w-4 h-4" />
                                           </button>
                                         </div>
                                       </div>
                                       <h4 className="font-bold text-navy-blue text-sm mb-1 leading-tight">
                                         {evt.name}
                                       </h4>
-                                      <p className="text-gray-500 text-xs leading-relaxed line-clamp-2 mb-3">
+                                      <p className="text-gray-500 text-xs leading-relaxed line-clamp-2 mb-3 font-medium">
                                         {evt.description}
                                       </p>
                                     </div>
 
-                                    <div className="border-t border-gray-100 pt-3 space-y-1.5 text-[10px] text-gray-400">
+                                    <div className="border-t border-gray-100 pt-3 space-y-1.5 text-xs text-gray-500 font-medium">
                                       <div className="flex items-center space-x-1.5">
                                         <Clock className="w-3.5 h-3.5 text-navy-blue" />
                                         <span>{new Date(evt.scheduleDate).toLocaleString()}</span>
@@ -4283,7 +4283,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                   {/* Status & Type Badges */}
                                   <div className="flex flex-wrap gap-2">
                                     <span
-                                      className={`inline-flex items-center text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${selectedViewEvent.status === 'completed'
+                                      className={`inline-flex items-center text-xs font-bold uppercase px-2.5 py-1 rounded-full ${selectedViewEvent.status === 'completed'
                                         ? 'bg-green-100 text-green-800'
                                         : selectedViewEvent.status === 'cancelled'
                                           ? 'bg-red-100 text-red-800'
@@ -4294,7 +4294,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                     >
                                       Status: {selectedViewEvent.status}
                                     </span>
-                                    <span className="inline-flex items-center text-[10px] font-bold uppercase px-2.5 py-1 rounded-full bg-navy-blue/5 text-navy-blue">
+                                    <span className="inline-flex items-center text-xs font-bold uppercase px-2.5 py-1 rounded-full bg-navy-blue/5 text-navy-blue">
                                       Type: {selectedViewEvent.eventType}
                                     </span>
                                   </div>
@@ -4303,11 +4303,11 @@ export default function AdminDashboard({ user, onLogout }) {
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
                                     {/* Department / Org */}
                                     <div className="space-y-1">
-                                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                                      <span className="text-xs text-gray-400 font-bold uppercase tracking-wider block">
                                         Assigned Department / Org
                                       </span>
-                                      <span className="text-xs text-navy-blue font-bold flex items-center space-x-1.5">
-                                        <Users className="w-3.5 h-3.5 text-navy-blue shrink-0" />
+                                      <span className="text-sm text-navy-blue font-bold flex items-center space-x-1.5">
+                                        <Users className="w-4 h-4 text-navy-blue shrink-0" />
                                         <span className="break-words whitespace-normal">
                                           {selectedViewEvent.eventType === 'organization'
                                             ? `${selectedViewEvent.organizationName} (${org ? org.abbreviation : 'All'})`
@@ -4320,11 +4320,11 @@ export default function AdminDashboard({ user, onLogout }) {
 
                                     {/* Location/Venue */}
                                     <div className="space-y-1">
-                                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                                      <span className="text-xs text-gray-400 font-bold uppercase tracking-wider block">
                                         Venue / Location
                                       </span>
-                                      <span className="text-xs text-navy-blue font-bold flex items-center space-x-1.5">
-                                        <MapPin className="w-3.5 h-3.5 text-sig-green shrink-0" />
+                                      <span className="text-sm text-navy-blue font-bold flex items-center space-x-1.5">
+                                        <MapPin className="w-4 h-4 text-sig-green shrink-0" />
                                         <span className="break-words whitespace-normal">
                                           {selectedViewEvent.location}
                                         </span>
@@ -4333,11 +4333,11 @@ export default function AdminDashboard({ user, onLogout }) {
 
                                     {/* Scheduled Date */}
                                     <div className="space-y-1 md:col-span-2">
-                                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                                      <span className="text-xs text-gray-400 font-bold uppercase tracking-wider block">
                                         Date & Time
                                       </span>
-                                      <span className="text-xs text-navy-blue font-bold flex items-center space-x-1.5">
-                                        <Clock className="w-3.5 h-3.5 text-navy-blue shrink-0" />
+                                      <span className="text-sm text-navy-blue font-bold flex items-center space-x-1.5">
+                                        <Clock className="w-4 h-4 text-navy-blue shrink-0" />
                                         <span>{dateObj.toLocaleString()}</span>
                                       </span>
                                     </div>
@@ -4346,7 +4346,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                   {/* Description */}
                                   {selectedViewEvent.description && (
                                     <div className="space-y-1.5">
-                                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                                      <span className="text-xs text-gray-400 font-bold uppercase tracking-wider block">
                                         Description / Narrative
                                       </span>
                                       <div className="bg-white border border-gray-150 rounded-xl p-3 text-xs text-gray-650 leading-relaxed font-medium break-words whitespace-pre-wrap">
@@ -4736,7 +4736,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                 </button>
                               </div>
 
-                              <h3 className="font-bold text-navy-blue text-sm">
+                              <h3 className="font-bold text-navy-blue text-base">
                                 {selectedOrgSubTab === 'department'
                                   ? 'Registered Departments Directory'
                                   : 'Registered Organizations Directory'}
@@ -4801,10 +4801,10 @@ export default function AdminDashboard({ user, onLogout }) {
 
                                               {/* Name below logo */}
                                               <div className="space-y-1">
-                                                <h4 className="text-xs font-bold text-navy-blue group-hover:text-sig-green transition-colors duration-200 line-clamp-2 leading-tight px-2">
+                                                <h4 className="text-sm font-bold text-navy-blue group-hover:text-sig-green transition-colors duration-200 line-clamp-2 leading-tight px-2">
                                                   {org.name}
                                                 </h4>
-                                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">
+                                                <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">
                                                   {org.abbreviation?.toUpperCase()}
                                                 </span>
                                               </div>
@@ -4894,10 +4894,10 @@ export default function AdminDashboard({ user, onLogout }) {
 
                                               {/* Name below logo */}
                                               <div className="space-y-1">
-                                                <h4 className="text-xs font-bold text-navy-blue group-hover:text-sig-green transition-colors duration-200 line-clamp-2 leading-tight px-2">
+                                                <h4 className="text-sm font-bold text-navy-blue group-hover:text-sig-green transition-colors duration-200 line-clamp-2 leading-tight px-2">
                                                   {org.name}
                                                 </h4>
-                                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">
+                                                <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">
                                                   {org.abbreviation?.toUpperCase()}
                                                 </span>
                                               </div>
@@ -5011,7 +5011,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                       )}
 
                                       <div className="pb-3 flex items-center justify-between flex-wrap gap-2 relative z-10">
-                                        <h3 className="font-bold text-navy-blue text-sm flex items-center gap-2">
+                                        <h3 className="font-bold text-navy-blue text-base flex items-center gap-2">
                                           {isDept ? (
                                             <Users className="w-4 h-4 text-sig-green" />
                                           ) : (
@@ -5068,18 +5068,18 @@ export default function AdminDashboard({ user, onLogout }) {
                                         </div>
                                         <div className="flex flex-wrap gap-x-16 gap-y-4 flex-1">
                                           <div>
-                                            <p className="text-[10px] uppercase font-bold text-gray-400">
+                                            <p className="text-xs uppercase font-bold text-gray-400">
                                               {isDept ? 'Department Name' : 'Organization Name'}
                                             </p>
-                                            <p className="text-sm font-semibold text-navy-blue mt-0.5">
+                                            <p className="text-base font-bold text-navy-blue mt-0.5">
                                               {selectedOrgObj.name}
                                             </p>
                                           </div>
                                           <div>
-                                            <p className="text-[10px] uppercase font-bold text-gray-400">
+                                            <p className="text-xs uppercase font-bold text-gray-400">
                                               Abbreviation
                                             </p>
-                                            <p className="text-sm font-semibold text-navy-blue mt-0.5">
+                                            <p className="text-base font-bold text-navy-blue mt-0.5">
                                               {selectedOrgObj.abbreviation?.toUpperCase()}
                                             </p>
                                           </div>
@@ -5088,7 +5088,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
                                       <div className="w-[45%] border-t border-gray-300 relative z-10" />
                                       <div className="pt-2 relative z-10">
-                                        <p className="text-[10px] uppercase font-bold text-gray-400">
+                                        <p className="text-xs uppercase font-bold text-gray-400">
                                           Description
                                         </p>
                                         <p className="text-xs text-gray-600 mt-1 leading-relaxed font-medium max-w-sm wrap-break-word whitespace-pre-wrap">
@@ -5103,10 +5103,10 @@ export default function AdminDashboard({ user, onLogout }) {
                                           <>
                                             <div className="w-[45%] border-t border-gray-300 relative z-10" />
                                             <div className="pt-2 relative z-10">
-                                              <p className="text-[10px] uppercase font-bold text-gray-400">
+                                              <p className="text-xs uppercase font-bold text-gray-400">
                                                 Department
                                               </p>
-                                              <p className="text-xs font-semibold text-navy-blue mt-1">
+                                              <p className="text-sm font-bold text-navy-blue mt-1">
                                                 {(() => {
                                                   const pDept = orgsList.find(
                                                     (o) =>
@@ -5127,7 +5127,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                         <>
                                           <div className="w-[45%] border-t border-gray-300 relative z-10" />
                                           <div className="pt-2 relative z-10">
-                                            <p className="text-[10px] uppercase font-bold text-gray-400">
+                                            <p className="text-xs uppercase font-bold text-gray-400">
                                               Organizations under this Department
                                             </p>
                                             {(() => {
@@ -5184,9 +5184,9 @@ export default function AdminDashboard({ user, onLogout }) {
                                       {/* Ongoing Activities */}
                                       {!isDept && (
                                         <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
-                                          <h4 className="font-bold text-navy-blue text-xs border-b border-gray-100 pb-2 flex items-center justify-between">
+                                          <h4 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-2 flex items-center justify-between">
                                             <span>Ongoing Activities</span>
-                                            <span className="bg-amber-100 text-amber-800 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase">
+                                            <span className="bg-amber-100 text-amber-800 text-xs px-2.5 py-0.5 rounded-full font-bold uppercase">
                                               {ongoingActivities.length} Active
                                             </span>
                                           </h4>
@@ -5212,7 +5212,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                                       <p className="text-xs font-bold text-navy-blue truncate">
                                                         {act.title || act.name}
                                                       </p>
-                                                      <p className="text-[10px] text-gray-400 font-medium truncate">
+                                                      <p className="text-xs text-gray-400 font-medium truncate">
                                                         {act.date ||
                                                           (act.scheduleDate
                                                             ? new Date(
@@ -5222,7 +5222,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                                         • {act.location}
                                                       </p>
                                                     </div>
-                                                    <span className="bg-navy-blue/5 text-navy-blue text-[8px] font-bold px-2 py-1 rounded shrink-0">
+                                                    <span className="bg-navy-blue/5 text-navy-blue text-[10px] font-bold px-2 py-1 rounded shrink-0">
                                                       {orgLabel}
                                                     </span>
                                                   </div>
@@ -5235,9 +5235,9 @@ export default function AdminDashboard({ user, onLogout }) {
 
                                       {/* Upcoming Activities */}
                                       <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
-                                        <h4 className="font-bold text-navy-blue text-xs border-b border-gray-100 pb-2 flex items-center justify-between">
+                                        <h4 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-2 flex items-center justify-between">
                                           <span>Upcoming Activities</span>
-                                          <span className="bg-blue-100 text-blue-800 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase">
+                                          <span className="bg-blue-100 text-blue-800 text-xs px-2.5 py-0.5 rounded-full font-bold uppercase">
                                             {upcomingActivities.length} Scheduled
                                           </span>
                                         </h4>
@@ -5263,7 +5263,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                                     <p className="text-xs font-bold text-navy-blue truncate">
                                                       {act.title || act.name}
                                                     </p>
-                                                    <p className="text-[10px] text-gray-400 font-medium truncate">
+                                                    <p className="text-xs text-gray-400 font-medium truncate">
                                                       {act.date ||
                                                         (act.scheduleDate
                                                           ? new Date(
@@ -5273,7 +5273,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                                       • {act.location}
                                                     </p>
                                                   </div>
-                                                  <span className="bg-navy-blue/5 text-navy-blue text-[8px] font-bold px-2 py-1 rounded shrink-0">
+                                                  <span className="bg-navy-blue/5 text-navy-blue text-[10px] font-bold px-2 py-1 rounded shrink-0">
                                                     {orgLabel}
                                                   </span>
                                                 </div>
@@ -5285,12 +5285,12 @@ export default function AdminDashboard({ user, onLogout }) {
 
                                       {/* Outreach Statistics */}
                                       <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4">
-                                        <h4 className="font-bold text-navy-blue text-xs border-b border-gray-100 pb-2 text-left">
+                                        <h4 className="font-bold text-navy-blue text-sm border-b border-gray-100 pb-2 text-left">
                                           Outreach Statistics
                                         </h4>
                                         <div className="grid grid-cols-2 gap-4">
                                           <div className="bg-navy-blue/5 p-3 rounded-2xl flex flex-col justify-between h-20 text-left">
-                                            <span className="text-[9px] font-bold text-navy-blue uppercase">
+                                            <span className="text-xs font-bold text-navy-blue uppercase">
                                               Total Scheduled
                                             </span>
                                             <span className="text-xl font-bold text-navy-blue">
@@ -5301,7 +5301,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                             onClick={() => handleOpenCompletedModal(selectedOrgObj)}
                                             className="bg-sig-green/10 p-3 rounded-2xl flex flex-col justify-between h-20 text-left cursor-pointer hover:bg-sig-green/20 hover:shadow-xs transition duration-200"
                                           >
-                                            <span className="text-[9px] font-bold text-navy-blue uppercase">
+                                            <span className="text-xs font-bold text-navy-blue uppercase">
                                               Completed Activities
                                             </span>
                                             <span className="text-xl font-bold text-navy-blue">
@@ -5697,7 +5697,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4"
                           >
                             <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-2">
-                              <h3 className="font-bold text-navy-blue text-sm">
+                              <h3 className="font-bold text-navy-blue text-base">
                                 Pending Review
                               </h3>
                               <button
@@ -5731,14 +5731,14 @@ export default function AdminDashboard({ user, onLogout }) {
                                       <div className="space-y-1">
                                         <div className="flex items-center space-x-2">
                                           <span
-                                            className={`inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full ${rep.status === 'submitted'
+                                            className={`inline-block text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${rep.status === 'submitted'
                                               ? 'bg-amber-100 text-amber-800'
                                               : 'bg-red-100 text-red-800'
                                               }`}
                                           >
                                             {rep.status}
                                           </span>
-                                          <span className="text-[10px] text-navy-blue font-bold">
+                                          <span className="text-xs text-navy-blue font-bold">
                                             {org
                                               ? org.name
                                               : rep.organizationId
@@ -5755,7 +5755,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                         <h4 className="font-bold text-navy-blue text-sm">
                                           {event ? event.name : rep.activityTitle || rep.title || 'Outreach Activity'}
                                         </h4>
-                                        <div className="text-[10px] text-gray-400">
+                                        <div className="text-xs text-gray-400 font-medium">
                                           Submitted by {author ? author.name : rep.submittedBy || 'Coordinator'} on{' '}
                                           {new Date(getPendingReportTimestamp(rep)).toLocaleDateString()}
                                         </div>
@@ -5767,7 +5767,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                             setSelectedReport(rep)
                                             setFeedbackNote('')
                                           }}
-                                          className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-1.5 px-3 rounded-full text-[11px] flex items-center space-x-1 cursor-pointer"
+                                          className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 cursor-pointer shadow-2xs"
                                         >
                                           <Eye className="w-3.5 h-3.5" />
                                           <span>Inspect Report</span>
@@ -5780,7 +5780,7 @@ export default function AdminDashboard({ user, onLogout }) {
                               {reportsList.filter(
                                 (r) => r.status === 'submitted' || r.status === 'returned'
                               ).length === 0 && (
-                                  <div className="text-center py-8 text-gray-400 text-xs">
+                                  <div className="text-center py-8 text-gray-400 text-xs font-medium">
                                     No reports pending review.
                                   </div>
                                 )}
@@ -5796,7 +5796,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4"
                           >
                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-gray-100 pb-3 mb-2">
-                              <h3 className="font-bold text-navy-blue text-sm">
+                              <h3 className="font-bold text-navy-blue text-base">
                                 Approved Reports
                               </h3>
                               <button
@@ -5849,10 +5849,10 @@ export default function AdminDashboard({ user, onLogout }) {
                                     >
                                       <div className="space-y-1">
                                         <div className="flex items-center space-x-2">
-                                          <span className="inline-block text-[8px] font-bold uppercase px-2 py-0.5 rounded-full bg-green-100 text-green-800">
+                                          <span className="inline-block text-[10px] font-bold uppercase px-2.5 py-1 rounded-full bg-green-100 text-green-800">
                                             Approved
                                           </span>
-                                          <span className="text-[10px] text-navy-blue font-bold">
+                                          <span className="text-xs text-navy-blue font-bold">
                                             {org
                                               ? org.name
                                               : rep.organizationId
@@ -5869,7 +5869,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                         <h4 className="font-bold text-navy-blue text-sm">
                                           {event ? event.name : rep.activityTitle || rep.title || 'Outreach Activity'}
                                         </h4>
-                                        <div className="text-[10px] text-gray-400">
+                                        <div className="text-xs text-gray-400 font-medium">
                                           Submitted by {author ? author.name : rep.submittedBy || 'Coordinator'} on{' '}
                                           {new Date(rep.updatedAt || rep.createdAt).toLocaleDateString()}
                                         </div>
@@ -5881,14 +5881,14 @@ export default function AdminDashboard({ user, onLogout }) {
                                             setSelectedReport(rep)
                                             setFeedbackNote('')
                                           }}
-                                          className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-1.5 px-3 rounded-full text-[11px] flex items-center space-x-1 cursor-pointer"
+                                          className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 cursor-pointer shadow-2xs"
                                         >
                                           <Eye className="w-3.5 h-3.5" />
                                           <span>Inspect Report</span>
                                         </button>
                                         <button
                                           onClick={() => compileReportPDF(rep)}
-                                          className="bg-sig-green text-navy-blue font-semibold py-1.5 px-3 rounded-full text-[11px] flex items-center space-x-1 hover:bg-sig-green-600 transition-all duration-150 cursor-pointer"
+                                          className="bg-sig-green text-navy-blue font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-2xs"
                                         >
                                           <Download className="w-3.5 h-3.5" />
                                           <span>Export PDF</span>
@@ -5961,13 +5961,13 @@ export default function AdminDashboard({ user, onLogout }) {
 
                       {/* Full Width User Accounts Directory Table */}
                       <div className="glass-card rounded-2xl p-4 sm:p-6 min-w-0">
-                        <h3 className="font-bold text-navy-blue text-sm border-b border-gray-200/60 pb-3 mb-4">
+                        <h3 className="font-bold text-navy-blue text-base border-b border-gray-200/60 pb-3 mb-4">
                           User Accounts Directory
                         </h3>
                         <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
                           <table className="w-full text-left border-collapse min-w-[500px]">
                             <thead>
-                              <tr className="border-b border-gray-200/60 bg-gray-50/80 text-[10px] uppercase font-bold text-gray-500">
+                              <tr className="border-b border-gray-200/60 bg-gray-50/80 text-xs uppercase font-bold text-gray-500">
                                 <th className="py-3 px-4">Full Name</th>
                                 <th className="py-3 px-3">Role</th>
                                 <th className="py-3 px-3">Status</th>
@@ -5979,25 +5979,25 @@ export default function AdminDashboard({ user, onLogout }) {
                                 const isSelf = u.uid === user.uid
                                 return (
                                   <tr key={u.uid} className="hover:bg-gray-50/60 transition">
-                                    <td className="py-3.5 px-4 font-semibold text-navy-blue">
+                                    <td className="py-3.5 px-4 font-bold text-navy-blue text-sm">
                                       <div>
                                         {u.name}{' '}
                                         {isSelf && (
-                                          <span className="text-[9px] bg-navy-blue/10 text-navy-blue px-1.5 py-0.2 rounded font-bold ml-1">
+                                          <span className="text-[10px] bg-navy-blue/10 text-navy-blue px-2 py-0.5 rounded-full font-bold ml-1">
                                             You
                                           </span>
                                         )}
                                       </div>
-                                      <span className="text-[10px] text-gray-400 font-normal">
+                                      <span className="text-xs text-gray-400 font-medium">
                                         {u.email}
                                       </span>
                                     </td>
-                                    <td className="py-3.5 px-3 text-gray-600 font-medium capitalize">
+                                    <td className="py-3.5 px-3 text-gray-600 font-medium text-xs capitalize">
                                       {u.role.replace('_', ' ')}
                                     </td>
                                     <td className="py-3.5 px-3">
                                       <span
-                                        className={`inline-block text-[9px] font-bold px-2.5 py-0.5 rounded-full uppercase ${u.status === 'inactive'
+                                        className={`inline-block text-[10px] font-bold px-2.5 py-1 rounded-full uppercase ${u.status === 'inactive'
                                           ? 'bg-red-50 text-red-700 border border-red-200'
                                           : 'bg-green-50 text-green-700 border border-green-200'
                                           }`}
@@ -6107,25 +6107,21 @@ export default function AdminDashboard({ user, onLogout }) {
                       {/* ── 2. SYSTEM DESCRIPTION (full-width) ─────────── */}
                       <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-4 relative overflow-hidden">
                         <div className="absolute right-[-158px] bottom-[-20px] w-[400px] h-[260px] opacity-50 pointer-events-none select-none z-0 overflow-hidden">
-                          <img
-                            src={appIcon}
-                            alt=""
-                            className="w-full h-[400px] object-contain object-top"
-                          />
+
                         </div>
                         <div className="relative z-10 space-y-4">
                           <h2 className="text-lg font-bold text-navy-blue border-b border-gray-100 pb-3 w-[280px]">
                             System Description
                           </h2>
                           <div>
-                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                            <span className="text-xs text-gray-400 font-bold uppercase tracking-wider block">
                               Project Overview
                             </span>
                             <p className="text-sm text-gray-700 mt-1 leading-relaxed">
                               DommUnity is a desktop-based management system developed for the
-                              Community Extension & Services (CES) Office <br></br>of Dominican College of
+                              Community Extension & Services (CES) Office of Dominican College of
                               Tarlac, Inc. It is designed to simplify inventory management,
-                              donor management, organization management,<br></br> and report generation for the
+                              donor management, organization management, and report generation for the
                               Community Extension Services Office.
                             </p>
                           </div>
@@ -6351,7 +6347,7 @@ export default function AdminDashboard({ user, onLogout }) {
               <div className="overflow-y-auto flex-1">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="border-b border-gray-100 bg-gray-50 text-[10px] uppercase font-bold text-gray-500 sticky top-0">
+                    <tr className="border-b border-gray-100 bg-gray-50 text-xs uppercase font-bold text-gray-500 sticky top-0">
                       <th className="py-3 px-3">Date</th>
                       <th className="py-3 px-3">Event Name</th>
                       <th className="py-3 px-3">Assigned Department</th>
@@ -6400,13 +6396,13 @@ export default function AdminDashboard({ user, onLogout }) {
                                 : 'N/A'}
                             </td>
                             <td className="py-3 px-3">
-                              <p className="font-bold text-navy-blue">{evt.name}</p>
-                              <p className="text-[10px] text-gray-400 mt-0.5 line-clamp-1">
+                              <p className="font-bold text-navy-blue text-sm">{evt.name}</p>
+                              <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">
                                 {evt.description}
                               </p>
                             </td>
                             <td className="py-3 px-3">
-                              <span className="font-bold text-navy-blue">
+                              <span className="font-bold text-navy-blue text-xs">
                                 {dept
                                   ? `${dept.name} (${dept.abbreviation})`
                                   : evt.organizationName || 'CES Office'}
@@ -6416,7 +6412,7 @@ export default function AdminDashboard({ user, onLogout }) {
                               {evt.location || 'N/A'}
                             </td>
                             <td className="py-3 px-3">
-                              <span className="bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase">
+                              <span className="bg-green-50 text-green-700 border border-green-200 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase">
                                 {evt.status}
                               </span>
                             </td>
@@ -7268,7 +7264,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   {/* Status & Type Badges */}
                   <div className="flex flex-wrap gap-2">
                     <span
-                      className={`inline-flex items-center text-[10px] font-bold uppercase px-2.5 py-1 rounded-full ${selectedViewEvent.status === 'completed' ||
+                      className={`inline-flex items-center text-xs font-bold uppercase px-2.5 py-1 rounded-full ${selectedViewEvent.status === 'completed' ||
                         selectedViewEvent.status === 'successful'
                         ? 'bg-green-100 text-green-800'
                         : selectedViewEvent.status === 'cancelled'
@@ -7280,7 +7276,7 @@ export default function AdminDashboard({ user, onLogout }) {
                     >
                       Status: {selectedViewEvent.status || 'planned'}
                     </span>
-                    <span className="inline-flex items-center text-[10px] font-bold uppercase px-2.5 py-1 rounded-full bg-navy-blue/5 text-navy-blue">
+                    <span className="inline-flex items-center text-xs font-bold uppercase px-2.5 py-1 rounded-full bg-navy-blue/5 text-navy-blue">
                       Type: {selectedViewEvent.eventType || 'department'}
                     </span>
                   </div>
@@ -7289,11 +7285,11 @@ export default function AdminDashboard({ user, onLogout }) {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50/50 p-4 rounded-2xl border border-gray-100">
                     {/* Department / Org */}
                     <div className="space-y-1">
-                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                      <span className="text-xs text-gray-400 font-bold uppercase tracking-wider block">
                         Assigned Department / Org
                       </span>
-                      <span className="text-xs text-navy-blue font-bold flex items-center space-x-1.5">
-                        <Users className="w-3.5 h-3.5 text-navy-blue shrink-0" />
+                      <span className="text-sm text-navy-blue font-bold flex items-center space-x-1.5">
+                        <Users className="w-4 h-4 text-navy-blue shrink-0" />
                         <span className="break-words whitespace-normal">
                           {selectedViewEvent.eventType === 'organization'
                             ? `${selectedViewEvent.organizationName || 'Organization'} (${org ? org.abbreviation : 'All'})`
@@ -7306,11 +7302,11 @@ export default function AdminDashboard({ user, onLogout }) {
 
                     {/* Location/Venue */}
                     <div className="space-y-1">
-                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                      <span className="text-xs text-gray-400 font-bold uppercase tracking-wider block">
                         Venue / Location
                       </span>
-                      <span className="text-xs text-navy-blue font-bold flex items-center space-x-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-sig-green shrink-0" />
+                      <span className="text-sm text-navy-blue font-bold flex items-center space-x-1.5">
+                        <MapPin className="w-4 h-4 text-sig-green shrink-0" />
                         <span className="break-words whitespace-normal">
                           {selectedViewEvent.location || 'No venue specified'}
                         </span>
@@ -7319,11 +7315,11 @@ export default function AdminDashboard({ user, onLogout }) {
 
                     {/* Scheduled Date */}
                     <div className="space-y-1 md:col-span-2">
-                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                      <span className="text-xs text-gray-400 font-bold uppercase tracking-wider block">
                         Date & Time
                       </span>
-                      <span className="text-xs text-navy-blue font-bold flex items-center space-x-1.5">
-                        <Clock className="w-3.5 h-3.5 text-navy-blue shrink-0" />
+                      <span className="text-sm text-navy-blue font-bold flex items-center space-x-1.5">
+                        <Clock className="w-4 h-4 text-navy-blue shrink-0" />
                         <span>{!isNaN(dateObj.getTime()) ? dateObj.toLocaleString() : 'N/A'}</span>
                       </span>
                     </div>
@@ -7332,7 +7328,7 @@ export default function AdminDashboard({ user, onLogout }) {
                   {/* Description */}
                   {selectedViewEvent.description && (
                     <div className="space-y-1.5">
-                      <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block">
+                      <span className="text-xs text-gray-400 font-bold uppercase tracking-wider block">
                         Description / Narrative
                       </span>
                       <div className="bg-white border border-gray-150 rounded-xl p-3 text-xs text-gray-650 leading-relaxed font-medium break-words whitespace-pre-wrap">

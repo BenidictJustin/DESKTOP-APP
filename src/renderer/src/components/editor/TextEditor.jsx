@@ -1359,6 +1359,167 @@ export default function TextEditor({
 <p style="text-align: left;"><br></p>
 <div class="page-break" data-page-break="true"></div>
 <p style="text-align: left;"><span style="font-size: 12pt; font-family: 'Times New Roman', serif;"> </span></p>`
+    },
+    {
+      id: 'system-dct-request-form-college',
+      name: 'DCT CES Request Form-College',
+      description:
+        'Official donation request form for college departments with collection tracking',
+      paperKey: 'Folio',
+      orientation: 'portrait',
+      marginKey: 'Narrow',
+      showHeader: true,
+      showFooter: true,
+      headerText: `<table style="width:100%;border-collapse:collapse;border:none;margin:0;padding:0;font-family:'Times New Roman',serif;table-layout:fixed;"><tbody><tr><td style="width:0.85in;vertical-align:middle;border:none;padding:0;text-align:left;"><img src="${logo2Img}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:1.1in;vertical-align:middle;border:none;padding:0 0.15in 0 0.1in;text-align:left;"><img src="${logoImg}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:4.55in;text-align:left;vertical-align:middle;border:none;border-left:2px solid #555;padding:0 0 0 0.15in;line-height:1.25;"><div style="font-family:'Book Antiqua','Palatino',serif;font-size:14pt;font-weight:bold;color:#000;margin:0 0 1px 0;">DOMINICAN COLLEGE OF TARLAC, INC.</div><div style="font-family:'Times New Roman',serif;font-size:12pt;color:#000;margin:0 0 2px 0;">COMMUNITY ENGAGEMENT SERVICES</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">McArthur Highway, Poblacion (Sto. Rosario), Capas, 2315 Tarlac, Philippines</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">Institutional Contact No.: +63938-918-4093</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0;white-space:nowrap;">Website: dct.edu.ph | E-mail: <span style="color:#030e69;text-decoration:underline;">domct_2315@yahoo.com.ph / domct_2315@dct.edu.ph</span></div></td></tr></tbody></table><hr style="border:none;border-top:3px solid #000;margin:8px 0 0 0;width:110%;" />`,
+      footerText: `<table style="width:100%;border-collapse:collapse;border:1px solid #000;font-family:'Times New Roman',serif;font-size:8pt;margin:0 0 8px 0;"><tbody><tr><td style="border:1px solid #000;padding:4px 8px;width:25%;">Form No.: DCT-CES-01</td><td style="border:1px solid #000;padding:4px 8px;width:20%;">Revision No.: 01</td><td style="border:1px solid #000;padding:4px 8px;width:30%;">Effectivity Date: May 1, 2026</td><td style="border:1px solid #000;padding:4px 8px;width:25%;text-align:right;">Page 1 of 1</td></tr></tbody></table><hr style="border:none;border-top:3px solid #000;margin:0 0 8px 0;width:100%;" /><div style="text-align:center;font-family:'Times New Roman',serif;line-height:1.25;color:#000;"><div style="font-size:12pt;font-weight:bold;margin:0 0 2px 0;">FIDES. PATRIA. SAPIENTIA</div><div style="font-size:10pt;font-style:italic;margin:0 0 2px 0;">A God-loving educational community with passion for truth and compassion for humanity.</div><div style="font-size:10pt;margin:0;">Department/Office Facebook Page: www.facebook.com/dctces</div></div>`,
+      html: `<p style="text-align: left;"><br></p>
+<p style="text-align: right;"><span style="font-size: 12pt; font-weight: bold; font-family: 'Times New Roman', serif; border: 2px solid #000; padding: 4px 12px;">REQUEST FORM-COLLEGE</span></p>
+<p style="text-align: left;"><br></p>
+<p style="text-align: left;"><span style="font-size: 12pt; font-family: 'Times New Roman', serif;">Date: ________________</span></p>
+<p style="text-align: left;"><br></p>
+<p style="text-align: left;"><span style="font-size: 12pt; font-family: 'Times New Roman', serif;">Good day <span style="text-decoration: underline;">Dominikano</span>!</span></p>
+<p style="text-align: left;"><span style="font-size: 12pt; font-family: 'Times New Roman', serif;">We would like to ask your generous heart to give a donation.</span></p>
+<p style="text-align: left;"><br></p>
+<table style="width:100%;table-layout:fixed;border-collapse:collapse;border:1.5px solid #000;font-family:'Times New Roman',serif;">
+  <tbody>
+    <tr>
+      <td colspan="4" style="border:1.5px solid #000;padding:4px 8px;font-size:11pt;font-weight:bold;font-style:italic;font-family:'Times New Roman',serif;"><p><em><strong>For:</strong></em></p></td>
+    </tr>
+    <tr>
+      <td style="width:50%;border:1.5px solid #000;padding:6px 8px;font-size:11pt;font-family:'Times New Roman',serif;vertical-align:top;" colspan="2"><p>Name: ____________________________</p></td>
+      <td style="width:50%;border:1.5px solid #000;padding:6px 8px;font-size:11pt;font-family:'Times New Roman',serif;vertical-align:top;" colspan="2"><p>Year & Section: __________________</p></td>
+    </tr>
+    <tr>
+      <td colspan="4" style="border:1.5px solid #000;padding:6px 8px;font-size:11pt;font-family:'Times New Roman',serif;vertical-align:top;"><p>Reason:</p><p><br></p></td>
+    </tr>
+  </tbody>
+</table>
+<p style="text-align: left;"><br></p>
+<p style="text-align: left;"><span style="font-size: 12pt; font-family: 'Times New Roman', serif;">Thank you and God bless!</span></p>
+<p style="text-align: left;"><br></p>
+<p style="text-align: left;"><span style="font-size: 12pt; font-family: 'Times New Roman', serif;">Noted by:</span></p>
+<p style="text-align: left;"><br></p>
+<table style="width:100%;table-layout:fixed;border-collapse:collapse;border:none;font-family:'Times New Roman',serif;">
+  <tbody>
+    <tr>
+      <td style="width:50%;border:none;padding:2px 0;font-size:11pt;font-family:'Times New Roman',serif;vertical-align:top;"><p><span style="font-weight:bold;">Mr. Jan Hanz S. Huet</span></p><p>Head, Office of Student Affairs and Services</p></td>
+      <td style="width:50%;border:none;padding:2px 0;font-size:11pt;font-family:'Times New Roman',serif;vertical-align:top;"><p><span style="font-weight:bold;">Mrs. Faithful Anne F. Arugay</span></p><p>Head, Community Engagement Services</p></td>
+    </tr>
+  </tbody>
+</table>
+<p style="text-align: left;"><br></p>
+<p style="text-align: left;"><span style="font-size: 12pt; font-family: 'Times New Roman', serif;">Dean</span></p>
+<p style="text-align: left;"><br></p>
+<table style="width:100%;table-layout:fixed;border-collapse:collapse;border:1.5px solid #000;font-family:'Times New Roman',serif;">
+  <tbody>
+    <tr>
+      <td colspan="3" style="border:1.5px solid #000;padding:4px 8px;font-size:11pt;font-weight:bold;font-style:italic;font-family:'Times New Roman',serif;"><p><em><strong>Collected From:</strong></em></p></td>
+    </tr>
+    <tr>
+      <td style="width:40%;border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
+      <td style="width:25%;border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
+      <td style="width:35%;border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
+    </tr>
+    <tr>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
+    </tr>
+    <tr>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
+    </tr>
+    <tr>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
+    </tr>
+    <tr>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
+    </tr>
+    <tr>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
+    </tr>
+    <tr>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
+    </tr>
+    <tr>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
+    </tr>
+    <tr>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
+    </tr>
+    <tr>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
+    </tr>
+    <tr>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
+    </tr>
+    <tr>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
+    </tr>
+    <tr>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
+    </tr>
+    <tr>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
+    </tr>
+    <tr>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
+    </tr>
+    <tr>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
+    </tr>
+    <tr>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
+    </tr>
+    <tr>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
+    </tr>
+    <tr>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
+    </tr>
+    <tr>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
+      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
+    </tr>
+  </tbody>
+</table>
+<p style="text-align: left;"><span style="font-size: 8pt; font-family: 'Times New Roman', serif;">*(College Department) Collected by the class President and be surrendered to the Community Engagement Services Office</span></p>
+<p style="text-align: left;"><span style="font-size: 8pt; font-family: 'Times New Roman', serif;">(SHS Department) Collected by the class SSG(Governors) /Class Officers and be surrendered to the Community Engagement Services Office</span></p>
+<p style="text-align: left;"><span style="font-size: 8pt; font-family: 'Times New Roman', serif;">(JHS Department) Collected by the class SSG/JS (Grade Level Representative)/Class Officers and be surrendered to the the Community Engagement Services Office.</span></p>`
     }
   ]
 
