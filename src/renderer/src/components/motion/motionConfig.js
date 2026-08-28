@@ -61,15 +61,15 @@ export const fadeInScale = {
 
 // ── Modal Variants ──────────────────────────────────────────────────────────────
 export const modalOverlayVariants = {
-  initial: { opacity: 0 },
-  animate: { opacity: 1 },
-  exit: { opacity: 0 }
+  initial: { opacity: 0, pointerEvents: 'none' },
+  animate: { opacity: 1, pointerEvents: 'auto' },
+  exit: { opacity: 0, pointerEvents: 'none' }
 }
 
 export const modalContentVariants = {
-  initial: { opacity: 0, scale: 0.96, y: 10 },
-  animate: { opacity: 1, scale: 1, y: 0 },
-  exit: { opacity: 0, scale: 0.96, y: 10 }
+  initial: { opacity: 0, scale: 0.96, y: 10, pointerEvents: 'none' },
+  animate: { opacity: 1, scale: 1, y: 0, pointerEvents: 'auto' },
+  exit: { opacity: 0, scale: 0.96, y: 10, pointerEvents: 'none' }
 }
 
 export const modalOverlayTransition = {
@@ -167,9 +167,9 @@ export const splashContainerVariants = {
 
 // ── Auth State Transition ───────────────────────────────────────────────────────
 export const authTransitionVariants = {
-  initial: { opacity: 0 },
-  animate: { opacity: 1 },
-  exit: { opacity: 0 }
+  initial: { opacity: 0, pointerEvents: 'none' },
+  animate: { opacity: 1, pointerEvents: 'auto' },
+  exit: { opacity: 0, pointerEvents: 'none' }
 }
 
 export const authTransition = {

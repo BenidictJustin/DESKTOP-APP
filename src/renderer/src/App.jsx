@@ -83,6 +83,12 @@ function AppContent() {
       openOfflineModal()
       return
     }
+    if (typeof document !== 'undefined') {
+      document.body.style.overflow = ''
+      document.body.style.pointerEvents = ''
+      document.documentElement.style.overflow = ''
+      document.documentElement.style.pointerEvents = ''
+    }
     try {
       await logout()
       setDeactivationNotice('')

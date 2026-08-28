@@ -113,6 +113,22 @@ export default function DocumentViewer({
   const [zoomScale, setZoomScale] = useState(1.0)
   const [viewMode, setViewMode] = useState('select') // 'select' or 'pan'
 
+  const [internalFeedbackNote, setInternalFeedbackNote] = useState(feedbackNote || '')
+
+  useEffect(() => {
+    if (feedbackNote !== undefined) {
+      setInternalFeedbackNote(feedbackNote || '')
+    }
+  }, [feedbackNote])
+
+  const handleFeedbackChange = (e) => {
+    const val = e.target.value
+    setInternalFeedbackNote(val)
+    if (typeof setFeedbackNote === 'function') {
+      setFeedbackNote(val)
+    }
+  }
+
   const initialNarrativeCount = Math.max(1, parseNarrativePages(report?.narrative || '').length)
   const [narrativeTotalPages, setNarrativeTotalPages] = useState(initialNarrativeCount)
 
@@ -1601,7 +1617,7 @@ export default function DocumentViewer({
           </main>
 
           {/* Assessment & Actions Sidebar */}
-          <aside className="w-80 bg-white border-l border-gray-200 p-6 overflow-y-auto shrink-0 flex flex-col justify-between select-none">
+          <aside className="w-80 bg-white border-l border-gray-200 p-6 overflow-y-auto shrink-0 flex flex-col justify-between">
             <div className="space-y-5">
               <div>
                 <span className="text-[10px] text-sig-green font-bold uppercase tracking-wider">
@@ -1689,24 +1705,24 @@ export default function DocumentViewer({
                         Feedback/Revision Instructions <span className="text-red-500">*</span>
                       </label>
                       <textarea
-                        value={feedbackNote}
-                        onChange={(e) => setFeedbackNote(e.target.value)}
+                        value={internalFeedbackNote}
+                        onChange={handleFeedbackChange}
                         placeholder="Specify required corrections clearly. Needed if returning for revision..."
-                        className="w-full p-3 text-xs bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-medium text-navy-blue placeholder-gray-400"
+                        className="w-full p-3 text-xs bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-medium text-navy-blue placeholder-gray-400 select-text cursor-text relative z-10"
                         rows="3"
                       ></textarea>
                     </div>
 
                     <div className="flex flex-col space-y-2">
                       <button
-                        onClick={() => handleReviewReport('returned')}
+                        onClick={() => handleReviewReport('returned', internalFeedbackNote)}
                         disabled={loading}
                         className="w-full bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-full font-bold text-xs py-2.5 transition duration-200 cursor-pointer text-center disabled:opacity-50"
                       >
                         {loading ? 'Processing...' : 'Return with Feedback'}
                       </button>
                       <button
-                        onClick={() => handleReviewReport('approved')}
+                        onClick={() => handleReviewReport('approved', internalFeedbackNote)}
                         disabled={loading}
                         className="w-full bg-navy-blue text-white rounded-full font-bold text-xs py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition duration-200 cursor-pointer text-center disabled:opacity-50"
                       >

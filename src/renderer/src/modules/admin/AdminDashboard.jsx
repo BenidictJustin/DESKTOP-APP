@@ -2108,13 +2108,14 @@ export default function AdminDashboard({ user, onLogout }) {
   }
 
   // Report decision: Approve or Return
-  const handleReviewReport = async (status) => {
+  const handleReviewReport = async (status, feedbackOverride) => {
     if (isOffline) {
       triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
       return
     }
     if (!selectedReport) return
-    if (status === 'returned' && !feedbackNote.trim()) {
+    const noteToUse = feedbackOverride !== undefined ? feedbackOverride : feedbackNote
+    if (status === 'returned' && !noteToUse.trim()) {
       alert('Feedback notes are mandatory to return reports.')
       return
     }
@@ -2125,7 +2126,7 @@ export default function AdminDashboard({ user, onLogout }) {
         selectedReport.id,
         {
           status,
-          adminFeedback: status === 'returned' ? feedbackNote : null
+          adminFeedback: status === 'returned' ? noteToUse : null
         },
         user.uid
       )
@@ -2511,14 +2512,6 @@ export default function AdminDashboard({ user, onLogout }) {
                                       >
                                         <Eye className="w-3.5 h-3.5" />
                                         <span>Inspect Report</span>
-                                      </button>
-                                      <button
-                                        onClick={() => compileReportPDF(rep)}
-                                        className="bg-sig-green hover:bg-sig-green-600 text-navy-blue font-semibold py-1.5 px-2.5 rounded-lg text-xs flex items-center gap-1 shadow-xs transition-all cursor-pointer shrink-0"
-                                        title="Download Report (.docx or .pdf)"
-                                      >
-                                        <Download className="w-3.5 h-3.5" />
-                                        <span>Download</span>
                                       </button>
                                     </div>
                                   </div>
@@ -5773,18 +5766,10 @@ export default function AdminDashboard({ user, onLogout }) {
                                             setSelectedReport(rep)
                                             setFeedbackNote('')
                                           }}
-                                          className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 cursor-pointer shadow-2xs"
+                                          className="bg-white text-navy-blue border border-gray-200 font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 cursor-pointer shadow-2xs hover:bg-navy-blue hover:text-white hover:border-navy-blue hover:shadow-xs active:scale-95 transition-all duration-150"
                                         >
                                           <Eye className="w-3.5 h-3.5" />
                                           <span>Inspect Report</span>
-                                        </button>
-                                        <button
-                                          onClick={() => compileReportPDF(rep)}
-                                          className="bg-sig-green text-navy-blue font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-2xs"
-                                          title="Download Report (.docx or .pdf)"
-                                        >
-                                          <Download className="w-3.5 h-3.5" />
-                                          <span>Download</span>
                                         </button>
                                       </div>
                                     </div>
@@ -5824,13 +5809,13 @@ export default function AdminDashboard({ user, onLogout }) {
 
                             {/* Search Input Field */}
                             <div className="relative">
-                              <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                              <Search className="w-4 h-4 text-navy-blue/70 absolute left-3.5 top-1/2 -translate-y-1/2" />
                               <input
                                 type="text"
                                 value={approvedSearchQuery}
                                 onChange={(e) => setApprovedSearchQuery(e.target.value)}
                                 placeholder="Search approved reports by title, author, venue, program, department, beneficiaries, objectives..."
-                                className="w-full pl-9 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-navy-blue placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-navy-blue/20 focus:border-navy-blue transition duration-150"
+                                className="w-full pl-10 pr-9 py-2.5 bg-white border border-gray-300 hover:border-navy-blue/40 rounded-xl text-xs text-navy-blue font-medium placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-navy-blue/15 focus:border-navy-blue shadow-2xs transition duration-150"
                               />
                               {approvedSearchQuery && (
                                 <button
@@ -5890,7 +5875,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                             setSelectedReport(rep)
                                             setFeedbackNote('')
                                           }}
-                                          className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 cursor-pointer shadow-2xs"
+                                          className="bg-white text-navy-blue border border-gray-200 font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 cursor-pointer shadow-2xs hover:bg-navy-blue hover:text-white hover:border-navy-blue hover:shadow-xs active:scale-95 transition-all duration-150"
                                         >
                                           <Eye className="w-3.5 h-3.5" />
                                           <span>Inspect Report</span>

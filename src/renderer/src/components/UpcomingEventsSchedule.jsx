@@ -89,7 +89,7 @@ export default function UpcomingEventsSchedule({
   return (
     <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border border-gray-100 space-y-5 w-full text-left font-poppins">
       {/* ── Top Header Bar ────────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-gray-100 pb-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-4">
         {/* Title & Year Badge (without sparkle star icon) */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="p-2.5 bg-navy-blue text-white rounded-xl shadow-2xs">
@@ -100,7 +100,7 @@ export default function UpcomingEventsSchedule({
               <h3 className="font-extrabold text-navy-blue text-base sm:text-lg tracking-tight">
                 {title}
               </h3>
-              <span className="inline-flex items-center text-xs font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-sig-green/10 text-sig-green border border-sig-green/20">
+              <span className="inline-flex items-center text-xs font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-sig-green/10 text-sig-green border border-sig-green/20 whitespace-nowrap">
                 January – December {selectedYear}
               </span>
             </div>
@@ -108,15 +108,15 @@ export default function UpcomingEventsSchedule({
         </div>
 
         {/* Controls & Navigations */}
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-nowrap shrink-0">
           {/* Status Filter */}
-          <div className="flex items-center bg-gray-100/80 p-1 rounded-xl text-xs">
+          <div className="flex items-center bg-gray-100/80 p-1 rounded-xl text-xs shrink-0">
             {['all', 'planned', 'completed'].map((st) => (
               <button
                 key={st}
                 type="button"
                 onClick={() => setStatusFilter(st)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold capitalize transition-all cursor-pointer whitespace-nowrap ${
                   statusFilter === st
                     ? 'bg-navy-blue text-white shadow-2xs'
                     : 'text-gray-500 hover:text-navy-blue'
@@ -128,7 +128,7 @@ export default function UpcomingEventsSchedule({
           </div>
 
           {/* Year Switcher */}
-          <div className="flex items-center bg-slate-50 border border-gray-200/80 rounded-xl px-2 py-1 text-xs font-bold text-navy-blue shadow-2xs">
+          <div className="flex items-center bg-slate-50 border border-gray-200/80 rounded-xl px-2 py-1 text-xs font-bold text-navy-blue shadow-2xs shrink-0">
             <button
               type="button"
               onClick={handlePrevYear}
@@ -137,7 +137,7 @@ export default function UpcomingEventsSchedule({
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <span className="px-3 text-xs font-extrabold select-none tracking-wide">
+            <span className="px-3 text-xs font-extrabold select-none tracking-wide whitespace-nowrap">
               {selectedYear}
             </span>
             <button
@@ -155,18 +155,18 @@ export default function UpcomingEventsSchedule({
             <button
               type="button"
               onClick={handleResetCurrentYear}
-              className="text-xs font-bold text-sig-green hover:underline px-2 py-1 bg-sig-green/10 rounded-xl border border-sig-green/20 cursor-pointer"
+              className="text-xs font-bold text-sig-green hover:underline px-2 py-1 bg-sig-green/10 rounded-xl border border-sig-green/20 cursor-pointer whitespace-nowrap shrink-0"
             >
               Current ({currentYear})
             </button>
           )}
 
-          {/* Optional View All Link */}
+          {/* Optional View All Link (placed at far right of controls) */}
           {onViewAll && (
             <button
               type="button"
               onClick={onViewAll}
-              className="flex items-center gap-1 bg-navy-blue hover:bg-navy-blue/90 text-white text-xs font-semibold px-3.5 py-1.5 rounded-xl shadow-xs transition-all cursor-pointer ml-1"
+              className="flex items-center gap-1.5 bg-navy-blue hover:bg-navy-blue/90 text-white text-xs font-semibold px-3.5 py-1.5 rounded-xl shadow-xs transition-all cursor-pointer ml-1 whitespace-nowrap shrink-0"
             >
               <span>Events Module</span>
               <ArrowUpRight className="w-3.5 h-3.5" />

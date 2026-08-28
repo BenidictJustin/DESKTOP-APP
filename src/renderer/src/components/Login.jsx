@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'motion/react'
 import { login, requestPasswordReset } from '../services/db'
@@ -34,6 +34,8 @@ export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
   const [passwordError, setPasswordError] = useState('')
   const [isSuccessTransition, setIsSuccessTransition] = useState(false)
   const [showLoginSuccessModal, setShowLoginSuccessModal] = useState(false)
+  const [cooldownSeconds, setCooldownSeconds] = useState(0)
+  const cooldownRef = useRef(null)
 
   useEffect(() => {
     if (deactivationNotice) {
@@ -78,6 +80,28 @@ export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
       document.documentElement.style.pointerEvents = ''
     }
   }, [])
+
+  // Cooldown countdown — only runs when cooldownSeconds > 0
+  useEffect(() => {
+    if (cooldownSeconds <= 0) return
+    cooldownRef.current = setInterval(() => {
+      setCooldownSeconds((prev) => {
+        if (prev <= 1) {
+          clearInterval(cooldownRef.current)
+          cooldownRef.current = null
+          setError('')
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => {
+      if (cooldownRef.current) {
+        clearInterval(cooldownRef.current)
+        cooldownRef.current = null
+      }
+    }
+  }, [cooldownSeconds > 0])
 
   const handleLogin = async (e) => {
     e.preventDefault()
@@ -148,7 +172,8 @@ export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
         msg.includes('auth/too-many-requests') ||
         msg.includes('too-many-requests')
       ) {
-        setError('Too many login attempts. Please wait a moment and try again.')
+        setError('Too many login attempts. Please wait 5 seconds before trying again.')
+        setCooldownSeconds(5)
       } else {
         setError('Invalid email or password. Please try again.')
       }
@@ -381,8 +406,8 @@ export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
               {error && (
                 <motion.div
                   className={`mb-5 p-3.5 rounded-xl text-xs flex items-start space-x-2.5 border shadow-glass-sm ${error.includes('Waiting') || error.includes('network')
-                      ? 'bg-amber-500/20 backdrop-blur-md text-amber-100 border-amber-500/30'
-                      : 'bg-error-500/20 backdrop-blur-md text-red-100 border-error-500/30'
+                    ? 'bg-amber-500/20 backdrop-blur-md text-amber-100 border-amber-500/30'
+                    : 'bg-error-500/20 backdrop-blur-md text-red-100 border-error-500/30'
                     }`}
                   initial={{ opacity: 0, y: -8 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -417,8 +442,8 @@ export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
                     }}
                     placeholder="Enter email"
                     className={`w-full pl-11 pr-4 py-2.5 text-sm bg-white/90 backdrop-blur-md border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 placeholder:text-gray-400 text-navy-blue font-semibold shadow-inner ${emailError
-                        ? 'border-red-400 focus:ring-red-400/30 focus:border-red-400'
-                        : 'border-white/80 focus:ring-sig-green/40 focus:border-sig-green'
+                      ? 'border-red-400 focus:ring-red-400/30 focus:border-red-400'
+                      : 'border-white/80 focus:ring-sig-green/40 focus:border-sig-green'
                       }`}
                   />
                 </div>
@@ -465,10 +490,10 @@ export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
                         setPasswordError('')
                       }
                     }}
-                    placeholder="••••••••"
+                    placeholder="Enter password"
                     className={`w-full pl-11 pr-11 py-2.5 text-sm bg-white/90 backdrop-blur-md border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 placeholder:text-gray-400 text-navy-blue font-semibold shadow-inner ${passwordError
-                        ? 'border-red-400 focus:ring-red-400/30 focus:border-red-400'
-                        : 'border-white/80 focus:ring-sig-green/40 focus:border-sig-green'
+                      ? 'border-red-400 focus:ring-red-400/30 focus:border-red-400'
+                      : 'border-white/80 focus:ring-sig-green/40 focus:border-sig-green'
                       }`}
                   />
                   <button
@@ -493,7 +518,7 @@ export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
 
               <motion.button
                 type="submit"
-                disabled={loading}
+                disabled={loading || cooldownSeconds > 0}
                 className="w-full bg-sig-green hover:bg-sig-green-600 active:bg-sig-green-700 text-navy-blue font-extrabold py-3 px-6 rounded-xl transition-colors duration-200 flex items-center justify-center space-x-2 text-sm mt-3 shadow-glass-navy hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border border-white/40"
                 whileHover={!loading ? { scale: 1.01, y: -1 } : {}}
                 whileTap={!loading ? { scale: 0.98 } : {}}

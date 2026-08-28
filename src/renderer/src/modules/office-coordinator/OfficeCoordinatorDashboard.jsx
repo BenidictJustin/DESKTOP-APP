@@ -120,6 +120,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   const [approvedSearchQuery, setApprovedSearchQuery] = useState('')
   const [isDocxUploadModalOpen, setIsDocxUploadModalOpen] = useState(false)
   const [isDocxUploading, setIsDocxUploading] = useState(false)
+  const [feedbackModal, setFeedbackModal] = useState(null)
 
   // ── Database ──
   const [reportsList, setReportsList] = useState([])
@@ -165,7 +166,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
   // Body scroll lock effect whenever any modal/dialog is open
   useEffect(() => {
-    if (selectedViewerReport || exportingReport || isViewEventModalOpen) {
+    if (selectedViewerReport || exportingReport || isViewEventModalOpen || feedbackModal) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = ''
@@ -173,7 +174,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     return () => {
       document.body.style.overflow = ''
     }
-  }, [selectedViewerReport, exportingReport, isViewEventModalOpen])
+  }, [selectedViewerReport, exportingReport, isViewEventModalOpen, feedbackModal])
 
   // ── Reset form (clear all fields + editor) ──
   const resetForm = useCallback((editor) => {
@@ -244,14 +245,24 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     async (status, html, silent = false, layoutOptions = {}) => {
       if (isOffline) {
         if (!silent) {
-          alert('Cannot save or submit report: Internet connection is offline. Your draft remains safe in the editor. Please reconnect to sync.')
+          setFeedbackModal({
+            type: 'warning',
+            title: 'dommunity',
+            message: 'Cannot save or submit report: Internet connection is offline. Your draft remains safe in the editor. Please reconnect to sync.'
+          })
         }
         setSaveStatus('offline')
         return
       }
 
       if (!html || html === '<p></p>') {
-        if (!silent) alert('Please write some content before saving.')
+        if (!silent) {
+          setFeedbackModal({
+            type: 'warning',
+            title: 'dommunity',
+            message: 'Please write some content before saving.'
+          })
+        }
         return
       }
 
@@ -312,11 +323,13 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
         setSaveStatus('saved')
         if (!silent) {
-          alert(
-            status === 'draft'
+          setFeedbackModal({
+            type: 'success',
+            title: 'dommunity',
+            message: status === 'draft'
               ? 'Draft saved successfully!'
               : 'Report submitted to Admin successfully!'
-          )
+          })
           resetForm()
           if (status === 'submitted') {
             setCompiledReportsTab('submitted')
@@ -327,7 +340,13 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       } catch (err) {
         console.error('Save failed:', err)
         setSaveStatus('error')
-        if (!silent) alert('Save failed. Please try again.')
+        if (!silent) {
+          setFeedbackModal({
+            type: 'error',
+            title: 'dommunity',
+            message: 'Save failed. Please try again.'
+          })
+        }
       } finally {
         setLoading(false)
         setTimeout(() => setSaveStatus(''), 3000)
@@ -357,7 +376,11 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   // ── Direct DOCX Upload & Submit Handler (Bypasses Tiptap to preserve 100% formatting) ──
   const handleDocxUploadSubmit = async ({ file, comment, eventId }) => {
     if (isOffline) {
-      alert('Cannot submit report: Internet connection is offline. Please reconnect to sync.')
+      setFeedbackModal({
+        type: 'warning',
+        title: 'dommunity',
+        message: 'Cannot submit report: Internet connection is offline. Please reconnect to sync.'
+      })
       return
     }
     setIsDocxUploading(true)
@@ -408,13 +431,21 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
       await addReport(payload, user.uid)
       setIsDocxUploadModalOpen(false)
-      alert(`Original ${isPdf ? 'PDF' : 'Word'} document submitted directly to Admin successfully! Formatting is 100% preserved.`)
+      setFeedbackModal({
+        type: 'success',
+        title: 'dommunity',
+        message: `Original ${isPdf ? 'PDF' : 'Word'} document submitted directly to Admin successfully! Formatting is 100% preserved.`
+      })
       setCompiledReportsTab('submitted')
       setActiveTab('reports')
       await loadData()
     } catch (err) {
       console.error('Failed to submit document report:', err)
-      alert('Failed to submit report: ' + (err.message || err))
+      setFeedbackModal({
+        type: 'error',
+        title: 'dommunity',
+        message: 'Failed to submit report: ' + (err.message || err)
+      })
     } finally {
       setIsDocxUploading(false)
     }
@@ -781,19 +812,17 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                           <button
                             type="button"
                             onClick={() => setCompiledReportsTab('draft')}
-                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${
-                              compiledReportsTab === 'draft'
+                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${compiledReportsTab === 'draft'
                                 ? 'bg-navy-blue text-white shadow-sm'
                                 : 'text-gray-600 hover:text-navy-blue hover:bg-white/50'
-                            }`}
+                              }`}
                           >
                             <span>Draft</span>
                             <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${
-                                compiledReportsTab === 'draft'
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${compiledReportsTab === 'draft'
                                   ? 'bg-white/20 text-white'
                                   : 'bg-gray-200 text-gray-700'
-                              }`}
+                                }`}
                             >
                               {stats.drafts}
                             </span>
@@ -803,21 +832,19 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                           <button
                             type="button"
                             onClick={() => setCompiledReportsTab('submitted')}
-                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${
-                              compiledReportsTab === 'submitted'
+                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${compiledReportsTab === 'submitted'
                                 ? 'bg-navy-blue text-white shadow-sm'
                                 : 'text-gray-600 hover:text-navy-blue hover:bg-white/50'
-                            }`}
+                              }`}
                           >
                             <span>Submitted</span>
                             <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${
-                                stats.submitted > 0
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${stats.submitted > 0
                                   ? 'bg-amber-500 text-white shadow-xs'
                                   : compiledReportsTab === 'submitted'
                                     ? 'bg-white/20 text-white'
                                     : 'bg-gray-200 text-gray-700'
-                              }`}
+                                }`}
                             >
                               {stats.submitted}
                             </span>
@@ -827,21 +854,19 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                           <button
                             type="button"
                             onClick={() => setCompiledReportsTab('returned')}
-                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${
-                              compiledReportsTab === 'returned'
+                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${compiledReportsTab === 'returned'
                                 ? 'bg-navy-blue text-white shadow-sm'
                                 : 'text-gray-600 hover:text-navy-blue hover:bg-white/50'
-                            }`}
+                              }`}
                           >
                             <span>Returned</span>
                             <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${
-                                stats.returned > 0
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${stats.returned > 0
                                   ? 'bg-red-500 text-white shadow-xs'
                                   : compiledReportsTab === 'returned'
                                     ? 'bg-white/20 text-white'
                                     : 'bg-gray-200 text-gray-700'
-                              }`}
+                                }`}
                             >
                               {stats.returned}
                             </span>
@@ -851,19 +876,17 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                           <button
                             type="button"
                             onClick={() => setCompiledReportsTab('approved')}
-                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${
-                              compiledReportsTab === 'approved'
+                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${compiledReportsTab === 'approved'
                                 ? 'bg-navy-blue text-white shadow-sm'
                                 : 'text-gray-600 hover:text-navy-blue hover:bg-white/50'
-                            }`}
+                              }`}
                           >
                             <span>Approved</span>
                             <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${
-                                compiledReportsTab === 'approved'
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${compiledReportsTab === 'approved'
                                   ? 'bg-white/20 text-white'
                                   : 'bg-gray-200 text-gray-700'
-                              }`}
+                                }`}
                             >
                               {stats.approved}
                             </span>
@@ -956,18 +979,10 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                       <div className="mt-3 md:mt-0 flex items-center gap-2">
                                         <button
                                           onClick={() => setSelectedViewerReport(rep)}
-                                          className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
+                                          className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue hover:text-white hover:border-navy-blue hover:shadow-xs active:scale-95 transition-all duration-150 cursor-pointer shadow-2xs"
                                         >
                                           <Eye className="w-3.5 h-3.5" />
                                           <span>View</span>
-                                        </button>
-                                        <button
-                                          onClick={() => compileReportPDF(rep)}
-                                          className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
-                                          title="Download Draft (.docx or .pdf)"
-                                        >
-                                          <Download className="w-3.5 h-3.5" />
-                                          <span>Download</span>
                                         </button>
                                         <button
                                           onClick={() => openReport(rep)}
@@ -1054,18 +1069,10 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                       <div className="mt-3 md:mt-0 flex items-center gap-2">
                                         <button
                                           onClick={() => setSelectedViewerReport(rep)}
-                                          className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
+                                          className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue hover:text-white hover:border-navy-blue hover:shadow-xs active:scale-95 transition-all duration-150 cursor-pointer shadow-2xs"
                                         >
                                           <Eye className="w-3.5 h-3.5" />
                                           <span>View</span>
-                                        </button>
-                                        <button
-                                          onClick={() => compileReportPDF(rep)}
-                                          className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
-                                          title="Download Report (.docx or .pdf)"
-                                        >
-                                          <Download className="w-3.5 h-3.5" />
-                                          <span>Download</span>
                                         </button>
                                       </div>
                                     </div>
@@ -1144,25 +1151,17 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                       <div className="mt-3 md:mt-0 flex items-center gap-2 shrink-0">
                                         <button
                                           onClick={() => setSelectedViewerReport(rep)}
-                                          className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
+                                          className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue hover:text-white hover:border-navy-blue hover:shadow-xs active:scale-95 transition-all duration-150 cursor-pointer shadow-2xs"
                                         >
                                           <Eye className="w-3.5 h-3.5" />
                                           <span>View</span>
-                                        </button>
-                                        <button
-                                          onClick={() => compileReportPDF(rep)}
-                                          className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
-                                          title="Download Report (.docx or .pdf)"
-                                        >
-                                          <Download className="w-3.5 h-3.5" />
-                                          <span>Download</span>
                                         </button>
                                         <button
                                           onClick={() => openReport(rep)}
                                           className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-xs"
                                         >
                                           <Edit3 className="w-3.5 h-3.5" />
-                                          <span>Edit & Revise</span>
+                                          <span>Edit</span>
                                         </button>
                                       </div>
                                     </div>
@@ -1185,13 +1184,13 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                         >
                           {/* Live Search Input */}
                           <div className="relative">
-                            <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                            <Search className="w-4 h-4 text-navy-blue/70 absolute left-3.5 top-1/2 -translate-y-1/2" />
                             <input
                               type="text"
                               value={approvedSearchQuery}
                               onChange={(e) => setApprovedSearchQuery(e.target.value)}
                               placeholder="Search approved reports by title, author, venue, program, department, beneficiaries..."
-                              className="w-full pl-9 pr-8 py-2 bg-white border border-gray-200 rounded-xl text-xs text-navy-blue placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-navy-blue/20 focus:border-navy-blue transition duration-150 shadow-2xs"
+                              className="w-full pl-10 pr-9 py-2.5 bg-white border border-gray-300 hover:border-navy-blue/40 rounded-xl text-xs text-navy-blue font-medium placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-navy-blue/15 focus:border-navy-blue shadow-2xs transition duration-150"
                             />
                             {approvedSearchQuery && (
                               <button
@@ -1265,7 +1264,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                       <div className="mt-3 md:mt-0 flex items-center gap-2">
                                         <button
                                           onClick={() => setSelectedViewerReport(rep)}
-                                          className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
+                                          className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue hover:text-white hover:border-navy-blue hover:shadow-xs active:scale-95 transition-all duration-150 cursor-pointer shadow-2xs"
                                         >
                                           <Eye className="w-3.5 h-3.5" />
                                           <span>View</span>
@@ -1574,6 +1573,39 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         eventsList={eventsList}
         isSubmitting={isDocxUploading}
       />
+
+      {/* ── FEEDBACK / NOTIFICATION MODAL ── */}
+      <AnimatedModal
+        isOpen={Boolean(feedbackModal)}
+        onClose={() => setFeedbackModal(null)}
+        overlayClassName="fixed inset-0 z-[99999] flex items-center justify-center bg-navy-blue/40 backdrop-blur-sm p-4"
+        contentClassName="bg-white rounded-3xl p-6 shadow-2xl border border-gray-100 max-w-sm w-full text-center space-y-4"
+      >
+        {feedbackModal && (
+          <>
+            <div>
+              <h4 className="font-bold text-navy-blue text-sm uppercase tracking-wide">
+                {feedbackModal.type === 'error'
+                  ? 'Error'
+                  : feedbackModal.type === 'warning'
+                    ? 'Notice'
+                    : 'Success'}
+              </h4>
+              <p className="text-xs text-gray-500 font-semibold mt-2 leading-relaxed">
+                {feedbackModal.message}
+              </p>
+            </div>
+            <button
+              autoFocus
+              type="button"
+              onClick={() => setFeedbackModal(null)}
+              className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition-all duration-150 cursor-pointer"
+            >
+              OK
+            </button>
+          </>
+        )}
+      </AnimatedModal>
     </div>
   )
 }
