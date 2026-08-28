@@ -380,11 +380,10 @@ export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
               )}
               {error && (
                 <motion.div
-                  className={`mb-5 p-3.5 rounded-xl text-xs flex items-start space-x-2.5 border shadow-glass-sm ${
-                    error.includes('Waiting') || error.includes('network')
+                  className={`mb-5 p-3.5 rounded-xl text-xs flex items-start space-x-2.5 border shadow-glass-sm ${error.includes('Waiting') || error.includes('network')
                       ? 'bg-amber-500/20 backdrop-blur-md text-amber-100 border-amber-500/30'
                       : 'bg-error-500/20 backdrop-blur-md text-red-100 border-error-500/30'
-                  }`}
+                    }`}
                   initial={{ opacity: 0, y: -8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
@@ -401,7 +400,7 @@ export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
             <form onSubmit={handleLogin} className="space-y-5">
               <div>
                 <label className="block text-white/90 text-xs font-semibold mb-1.5 tracking-wide drop-shadow-xs">
-                  Username / Email Address
+                  Email
                 </label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 pointer-events-none">
@@ -417,11 +416,10 @@ export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
                       }
                     }}
                     placeholder="Enter email"
-                    className={`w-full pl-11 pr-4 py-2.5 text-sm bg-white/90 backdrop-blur-md border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 placeholder:text-gray-400 text-navy-blue font-semibold shadow-inner ${
-                      emailError
+                    className={`w-full pl-11 pr-4 py-2.5 text-sm bg-white/90 backdrop-blur-md border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 placeholder:text-gray-400 text-navy-blue font-semibold shadow-inner ${emailError
                         ? 'border-red-400 focus:ring-red-400/30 focus:border-red-400'
                         : 'border-white/80 focus:ring-sig-green/40 focus:border-sig-green'
-                    }`}
+                      }`}
                   />
                 </div>
                 {emailError && (
@@ -468,11 +466,10 @@ export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
                       }
                     }}
                     placeholder="••••••••"
-                    className={`w-full pl-11 pr-11 py-2.5 text-sm bg-white/90 backdrop-blur-md border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 placeholder:text-gray-400 text-navy-blue font-semibold shadow-inner ${
-                      passwordError
+                    className={`w-full pl-11 pr-11 py-2.5 text-sm bg-white/90 backdrop-blur-md border rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 placeholder:text-gray-400 text-navy-blue font-semibold shadow-inner ${passwordError
                         ? 'border-red-400 focus:ring-red-400/30 focus:border-red-400'
                         : 'border-white/80 focus:ring-sig-green/40 focus:border-sig-green'
-                    }`}
+                      }`}
                   />
                   <button
                     type="button"

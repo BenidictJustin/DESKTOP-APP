@@ -1,11 +1,11 @@
 <mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.3.6 Chrome/140.0.7339.249 Electron/38.8.0 Safari/537.36" version="29.3.6">
   <diagram id="dommunity_nosql_data_model" name="DommUnity NoSQL Data Model">
-    <mxGraphModel dx="595" dy="1518" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1480" pageHeight="1160" math="0" shadow="0">
+    <mxGraphModel dx="1042" dy="1786" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1480" pageHeight="1160" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
         <mxCell id="tbl_users" parent="1" style="shape=table;startSize=26;container=1;collapsible=0;childLayout=tableLayout;fixedRows=1;rowLines=1;fontStyle=1;align=center;resizeLast=0;html=1;strokeColor=#9998B8;fillColor=#EAE8F7;strokeWidth=1.2;fontSize=12;fontColor=#2C2B4B;fontFamily=Helvetica, Arial, sans-serif;" value="users" vertex="1">
-          <mxGeometry height="242" width="230" x="60" y="50" as="geometry" />
+          <mxGeometry height="218" width="230" x="60" y="50" as="geometry" />
         </mxCell>
         <mxCell id="users_row_0" parent="tbl_users" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;bubbleStyle=none;collapsible=0;dropTarget=0;fillColor=none;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;strokeColor=inherit;strokeWidth=1;" value="" vertex="1">
           <mxGeometry height="24" width="230" y="26" as="geometry" />
@@ -20,21 +20,8 @@
             <mxRectangle height="24" width="155" as="alternateBounds" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="users_row_1" parent="tbl_users" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;bubbleStyle=none;collapsible=0;dropTarget=0;fillColor=none;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;strokeColor=inherit;strokeWidth=1;" value="" vertex="1">
-          <mxGeometry height="24" width="230" y="50" as="geometry" />
-        </mxCell>
-        <mxCell id="users_r1_c1" parent="users_row_1" style="shape=partialRectangle;html=1;whiteSpace=wrap;connectable=0;fillColor=#FFFFFF;top=0;left=0;bottom=0;right=0;overflow=hidden;align=left;spacingLeft=8;fontSize=11;fontColor=#4A4A62;strokeColor=#9998B8;" value="string" vertex="1">
-          <mxGeometry height="24" width="75" as="geometry">
-            <mxRectangle height="24" width="75" as="alternateBounds" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="users_r1_c2" parent="users_row_1" style="shape=partialRectangle;html=1;whiteSpace=wrap;connectable=0;fillColor=#FFFFFF;top=0;left=0;bottom=0;right=0;overflow=hidden;align=left;spacingLeft=8;fontSize=11;fontColor=#1E1E2E;strokeColor=#9998B8;" value="username" vertex="1">
-          <mxGeometry height="24" width="155" x="75" as="geometry">
-            <mxRectangle height="24" width="155" as="alternateBounds" />
-          </mxGeometry>
-        </mxCell>
         <mxCell id="users_row_2" parent="tbl_users" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;bubbleStyle=none;collapsible=0;dropTarget=0;fillColor=none;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;strokeColor=inherit;strokeWidth=1;" value="" vertex="1">
-          <mxGeometry height="24" width="230" y="74" as="geometry" />
+          <mxGeometry height="24" width="230" y="50" as="geometry" />
         </mxCell>
         <mxCell id="users_r2_c1" parent="users_row_2" style="shape=partialRectangle;html=1;whiteSpace=wrap;connectable=0;fillColor=#FFFFFF;top=0;left=0;bottom=0;right=0;overflow=hidden;align=left;spacingLeft=8;fontSize=11;fontColor=#4A4A62;strokeColor=#9998B8;" value="string" vertex="1">
           <mxGeometry height="24" width="75" as="geometry">
@@ -47,7 +34,7 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="users_row_3" parent="tbl_users" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;bubbleStyle=none;collapsible=0;dropTarget=0;fillColor=none;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;strokeColor=inherit;strokeWidth=1;" value="" vertex="1">
-          <mxGeometry height="24" width="230" y="98" as="geometry" />
+          <mxGeometry height="24" width="230" y="74" as="geometry" />
         </mxCell>
         <mxCell id="users_r3_c1" parent="users_row_3" style="shape=partialRectangle;html=1;whiteSpace=wrap;connectable=0;fillColor=#FFFFFF;top=0;left=0;bottom=0;right=0;overflow=hidden;align=left;spacingLeft=8;fontSize=11;fontColor=#4A4A62;strokeColor=#9998B8;" value="string" vertex="1">
           <mxGeometry height="24" width="75" as="geometry">
@@ -60,7 +47,7 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="users_row_4" parent="tbl_users" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;bubbleStyle=none;collapsible=0;dropTarget=0;fillColor=none;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;strokeColor=inherit;strokeWidth=1;" value="" vertex="1">
-          <mxGeometry height="24" width="230" y="122" as="geometry" />
+          <mxGeometry height="24" width="230" y="98" as="geometry" />
         </mxCell>
         <mxCell id="users_r4_c1" parent="users_row_4" style="shape=partialRectangle;html=1;whiteSpace=wrap;connectable=0;fillColor=#FFFFFF;top=0;left=0;bottom=0;right=0;overflow=hidden;align=left;spacingLeft=8;fontSize=11;fontColor=#4A4A62;strokeColor=#9998B8;" value="string" vertex="1">
           <mxGeometry height="24" width="75" as="geometry">
@@ -73,7 +60,7 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="users_row_5" parent="tbl_users" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;bubbleStyle=none;collapsible=0;dropTarget=0;fillColor=none;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;strokeColor=inherit;strokeWidth=1;" value="" vertex="1">
-          <mxGeometry height="24" width="230" y="146" as="geometry" />
+          <mxGeometry height="24" width="230" y="122" as="geometry" />
         </mxCell>
         <mxCell id="users_r5_c1" parent="users_row_5" style="shape=partialRectangle;html=1;whiteSpace=wrap;connectable=0;fillColor=#FFFFFF;top=0;left=0;bottom=0;right=0;overflow=hidden;align=left;spacingLeft=8;fontSize=11;fontColor=#4A4A62;strokeColor=#9998B8;" value="string" vertex="1">
           <mxGeometry height="24" width="75" as="geometry">
@@ -86,7 +73,7 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="users_row_6" parent="tbl_users" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;bubbleStyle=none;collapsible=0;dropTarget=0;fillColor=none;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;strokeColor=inherit;strokeWidth=1;" value="" vertex="1">
-          <mxGeometry height="24" width="230" y="170" as="geometry" />
+          <mxGeometry height="24" width="230" y="146" as="geometry" />
         </mxCell>
         <mxCell id="users_r6_c1" parent="users_row_6" style="shape=partialRectangle;html=1;whiteSpace=wrap;connectable=0;fillColor=#FFFFFF;top=0;left=0;bottom=0;right=0;overflow=hidden;align=left;spacingLeft=8;fontSize=11;fontColor=#4A4A62;strokeColor=#9998B8;" value="string" vertex="1">
           <mxGeometry height="24" width="75" as="geometry">
@@ -99,7 +86,7 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="users_row_7" parent="tbl_users" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;bubbleStyle=none;collapsible=0;dropTarget=0;fillColor=none;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;strokeColor=inherit;strokeWidth=1;" value="" vertex="1">
-          <mxGeometry height="24" width="230" y="194" as="geometry" />
+          <mxGeometry height="24" width="230" y="170" as="geometry" />
         </mxCell>
         <mxCell id="users_r7_c1" parent="users_row_7" style="shape=partialRectangle;html=1;whiteSpace=wrap;connectable=0;fillColor=#FFFFFF;top=0;left=0;bottom=0;right=0;overflow=hidden;align=left;spacingLeft=8;fontSize=11;fontColor=#4A4A62;strokeColor=#9998B8;" value="timestamp" vertex="1">
           <mxGeometry height="24" width="75" as="geometry">
@@ -112,7 +99,7 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="users_row_8" parent="tbl_users" style="shape=tableRow;horizontal=0;startSize=0;swimlaneHead=0;bubbleStyle=none;collapsible=0;dropTarget=0;fillColor=none;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;strokeColor=inherit;strokeWidth=1;" value="" vertex="1">
-          <mxGeometry height="24" width="230" y="218" as="geometry" />
+          <mxGeometry height="24" width="230" y="194" as="geometry" />
         </mxCell>
         <mxCell id="users_r8_c1" parent="users_row_8" style="shape=partialRectangle;html=1;whiteSpace=wrap;connectable=0;fillColor=#FFFFFF;top=0;left=0;bottom=0;right=0;overflow=hidden;align=left;spacingLeft=8;fontSize=11;fontColor=#4A4A62;strokeColor=#9998B8;" value="timestamp" vertex="1">
           <mxGeometry height="24" width="75" as="geometry">
@@ -1155,7 +1142,7 @@
         <mxCell id="edge_users_org" edge="1" parent="1" source="tbl_users" style="endArrow=classic;html=1;strokeWidth=1.2;strokeColor=#5C5C7A;rounded=0;endFill=1;fontSize=10;fontColor=#4A4A62;exitX=1;exitY=0.62;exitDx=0;exitDy=0;entryX=0;entryY=0.62;entryDx=0;entryDy=0;" target="tbl_organizations" value="">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="360" y="200" />
+              <mxPoint x="360" y="185" />
               <mxPoint x="360" y="55" />
             </Array>
           </mxGeometry>

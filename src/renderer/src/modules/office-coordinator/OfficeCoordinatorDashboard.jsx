@@ -17,7 +17,8 @@ import {
   getEvents,
   subscribeEvents,
   getUsers,
-  subscribeUsers
+  subscribeUsers,
+  uploadDocxReportFile
 } from '../../services/db'
 import logo from '../../assets/logo.png'
 import logo2Img from '../../assets/logo2.png'
@@ -45,10 +46,12 @@ import {
   CheckCircle2,
   ChevronRight,
   ChevronLeft,
-  Search
+  Search,
+  Upload
 } from 'lucide-react'
 import TextEditor from '../../components/editor/TextEditor'
 import DocumentViewer from '../../components/DocumentViewer'
+import DocxUploadModal from '../../components/DocxUploadModal'
 import AnimatedSidebar from '../../components/AnimatedSidebar'
 import AnimatedModal from '../../components/motion/AnimatedModal'
 import {
@@ -56,7 +59,8 @@ import {
   loadInitialContentAndResetHistory,
   exportElementToPDF,
   resolveHeaderHtml,
-  parseNarrativePages
+  parseNarrativePages,
+  downloadFileFromUrl
 } from '../../components/editor/utils/editorHelpers'
 import { PAPER, MARGINS } from '../../components/editor/constants'
 import { useNetworkStatus } from '../../context/NetworkContext'
@@ -112,8 +116,10 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   const [selectedViewEvent, setSelectedViewEvent] = useState(null)
   const [isViewEventModalOpen, setIsViewEventModalOpen] = useState(false)
   const [showAllCompleted, setShowAllCompleted] = useState(false)
-  const [compiledReportsTab, setCompiledReportsTab] = useState('draft') // 'draft' | 'returned' | 'approved'
+  const [compiledReportsTab, setCompiledReportsTab] = useState('draft') // 'draft' | 'submitted' | 'returned' | 'approved'
   const [approvedSearchQuery, setApprovedSearchQuery] = useState('')
+  const [isDocxUploadModalOpen, setIsDocxUploadModalOpen] = useState(false)
+  const [isDocxUploading, setIsDocxUploading] = useState(false)
 
   // ── Database ──
   const [reportsList, setReportsList] = useState([])
@@ -313,6 +319,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           )
           resetForm()
           if (status === 'submitted') {
+            setCompiledReportsTab('submitted')
             setActiveTab('reports')
           }
         }
@@ -341,10 +348,77 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       linkToEvent,
       eventsList,
       user,
+      isOffline,
       resetForm,
       loadData
     ]
   )
+
+  // ── Direct DOCX Upload & Submit Handler (Bypasses Tiptap to preserve 100% formatting) ──
+  const handleDocxUploadSubmit = async ({ file, comment, eventId }) => {
+    if (isOffline) {
+      alert('Cannot submit report: Internet connection is offline. Please reconnect to sync.')
+      return
+    }
+    setIsDocxUploading(true)
+    try {
+      // 1. Upload raw DOCX file without conversion to preserve formatting
+      const downloadUrl = await uploadDocxReportFile(workspaceReportAY || '2024-2025', eventId, file)
+
+      let title = file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' ')
+      let date = new Date().toISOString().split('T')[0]
+      let location = ''
+
+      if (eventId) {
+        const ev = eventsList.find((e) => e.id === eventId)
+        if (ev) {
+          title = ev.name
+          date = ev.scheduleDate || date
+          location = ev.venueLocation || ''
+        }
+      }
+
+      // 2. Submit directly to Admin with 'submitted' status
+      const isPdf = file.name.toLowerCase().endsWith('.pdf')
+      const payload = {
+        submissionType: 'docx_upload',
+        fileType: isPdf ? 'pdf' : 'docx',
+        academicYear: workspaceReportAY || '2024-2025',
+        semester: workspaceReportSem || '1st Semester',
+        type: workspaceReportType || 'Narrative',
+        eventId: eventId || null,
+        activityTitle: title,
+        activityDate: date,
+        location,
+        beneficiaries: '',
+        organizationId: workspaceReportOrgId || user.organizationId || null,
+        narrative: '', // Bypasses Tiptap editor
+        originalDocxName: file.name,
+        originalDocxSize: file.size,
+        originalDocxUrl: downloadUrl,
+        comment: comment || '',
+        photos: [],
+        status: 'submitted',
+        authorId: user.uid,
+        authorName: user.name || user.username || 'Coordinator',
+        authorEmail: user.email || '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+
+      await addReport(payload, user.uid)
+      setIsDocxUploadModalOpen(false)
+      alert(`Original ${isPdf ? 'PDF' : 'Word'} document submitted directly to Admin successfully! Formatting is 100% preserved.`)
+      setCompiledReportsTab('submitted')
+      setActiveTab('reports')
+      await loadData()
+    } catch (err) {
+      console.error('Failed to submit document report:', err)
+      alert('Failed to submit report: ' + (err.message || err))
+    } finally {
+      setIsDocxUploading(false)
+    }
+  }
 
   const compileReportPDF = useCallback((report) => {
     setExportingReport(report)
@@ -725,6 +799,30 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                             </span>
                           </button>
 
+                          {/* Submitted Tab (Pending Admin Review) */}
+                          <button
+                            type="button"
+                            onClick={() => setCompiledReportsTab('submitted')}
+                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${
+                              compiledReportsTab === 'submitted'
+                                ? 'bg-navy-blue text-white shadow-sm'
+                                : 'text-gray-600 hover:text-navy-blue hover:bg-white/50'
+                            }`}
+                          >
+                            <span>Submitted</span>
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${
+                                stats.submitted > 0
+                                  ? 'bg-amber-500 text-white shadow-xs'
+                                  : compiledReportsTab === 'submitted'
+                                    ? 'bg-white/20 text-white'
+                                    : 'bg-gray-200 text-gray-700'
+                              }`}
+                            >
+                              {stats.submitted}
+                            </span>
+                          </button>
+
                           {/* Returned Tab */}
                           <button
                             type="button"
@@ -772,18 +870,31 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                           </button>
                         </div>
 
-                        {/* Separate New Report Action Button */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            resetForm()
-                            setActiveTab('editor')
-                          }}
-                          className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-bold px-4 py-2 rounded-full border-b-2 border-sig-green hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-sm shrink-0"
-                        >
-                          <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-                          <span>New Report</span>
-                        </button>
+                        {/* Action Buttons: New Report (Editor) and Upload (Direct) */}
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              resetForm()
+                              setActiveTab('editor')
+                            }}
+                            className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-bold px-3.5 py-2 rounded-full border-b-2 border-sig-green hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-sm shrink-0"
+                            title="Create new report in Document Editor"
+                          >
+                            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                            <span>New Report</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setIsDocxUploadModalOpen(true)}
+                            className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-bold px-3.5 py-2 rounded-full border-b-2 border-sig-green hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-sm shrink-0"
+                            title="Upload report document (.docx, .pdf)"
+                          >
+                            <Upload className="w-3.5 h-3.5 stroke-[2.5]" />
+                            <span>Upload</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -851,11 +962,110 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                           <span>View</span>
                                         </button>
                                         <button
+                                          onClick={() => compileReportPDF(rep)}
+                                          className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
+                                          title="Download Draft (.docx or .pdf)"
+                                        >
+                                          <Download className="w-3.5 h-3.5" />
+                                          <span>Download</span>
+                                        </button>
+                                        <button
                                           onClick={() => openReport(rep)}
                                           className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-xs"
                                         >
                                           <Edit3 className="w-3.5 h-3.5" />
                                           <span>Edit</span>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )
+                          })()}
+                        </motion.div>
+                      )}
+
+                      {compiledReportsTab === 'submitted' && (
+                        <motion.div
+                          key="coordinator-submitted-tab"
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 10 }}
+                          transition={{ duration: 0.2, ease: 'easeInOut' }}
+                          className="space-y-4"
+                        >
+                          {(() => {
+                            const submittedReports = myReports
+                              .filter((r) => r.status === 'submitted')
+                              .sort((a, b) => getReportTimestamp(a, 'submitted') - getReportTimestamp(b, 'submitted'))
+
+                            if (submittedReports.length === 0) {
+                              return (
+                                <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200 text-gray-400 text-xs">
+                                  No submitted reports pending review.
+                                </div>
+                              )
+                            }
+
+                            return (
+                              <div className="space-y-3">
+                                {submittedReports.map((rep) => {
+                                  const ev = eventsList.find((e) => e.id === rep.eventId)
+                                  const org = orgsList.find((o) => o.id === rep.organizationId)
+                                  const author = usersList.find((u) => u.uid === rep.authorId)
+                                  const isDocxUpload = rep.submissionType === 'docx_upload' || Boolean(rep.originalDocxUrl)
+
+                                  return (
+                                    <div
+                                      key={rep.id}
+                                      className="bg-white rounded-2xl border border-amber-100 hover:border-amber-300 p-4 flex flex-col md:flex-row md:items-center justify-between transition-all duration-200 group shadow-xs"
+                                    >
+                                      <div className="space-y-1">
+                                        <div className="flex items-center gap-2">
+                                          <StatusBadge status={rep.status} />
+                                          {org && (
+                                            <span className="text-[10px] text-navy-blue font-bold">
+                                              {org.name} ({org.abbreviation})
+                                            </span>
+                                          )}
+                                        </div>
+                                        <h4 className="text-sm font-bold text-navy-blue">
+                                          {ev?.name || rep.activityTitle || 'Untitled Report'}
+                                        </h4>
+                                        <p className="text-[10px] text-gray-400">
+                                          Submitted by{' '}
+                                          <span className="font-semibold text-gray-700">
+                                            {author ? author.name : 'Coordinator'}
+                                          </span>{' '}
+                                          · Submitted on {new Date(getReportTimestamp(rep, 'submitted')).toLocaleDateString()}
+                                          {rep.originalDocxName && (
+                                            <span className="ml-1 text-gray-500 font-medium truncate inline-block max-w-[200px] align-bottom">
+                                              ({rep.originalDocxName})
+                                            </span>
+                                          )}
+                                        </p>
+                                        {rep.comment && (
+                                          <p className="text-[11px] text-gray-600 bg-gray-50 border border-gray-150 rounded-lg px-2.5 py-1 mt-1 italic inline-block">
+                                            &ldquo;{rep.comment}&rdquo;
+                                          </p>
+                                        )}
+                                      </div>
+                                      <div className="mt-3 md:mt-0 flex items-center gap-2">
+                                        <button
+                                          onClick={() => setSelectedViewerReport(rep)}
+                                          className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
+                                        >
+                                          <Eye className="w-3.5 h-3.5" />
+                                          <span>View</span>
+                                        </button>
+                                        <button
+                                          onClick={() => compileReportPDF(rep)}
+                                          className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
+                                          title="Download Report (.docx or .pdf)"
+                                        >
+                                          <Download className="w-3.5 h-3.5" />
+                                          <span>Download</span>
                                         </button>
                                       </div>
                                     </div>
@@ -938,6 +1148,14 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                         >
                                           <Eye className="w-3.5 h-3.5" />
                                           <span>View</span>
+                                        </button>
+                                        <button
+                                          onClick={() => compileReportPDF(rep)}
+                                          className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
+                                          title="Download Report (.docx or .pdf)"
+                                        >
+                                          <Download className="w-3.5 h-3.5" />
+                                          <span>Download</span>
                                         </button>
                                         <button
                                           onClick={() => openReport(rep)}
@@ -1055,9 +1273,10 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                         <button
                                           onClick={() => compileReportPDF(rep)}
                                           className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
+                                          title="Download Report (.docx or .pdf)"
                                         >
                                           <Download className="w-3.5 h-3.5" />
-                                          <span>Export PDF</span>
+                                          <span>Download</span>
                                         </button>
                                       </div>
                                     </div>
@@ -1346,6 +1565,15 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
             )
           })()}
       </AnimatedModal>
+
+      {/* ── DOCX DIRECT UPLOAD MODAL ── */}
+      <DocxUploadModal
+        isOpen={isDocxUploadModalOpen}
+        onClose={() => setIsDocxUploadModalOpen(false)}
+        onSubmit={handleDocxUploadSubmit}
+        eventsList={eventsList}
+        isSubmitting={isDocxUploading}
+      />
     </div>
   )
 }

@@ -141,7 +141,8 @@ import {
   sanitizeOklchInDocument,
   exportElementToPDF,
   resolveHeaderHtml,
-  parseNarrativePages
+  parseNarrativePages,
+  downloadFileFromUrl
 } from '../../components/editor/utils/editorHelpers'
 import { PAPER, MARGINS } from '../../components/editor/constants'
 import { useNetworkStatus } from '../../context/NetworkContext'
@@ -2157,7 +2158,7 @@ export default function AdminDashboard({ user, onLogout }) {
     }
   }
 
-  // Compile Approved Report to PDF (standard format)
+  // Compile Approved Report with user choice of .docx or .pdf format
   const compileReportPDF = (report) => {
     setExportingReport(report)
   }
@@ -2500,16 +2501,26 @@ export default function AdminDashboard({ user, onLogout }) {
                                         Submitted by {author ? author.name : 'Coordinator'}
                                       </p>
                                     </div>
-                                    <button
-                                      onClick={() => {
-                                        setSelectedReport(rep)
-                                        setFeedbackNote('')
-                                      }}
-                                      className="bg-navy-blue hover:bg-navy-blue-600 text-white font-semibold py-1.5 px-3 rounded-lg text-xs flex items-center gap-1 shadow-xs transition-all cursor-pointer shrink-0"
-                                    >
-                                      <Eye className="w-3.5 h-3.5" />
-                                      <span>Inspect Report</span>
-                                    </button>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      <button
+                                        onClick={() => {
+                                          setSelectedReport(rep)
+                                          setFeedbackNote('')
+                                        }}
+                                        className="bg-navy-blue hover:bg-navy-blue-600 text-white font-semibold py-1.5 px-3 rounded-lg text-xs flex items-center gap-1 shadow-xs transition-all cursor-pointer shrink-0"
+                                      >
+                                        <Eye className="w-3.5 h-3.5" />
+                                        <span>Inspect Report</span>
+                                      </button>
+                                      <button
+                                        onClick={() => compileReportPDF(rep)}
+                                        className="bg-sig-green hover:bg-sig-green-600 text-navy-blue font-semibold py-1.5 px-2.5 rounded-lg text-xs flex items-center gap-1 shadow-xs transition-all cursor-pointer shrink-0"
+                                        title="Download Report (.docx or .pdf)"
+                                      >
+                                        <Download className="w-3.5 h-3.5" />
+                                        <span>Download</span>
+                                      </button>
+                                    </div>
                                   </div>
                                 )
                               })}
@@ -5745,11 +5756,6 @@ export default function AdminDashboard({ user, onLogout }) {
                                                 ? 'Unknown Department'
                                                 : 'CES Office'}{' '}
                                             ({org ? org.abbreviation : rep.organizationId ? '' : 'CES'})
-                                            {(rep.semester || rep.academicYear) && (
-                                              <span className="text-gray-400 font-normal ml-1">
-                                                • {[rep.semester, rep.academicYear].filter(Boolean).join(' | ')}
-                                              </span>
-                                            )}
                                           </span>
                                         </div>
                                         <h4 className="font-bold text-navy-blue text-sm">
@@ -5771,6 +5777,14 @@ export default function AdminDashboard({ user, onLogout }) {
                                         >
                                           <Eye className="w-3.5 h-3.5" />
                                           <span>Inspect Report</span>
+                                        </button>
+                                        <button
+                                          onClick={() => compileReportPDF(rep)}
+                                          className="bg-sig-green text-navy-blue font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-2xs"
+                                          title="Download Report (.docx or .pdf)"
+                                        >
+                                          <Download className="w-3.5 h-3.5" />
+                                          <span>Download</span>
                                         </button>
                                       </div>
                                     </div>
@@ -5859,11 +5873,6 @@ export default function AdminDashboard({ user, onLogout }) {
                                                 ? 'Unknown Department'
                                                 : 'CES Office'}{' '}
                                             ({org ? org.abbreviation : rep.organizationId ? '' : 'CES'})
-                                            {(rep.semester || rep.academicYear) && (
-                                              <span className="text-gray-400 font-normal ml-1">
-                                                • {[rep.semester, rep.academicYear].filter(Boolean).join(' | ')}
-                                              </span>
-                                            )}
                                           </span>
                                         </div>
                                         <h4 className="font-bold text-navy-blue text-sm">
@@ -5889,9 +5898,10 @@ export default function AdminDashboard({ user, onLogout }) {
                                         <button
                                           onClick={() => compileReportPDF(rep)}
                                           className="bg-sig-green text-navy-blue font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-2xs"
+                                          title="Download Report (.docx or .pdf)"
                                         >
                                           <Download className="w-3.5 h-3.5" />
-                                          <span>Export PDF</span>
+                                          <span>Download</span>
                                         </button>
                                       </div>
                                     </div>

@@ -496,13 +496,23 @@ export async function preparePrintHtmlPayload(element, title, options = {}) {
 
   // DOM Diagnostic Helper
   const getDomSummary = (el) => {
+    const getNodeClassString = (node) => {
+      if (!node) return ''
+      if (typeof node.className === 'string') return node.className
+      if (typeof node.className?.baseVal === 'string') return node.className.baseVal
+      return node.getAttribute?.('class') || ''
+    }
+
     const traverse = (node, depth = 0) => {
       if (!node || node.nodeType !== 1) return ''
       let desc = '  '.repeat(depth) + `<${node.tagName.toLowerCase()}`
       if (node.id) desc += ` id="${node.id}"`
-      if (node.className) {
-        const classes = node.className.split(/\s+/).filter(Boolean).slice(0, 3).join(' ')
-        desc += ` class="${classes}"`
+      const rawClass = getNodeClassString(node)
+      if (rawClass && typeof rawClass === 'string') {
+        const classes = rawClass.split(/\s+/).filter(Boolean).slice(0, 3).join(' ')
+        if (classes) {
+          desc += ` class="${classes}"`
+        }
       }
       desc += '>\n'
       for (const child of node.children) {
@@ -532,6 +542,25 @@ export async function preparePrintHtmlPayload(element, title, options = {}) {
       textSpan.className = 'print-select-replacement font-semibold text-xs text-navy-blue'
       textSpan.textContent = origSelect.options[origSelect.selectedIndex]?.text || ''
       parent.replaceChild(textSpan, clonedSelect)
+    }
+  })
+
+  // 2. Convert all <canvas> elements (e.g. rendered PDF pages) to <img> tags with Data URLs
+  const originalCanvases = Array.from(element.querySelectorAll('canvas'))
+  const clonedCanvases = Array.from(cloned.querySelectorAll('canvas'))
+  originalCanvases.forEach((origCanvas, idx) => {
+    const clonedCanvas = clonedCanvases[idx]
+    if (clonedCanvas) {
+      try {
+        const dataUrl = origCanvas.toDataURL('image/png')
+        const img = document.createElement('img')
+        img.src = dataUrl
+        img.style.cssText = clonedCanvas.style.cssText
+        img.className = clonedCanvas.className
+        clonedCanvas.parentNode?.replaceChild(img, clonedCanvas)
+      } catch (err) {
+        console.warn('Failed to serialize canvas to image for print:', err)
+      }
     }
   })
 
@@ -578,72 +607,107 @@ export async function preparePrintHtmlPayload(element, title, options = {}) {
     const docW = options.paperW || 816
     const docH = options.paperH || 1248
     const gapH = options.gapH || 36
-    const printCanvas = (cloned.classList && cloned.classList.contains('print-canvas'))
-      ? cloned
-      : cloned.querySelector('.print-canvas')
+    // 1. Check if element is or contains rendered DOCX sections (from docx-preview)
+    const docxSections = Array.from(cloned.querySelectorAll('section.docx'))
+    if (docxSections.length > 0) {
+      docxSections.forEach((section) => {
+        const sClone = section.cloneNode(true)
+        sClone.style.transform = 'none'
+        sClone.style.boxShadow = 'none'
+        sClone.style.border = 'none'
+        sClone.style.margin = '0 auto'
+        sClone.style.background = '#ffffff'
+        sClone.style.boxSizing = 'border-box'
+        sClone.style.display = 'block'
+        sClone.style.position = 'relative'
 
-    if (printCanvas) {
-      let sheets = Array.from(printCanvas.querySelectorAll('[id^="doc-viewer-page-"]'))
-      if (sheets.length === 0) {
-        const sheetsContainer = printCanvas.firstElementChild
-        if (sheetsContainer) {
-          sheets = Array.from(sheetsContainer.children).filter(
-            (el) => el.classList?.contains('bg-white') || el.style?.height || el.offsetHeight > 0
-          )
+        pagesHtml += `
+          <div class="pdf-page-card docx-print-card" style="display: block !important; position: relative !important; width: 100% !important; box-sizing: border-box !important; page-break-after: always !important; break-after: page !important; page-break-inside: avoid !important; break-inside: avoid !important; background: white !important; margin: 0 auto !important; padding: 0 !important; border: none !important; box-shadow: none !important;">
+            ${sClone.outerHTML}
+          </div>
+        `
+      })
+    } else {
+      const printCanvas = (cloned.classList && cloned.classList.contains('print-canvas'))
+        ? cloned
+        : cloned.querySelector('.print-canvas')
+
+      if (printCanvas) {
+        let sheets = Array.from(printCanvas.querySelectorAll('[id^="doc-viewer-page-"]'))
+        if (sheets.length === 0) {
+          const sheetsContainer = printCanvas.firstElementChild
+          if (sheetsContainer) {
+            sheets = Array.from(sheetsContainer.children).filter(
+              (el) => el.classList?.contains('bg-white') || el.style?.height || el.offsetHeight > 0
+            )
+          }
         }
-      }
-      const docPage = printCanvas.querySelector('.doc-page') || printCanvas.querySelector('.doc-page-container')
+        const docPage = printCanvas.querySelector('.doc-page') || printCanvas.querySelector('.doc-page-container')
 
-      if (sheets.length > 0 && docPage) {
-        // Remove any zoom scale transforms
-        const allElements = printCanvas.querySelectorAll('*')
-        allElements.forEach((el) => {
-          if (el.style && el.style.transform) {
-            el.style.transform = 'none'
-          }
-        })
+        if (sheets.length > 0 && docPage) {
+          // Remove any zoom scale transforms
+          const allElements = printCanvas.querySelectorAll('*')
+          allElements.forEach((el) => {
+            if (el.style && el.style.transform) {
+              el.style.transform = 'none'
+            }
+          })
 
-        sheets.forEach((sheet, idx) => {
-          const header = Array.from(sheet.querySelectorAll('.absolute.z-50, [class*="top-"], [style*="top"]')).find(
-            (el) => el.style?.top || el.className?.includes('top') || (el.getAttribute('style') && el.getAttribute('style').includes('top'))
-          ) || (sheet.children.length > 0 && !sheet.children[0].className?.includes('bottom') && !(sheet.children[0].getAttribute('style') && sheet.children[0].getAttribute('style').includes('bottom')) ? sheet.children[0] : null)
+          sheets.forEach((sheet, idx) => {
+            const getNodeClass = (node) => {
+              if (!node) return ''
+              if (typeof node.className === 'string') return node.className
+              if (typeof node.className?.baseVal === 'string') return node.className.baseVal
+              return node.getAttribute?.('class') || ''
+            }
 
-          const footer = Array.from(sheet.querySelectorAll('.absolute.z-50, [class*="bottom-"], [style*="bottom"]')).find(
-            (el) => el.style?.bottom || el.className?.includes('bottom') || (el.getAttribute('style') && el.getAttribute('style').includes('bottom'))
-          ) || (sheet.children.length > 1 ? sheet.children[1] : (sheet.children.length === 1 && (sheet.children[0].className?.includes('bottom') || (sheet.children[0].getAttribute('style') && sheet.children[0].getAttribute('style').includes('bottom'))) ? sheet.children[0] : null))
+            const header = Array.from(sheet.querySelectorAll('.absolute.z-50, [class*="top-"], [style*="top"]')).find(
+              (el) => el.style?.top || getNodeClass(el).includes('top') || (el.getAttribute('style') && el.getAttribute('style').includes('top'))
+            ) || (sheet.children.length > 0 && !getNodeClass(sheet.children[0]).includes('bottom') && !(sheet.children[0].getAttribute('style') && sheet.children[0].getAttribute('style').includes('bottom')) ? sheet.children[0] : null)
 
-          // 1. Header (Fixed at top of page card)
-          let headerHtml = ''
-          if (header) {
-            const hClone = header.cloneNode(true)
-            hClone.style.cssText = 'position: absolute !important; top: 48px !important; left: 0 !important; right: 0 !important; z-index: 50 !important; padding-left: 96px !important; padding-right: 96px !important; box-sizing: border-box !important; pointer-events: none !important;'
-            headerHtml = hClone.outerHTML
-          }
+            const footer = Array.from(sheet.querySelectorAll('.absolute.z-50, [class*="bottom-"], [style*="bottom"]')).find(
+              (el) => el.style?.bottom || getNodeClass(el).includes('bottom') || (el.getAttribute('style') && el.getAttribute('style').includes('bottom'))
+            ) || (sheet.children.length > 1 ? sheet.children[1] : (sheet.children.length === 1 && (getNodeClass(sheet.children[0]).includes('bottom') || (sheet.children[0].getAttribute('style') && sheet.children[0].getAttribute('style').includes('bottom'))) ? sheet.children[0] : null))
 
-          // 2. Footer (Fixed at bottom of page card)
-          let footerHtml = ''
-          if (footer) {
-            const fClone = footer.cloneNode(true)
-            fClone.style.cssText = 'position: absolute !important; bottom: 0px !important; left: 0 !important; right: 0 !important; z-index: 50 !important; padding-left: 96px !important; padding-right: 96px !important; padding-bottom: 24px !important; box-sizing: border-box !important; pointer-events: none !important;'
-            footerHtml = fClone.outerHTML
-          }
+            // 1. Header (Fixed at top of page card)
+            let headerHtml = ''
+            if (header) {
+              const hClone = header.cloneNode(true)
+              hClone.style.cssText = 'position: absolute !important; top: 48px !important; left: 0 !important; right: 0 !important; z-index: 50 !important; padding-left: 96px !important; padding-right: 96px !important; box-sizing: border-box !important; pointer-events: none !important;'
+              headerHtml = hClone.outerHTML
+            }
 
-          // 3. Body Overlay Layer (.doc-page segment for page idx)
-          const offsetY = idx * (docH + gapH)
-          const docPageOverlayHtml = `
-            <div style="position: absolute !important; top: -${offsetY}px !important; left: 0 !important; width: ${docW}px !important; pointer-events: none !important; z-index: 10 !important;">
-              ${docPage.outerHTML}
-            </div>
-          `
+            // 2. Footer (Fixed at bottom of page card)
+            let footerHtml = ''
+            if (footer) {
+              const fClone = footer.cloneNode(true)
+              fClone.style.cssText = 'position: absolute !important; bottom: 0px !important; left: 0 !important; right: 0 !important; z-index: 50 !important; padding-left: 96px !important; padding-right: 96px !important; padding-bottom: 24px !important; box-sizing: border-box !important; pointer-events: none !important;'
+              footerHtml = fClone.outerHTML
+            }
 
+            // 3. Body Overlay Layer (.doc-page segment for page idx)
+            const offsetY = idx * (docH + gapH)
+            const docPageOverlayHtml = `
+              <div style="position: absolute !important; top: -${offsetY}px !important; left: 0 !important; width: ${docW}px !important; pointer-events: none !important; z-index: 10 !important;">
+                ${docPage.outerHTML}
+              </div>
+            `
+
+            pagesHtml += `
+              <div class="pdf-page-card" style="display: block !important; position: relative !important; width: ${docW}px !important; height: ${docH}px !important; box-sizing: border-box !important; overflow: hidden !important; page-break-after: always !important; break-after: page !important; background: white !important; margin: 0 auto !important; padding: 0 !important;">
+                ${headerHtml}
+                ${docPageOverlayHtml}
+                ${footerHtml}
+              </div>
+            `
+          })
+        } else {
           pagesHtml += `
-            <div class="pdf-page-card" style="display: block !important; position: relative !important; width: ${docW}px !important; height: ${docH}px !important; box-sizing: border-box !important; overflow: hidden !important; page-break-after: always !important; break-after: page !important; background: white !important; margin: 0 auto !important; padding: 0 !important;">
-              ${headerHtml}
-              ${docPageOverlayHtml}
-              ${footerHtml}
+            <div class="pdf-page-card" style="display: block; position: relative; width: ${docW}px; height: ${docH}px; box-sizing: border-box; overflow: hidden; page-break-after: always; break-after: page; background: white; margin: 0 auto;">
+              ${cloned.innerHTML}
             </div>
           `
-        })
+        }
       } else {
         pagesHtml += `
           <div class="pdf-page-card" style="display: block; position: relative; width: ${docW}px; height: ${docH}px; box-sizing: border-box; overflow: hidden; page-break-after: always; break-after: page; background: white; margin: 0 auto;">
@@ -651,12 +715,6 @@ export async function preparePrintHtmlPayload(element, title, options = {}) {
           </div>
         `
       }
-    } else {
-      pagesHtml += `
-        <div class="pdf-page-card" style="display: block; position: relative; width: ${docW}px; height: ${docH}px; box-sizing: border-box; overflow: hidden; page-break-after: always; break-after: page; background: white; margin: 0 auto;">
-          ${cloned.innerHTML}
-        </div>
-      `
     }
 
     // Append photographic evidence pages if any
@@ -927,6 +985,37 @@ export async function preparePrintHtmlPayload(element, title, options = {}) {
             display: none !important;
           }
 
+          /* Uploaded DOCX Preview Print Rules */
+          .docx-print-card {
+            width: 100% !important;
+            height: auto !important;
+            min-height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            page-break-after: always !important;
+            break-after: page !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            background: white !important;
+            margin: 0 auto !important;
+            box-shadow: none !important;
+            border: none !important;
+          }
+          .docx-print-card section.docx {
+            margin: 0 auto !important;
+            box-shadow: none !important;
+            border: none !important;
+            page-break-after: always !important;
+            break-after: page !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            box-sizing: border-box !important;
+          }
+          .docx-wrapper {
+            background: transparent !important;
+            padding: 0 !important;
+          }
+
           .no-print, button, input[type="button"], select, aside, header, .doc-viewer-modal {
             display: none !important;
           }
@@ -953,7 +1042,9 @@ export async function preparePrintHtmlPayload(element, title, options = {}) {
     return 'A4'
   }
 
-  const formattedTitle = title ? `${title}_${timestampStr}` : `Document_${timestampStr}`
+  const formattedTitle = options.includeTimestamp
+    ? (title ? `${title}_${timestampStr}` : `Document_${timestampStr}`)
+    : (title || 'Document')
   const ipcPageSize = getElectronIpcPageSize(options.pageSize || options.paperKey)
 
   // Log Generated DOM Tree summary for developer comparison
@@ -1542,3 +1633,124 @@ export function resolveHeaderHtml(rawHeader, logo2Asset, logoAsset) {
 
   return rawHeader
 }
+
+/**
+ * Safely downloads any file from a HTTP/HTTPS URL or Base64 Data URL.
+ */
+export function downloadFileFromUrl(url, fileName = 'document.docx') {
+  if (!url) return
+  if (url.startsWith('data:')) {
+    try {
+      const arr = url.split(',')
+      const mime = arr[0].match(/:(.*?);/)?.[1] || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      const bstr = atob(arr[1])
+      let n = bstr.length
+      const u8arr = new Uint8Array(n)
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n)
+      }
+      const blob = new Blob([u8arr], { type: mime })
+      const blobUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = blobUrl
+      a.download = fileName
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 2000)
+      return
+    } catch (e) {
+      console.warn('Blob conversion failed, fallback to href:', e)
+    }
+  }
+  const a = document.createElement('a')
+  a.href = url
+  a.download = fileName
+  a.target = '_blank'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+}
+
+/**
+ * Converts a Base64 data URL or HTTP(S) URL into an ArrayBuffer for docx-preview rendering.
+ */
+export async function getDocxArrayBuffer(url) {
+  if (!url) return null
+  if (url.startsWith('data:')) {
+    const base64Data = url.split(',')[1]
+    const binaryStr = atob(base64Data)
+    const len = binaryStr.length
+    const bytes = new Uint8Array(len)
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryStr.charCodeAt(i)
+    }
+    return bytes.buffer
+  } else {
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(`Failed to fetch document: HTTP ${res.status}`)
+    return await res.arrayBuffer()
+  }
+}
+
+/**
+ * Returns a raw base64 string from a Data URL or remote URL.
+ */
+export async function getDocxBase64(url) {
+  if (!url) return null
+  if (url.startsWith('data:')) {
+    return url.split(',')[1]
+  }
+  const buffer = await getDocxArrayBuffer(url)
+  if (!buffer) return null
+  let binary = ''
+  const bytes = new Uint8Array(buffer)
+  const len = bytes.byteLength
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  return btoa(binary)
+}
+
+/**
+ * Generates an MS Word compatible HTML document string for .docx export from editor HTML.
+ */
+export function generateDocxMsoHtml(htmlContent, title = 'Document', options = {}) {
+  const headerHtml = options.showHeader && options.headerText ? `<div style="margin-bottom: 24px; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px;">${options.headerText}</div>` : ''
+  const footerHtml = options.showFooter && options.footerText ? `<div style="margin-top: 24px; border-top: 1px solid #e5e7eb; padding-top: 12px;">${options.footerText}</div>` : ''
+
+  return `<!DOCTYPE html>
+<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+  <meta charset="utf-8">
+  <title>${title}</title>
+  <!--[if gte mso 9]>
+  <xml>
+    <w:WordDocument>
+      <w:View>Print</w:View>
+      <w:Zoom>100</w:Zoom>
+      <w:DoNotOptimizeForBrowser/>
+    </w:WordDocument>
+  </xml>
+  <![endif]-->
+  <style>
+    body { font-family: 'Calibri', 'Arial', sans-serif; font-size: 11pt; line-height: 1.5; margin: 1in; color: #1f2937; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0; border: 1px solid #374151; }
+    table, th, td { border: 1px solid #374151; padding: 6px 10px; font-size: 10pt; text-align: left; }
+    th { background-color: #f3f4f6; font-weight: bold; }
+    tr:nth-child(even) td { background-color: #fafafa; }
+    h1 { font-size: 18pt; font-weight: bold; margin-bottom: 12px; color: #111827; }
+    h2 { font-size: 14pt; font-weight: bold; margin-bottom: 10px; color: #1f2937; }
+    h3 { font-size: 12pt; font-weight: bold; margin-bottom: 8px; color: #374151; }
+    p { margin-bottom: 8px; }
+    img { max-width: 100%; height: auto; }
+  </style>
+</head>
+<body>
+  ${headerHtml}
+  ${htmlContent}
+  ${footerHtml}
+</body>
+</html>`
+}
+

@@ -26,16 +26,31 @@ import {
   Tag,
   User,
   Layers,
-  FileText
+  FileText,
+  Loader2,
+  AlertCircle
 } from 'lucide-react'
 import logo from '../assets/logo.png'
 import logo2Img from '../assets/logo2.png'
+import { renderAsync } from 'docx-preview'
+import * as pdfjsLib from 'pdfjs-dist'
+
+// Configure PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString()
+
 import {
   sanitizeOklchInDocument,
   exportElementToPDF,
   printElementNative,
   resolveHeaderHtml,
-  parseNarrativePages
+  parseNarrativePages,
+  downloadFileFromUrl,
+  getDocxArrayBuffer,
+  getDocxBase64,
+  generateDocxMsoHtml
 } from './editor/utils/editorHelpers'
 
 import { useEditor, EditorContent } from '@tiptap/react'
@@ -101,11 +116,132 @@ export default function DocumentViewer({
   const initialNarrativeCount = Math.max(1, parseNarrativePages(report?.narrative || '').length)
   const [narrativeTotalPages, setNarrativeTotalPages] = useState(initialNarrativeCount)
 
+  // DOCX / PDF Direct View State
+  const isDocxSubmission = Boolean(report?.submissionType === 'docx_upload' || report?.originalDocxUrl)
+  const isPdfFile = Boolean(
+    report?.fileType === 'pdf' ||
+    report?.originalDocxName?.toLowerCase().endsWith('.pdf') ||
+    report?.originalDocxUrl?.startsWith('data:application/pdf')
+  )
+  const [docxLoading, setDocxLoading] = useState(isDocxSubmission)
+  const [docxError, setDocxError] = useState(null)
+  const [docxPageCount, setDocxPageCount] = useState(1)
+  const docxContainerRef = useRef(null)
+
   // Panning State
   const [isPanning, setIsPanning] = useState(false)
   const panStartRef = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 })
 
   const viewportRef = useRef(null)
+
+  // Load and render DOCX or PDF file directly
+  useEffect(() => {
+    if (!isDocxSubmission || !report?.originalDocxUrl) return
+
+    let isMounted = true
+    setDocxLoading(true)
+    setDocxError(null)
+
+    const loadAndRenderDocument = async () => {
+      try {
+        const buffer = await getDocxArrayBuffer(report.originalDocxUrl)
+        if (!buffer) {
+          throw new Error('Unable to read submitted document data.')
+        }
+
+        if (!docxContainerRef.current || !isMounted) return
+
+        docxContainerRef.current.innerHTML = ''
+
+        if (isPdfFile) {
+          // Render PDF document using pdfjs-dist
+          const loadingTask = pdfjsLib.getDocument({ data: buffer })
+          const pdf = await loadingTask.promise
+          if (!isMounted) return
+
+          const numPages = pdf.numPages
+          const wrapper = document.createElement('div')
+          wrapper.className = 'docx-wrapper pdf-wrapper'
+
+          for (let i = 1; i <= numPages; i++) {
+            if (!isMounted) return
+            const page = await pdf.getPage(i)
+            // Render at 1.5 scale for crisp display
+            const viewport = page.getViewport({ scale: 1.5 })
+
+            const section = document.createElement('section')
+            section.className = 'docx pdf-page-section'
+            section.id = `docx-page-${i}`
+            section.style.boxShadow = '0 10px 30px rgba(0,0,0,0.12)'
+            section.style.margin = '0 auto 28px auto'
+            section.style.background = '#ffffff'
+            section.style.boxSizing = 'border-box'
+            section.style.position = 'relative'
+            section.style.width = `${viewport.width / 1.5}px`
+            section.style.minHeight = `${viewport.height / 1.5}px`
+            section.style.overflow = 'hidden'
+
+            const canvas = document.createElement('canvas')
+            canvas.width = viewport.width
+            canvas.height = viewport.height
+            canvas.style.width = '100%'
+            canvas.style.height = 'auto'
+            canvas.style.display = 'block'
+
+            const canvasContext = canvas.getContext('2d')
+            await page.render({ canvasContext, viewport }).promise
+
+            section.appendChild(canvas)
+            wrapper.appendChild(section)
+          }
+
+          if (!isMounted) return
+          docxContainerRef.current.appendChild(wrapper)
+          setDocxPageCount(numPages)
+          setDocxLoading(false)
+        } else {
+          // Render DOCX document using docx-preview
+          await renderAsync(buffer, docxContainerRef.current, null, {
+            breakPages: true,
+            renderHeaders: true,
+            renderFooters: true,
+            renderFootnotes: true,
+            renderEndnotes: true,
+            ignoreLastRenderedPageBreak: false,
+            inWrapper: true,
+            useBase64URL: true
+          })
+
+          if (!isMounted) return
+
+          const pageSections = docxContainerRef.current.querySelectorAll('section.docx')
+          pageSections.forEach((section, idx) => {
+            section.id = `docx-page-${idx + 1}`
+            section.style.boxShadow = '0 10px 30px rgba(0,0,0,0.12)'
+            section.style.margin = '0 auto 28px auto'
+            section.style.background = '#ffffff'
+            section.style.boxSizing = 'border-box'
+            section.style.position = 'relative'
+          })
+
+          setDocxPageCount(pageSections.length || 1)
+          setDocxLoading(false)
+        }
+      } catch (err) {
+        console.error('Failed to render document preview in DocumentViewer:', err)
+        if (isMounted) {
+          setDocxError(err.message || 'Failed to render document')
+          setDocxLoading(false)
+        }
+      }
+    }
+
+    loadAndRenderDocument()
+
+    return () => {
+      isMounted = false
+    }
+  }, [isDocxSubmission, isPdfFile, report?.originalDocxUrl])
 
   // Keyboard shortcut listener for Escape key to close modal
   useEffect(() => {
@@ -261,8 +397,18 @@ export default function DocumentViewer({
     })
   }
 
+  const totalDocPages = isDocxSubmission ? Math.max(1, docxPageCount) : pages.length
+
   // Scroll viewport to a specific page
   const scrollToPage = (pageNum) => {
+    if (isDocxSubmission) {
+      const docxPageEl = document.getElementById(`docx-page-${pageNum}`)
+      if (docxPageEl && viewportRef.current) {
+        docxPageEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        setCurrentPageNum(pageNum)
+      }
+      return
+    }
     const pageEl = document.getElementById(`doc-viewer-page-${pageNum}`)
     if (pageEl && viewportRef.current) {
       pageEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -278,7 +424,7 @@ export default function DocumentViewer({
   }
 
   const handleNextPage = () => {
-    if (currentPageNum < pages.length) {
+    if (currentPageNum < totalDocPages) {
       scrollToPage(currentPageNum + 1)
     }
   }
@@ -317,6 +463,20 @@ export default function DocumentViewer({
 
     let activePage = 1
     let minDiff = Infinity
+
+    if (isDocxSubmission) {
+      const sections = docxContainerRef.current?.querySelectorAll('section.docx') || []
+      sections.forEach((sec, idx) => {
+        const elRect = sec.getBoundingClientRect()
+        const diff = Math.abs(elRect.top - viewportRect.top)
+        if (diff < minDiff) {
+          minDiff = diff
+          activePage = idx + 1
+        }
+      })
+      setCurrentPageNum(activePage)
+      return
+    }
 
     pages.forEach((page) => {
       const pageEl = document.getElementById(`doc-viewer-page-${page.pageNum}`)
@@ -359,38 +519,93 @@ export default function DocumentViewer({
     setIsPanning(false)
   }
 
-  const handleDownloadPDF = async () => {
-    if (!viewportRef?.current) {
-      alert('Report viewport not available.')
-      return
-    }
+  // Unified download action: lets user choose between .docx and .pdf in file explorer
+  const handleDownloadDocument = async () => {
+    const cleanTitle = (
+      report.originalDocxName?.replace(/\.(docx|pdf)$/i, '') ||
+      report.activityTitle ||
+      report.title ||
+      event?.name ||
+      `CES_Report_${report.academicYear || 'AY'}`
+    ).replace(/[^a-zA-Z0-9_-]+/g, '_')
+
     try {
-      await exportElementToPDF(
-        viewportRef.current,
-        `CES_Narrative_Report_${report.academicYear || 'AY'}_${(report.id || 'doc').substring(0, 6)}`,
-        { isDocument: true, paperKey, orientation, marginKey, paperW: docW, paperH: docH }
-      )
+      if (isDocxSubmission && report?.originalDocxUrl) {
+        const base64Data = await getDocxBase64(report.originalDocxUrl)
+        const targetElement = docxContainerRef.current || viewportRef.current
+        await exportElementToPDF(targetElement, cleanTitle, {
+          isDocument: true,
+          defaultFormat: isPdfFile ? 'pdf' : 'docx',
+          originalDocxBase64: isPdfFile ? null : base64Data,
+          originalPdfBase64: isPdfFile ? base64Data : null
+        })
+        return
+      }
+
+      // Standard Tiptap Narrative Report
+      if (editor && viewportRef.current) {
+        const docxHtml = generateDocxMsoHtml(editor.getHTML(), cleanTitle, {
+          showHeader,
+          showFooter,
+          headerText,
+          footerText
+        })
+        await exportElementToPDF(viewportRef.current, cleanTitle, {
+          isDocument: true,
+          paperKey,
+          orientation,
+          marginKey,
+          paperW: docW,
+          paperH: docH,
+          defaultFormat: 'pdf',
+          docxContent: docxHtml
+        })
+      }
     } catch (err) {
-      console.error('DocumentViewer PDF export failed:', err)
-      alert('Failed to download PDF: ' + (err.message || err))
+      console.error('DocumentViewer download failed:', err)
+      alert('Failed to download report: ' + (err.message || err))
     }
   }
 
   // Auto-download for export-only hidden viewer
   useEffect(() => {
-    if (isExportOnly && editor && narrativeTotalPages > 0) {
+    if (!isExportOnly) return
+
+    // Uploaded DOCX / PDF Submission Export
+    if (isDocxSubmission && report?.originalDocxUrl) {
+      if (!docxLoading && docxContainerRef.current) {
+        const timer = setTimeout(async () => {
+          try {
+            await handleDownloadDocument()
+          } catch (err) {
+            console.error('Auto download failed:', err)
+          } finally {
+            if (typeof onExportFinished === 'function') {
+              onExportFinished()
+            }
+          }
+        }, 600)
+        return () => clearTimeout(timer)
+      }
+      return
+    }
+
+    // Standard Tiptap Narrative Report Export
+    if (editor && narrativeTotalPages > 0) {
       const timer = setTimeout(async () => {
         try {
-          await handleDownloadPDF()
+          await handleDownloadDocument()
+        } catch (err) {
+          console.error('Auto download failed:', err)
         } finally {
           if (typeof onExportFinished === 'function') {
             onExportFinished()
           }
         }
-      }, 1200)
+      }, 1000)
       return () => clearTimeout(timer)
     }
-  }, [isExportOnly, editor, narrativeTotalPages])
+  }, [isExportOnly, isDocxSubmission, isPdfFile, docxLoading, editor, narrativeTotalPages])
 
   // Native Printable Content using Electron print-document IPC
   const handlePrint = async () => {
@@ -403,24 +618,47 @@ export default function DocumentViewer({
     console.log(`%c══════════════════════════════════════`, 'color: #7c3aed; font-weight: bold; font-size: 16px;')
 
     if (!viewportRef?.current) {
-      alert('Report viewport not available.')
+      alert('Report viewport not available for printing.')
       return
     }
+
     try {
-      console.log(`%c[${traceId}] STEP 1: Calling printElementNative()...`, 'color: #2563eb; font-weight: bold;')
-      await printElementNative(
-        viewportRef.current,
-        `CES_Narrative_Report_${report.academicYear || 'AY'}_${(report.id || 'doc').substring(0, 6)}`,
-        { isDocument: true, paperKey, orientation, marginKey, paperW: docW, paperH: docH, traceId }
-      )
-      console.log(`%c[${traceId}] STEP FINAL: printElementNative() returned. Print flow complete.`, 'color: #059669; font-weight: bold; font-size: 14px;')
+      const title = `${report.activityTitle || 'Report'}`
+      const targetPrintElement = isDocxSubmission && docxContainerRef.current ? docxContainerRef.current : viewportRef.current
+      await printElementNative(targetPrintElement, title, {
+        isDocument: true,
+        traceId,
+        paperKey,
+        orientation,
+        marginKey,
+        paperW: docW,
+        paperH: docH
+      })
     } catch (err) {
-      console.error(`[${traceId}] DocumentViewer print FAILED:`, err)
+      console.error(`[${traceId}] Print failed:`, err)
       alert('Failed to print document: ' + (err.message || err))
     }
   }
 
   if (isExportOnly) {
+    if (isDocxSubmission) {
+      return (
+        <main
+          ref={viewportRef}
+          className="print-canvas-only"
+          style={{
+            width: '816px',
+            minHeight: '1000px',
+            overflow: 'visible',
+            position: 'relative',
+            background: '#ffffff'
+          }}
+        >
+          <div ref={docxContainerRef} className="w-full" />
+        </main>
+      )
+    }
+
     return (
       <main
         ref={viewportRef}
@@ -782,11 +1020,11 @@ export default function DocumentViewer({
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <span className="text-xs font-bold text-navy-blue min-w-16 text-center select-none">
-                {currentPageNum} / {pages.length}
+                {currentPageNum} / {totalDocPages}
               </span>
               <button
                 onClick={handleNextPage}
-                disabled={currentPageNum >= pages.length}
+                disabled={currentPageNum >= totalDocPages}
                 className="p-1 rounded-lg text-gray-500 hover:bg-white hover:text-navy-blue disabled:opacity-30 disabled:hover:bg-transparent transition cursor-pointer"
                 title="Next Page"
               >
@@ -854,15 +1092,15 @@ export default function DocumentViewer({
           <div className="flex items-center space-x-2.5">
             <button
               onClick={handlePrint}
-              className="p-2 bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 rounded-xl transition cursor-pointer flex items-center justify-center"
+              className="p-2 bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 rounded-xl transition cursor-pointer flex items-center justify-center shadow-2xs hover:text-navy-blue"
               title="Print Document"
             >
               <Printer className="w-4 h-4" />
             </button>
             <button
-              onClick={handleDownloadPDF}
-              className="p-2 bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 rounded-xl transition cursor-pointer flex items-center justify-center"
-              title="Download PDF"
+              onClick={handleDownloadDocument}
+              className="p-2 bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 rounded-xl transition cursor-pointer flex items-center justify-center shadow-2xs hover:text-navy-blue"
+              title={isDocxSubmission ? (isPdfFile ? 'Download PDF Document' : 'Download DOCX Document') : 'Download Document'}
             >
               <Download className="w-4 h-4" />
             </button>
@@ -889,7 +1127,45 @@ export default function DocumentViewer({
             <h4 className="text-[10px] font-bold text-navy-blue uppercase tracking-wider mb-2 self-start">
               Page Index
             </h4>
-            {pages.map((page) => (
+            {isDocxSubmission ? (
+              docxLoading ? (
+                <div className="flex flex-col items-center justify-center p-6 text-gray-400 gap-2 text-center select-none">
+                  <Loader2 className="w-5 h-5 animate-spin text-navy-blue" />
+                  <span className="text-[10px] font-semibold text-navy-blue">
+                    Rendering {isPdfFile ? 'PDF' : 'DOCX'}...
+                  </span>
+                </div>
+              ) : (
+                Array.from({ length: docxPageCount }).map((_, idx) => {
+                  const pNum = idx + 1
+                  return (
+                    <button
+                      key={`docx-thumb-${pNum}`}
+                      onClick={() => scrollToPage(pNum)}
+                      className={`relative w-36 aspect-[1/1.414] border-2 rounded-xl bg-white hover:bg-gray-50 hover:border-sig-green/50 transition p-2.5 flex flex-col justify-between overflow-hidden shadow-xs cursor-pointer ${
+                        currentPageNum === pNum
+                          ? 'border-sig-green ring-3 ring-sig-green/10'
+                          : 'border-gray-200'
+                      }`}
+                    >
+                      <div className="flex-1 w-full flex flex-col items-center justify-center text-gray-400 select-none">
+                        <FileText className={`w-6 h-6 mb-1 ${isPdfFile ? 'text-red-500' : 'text-blue-500'}`} />
+                        <span className="text-[8px] font-bold text-navy-blue uppercase tracking-wider">
+                          PAGE {pNum}
+                        </span>
+                        <span className={`text-[7px] font-semibold ${isPdfFile ? 'text-red-600' : 'text-blue-600'}`}>
+                          {isPdfFile ? 'PDF Document' : 'Word Layout'}
+                        </span>
+                      </div>
+                      <span className="text-[9px] font-bold text-gray-500 self-center mt-1 select-none">
+                        Page {pNum}
+                      </span>
+                    </button>
+                  )
+                })
+              )
+            ) : (
+              pages.map((page) => (
               <button
                 key={page.pageNum}
                 onClick={() => scrollToPage(page.pageNum)}
@@ -930,7 +1206,8 @@ export default function DocumentViewer({
                   Page {page.pageNum}
                 </span>
               </button>
-            ))}
+            ))
+            )}
           </aside>
           {/* Central Scrollable Page Viewport */}
           <main
@@ -1057,10 +1334,84 @@ export default function DocumentViewer({
               .ProseMirror a { color: #2563eb; text-decoration: underline; }
               .ProseMirror sub { font-size: 0.75em; }
               .ProseMirror sup { font-size: 0.75em; }
+
+              /* Live DOCX Preview Styles */
+              .docx-render-target .docx-wrapper {
+                background: transparent !important;
+                padding: 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
+                gap: 28px !important;
+              }
+              .docx-render-target .docx-wrapper > section.docx {
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+                border: 1px solid rgba(209, 213, 219, 0.8) !important;
+                border-radius: 4px !important;
+                background: #ffffff !important;
+                margin: 0 auto 28px auto !important;
+                box-sizing: border-box !important;
+              }
+              .docx-render-target table {
+                border-collapse: collapse !important;
+              }
             `}</style>
 
-            {/* 1. Narrative Content (Tiptap Canvas layout) */}
-            <div
+            {/* 1. Narrative Content (Tiptap Canvas layout or Direct DOCX Live View) */}
+            {isDocxSubmission ? (
+              <div className="w-full flex flex-col items-center justify-start min-h-full py-8 px-4">
+                {docxLoading && (
+                  <div className="flex flex-col items-center justify-center py-28 gap-3 select-none">
+                    <Loader2 className="w-9 h-9 animate-spin text-navy-blue" />
+                    <h4 className="text-sm font-bold text-navy-blue">
+                      Loading and rendering submitted document...
+                    </h4>
+                    <p className="text-xs text-gray-400">
+                      Rendering original {isPdfFile ? 'PDF' : 'Word'} document pages with exact formatting, layout, and images
+                    </p>
+                  </div>
+                )}
+
+                {docxError && !docxLoading && (
+                  <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center max-w-md my-12 shadow-sm">
+                    <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
+                    <h4 className="text-sm font-bold text-red-800">Failed to render {isPdfFile ? 'PDF' : 'DOCX'} content</h4>
+                    <p className="text-xs text-red-600 mt-1">{docxError}</p>
+                    {report?.originalDocxUrl && (
+                      <button
+                        onClick={() =>
+                          downloadFileFromUrl(
+                            report.originalDocxUrl,
+                            report.originalDocxName || `${report.activityTitle || 'Report'}.${isPdfFile ? 'pdf' : 'docx'}`
+                          )
+                        }
+                        className={`mt-4 px-4 py-2 text-white rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer shadow-xs ${isPdfFile ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download Original (.{isPdfFile ? 'pdf' : 'docx'})</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* DOCX Live Rendered Pages */}
+                <div
+                  style={{
+                    transform: `scale(${zoomScale})`,
+                    transformOrigin: 'top center',
+                    display: docxLoading || docxError ? 'none' : 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    width: '100%',
+                    transition: 'transform 0.15s ease-out'
+                  }}
+                >
+                  <div ref={docxContainerRef} className="docx-render-target w-full" />
+                </div>
+              </div>
+            ) : (
+              <>
+                <div
               style={{
                 width: `${docW * zoomScale}px`,
                 height: `${totalHeight * zoomScale}px`,
@@ -1245,6 +1596,8 @@ export default function DocumentViewer({
                 </div>
               </div>
             ))}
+            </>
+            )}
           </main>
 
           {/* Assessment & Actions Sidebar */}
@@ -1259,6 +1612,37 @@ export default function DocumentViewer({
 
               {/* Quick Details Cards */}
               <div className="space-y-3">
+                {report?.originalDocxUrl && (
+                  <div className={`flex items-start space-x-3 p-3 rounded-2xl ${isPdfFile ? 'bg-red-50/70 border border-red-100' : 'bg-blue-50/70 border border-blue-100'}`}>
+                    <FileText className={`w-4 h-4 shrink-0 mt-0.5 ${isPdfFile ? 'text-red-600' : 'text-blue-600'}`} />
+                    <div className="text-left min-w-0 flex-1">
+                      <span className={`text-[9px] block font-bold uppercase tracking-wider ${isPdfFile ? 'text-red-500' : 'text-blue-500'}`}>
+                        {isPdfFile ? 'Original PDF Upload' : 'Original DOCX Upload'}
+                      </span>
+                      <span className="text-[11px] font-bold text-navy-blue block truncate mt-0.5" title={report.originalDocxName}>
+                        {report.originalDocxName || (isPdfFile ? 'document.pdf' : 'document.docx')}
+                      </span>
+                      {report.comment && (
+                        <p className={`text-[10px] text-gray-600 bg-white/80 p-1.5 rounded-lg mt-1.5 border italic leading-snug ${isPdfFile ? 'border-red-100/60' : 'border-blue-100/60'}`}>
+                          &ldquo;{report.comment}&rdquo;
+                        </p>
+                      )}
+                      <button
+                        onClick={() =>
+                          downloadFileFromUrl(
+                            report.originalDocxUrl,
+                            report.originalDocxName || `${report.activityTitle || 'Report'}.${isPdfFile ? 'pdf' : 'docx'}`
+                          )
+                        }
+                        className={`mt-2 text-[10px] font-bold text-white px-3 py-1 rounded-full flex items-center gap-1 shadow-2xs cursor-pointer transition-all ${isPdfFile ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                      >
+                        <Download className="w-3 h-3" />
+                        <span>Download Original</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-start space-x-3 p-3 rounded-2xl bg-gray-50 border border-gray-100/50">
                   <User className="w-4 h-4 text-navy-blue shrink-0 mt-0.5" />
                   <div className="text-left">

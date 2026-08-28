@@ -251,23 +251,58 @@ app.whenReady().then(() => {
       console.log('========================================')
       console.log('[STAGE 5: FILE SAVE PROMPT]')
 
-      const defaultName = `${title || 'Document'}.pdf`
+      const isDocxDefault = options?.defaultFormat === 'docx'
+      const baseTitle = (title || 'Document').replace(/\.(pdf|docx)$/i, '')
+      const defaultExt = isDocxDefault ? 'docx' : 'pdf'
+      const defaultName = `${baseTitle}.${defaultExt}`
+
+      const filters = isDocxDefault
+        ? [
+            { name: 'DOCX Document', extensions: ['docx'] },
+            { name: 'PDF Document', extensions: ['pdf'] }
+          ]
+        : [
+            { name: 'PDF Document', extensions: ['pdf'] },
+            { name: 'DOCX Document', extensions: ['docx'] }
+          ]
+
       const { filePath } = await dialog.showSaveDialog({
-        title: 'Save PDF',
+        title: 'Save Report',
         defaultPath: join(app.getPath('downloads'), defaultName),
-        filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
+        filters
       })
 
       if (filePath) {
         try {
-          fs.writeFileSync(filePath, pdfBuffer)
+          const selectedExt = (filePath.split('.').pop() || '').toLowerCase()
+
+          if (selectedExt === 'docx') {
+            if (options?.originalDocxBase64) {
+              const buffer = Buffer.from(options.originalDocxBase64, 'base64')
+              fs.writeFileSync(filePath, buffer)
+            } else if (options?.docxContent) {
+              fs.writeFileSync(filePath, options.docxContent, 'utf8')
+            } else {
+              fs.writeFileSync(filePath, html, 'utf8')
+            }
+          } else {
+            // PDF chosen
+            if (options?.originalPdfBase64) {
+              const buffer = Buffer.from(options.originalPdfBase64, 'base64')
+              fs.writeFileSync(filePath, buffer)
+            } else {
+              fs.writeFileSync(filePath, pdfBuffer)
+            }
+          }
+
           const fileStat = fs.statSync(filePath)
           console.log(`[STAGE 5: FILE SAVE SUCCESS]`)
           console.log(`  - Saved File Path: ${filePath}`)
+          console.log(`  - Saved File Format: ${selectedExt.toUpperCase()}`)
           console.log(`  - Saved File Size on Disk: ${fileStat.size} bytes`)
           console.log(`  - File Last Modified: ${fileStat.mtime.toISOString()}`)
           console.log('========================================')
-          return { success: true, filePath }
+          return { success: true, filePath, format: selectedExt }
         } catch (writeError) {
           if (writeError.code === 'EBUSY' || writeError.code === 'EPERM') {
             console.error(`[STAGE 5: FILE SAVE ERROR] File is locked by another process: ${filePath}`)

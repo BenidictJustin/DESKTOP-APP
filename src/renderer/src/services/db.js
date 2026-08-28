@@ -2411,21 +2411,71 @@ export const updateReport = async (reportId, updates, userId) => {
 }
 
 // Simulated Storage / File Upload
-// Encodes loaded image file to base64 for Demo Mode, or uploads to Firebase Storage in Cloud Mode
+// Encodes loaded image file to base64 for Demo Mode, or uploads to Firebase Storage in Cloud Mode with fallback
 export const uploadPhoto = async (academicYear, eventId, file) => {
-  if (isDemoMode) {
-    return new Promise((resolve, reject) => {
+  const readAsBase64 = () =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = (error) => reject(error)
+    })
+
+  if (isDemoMode || !fstorage) {
+    return await readAsBase64()
+  }
+
+  try {
+    const cleanFileName = `photo_${Date.now()}_${file.name.replace(/\s+/g, '_')}`
+    const storagePath = `narratives/AY_${academicYear.replace('/', '_')}/event_${eventId}/${cleanFileName}`
+    const storageRef = ref(fstorage, storagePath)
+    const uploadPromise = uploadBytes(storageRef, file).then(() => getDownloadURL(storageRef))
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Storage timeout')), 4000)
+    )
+    return await Promise.race([uploadPromise, timeoutPromise])
+  } catch (err) {
+    console.warn('Firebase Storage upload failed, falling back to Base64 data URL:', err)
+    return await readAsBase64()
+  }
+}
+
+// Upload raw DOCX report file without conversion (preserves binary format)
+// Uses Firebase Storage if available, with immediate Base64 fallback if bucket is unprovisioned or offline
+export const uploadDocxReportFile = async (academicYear, eventId, file) => {
+  const readAsBase64 = () =>
+    new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.readAsDataURL(file)
       reader.onload = () => resolve(reader.result) // Base64 data URL
       reader.onerror = (error) => reject(error)
     })
-  } else {
-    const cleanFileName = `photo_${Date.now()}_${file.name.replace(/\s+/g, '_')}`
-    const storagePath = `narratives/AY_${academicYear.replace('/', '_')}/event_${eventId}/${cleanFileName}`
+
+  if (isDemoMode || !fstorage) {
+    return await readAsBase64()
+  }
+
+  try {
+    const cleanFileName = `docx_${Date.now()}_${file.name.replace(/\s+/g, '_')}`
+    const ay = (academicYear || 'General').toString().replace('/', '_')
+    const ev = (eventId || 'unassigned').toString()
+    const storagePath = `narratives/AY_${ay}/event_${ev}/${cleanFileName}`
     const storageRef = ref(fstorage, storagePath)
-    await uploadBytes(storageRef, file)
-    return await getDownloadURL(storageRef)
+
+    // Set 4-second timeout to avoid 2-minute freeze if Firebase Storage is not provisioned
+    const uploadPromise = uploadBytes(storageRef, file).then(() => getDownloadURL(storageRef))
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Firebase Storage unavailable or timeout')), 4000)
+    )
+
+    return await Promise.race([uploadPromise, timeoutPromise])
+  } catch (err) {
+    console.warn(
+      'Firebase Storage failed (bucket unprovisioned or rules reject). Falling back to Base64 data URL:',
+      err
+    )
+    // Seamless fallback to Base64 data URL: preserves exact file binary without breaking submission
+    return await readAsBase64()
   }
 }
 
