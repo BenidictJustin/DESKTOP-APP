@@ -6,6 +6,8 @@ import { ipcRenderer } from 'electron'
 // Custom APIs for renderer
 const api = {
   checkInternet: () => ipcRenderer.invoke('check-internet'),
+  convertDocxToPdfBuffer: (buffer) => ipcRenderer.invoke('convert-docx-to-pdf-buffer', { buffer }),
+  exportHtmlToDocx: (data) => ipcRenderer.invoke('export-html-to-docx', data),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
   restartAndInstall: () => ipcRenderer.invoke('restart-and-install'),

@@ -142,7 +142,8 @@ import {
   exportElementToPDF,
   resolveHeaderHtml,
   parseNarrativePages,
-  downloadFileFromUrl
+  downloadFileFromUrl,
+  exportDocxToPDF
 } from '../../components/editor/utils/editorHelpers'
 import { PAPER, MARGINS } from '../../components/editor/constants'
 import { useNetworkStatus } from '../../context/NetworkContext'
@@ -224,6 +225,7 @@ export default function AdminDashboard({ user, onLogout }) {
   // PDF Export target reference
   const pdfExportRef = useRef(null)
   const [exportingReport, setExportingReport] = useState(null)
+  const [exportingDocxReport, setExportingDocxReport] = useState(null)
 
   const [deletedCategories, setDeletedCategories] = useState(() => {
     try {
@@ -2108,14 +2110,13 @@ export default function AdminDashboard({ user, onLogout }) {
   }
 
   // Report decision: Approve or Return
-  const handleReviewReport = async (status, feedbackOverride) => {
+  const handleReviewReport = async (status) => {
     if (isOffline) {
       triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
       return
     }
     if (!selectedReport) return
-    const noteToUse = feedbackOverride !== undefined ? feedbackOverride : feedbackNote
-    if (status === 'returned' && !noteToUse.trim()) {
+    if (status === 'returned' && !feedbackNote.trim()) {
       alert('Feedback notes are mandatory to return reports.')
       return
     }
@@ -2126,7 +2127,7 @@ export default function AdminDashboard({ user, onLogout }) {
         selectedReport.id,
         {
           status,
-          adminFeedback: status === 'returned' ? noteToUse : null
+          adminFeedback: status === 'returned' ? feedbackNote : null
         },
         user.uid
       )
@@ -2159,9 +2160,43 @@ export default function AdminDashboard({ user, onLogout }) {
     }
   }
 
-  // Compile Approved Report with user choice of .docx or .pdf format
-  const compileReportPDF = (report) => {
+  // Compile Approved Report to PDF (standard format) or directly convert/download uploaded file
+  const compileReportPDF = async (report) => {
+    if (report?.submissionType === 'docx_upload' || report?.originalDocxUrl) {
+      if (report.fileType === 'pdf' || report.originalDocxName?.toLowerCase().endsWith('.pdf')) {
+        downloadFileFromUrl(
+          report.originalDocxUrl,
+          report.originalDocxName || `${report.activityTitle || 'Report'}.pdf`
+        )
+        return
+      }
+      try {
+        await exportDocxToPDF(
+          report.originalDocxUrl,
+          report.originalDocxName || report.activityTitle || 'Report'
+        )
+      } catch (err) {
+        console.error('Failed to export DOCX as PDF, falling back to original DOCX download:', err)
+        downloadFileFromUrl(
+          report.originalDocxUrl,
+          report.originalDocxName || `${report.activityTitle || 'Report'}.docx`
+        )
+      }
+      return
+    }
     setExportingReport(report)
+  }
+
+  // Compile Approved Report to DOCX (standard format) or directly download uploaded file
+  const compileReportDOCX = async (report) => {
+    if (report?.submissionType === 'docx_upload' || report?.originalDocxUrl) {
+      downloadFileFromUrl(
+        report.originalDocxUrl,
+        report.originalDocxName || `${report.activityTitle || 'Report'}.${report.fileType === 'pdf' ? 'pdf' : 'docx'}`
+      )
+      return
+    }
+    setExportingDocxReport(report)
   }
 
   // Helper to get consistent submission timestamp for pending queue chronological sorting (oldest first)
@@ -2513,6 +2548,30 @@ export default function AdminDashboard({ user, onLogout }) {
                                         <Eye className="w-3.5 h-3.5" />
                                         <span>Inspect Report</span>
                                       </button>
+                                      {Boolean(rep.submissionType === 'docx_upload' || rep.originalDocxUrl) ? (
+                                        <button
+                                          onClick={() =>
+                                            downloadFileFromUrl(
+                                              rep.originalDocxUrl,
+                                              rep.originalDocxName || `${rep.activityTitle || 'Report'}.${rep.fileType === 'pdf' || rep.originalDocxName?.toLowerCase().endsWith('.pdf') ? 'pdf' : 'docx'}`
+                                            )
+                                          }
+                                          className="bg-sig-green hover:bg-sig-green-600 text-navy-blue font-semibold py-1.5 px-2.5 rounded-lg text-xs flex items-center gap-1 shadow-xs transition-all cursor-pointer shrink-0"
+                                          title="Download Submitted Document"
+                                        >
+                                          <Download className="w-3.5 h-3.5" />
+                                          <span>{rep.fileType === 'pdf' || rep.originalDocxName?.toLowerCase().endsWith('.pdf') ? 'PDF' : 'Download'}</span>
+                                        </button>
+                                      ) : (
+                                        <button
+                                          onClick={() => compileReportPDF(rep)}
+                                          className="bg-sig-green hover:bg-sig-green-600 text-navy-blue font-semibold py-1.5 px-2.5 rounded-lg text-xs flex items-center gap-1 shadow-xs transition-all cursor-pointer shrink-0"
+                                          title="Export Report PDF"
+                                        >
+                                          <Download className="w-3.5 h-3.5" />
+                                          <span>Export</span>
+                                        </button>
+                                      )}
                                     </div>
                                   </div>
                                 )
@@ -5766,11 +5825,56 @@ export default function AdminDashboard({ user, onLogout }) {
                                             setSelectedReport(rep)
                                             setFeedbackNote('')
                                           }}
-                                          className="bg-white text-navy-blue border border-gray-200 font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 cursor-pointer shadow-2xs hover:bg-navy-blue hover:text-white hover:border-navy-blue hover:shadow-xs active:scale-95 transition-all duration-150"
+                                          className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 cursor-pointer shadow-2xs"
                                         >
                                           <Eye className="w-3.5 h-3.5" />
                                           <span>Inspect Report</span>
                                         </button>
+                                        {Boolean(rep.submissionType === 'docx_upload' || rep.originalDocxUrl) ? (
+                                          <div className="flex items-center gap-1.5">
+                                            {Boolean(rep.fileType !== 'pdf' && !rep.originalDocxName?.toLowerCase().endsWith('.pdf')) && (
+                                              <button
+                                                onClick={() =>
+                                                  downloadFileFromUrl(
+                                                    rep.originalDocxUrl,
+                                                    rep.originalDocxName || `${rep.activityTitle || 'Report'}.docx`
+                                                  )
+                                                }
+                                                className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-1.5 px-3 rounded-full text-xs flex items-center space-x-1 cursor-pointer shadow-2xs"
+                                                title="Download Original DOCX Document"
+                                              >
+                                                <Download className="w-3.5 h-3.5" />
+                                                <span>DOCX</span>
+                                              </button>
+                                            )}
+                                            <button
+                                              onClick={() => compileReportPDF(rep)}
+                                              className="bg-sig-green text-navy-blue font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-2xs"
+                                              title="Export and Download as PDF"
+                                            >
+                                              <Download className="w-3.5 h-3.5" />
+                                              <span>Export PDF</span>
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <div className="flex items-center space-x-1.5">
+                                            <button
+                                              onClick={() => compileReportDOCX(rep)}
+                                              className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-1.5 px-3 rounded-full text-xs flex items-center space-x-1 cursor-pointer shadow-2xs"
+                                              title="Download DOCX Document"
+                                            >
+                                              <Download className="w-3.5 h-3.5" />
+                                              <span>DOCX</span>
+                                            </button>
+                                            <button
+                                              onClick={() => compileReportPDF(rep)}
+                                              className="bg-sig-green text-navy-blue font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-2xs"
+                                            >
+                                              <Download className="w-3.5 h-3.5" />
+                                              <span>Export PDF</span>
+                                            </button>
+                                          </div>
+                                        )}
                                       </div>
                                     </div>
                                   )
@@ -5809,13 +5913,13 @@ export default function AdminDashboard({ user, onLogout }) {
 
                             {/* Search Input Field */}
                             <div className="relative">
-                              <Search className="w-4 h-4 text-navy-blue/70 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                              <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                               <input
                                 type="text"
                                 value={approvedSearchQuery}
                                 onChange={(e) => setApprovedSearchQuery(e.target.value)}
                                 placeholder="Search approved reports by title, author, venue, program, department, beneficiaries, objectives..."
-                                className="w-full pl-10 pr-9 py-2.5 bg-white border border-gray-300 hover:border-navy-blue/40 rounded-xl text-xs text-navy-blue font-medium placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-navy-blue/15 focus:border-navy-blue shadow-2xs transition duration-150"
+                                className="w-full pl-9 pr-8 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs text-navy-blue placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-navy-blue/20 focus:border-navy-blue transition duration-150"
                               />
                               {approvedSearchQuery && (
                                 <button
@@ -5875,19 +5979,56 @@ export default function AdminDashboard({ user, onLogout }) {
                                             setSelectedReport(rep)
                                             setFeedbackNote('')
                                           }}
-                                          className="bg-white text-navy-blue border border-gray-200 font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 cursor-pointer shadow-2xs hover:bg-navy-blue hover:text-white hover:border-navy-blue hover:shadow-xs active:scale-95 transition-all duration-150"
+                                          className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 cursor-pointer shadow-2xs"
                                         >
                                           <Eye className="w-3.5 h-3.5" />
                                           <span>Inspect Report</span>
                                         </button>
-                                        <button
-                                          onClick={() => compileReportPDF(rep)}
-                                          className="bg-sig-green text-navy-blue font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-2xs"
-                                          title="Download Report (.docx or .pdf)"
-                                        >
-                                          <Download className="w-3.5 h-3.5" />
-                                          <span>Download</span>
-                                        </button>
+                                        {Boolean(rep.submissionType === 'docx_upload' || rep.originalDocxUrl) ? (
+                                          <div className="flex items-center gap-1.5">
+                                            {Boolean(rep.fileType !== 'pdf' && !rep.originalDocxName?.toLowerCase().endsWith('.pdf')) && (
+                                              <button
+                                                onClick={() =>
+                                                  downloadFileFromUrl(
+                                                    rep.originalDocxUrl,
+                                                    rep.originalDocxName || `${rep.activityTitle || 'Report'}.docx`
+                                                  )
+                                                }
+                                                className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-1.5 px-3 rounded-full text-xs flex items-center space-x-1 cursor-pointer shadow-2xs"
+                                                title="Download Original DOCX Document"
+                                              >
+                                                <Download className="w-3.5 h-3.5" />
+                                                <span>DOCX</span>
+                                              </button>
+                                            )}
+                                            <button
+                                              onClick={() => compileReportPDF(rep)}
+                                              className="bg-sig-green text-navy-blue font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-2xs"
+                                              title="Export and Download as PDF"
+                                            >
+                                              <Download className="w-3.5 h-3.5" />
+                                              <span>Export PDF</span>
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <div className="flex items-center space-x-1.5">
+                                            <button
+                                              onClick={() => compileReportDOCX(rep)}
+                                              className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-1.5 px-3 rounded-full text-xs flex items-center space-x-1 cursor-pointer shadow-2xs"
+                                              title="Download DOCX Document"
+                                            >
+                                              <Download className="w-3.5 h-3.5" />
+                                              <span>DOCX</span>
+                                            </button>
+                                            <button
+                                              onClick={() => compileReportPDF(rep)}
+                                              className="bg-sig-green text-navy-blue font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-2xs"
+                                            >
+                                              <Download className="w-3.5 h-3.5" />
+                                              <span>Export PDF</span>
+                                            </button>
+                                          </div>
+                                        )}
                                       </div>
                                     </div>
                                   )
@@ -6205,7 +6346,23 @@ export default function AdminDashboard({ user, onLogout }) {
               orgsList={orgsList}
               usersList={usersList}
               isExportOnly={true}
+              exportFormat="pdf"
               onExportFinished={() => setExportingReport(null)}
+            />
+          </div>
+        )}
+
+        {exportingDocxReport && (
+          <div className="fixed top-0 left-0 w-[816px] h-screen pointer-events-none select-none opacity-0 z-[-9999] overflow-hidden">
+            <DocumentViewer
+              report={exportingDocxReport}
+              onClose={() => setExportingDocxReport(null)}
+              eventsList={eventsList}
+              orgsList={orgsList}
+              usersList={usersList}
+              isExportOnly={true}
+              exportFormat="docx"
+              onExportFinished={() => setExportingDocxReport(null)}
             />
           </div>
         )}

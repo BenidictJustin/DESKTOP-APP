@@ -60,7 +60,8 @@ import {
   exportElementToPDF,
   resolveHeaderHtml,
   parseNarrativePages,
-  downloadFileFromUrl
+  downloadFileFromUrl,
+  exportDocxToPDF
 } from '../../components/editor/utils/editorHelpers'
 import { PAPER, MARGINS } from '../../components/editor/constants'
 import { useNetworkStatus } from '../../context/NetworkContext'
@@ -92,9 +93,22 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   const { isOffline, registerReconnectHandler } = useNetworkStatus()
   // ── Navigation ──
   const [activeTab, setActiveTab] = useState('dashboard')
+  const [previousTab, setPreviousTab] = useState('reports')
+  const [editorOrigin, setEditorOrigin] = useState(null) // 'new' | 'reports' — tracks where user came from
+
+  const navigateTab = useCallback(
+    (nextTab) => {
+      if (activeTab !== 'editor') {
+        setPreviousTab(activeTab)
+      }
+      setActiveTab(nextTab)
+    },
+    [activeTab]
+  )
 
   // ── Report metadata ──
   const [workspaceReportId, setWorkspaceReportId] = useState(null)
+  const [workspaceReportStatus, setWorkspaceReportStatus] = useState('draft')
   const [workspaceReportAY, setWorkspaceReportAY] = useState('2026-2027')
   const [workspaceReportSem, setWorkspaceReportSem] = useState('1st Semester')
   const [workspaceReportType, setWorkspaceReportType] = useState('outreach')
@@ -113,6 +127,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   const [autoSave, setAutoSave] = useState(false)
   const [selectedViewerReport, setSelectedViewerReport] = useState(null)
   const [exportingReport, setExportingReport] = useState(null)
+  const [exportingDocxReport, setExportingDocxReport] = useState(null)
   const [selectedViewEvent, setSelectedViewEvent] = useState(null)
   const [isViewEventModalOpen, setIsViewEventModalOpen] = useState(false)
   const [showAllCompleted, setShowAllCompleted] = useState(false)
@@ -120,7 +135,6 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   const [approvedSearchQuery, setApprovedSearchQuery] = useState('')
   const [isDocxUploadModalOpen, setIsDocxUploadModalOpen] = useState(false)
   const [isDocxUploading, setIsDocxUploading] = useState(false)
-  const [feedbackModal, setFeedbackModal] = useState(null)
 
   // ── Database ──
   const [reportsList, setReportsList] = useState([])
@@ -166,7 +180,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
   // Body scroll lock effect whenever any modal/dialog is open
   useEffect(() => {
-    if (selectedViewerReport || exportingReport || isViewEventModalOpen || feedbackModal) {
+    if (selectedViewerReport || exportingReport || exportingDocxReport || isViewEventModalOpen) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = ''
@@ -174,7 +188,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     return () => {
       document.body.style.overflow = ''
     }
-  }, [selectedViewerReport, exportingReport, isViewEventModalOpen, feedbackModal])
+  }, [selectedViewerReport, exportingReport, exportingDocxReport, isViewEventModalOpen])
 
   // ── Reset form (clear all fields + editor) ──
   const resetForm = useCallback((editor) => {
@@ -189,6 +203,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     setWorkspaceReportBenef('')
     setWorkspaceReportOrgId('')
     setWorkspaceReportPhotos([])
+    setWorkspaceReportStatus('draft')
     setWorkspaceIsReadOnly(false)
     setWorkspaceFeedback(null)
     setLinkToEvent(true)
@@ -224,6 +239,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     setWorkspaceReportBenef(rep.beneficiaries || '')
     setWorkspaceReportOrgId(rep.organizationId || '')
     setWorkspaceReportPhotos(rep.photos || [])
+    setWorkspaceReportStatus(rep.status || 'draft')
     const isReadOnly = rep.status === 'submitted' || rep.status === 'approved'
     setWorkspaceIsReadOnly(isReadOnly)
     setWorkspaceFeedback(rep.status === 'returned' ? rep.adminFeedback : null)
@@ -237,6 +253,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         if (!isReadOnly) ed.commands.focus('end')
       }, 100)
     }
+    setPreviousTab('reports')
+    setEditorOrigin('reports')
     setActiveTab('editor')
   }, [])
 
@@ -245,24 +263,14 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     async (status, html, silent = false, layoutOptions = {}) => {
       if (isOffline) {
         if (!silent) {
-          setFeedbackModal({
-            type: 'warning',
-            title: 'dommunity',
-            message: 'Cannot save or submit report: Internet connection is offline. Your draft remains safe in the editor. Please reconnect to sync.'
-          })
+          alert('Cannot save or submit report: Internet connection is offline. Your draft remains safe in the editor. Please reconnect to sync.')
         }
         setSaveStatus('offline')
         return
       }
 
       if (!html || html === '<p></p>') {
-        if (!silent) {
-          setFeedbackModal({
-            type: 'warning',
-            title: 'dommunity',
-            message: 'Please write some content before saving.'
-          })
-        }
+        if (!silent) alert('Please write some content before saving.')
         return
       }
 
@@ -282,6 +290,13 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       setSaveStatus('saving')
       setLoading(true)
       try {
+        let effectiveStatus = status
+        // If the report is currently in 'returned' status and user saves progress (Save & Leave or Save Draft),
+        // preserve status as 'returned' so it does not revert to 'draft'.
+        if (workspaceReportStatus === 'returned' && status === 'draft') {
+          effectiveStatus = 'returned'
+        }
+
         const payload = {
           academicYear: workspaceReportAY,
           semester: workspaceReportSem,
@@ -294,7 +309,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           organizationId: workspaceReportOrgId || null,
           narrative: html,
           photos: workspaceReportPhotos,
-          status,
+          status: effectiveStatus,
+          adminFeedback: effectiveStatus === 'submitted' ? null : (workspaceReportStatus === 'returned' ? workspaceFeedback : null),
           authorId: user.uid,
           authorName: user.name,
           authorEmail: user.email,
@@ -321,16 +337,22 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           }
         }
 
+        if (effectiveStatus === 'submitted') {
+          setWorkspaceReportStatus('submitted')
+        }
+
         setSaveStatus('saved')
         if (!silent) {
-          setFeedbackModal({
-            type: 'success',
-            title: 'dommunity',
-            message: status === 'draft'
-              ? 'Draft saved successfully!'
-              : 'Report submitted to Admin successfully!'
-          })
-          resetForm()
+          alert(
+            effectiveStatus === 'returned'
+              ? 'Changes saved to returned report successfully!'
+              : status === 'draft'
+                ? 'Draft saved successfully!'
+                : 'Report submitted to Admin successfully!'
+          )
+          if (effectiveStatus !== 'returned') {
+            resetForm()
+          }
           if (status === 'submitted') {
             setCompiledReportsTab('submitted')
             setActiveTab('reports')
@@ -340,13 +362,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       } catch (err) {
         console.error('Save failed:', err)
         setSaveStatus('error')
-        if (!silent) {
-          setFeedbackModal({
-            type: 'error',
-            title: 'dommunity',
-            message: 'Save failed. Please try again.'
-          })
-        }
+        if (!silent) alert('Save failed. Please try again.')
       } finally {
         setLoading(false)
         setTimeout(() => setSaveStatus(''), 3000)
@@ -364,6 +380,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       workspaceReportBenef,
       workspaceReportOrgId,
       workspaceReportPhotos,
+      workspaceReportStatus,
+      workspaceFeedback,
       linkToEvent,
       eventsList,
       user,
@@ -376,11 +394,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   // ── Direct DOCX Upload & Submit Handler (Bypasses Tiptap to preserve 100% formatting) ──
   const handleDocxUploadSubmit = async ({ file, comment, eventId }) => {
     if (isOffline) {
-      setFeedbackModal({
-        type: 'warning',
-        title: 'dommunity',
-        message: 'Cannot submit report: Internet connection is offline. Please reconnect to sync.'
-      })
+      alert('Cannot submit report: Internet connection is offline. Please reconnect to sync.')
       return
     }
     setIsDocxUploading(true)
@@ -431,28 +445,53 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
       await addReport(payload, user.uid)
       setIsDocxUploadModalOpen(false)
-      setFeedbackModal({
-        type: 'success',
-        title: 'dommunity',
-        message: `Original ${isPdf ? 'PDF' : 'Word'} document submitted directly to Admin successfully! Formatting is 100% preserved.`
-      })
+      alert(`Original ${isPdf ? 'PDF' : 'Word'} document submitted directly to Admin successfully! Formatting is 100% preserved.`)
       setCompiledReportsTab('submitted')
       setActiveTab('reports')
       await loadData()
     } catch (err) {
       console.error('Failed to submit document report:', err)
-      setFeedbackModal({
-        type: 'error',
-        title: 'dommunity',
-        message: 'Failed to submit report: ' + (err.message || err)
-      })
+      alert('Failed to submit report: ' + (err.message || err))
     } finally {
       setIsDocxUploading(false)
     }
   }
 
-  const compileReportPDF = useCallback((report) => {
+  const compileReportPDF = useCallback(async (report) => {
+    if (report?.submissionType === 'docx_upload' || report?.originalDocxUrl) {
+      if (report.fileType === 'pdf' || report.originalDocxName?.toLowerCase().endsWith('.pdf')) {
+        downloadFileFromUrl(
+          report.originalDocxUrl,
+          report.originalDocxName || `${report.activityTitle || 'Report'}.pdf`
+        )
+        return
+      }
+      try {
+        await exportDocxToPDF(
+          report.originalDocxUrl,
+          report.originalDocxName || report.activityTitle || 'Report'
+        )
+      } catch (err) {
+        console.error('Failed to export DOCX as PDF, falling back to original DOCX download:', err)
+        downloadFileFromUrl(
+          report.originalDocxUrl,
+          report.originalDocxName || `${report.activityTitle || 'Report'}.docx`
+        )
+      }
+      return
+    }
     setExportingReport(report)
+  }, [])
+
+  const compileReportDOCX = useCallback(async (report) => {
+    if (report?.submissionType === 'docx_upload' || report?.originalDocxUrl) {
+      downloadFileFromUrl(
+        report.originalDocxUrl,
+        report.originalDocxName || `${report.activityTitle || 'Report'}.${report.fileType === 'pdf' ? 'pdf' : 'docx'}`
+      )
+      return
+    }
+    setExportingDocxReport(report)
   }, [])
 
   // Helper to extract timestamp for chronological sorting (oldest first)
@@ -626,7 +665,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
             { id: 'about', label: 'About', icon: Info }
           ]}
           activeTab={activeTab}
-          setActiveTab={setActiveTab}
+          setActiveTab={navigateTab}
           disabled={Boolean(selectedViewerReport)}
           onLogout={onLogout}
           user={user}
@@ -784,6 +823,13 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                   onOpenReport={openReport}
                   onLoadData={loadData}
                   setActiveTab={setActiveTab}
+                  editorOrigin={editorOrigin}
+                  workspaceReportStatus={workspaceReportStatus}
+                  onBack={() => {
+                    const target = previousTab || 'reports'
+                    setActiveTab(target === 'editor' ? 'reports' : target)
+                    setEditorOrigin(null)
+                  }}
                   StatusBadge={StatusBadge}
                 />
               )}
@@ -812,17 +858,19 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                           <button
                             type="button"
                             onClick={() => setCompiledReportsTab('draft')}
-                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${compiledReportsTab === 'draft'
+                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${
+                              compiledReportsTab === 'draft'
                                 ? 'bg-navy-blue text-white shadow-sm'
                                 : 'text-gray-600 hover:text-navy-blue hover:bg-white/50'
-                              }`}
+                            }`}
                           >
                             <span>Draft</span>
                             <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${compiledReportsTab === 'draft'
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${
+                                compiledReportsTab === 'draft'
                                   ? 'bg-white/20 text-white'
                                   : 'bg-gray-200 text-gray-700'
-                                }`}
+                              }`}
                             >
                               {stats.drafts}
                             </span>
@@ -832,19 +880,21 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                           <button
                             type="button"
                             onClick={() => setCompiledReportsTab('submitted')}
-                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${compiledReportsTab === 'submitted'
+                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${
+                              compiledReportsTab === 'submitted'
                                 ? 'bg-navy-blue text-white shadow-sm'
                                 : 'text-gray-600 hover:text-navy-blue hover:bg-white/50'
-                              }`}
+                            }`}
                           >
                             <span>Submitted</span>
                             <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${stats.submitted > 0
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${
+                                stats.submitted > 0
                                   ? 'bg-amber-500 text-white shadow-xs'
                                   : compiledReportsTab === 'submitted'
                                     ? 'bg-white/20 text-white'
                                     : 'bg-gray-200 text-gray-700'
-                                }`}
+                              }`}
                             >
                               {stats.submitted}
                             </span>
@@ -854,19 +904,21 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                           <button
                             type="button"
                             onClick={() => setCompiledReportsTab('returned')}
-                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${compiledReportsTab === 'returned'
+                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${
+                              compiledReportsTab === 'returned'
                                 ? 'bg-navy-blue text-white shadow-sm'
                                 : 'text-gray-600 hover:text-navy-blue hover:bg-white/50'
-                              }`}
+                            }`}
                           >
                             <span>Returned</span>
                             <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${stats.returned > 0
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${
+                                stats.returned > 0
                                   ? 'bg-red-500 text-white shadow-xs'
                                   : compiledReportsTab === 'returned'
                                     ? 'bg-white/20 text-white'
                                     : 'bg-gray-200 text-gray-700'
-                                }`}
+                              }`}
                             >
                               {stats.returned}
                             </span>
@@ -876,17 +928,19 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                           <button
                             type="button"
                             onClick={() => setCompiledReportsTab('approved')}
-                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${compiledReportsTab === 'approved'
+                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${
+                              compiledReportsTab === 'approved'
                                 ? 'bg-navy-blue text-white shadow-sm'
                                 : 'text-gray-600 hover:text-navy-blue hover:bg-white/50'
-                              }`}
+                            }`}
                           >
                             <span>Approved</span>
                             <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${compiledReportsTab === 'approved'
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${
+                                compiledReportsTab === 'approved'
                                   ? 'bg-white/20 text-white'
                                   : 'bg-gray-200 text-gray-700'
-                                }`}
+                              }`}
                             >
                               {stats.approved}
                             </span>
@@ -899,6 +953,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                             type="button"
                             onClick={() => {
                               resetForm()
+                              setPreviousTab('reports')
+                              setEditorOrigin('new')
                               setActiveTab('editor')
                             }}
                             className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-bold px-3.5 py-2 rounded-full border-b-2 border-sig-green hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-sm shrink-0"
@@ -979,10 +1035,26 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                       <div className="mt-3 md:mt-0 flex items-center gap-2">
                                         <button
                                           onClick={() => setSelectedViewerReport(rep)}
-                                          className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue hover:text-white hover:border-navy-blue hover:shadow-xs active:scale-95 transition-all duration-150 cursor-pointer shadow-2xs"
+                                          className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
                                         >
                                           <Eye className="w-3.5 h-3.5" />
                                           <span>View</span>
+                                        </button>
+                                        <button
+                                          onClick={() => compileReportDOCX(rep)}
+                                          className="flex items-center gap-1 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
+                                          title="Export Draft to DOCX"
+                                        >
+                                          <Download className="w-3.5 h-3.5" />
+                                          <span>DOCX</span>
+                                        </button>
+                                        <button
+                                          onClick={() => compileReportPDF(rep)}
+                                          className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
+                                          title="Export Draft to PDF"
+                                        >
+                                          <Download className="w-3.5 h-3.5" />
+                                          <span>Export PDF</span>
                                         </button>
                                         <button
                                           onClick={() => openReport(rep)}
@@ -1069,11 +1141,57 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                       <div className="mt-3 md:mt-0 flex items-center gap-2">
                                         <button
                                           onClick={() => setSelectedViewerReport(rep)}
-                                          className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue hover:text-white hover:border-navy-blue hover:shadow-xs active:scale-95 transition-all duration-150 cursor-pointer shadow-2xs"
+                                          className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
                                         >
                                           <Eye className="w-3.5 h-3.5" />
                                           <span>View</span>
                                         </button>
+                                        {Boolean(isDocxUpload && rep.originalDocxUrl) ? (
+                                          <div className="flex items-center gap-1.5">
+                                            {Boolean(rep.fileType !== 'pdf' && !rep.originalDocxName?.toLowerCase().endsWith('.pdf')) && (
+                                              <button
+                                                onClick={() =>
+                                                  downloadFileFromUrl(
+                                                    rep.originalDocxUrl,
+                                                    rep.originalDocxName || `${rep.activityTitle || 'Report'}.docx`
+                                                  )
+                                                }
+                                                className="flex items-center gap-1 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
+                                                title="Download Original DOCX Document"
+                                              >
+                                                <Download className="w-3.5 h-3.5" />
+                                                <span>DOCX</span>
+                                              </button>
+                                            )}
+                                            <button
+                                              onClick={() => compileReportPDF(rep)}
+                                              className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
+                                              title="Export and Download as PDF"
+                                            >
+                                              <Download className="w-3.5 h-3.5" />
+                                              <span>Export PDF</span>
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <div className="flex items-center gap-1.5">
+                                            <button
+                                              onClick={() => compileReportDOCX(rep)}
+                                              className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-3.5 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
+                                              title="Download DOCX Document"
+                                            >
+                                              <Download className="w-3.5 h-3.5" />
+                                              <span>Download DOCX</span>
+                                            </button>
+                                            <button
+                                              onClick={() => compileReportPDF(rep)}
+                                              className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
+                                              title="Export Report PDF"
+                                            >
+                                              <Download className="w-3.5 h-3.5" />
+                                              <span>Export PDF</span>
+                                            </button>
+                                          </div>
+                                        )}
                                       </div>
                                     </div>
                                   )
@@ -1151,17 +1269,63 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                       <div className="mt-3 md:mt-0 flex items-center gap-2 shrink-0">
                                         <button
                                           onClick={() => setSelectedViewerReport(rep)}
-                                          className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue hover:text-white hover:border-navy-blue hover:shadow-xs active:scale-95 transition-all duration-150 cursor-pointer shadow-2xs"
+                                          className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
                                         >
                                           <Eye className="w-3.5 h-3.5" />
                                           <span>View</span>
                                         </button>
+                                        {Boolean(rep.submissionType === 'docx_upload' || rep.originalDocxUrl) ? (
+                                          <div className="flex items-center gap-1.5">
+                                            {Boolean(rep.fileType !== 'pdf' && !rep.originalDocxName?.toLowerCase().endsWith('.pdf')) && (
+                                              <button
+                                                onClick={() =>
+                                                  downloadFileFromUrl(
+                                                    rep.originalDocxUrl,
+                                                    rep.originalDocxName || `${rep.activityTitle || 'Report'}.docx`
+                                                  )
+                                                }
+                                                className="flex items-center gap-1 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
+                                                title="Download Original DOCX Document"
+                                              >
+                                                <Download className="w-3.5 h-3.5" />
+                                                <span>DOCX</span>
+                                              </button>
+                                            )}
+                                            <button
+                                              onClick={() => compileReportPDF(rep)}
+                                              className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
+                                              title="Export and Download as PDF"
+                                            >
+                                              <Download className="w-3.5 h-3.5" />
+                                              <span>Export PDF</span>
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <div className="flex items-center gap-1.5">
+                                            <button
+                                              onClick={() => compileReportDOCX(rep)}
+                                              className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-3.5 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
+                                              title="Download DOCX Document"
+                                            >
+                                              <Download className="w-3.5 h-3.5" />
+                                              <span>Download DOCX</span>
+                                            </button>
+                                            <button
+                                              onClick={() => compileReportPDF(rep)}
+                                              className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
+                                              title="Export Report PDF"
+                                            >
+                                              <Download className="w-3.5 h-3.5" />
+                                              <span>Export PDF</span>
+                                            </button>
+                                          </div>
+                                        )}
                                         <button
                                           onClick={() => openReport(rep)}
                                           className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-xs"
                                         >
                                           <Edit3 className="w-3.5 h-3.5" />
-                                          <span>Edit</span>
+                                          <span>Edit & Revise</span>
                                         </button>
                                       </div>
                                     </div>
@@ -1184,13 +1348,13 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                         >
                           {/* Live Search Input */}
                           <div className="relative">
-                            <Search className="w-4 h-4 text-navy-blue/70 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                            <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                             <input
                               type="text"
                               value={approvedSearchQuery}
                               onChange={(e) => setApprovedSearchQuery(e.target.value)}
                               placeholder="Search approved reports by title, author, venue, program, department, beneficiaries..."
-                              className="w-full pl-10 pr-9 py-2.5 bg-white border border-gray-300 hover:border-navy-blue/40 rounded-xl text-xs text-navy-blue font-medium placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-navy-blue/15 focus:border-navy-blue shadow-2xs transition duration-150"
+                              className="w-full pl-9 pr-8 py-2 bg-white border border-gray-200 rounded-xl text-xs text-navy-blue placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-navy-blue/20 focus:border-navy-blue transition duration-150 shadow-2xs"
                             />
                             {approvedSearchQuery && (
                               <button
@@ -1264,19 +1428,56 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                       <div className="mt-3 md:mt-0 flex items-center gap-2">
                                         <button
                                           onClick={() => setSelectedViewerReport(rep)}
-                                          className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue hover:text-white hover:border-navy-blue hover:shadow-xs active:scale-95 transition-all duration-150 cursor-pointer shadow-2xs"
+                                          className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
                                         >
                                           <Eye className="w-3.5 h-3.5" />
                                           <span>View</span>
                                         </button>
-                                        <button
-                                          onClick={() => compileReportPDF(rep)}
-                                          className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
-                                          title="Download Report (.docx or .pdf)"
-                                        >
-                                          <Download className="w-3.5 h-3.5" />
-                                          <span>Download</span>
-                                        </button>
+                                        {Boolean(rep.submissionType === 'docx_upload' || rep.originalDocxUrl) ? (
+                                          <div className="flex items-center gap-1.5">
+                                            {Boolean(rep.fileType !== 'pdf' && !rep.originalDocxName?.toLowerCase().endsWith('.pdf')) && (
+                                              <button
+                                                onClick={() =>
+                                                  downloadFileFromUrl(
+                                                    rep.originalDocxUrl,
+                                                    rep.originalDocxName || `${rep.activityTitle || 'Report'}.docx`
+                                                  )
+                                                }
+                                                className="flex items-center gap-1 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
+                                                title="Download Original DOCX Document"
+                                              >
+                                                <Download className="w-3.5 h-3.5" />
+                                                <span>DOCX</span>
+                                              </button>
+                                            )}
+                                            <button
+                                              onClick={() => compileReportPDF(rep)}
+                                              className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
+                                              title="Export and Download as PDF"
+                                            >
+                                              <Download className="w-3.5 h-3.5" />
+                                              <span>Export PDF</span>
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <div className="flex items-center gap-1.5">
+                                            <button
+                                              onClick={() => compileReportDOCX(rep)}
+                                              className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-3.5 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
+                                              title="Download DOCX Document"
+                                            >
+                                              <Download className="w-3.5 h-3.5" />
+                                              <span>DOCX</span>
+                                            </button>
+                                            <button
+                                              onClick={() => compileReportPDF(rep)}
+                                              className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
+                                            >
+                                              <Download className="w-3.5 h-3.5" />
+                                              <span>Export PDF</span>
+                                            </button>
+                                          </div>
+                                        )}
                                       </div>
                                     </div>
                                   )
@@ -1420,7 +1621,23 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
             orgsList={orgsList}
             usersList={usersList}
             isExportOnly={true}
+            exportFormat="pdf"
             onExportFinished={() => setExportingReport(null)}
+          />
+        </div>
+      )}
+
+      {exportingDocxReport && (
+        <div className="fixed top-0 left-0 w-[816px] h-screen pointer-events-none select-none opacity-0 z-[-9999] overflow-hidden">
+          <DocumentViewer
+            report={exportingDocxReport}
+            onClose={() => setExportingDocxReport(null)}
+            eventsList={eventsList}
+            orgsList={orgsList}
+            usersList={usersList}
+            isExportOnly={true}
+            exportFormat="docx"
+            onExportFinished={() => setExportingDocxReport(null)}
           />
         </div>
       )}
@@ -1573,39 +1790,6 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         eventsList={eventsList}
         isSubmitting={isDocxUploading}
       />
-
-      {/* ── FEEDBACK / NOTIFICATION MODAL ── */}
-      <AnimatedModal
-        isOpen={Boolean(feedbackModal)}
-        onClose={() => setFeedbackModal(null)}
-        overlayClassName="fixed inset-0 z-[99999] flex items-center justify-center bg-navy-blue/40 backdrop-blur-sm p-4"
-        contentClassName="bg-white rounded-3xl p-6 shadow-2xl border border-gray-100 max-w-sm w-full text-center space-y-4"
-      >
-        {feedbackModal && (
-          <>
-            <div>
-              <h4 className="font-bold text-navy-blue text-sm uppercase tracking-wide">
-                {feedbackModal.type === 'error'
-                  ? 'Error'
-                  : feedbackModal.type === 'warning'
-                    ? 'Notice'
-                    : 'Success'}
-              </h4>
-              <p className="text-xs text-gray-500 font-semibold mt-2 leading-relaxed">
-                {feedbackModal.message}
-              </p>
-            </div>
-            <button
-              autoFocus
-              type="button"
-              onClick={() => setFeedbackModal(null)}
-              className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition-all duration-150 cursor-pointer"
-            >
-              OK
-            </button>
-          </>
-        )}
-      </AnimatedModal>
     </div>
   )
 }

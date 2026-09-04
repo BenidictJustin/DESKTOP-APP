@@ -27,12 +27,40 @@ import {
   User,
   Layers,
   FileText,
+  FileDown,
   Loader2,
   AlertCircle
 } from 'lucide-react'
 import logo from '../assets/logo.png'
 import logo2Img from '../assets/logo2.png'
 import { renderAsync } from 'docx-preview'
+// Polyfill modern ECMAScript methods for PDF.js compatibility across all Chromium builds
+if (typeof Map !== 'undefined' && !Map.prototype.getOrInsertComputed) {
+  Map.prototype.getOrInsertComputed = function (key, callback) {
+    if (this.has(key)) return this.get(key)
+    const val = callback()
+    this.set(key, val)
+    return val
+  }
+}
+if (typeof Promise.withResolvers === 'undefined') {
+  Promise.withResolvers = function () {
+    let resolve, reject
+    const promise = new Promise((res, rej) => {
+      resolve = res
+      reject = rej
+    })
+    return { promise, resolve, reject }
+  }
+}
+if (typeof Math !== 'undefined' && typeof Math.sumPrecise === 'undefined') {
+  Math.sumPrecise = function (items) {
+    let sum = 0
+    for (const item of items) sum += Number(item) || 0
+    return sum
+  }
+}
+
 import * as pdfjsLib from 'pdfjs-dist'
 
 // Configure PDF.js worker
@@ -40,6 +68,9 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
   import.meta.url
 ).toString()
+
+// In-memory cache for native DOCX -> PDF converted preview buffers
+const docxPdfPreviewCache = new Map()
 
 import {
   sanitizeOklchInDocument,
@@ -49,8 +80,8 @@ import {
   parseNarrativePages,
   downloadFileFromUrl,
   getDocxArrayBuffer,
-  getDocxBase64,
-  generateDocxMsoHtml
+  exportDocxToPDF,
+  exportElementToDOCX
 } from './editor/utils/editorHelpers'
 
 import { useEditor, EditorContent } from '@tiptap/react'
@@ -105,6 +136,7 @@ export default function DocumentViewer({
   compileReportPDF,
   loading = false,
   isExportOnly = false,
+  exportFormat = 'pdf',
   onExportFinished
 }) {
   // Viewer Settings State
@@ -113,24 +145,7 @@ export default function DocumentViewer({
   const [zoomScale, setZoomScale] = useState(1.0)
   const [viewMode, setViewMode] = useState('select') // 'select' or 'pan'
 
-  const [internalFeedbackNote, setInternalFeedbackNote] = useState(feedbackNote || '')
-
-  useEffect(() => {
-    if (feedbackNote !== undefined) {
-      setInternalFeedbackNote(feedbackNote || '')
-    }
-  }, [feedbackNote])
-
-  const handleFeedbackChange = (e) => {
-    const val = e.target.value
-    setInternalFeedbackNote(val)
-    if (typeof setFeedbackNote === 'function') {
-      setFeedbackNote(val)
-    }
-  }
-
-  const initialNarrativeCount = Math.max(1, parseNarrativePages(report?.narrative || '').length)
-  const [narrativeTotalPages, setNarrativeTotalPages] = useState(initialNarrativeCount)
+  const [narrativeTotalPages, setNarrativeTotalPages] = useState(1)
 
   // DOCX / PDF Direct View State
   const isDocxSubmission = Boolean(report?.submissionType === 'docx_upload' || report?.originalDocxUrl)
@@ -150,6 +165,18 @@ export default function DocumentViewer({
 
   const viewportRef = useRef(null)
 
+  // Helper to verify a buffer/typed array is valid and not detached
+  const isBufferUsable = (buf) => {
+    if (!buf) return false
+    try {
+      if (buf instanceof ArrayBuffer) return buf.byteLength > 0
+      if (ArrayBuffer.isView(buf)) return Boolean(buf.buffer && buf.buffer.byteLength > 0 && buf.byteLength > 0)
+      return false
+    } catch {
+      return false
+    }
+  }
+
   // Load and render DOCX or PDF file directly
   useEffect(() => {
     if (!isDocxSubmission || !report?.originalDocxUrl) return
@@ -160,72 +187,134 @@ export default function DocumentViewer({
 
     const loadAndRenderDocument = async () => {
       try {
-        const buffer = await getDocxArrayBuffer(report.originalDocxUrl)
-        if (!buffer) {
+        const rawBuffer = await getDocxArrayBuffer(report.originalDocxUrl)
+        if (!isBufferUsable(rawBuffer)) {
           throw new Error('Unable to read submitted document data.')
         }
 
         if (!docxContainerRef.current || !isMounted) return
-
         docxContainerRef.current.innerHTML = ''
 
+        const cacheKey = report.id || (typeof report.originalDocxUrl === 'string' ? report.originalDocxUrl.slice(0, 100) : 'docx-doc')
+        let pdfData = null
+
         if (isPdfFile) {
-          // Render PDF document using pdfjs-dist
-          const loadingTask = pdfjsLib.getDocument({ data: buffer })
-          const pdf = await loadingTask.promise
-          if (!isMounted) return
-
-          const numPages = pdf.numPages
-          const wrapper = document.createElement('div')
-          wrapper.className = 'docx-wrapper pdf-wrapper'
-
-          for (let i = 1; i <= numPages; i++) {
-            if (!isMounted) return
-            const page = await pdf.getPage(i)
-            // Render at 1.5 scale for crisp display
-            const viewport = page.getViewport({ scale: 1.5 })
-
-            const section = document.createElement('section')
-            section.className = 'docx pdf-page-section'
-            section.id = `docx-page-${i}`
-            section.style.boxShadow = '0 10px 30px rgba(0,0,0,0.12)'
-            section.style.margin = '0 auto 28px auto'
-            section.style.background = '#ffffff'
-            section.style.boxSizing = 'border-box'
-            section.style.position = 'relative'
-            section.style.width = `${viewport.width / 1.5}px`
-            section.style.minHeight = `${viewport.height / 1.5}px`
-            section.style.overflow = 'hidden'
-
-            const canvas = document.createElement('canvas')
-            canvas.width = viewport.width
-            canvas.height = viewport.height
-            canvas.style.width = '100%'
-            canvas.style.height = 'auto'
-            canvas.style.display = 'block'
-
-            const canvasContext = canvas.getContext('2d')
-            await page.render({ canvasContext, viewport }).promise
-
-            section.appendChild(canvas)
-            wrapper.appendChild(section)
+          pdfData = new Uint8Array(rawBuffer).slice()
+        } else if (window.api?.convertDocxToPdfBuffer || window.electron?.ipcRenderer) {
+          if (docxPdfPreviewCache.has(cacheKey)) {
+            const cached = docxPdfPreviewCache.get(cacheKey)
+            if (isBufferUsable(cached)) {
+              // Hand out a fresh independent copy so cache is never mutated or detached
+              pdfData = new Uint8Array(cached).slice()
+            } else {
+              docxPdfPreviewCache.delete(cacheKey)
+            }
           }
 
-          if (!isMounted) return
-          docxContainerRef.current.appendChild(wrapper)
-          setDocxPageCount(numPages)
-          setDocxLoading(false)
-        } else {
-          // Render DOCX document using docx-preview
-          await renderAsync(buffer, docxContainerRef.current, null, {
+          if (!pdfData && isBufferUsable(rawBuffer)) {
+            try {
+              // Pass a slice so rawBuffer is never detached by IPC structured clone
+              const bufferCopy = rawBuffer.slice(0)
+              const res = window.api?.convertDocxToPdfBuffer
+                ? await window.api.convertDocxToPdfBuffer(bufferCopy)
+                : await window.electron.ipcRenderer.invoke('convert-docx-to-pdf-buffer', { buffer: bufferCopy })
+              if (res?.success && res?.buffer) {
+                const freshBytes = new Uint8Array(res.buffer)
+                if (isBufferUsable(freshBytes)) {
+                  // Cache a clean copy and use a clean slice
+                  docxPdfPreviewCache.set(cacheKey, freshBytes.slice())
+                  pdfData = freshBytes.slice()
+                }
+              }
+            } catch (convErr) {
+              console.warn('Native DOCX preview conversion failed, will attempt docx-preview fallback:', convErr)
+            }
+          }
+        }
+
+        let renderedWithPdf = false
+        if (pdfData && isBufferUsable(pdfData)) {
+          try {
+            // ALWAYS pass an isolated slice to pdfjsLib so worker transfer never detaches pdfData or cache
+            const workerData = new Uint8Array(pdfData).slice()
+            const loadingTask = pdfjsLib.getDocument({ data: workerData })
+            const pdf = await loadingTask.promise
+            if (!isMounted) return
+
+            const numPages = pdf.numPages
+            const wrapper = document.createElement('div')
+            wrapper.className = 'docx-wrapper pdf-wrapper'
+
+            for (let i = 1; i <= numPages; i++) {
+              if (!isMounted) return
+              const page = await pdf.getPage(i)
+              // Render at 2.0 scale for ultra-crisp display on all DPIs
+              const viewport = page.getViewport({ scale: 2.0 })
+
+              const section = document.createElement('section')
+              section.className = 'docx pdf-page-section'
+              section.id = `docx-page-${i}`
+              section.style.boxShadow = '0 10px 30px rgba(0,0,0,0.12)'
+              section.style.margin = '0 auto 28px auto'
+              section.style.background = '#ffffff'
+              section.style.boxSizing = 'border-box'
+              section.style.position = 'relative'
+              section.style.width = `${viewport.width / 2.0}px`
+              section.style.minHeight = `${viewport.height / 2.0}px`
+              section.style.overflow = 'hidden'
+
+              const canvas = document.createElement('canvas')
+              canvas.width = viewport.width
+              canvas.height = viewport.height
+              canvas.style.width = '100%'
+              canvas.style.height = 'auto'
+              canvas.style.display = 'block'
+
+              const canvasContext = canvas.getContext('2d')
+              await page.render({ canvasContext, viewport }).promise
+
+              section.appendChild(canvas)
+              wrapper.appendChild(section)
+            }
+
+            if (!isMounted) return
+            docxContainerRef.current.appendChild(wrapper)
+            setDocxPageCount(numPages)
+            setDocxLoading(false)
+            renderedWithPdf = true
+          } catch (pdfErr) {
+            console.warn('PDF.js rendering encountered an error, falling back to docx-preview:', pdfErr)
+            docxPdfPreviewCache.delete(cacheKey)
+            if (docxContainerRef.current) {
+              docxContainerRef.current.innerHTML = ''
+            }
+          }
+        }
+
+        if (!renderedWithPdf) {
+          if (!docxContainerRef.current || !isMounted) return
+          if (!isBufferUsable(rawBuffer)) {
+            throw new Error('Document buffer is invalid or unavailable.')
+          }
+
+          docxContainerRef.current.innerHTML = ''
+          // Fallback: Render DOCX document using docx-preview with a fresh buffer slice
+          await renderAsync(rawBuffer.slice(0), docxContainerRef.current, null, {
+            className: 'docx',
+            inWrapper: true,
+            ignoreWidth: false,
+            ignoreHeight: false,
+            ignoreFonts: false,
             breakPages: true,
+            ignoreLastRenderedPageBreak: false,
+            experimental: true,
+            trimXmlDeclaration: true,
+            useBase64URL: true,
             renderHeaders: true,
             renderFooters: true,
             renderFootnotes: true,
             renderEndnotes: true,
-            ignoreLastRenderedPageBreak: false,
-            inWrapper: true,
-            useBase64URL: true
+            renderAltChunks: true
           })
 
           if (!isMounted) return
@@ -234,7 +323,7 @@ export default function DocumentViewer({
           pageSections.forEach((section, idx) => {
             section.id = `docx-page-${idx + 1}`
             section.style.boxShadow = '0 10px 30px rgba(0,0,0,0.12)'
-            section.style.margin = '0 auto 28px auto'
+            section.style.marginBottom = '28px'
             section.style.background = '#ffffff'
             section.style.boxSizing = 'border-box'
             section.style.position = 'relative'
@@ -257,7 +346,7 @@ export default function DocumentViewer({
     return () => {
       isMounted = false
     }
-  }, [isDocxSubmission, isPdfFile, report?.originalDocxUrl])
+  }, [isDocxSubmission, isPdfFile, report?.originalDocxUrl, report?.id])
 
   // Keyboard shortcut listener for Escape key to close modal
   useEffect(() => {
@@ -276,8 +365,8 @@ export default function DocumentViewer({
   const author = usersList.find((u) => u.uid === report.authorId)
 
   // Layout settings with fallbacks
-  const defaultHeader = `<table style="width:100%;border-collapse:collapse;border:none;margin:0;padding:0;font-family:'Times New Roman',serif;table-layout:fixed;"><tbody><tr><td style="width:0.85in;vertical-align:middle;border:none;padding:0;text-align:left;"><img src="${logo2Img}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:1.1in;vertical-align:middle;border:none;padding:0 0.15in 0 0.1in;text-align:left;"><img src="${logo}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:4.55in;text-align:left;vertical-align:middle;border:none;border-left:2px solid #555;padding:0 0 0 0.15in;line-height:1.25;"><div style="font-family:'Book Antiqua','Palatino',serif;font-size:14pt;font-weight:bold;color:#000;margin:0 0 1px 0;">DOMINICAN COLLEGE OF TARLAC, INC.</div><div style="font-family:'Times New Roman',serif;font-size:12pt;color:#000;margin:0 0 2px 0;">COMMUNITY EXTENSION SERVICES</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">McArthur Highway, Poblacion (Sto. Rosario), Capas, 2315 Tarlac, Philippines</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">Institutional Contact No.: +63938-918-4093</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0;white-space:nowrap;">Website: dct.edu.ph | E-mail: <span style="color:#030e69;text-decoration:underline;">domct_2315@yahoo.com.ph / domct_2315@dct.edu.ph</span></div></td></tr></tbody></table><hr style="border:none;border-top:3px solid #000;margin:8px 0 0 0;width:110%;" />`
-  const defaultFooter = `<hr style="border:none;border-top:3px solid #000;margin:0 0 8px 0;width:100%;" /><div style="text-align:center;font-family:'Times New Roman',serif;line-height:1.25;color:#000;"><div style="font-size:12pt;font-weight:bold;margin:0 0 2px 0;">FIDES. PATRIA. SAPIENTIA.</div><div style="font-size:10pt;font-style:italic;margin:0 0 2px 0;">A God-loving educational community with passion for truth and compassion for humanity.</div><div style="font-size:10pt;margin:0;">Department/Office Facebook Page: www.facebook.com/dctces</div></div>`
+  const defaultHeader = `<table style="width:100%;border-collapse:collapse;border:none;margin:0;padding:0;font-family:'Times New Roman',Times,serif;table-layout:fixed;"><tbody><tr><td style="width:0.85in;vertical-align:middle;border:none;padding:0;text-align:left;"><img src="${logo2Img}" style="height:0.82in;width:0.82in;object-fit:contain;display:block;" /></td><td style="width:0.95in;vertical-align:middle;border:none;padding:0 0.08in 0 0.04in;text-align:left;"><img src="${logo}" style="height:0.82in;width:0.82in;object-fit:contain;display:block;" /></td><td style="width:auto;text-align:left;vertical-align:middle;border:none;border-left:1.5px solid #777777;padding:0 0 0 0.12in;line-height:1.2;"><div style="font-family:'Times New Roman',Times,serif;font-variant:small-caps;font-size:14pt;font-weight:bold;color:#262626;letter-spacing:0.3px;margin:0 0 1px 0;">Dominican College Of Tarlac, Inc.</div><div style="font-family:'Times New Roman',Times,serif;font-size:10.5pt;font-weight:normal;color:#404040;letter-spacing:0.5px;margin:0 0 2px 0;">COMMUNITY EXTENSION SERVICES</div><div style="font-family:'Times New Roman',serif;font-size:9pt;color:#404040;margin:0 0 1px 0;line-height:1.2;">McArthur Highway, Poblacion (Sto. Rosario), Capas, 2315 Tarlac, Philippines</div><div style="font-family:'Times New Roman',serif;font-size:9pt;color:#404040;margin:0 0 1px 0;line-height:1.2;">Institutional Contact No.: +63938-918-4093</div><div style="font-family:'Times New Roman',serif;font-size:9pt;color:#404040;margin:0;line-height:1.2;white-space:nowrap;">Website: dct.edu.ph | E-mail: <span style="color:#0563c1;text-decoration:underline;">domct_2315@yahoo.com.ph / domct_2315@dct.edu.ph</span></div></td></tr></tbody></table><hr style="border:none;border-top:2.5px solid #8e9092;margin:6px 0 0 0;width:100%;" />`
+  const defaultFooter = `<hr style="border:none;border-top:2.5px solid #8e9092;margin:0 0 6px 0;width:100%;" /><div style="text-align:center;font-family:'Times New Roman',Times,serif;line-height:1.25;color:#404040;"><div style="font-size:10.5pt;font-weight:bold;margin:0 0 2px 0;letter-spacing:0.5px;">FIDES. PATRIA. SAPIENTIA</div><div style="font-size:9pt;font-style:italic;margin:0 0 2px 0;color:#555;">A God-loving educational community with passion for truth and compassion for humanity.</div><div style="font-size:9pt;margin:0;color:#555;">Department/Office Facebook Page: www.facebook.com/dctces</div></div>`
 
   const rawHeader = report.headerText !== undefined ? report.headerText : defaultHeader
   const headerText = resolveHeaderHtml(rawHeader, logo2Img, logo)
@@ -301,7 +390,7 @@ export default function DocumentViewer({
   const padBottom = margins.bottom
   const padLeft = margins.left
   const padRight = margins.right
-  const padTopActual = showHeader && isTemplateActive ? 170 : padTop
+  const padTopActual = showHeader && isTemplateActive ? (marginKey === 'Narrow' ? 142 : 220) : padTop
   const gapH = 36
 
   const paper = PAPER[paperKey] || PAPER.Letter
@@ -371,24 +460,16 @@ export default function DocumentViewer({
   ])
 
   useEffect(() => {
-    if (editor && report.narrative) {
+    if (editor && report?.narrative) {
       editor.commands.setContent(report.narrative)
-      const parsedCount = parseNarrativePages(report.narrative).length
-      if (parsedCount > 0) {
-        setNarrativeTotalPages((prev) => Math.max(prev, parsedCount))
-      }
     }
-  }, [editor, report.narrative])
+  }, [editor, report?.narrative])
 
   // Pre-generate pages for indexing and sidebar
   const pages = []
-  const narrativePages = parseNarrativePages(report.narrative || '')
-  const effectiveNarrativePages = narrativePages.length > 0 ? narrativePages : [report.narrative || '<p></p>']
-
-  for (let i = 1; i <= Math.max(narrativeTotalPages, effectiveNarrativePages.length); i++) {
+  for (let i = 1; i <= narrativeTotalPages; i++) {
     pages.push({
       type: 'narrative',
-      content: effectiveNarrativePages[i - 1] || '',
       pageNum: i
     })
   }
@@ -535,52 +616,66 @@ export default function DocumentViewer({
     setIsPanning(false)
   }
 
-  // Unified download action: lets user choose between .docx and .pdf in file explorer
-  const handleDownloadDocument = async () => {
-    const cleanTitle = (
-      report.originalDocxName?.replace(/\.(docx|pdf)$/i, '') ||
-      report.activityTitle ||
-      report.title ||
-      event?.name ||
-      `CES_Report_${report.academicYear || 'AY'}`
-    ).replace(/[^a-zA-Z0-9_-]+/g, '_')
-
-    try {
-      if (isDocxSubmission && report?.originalDocxUrl) {
-        const base64Data = await getDocxBase64(report.originalDocxUrl)
-        const targetElement = docxContainerRef.current || viewportRef.current
-        await exportElementToPDF(targetElement, cleanTitle, {
-          isDocument: true,
-          defaultFormat: isPdfFile ? 'pdf' : 'docx',
-          originalDocxBase64: isPdfFile ? null : base64Data,
-          originalPdfBase64: isPdfFile ? base64Data : null
-        })
-        return
-      }
-
-      // Standard Tiptap Narrative Report
-      if (editor && viewportRef.current) {
-        const docxHtml = generateDocxMsoHtml(editor.getHTML(), cleanTitle, {
-          showHeader,
-          showFooter,
-          headerText,
-          footerText
-        })
-        await exportElementToPDF(viewportRef.current, cleanTitle, {
-          isDocument: true,
-          paperKey,
-          orientation,
-          marginKey,
-          paperW: docW,
-          paperH: docH,
-          defaultFormat: 'pdf',
-          docxContent: docxHtml
-        })
-      }
-    } catch (err) {
-      console.error('DocumentViewer download failed:', err)
-      alert('Failed to download report: ' + (err.message || err))
+  const handleDownloadPDF = async () => {
+    if (!viewportRef?.current) {
+      alert('Report viewport not available.')
+      return
     }
+    try {
+      const reportName = (
+        report.originalDocxName?.replace(/\.(docx|pdf)$/i, '') ||
+        report.activityTitle ||
+        report.title ||
+        event?.name ||
+        `CES_Narrative_Report_${report.academicYear || 'AY'}`
+      ).replace(/[^a-zA-Z0-9_-]+/g, '_')
+
+      await exportElementToPDF(
+        viewportRef.current,
+        reportName,
+        { isDocument: true, paperKey, orientation, marginKey, paperW: docW, paperH: docH }
+      )
+    } catch (err) {
+      console.error('DocumentViewer PDF export failed:', err)
+      alert('Failed to download PDF: ' + (err.message || err))
+    }
+  }
+
+  const handleDownloadDOCX = async () => {
+    if (!viewportRef?.current) {
+      alert('Report viewport not available.')
+      return
+    }
+    try {
+      const reportName = (
+        report.originalDocxName?.replace(/\.(docx|pdf)$/i, '') ||
+        report.activityTitle ||
+        report.title ||
+        event?.name ||
+        `CES_Narrative_Report_${report.academicYear || 'AY'}`
+      ).replace(/[^a-zA-Z0-9_-]+/g, '_')
+
+      await exportElementToDOCX(
+        viewportRef.current,
+        reportName,
+        { isDocument: true, paperKey, orientation, marginKey, paperW: docW, paperH: docH }
+      )
+    } catch (err) {
+      console.error('DocumentViewer DOCX export failed:', err)
+      alert('Failed to download DOCX: ' + (err.message || err))
+    }
+  }
+
+  // Single download action: directly downloads file if uploaded submission, otherwise exports PDF
+  const handleDownloadDocument = async () => {
+    if (isDocxSubmission && report?.originalDocxUrl) {
+      downloadFileFromUrl(
+        report.originalDocxUrl,
+        report.originalDocxName || `${report.activityTitle || 'Report'}.${isPdfFile ? 'pdf' : 'docx'}`
+      )
+      return
+    }
+    await handleDownloadPDF()
   }
 
   // Auto-download for export-only hidden viewer
@@ -589,39 +684,69 @@ export default function DocumentViewer({
 
     // Uploaded DOCX / PDF Submission Export
     if (isDocxSubmission && report?.originalDocxUrl) {
+      if (isPdfFile) {
+        downloadFileFromUrl(
+          report.originalDocxUrl,
+          report.originalDocxName || `${report.activityTitle || 'Report'}.pdf`
+        )
+        if (typeof onExportFinished === 'function') onExportFinished()
+        return
+      }
+
       if (!docxLoading && docxContainerRef.current) {
         const timer = setTimeout(async () => {
           try {
-            await handleDownloadDocument()
+            if (exportFormat === 'docx') {
+              downloadFileFromUrl(
+                report.originalDocxUrl,
+                report.originalDocxName || `${report.activityTitle || 'Report'}.docx`
+              )
+            } else {
+              const reportFileName = (
+                report.originalDocxName?.replace(/\.docx$/i, '') ||
+                report.activityTitle ||
+                'CES_Report'
+              ).replace(/[^a-zA-Z0-9_-]+/g, '_')
+
+              await exportElementToPDF(docxContainerRef.current, reportFileName, {
+                isDocument: true
+              })
+            }
           } catch (err) {
-            console.error('Auto download failed:', err)
+            console.error('Failed to export DOCX, falling back to direct download:', err)
+            downloadFileFromUrl(
+              report.originalDocxUrl,
+              report.originalDocxName || `${report.activityTitle || 'Report'}.docx`
+            )
           } finally {
             if (typeof onExportFinished === 'function') {
               onExportFinished()
             }
           }
-        }, 600)
+        }, 800)
         return () => clearTimeout(timer)
       }
       return
     }
 
-    // Standard Tiptap Narrative Report Export
+    // Standard Tiptap Narrative Report Export (Built-in templates)
     if (editor && narrativeTotalPages > 0) {
       const timer = setTimeout(async () => {
         try {
-          await handleDownloadDocument()
-        } catch (err) {
-          console.error('Auto download failed:', err)
+          if (exportFormat === 'docx') {
+            await handleDownloadDOCX()
+          } else {
+            await handleDownloadPDF()
+          }
         } finally {
           if (typeof onExportFinished === 'function') {
             onExportFinished()
           }
         }
-      }, 1000)
+      }, 1200)
       return () => clearTimeout(timer)
     }
-  }, [isExportOnly, isDocxSubmission, isPdfFile, docxLoading, editor, narrativeTotalPages])
+  }, [isExportOnly, exportFormat, isDocxSubmission, isPdfFile, docxLoading, editor, narrativeTotalPages])
 
   // Native Printable Content using Electron print-document IPC
   const handlePrint = async () => {
@@ -765,29 +890,57 @@ export default function DocumentViewer({
             border-collapse: collapse !important;
             border-spacing: 0 !important;
             width: 100% !important;
-            margin: 6px 0 !important;
-            border: 1.5px solid #000000 !important;
-            border-top: 1.5px solid #000000 !important;
-            border-bottom: 1.5px solid #000000 !important;
-            border-left: 1.5px solid #000000 !important;
-            border-right: 1.5px solid #000000 !important;
+            margin: 8px 0;
+            table-layout: fixed;
+            border: 1.5px solid #000000;
             box-sizing: border-box !important;
           }
           .ProseMirror table th,
           .ProseMirror table td,
           table.movable-table th,
           table.movable-table td {
-            border: 1.5px solid #000000 !important;
-            border-top: 1.5px solid #000000 !important;
-            border-bottom: 1.5px solid #000000 !important;
-            border-left: 1.5px solid #000000 !important;
-            border-right: 1.5px solid #000000 !important;
+            border: 1.5px solid #000000;
             padding: 4px 8px;
-            font-size: 11px;
-            line-height: 1.35;
+            font-size: 12px;
             text-align: left;
             position: relative;
+            word-break: break-word;
+            overflow-wrap: break-word;
             box-sizing: border-box !important;
+          }
+          .ProseMirror table.compact-form-table {
+            margin: 1px 0 !important;
+          }
+          .ProseMirror table.compact-form-table th,
+          .ProseMirror table.compact-form-table td {
+            padding: 1px 5px !important;
+          }
+          .ProseMirror table.compact-form-table p {
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          .ProseMirror table.borderless,
+          .ProseMirror table.borderless th,
+          .ProseMirror table.borderless td,
+          .ProseMirror table[style*="border:none"],
+          .ProseMirror table[style*="border: none"],
+          .ProseMirror table[style*="border:none"] th,
+          .ProseMirror table[style*="border:none"] td,
+          .ProseMirror table[style*="border: none"] th,
+          .ProseMirror table[style*="border: none"] td,
+          .ProseMirror table th[style*="border:none"],
+          .ProseMirror table th[style*="border: none"],
+          .ProseMirror table td[style*="border:none"],
+          .ProseMirror table td[style*="border: none"] {
+            border: none !important;
+            background: transparent !important;
+          }
+          .ProseMirror th { background: #f3f4f6; font-weight: 600; }
+          .ProseMirror tr:nth-child(even) td { background: #fafafa; }
+          .ProseMirror table.borderless tr td,
+          .ProseMirror table[style*="border:none"] tr td,
+          .ProseMirror table[style*="border: none"] tr td {
+            background: transparent !important;
           }
           .ProseMirror table.movable-table th {
             background: #f3f4f6;
@@ -801,6 +954,44 @@ export default function DocumentViewer({
           .ProseMirror a { color: #2563eb; text-decoration: underline; }
           .ProseMirror sub { font-size: 0.75em; }
           .ProseMirror sup { font-size: 0.75em; }
+
+          /* ── High-Fidelity DOCX Preview Layout (Unpolluted by Tailwind) ── */
+          .docx-render-target {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+          }
+          .docx-render-target .docx-wrapper {
+            background: transparent !important;
+            padding: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            width: 100% !important;
+          }
+          .docx-render-target .docx-wrapper > section.docx,
+          .docx-render-target section.docx {
+            background: #ffffff !important;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12) !important;
+            margin-bottom: 28px !important;
+            position: relative !important;
+          }
+          .docx-render-target table {
+            border-collapse: collapse;
+            border-spacing: 0;
+          }
+          .docx-render-target img {
+            display: inline-block;
+            vertical-align: baseline;
+          }
+          .docx-render-target svg {
+            display: inline-block;
+            vertical-align: baseline;
+          }
+          .docx-render-target p {
+            min-height: 1em;
+          }
         `}</style>
 
         <div
@@ -843,28 +1034,36 @@ export default function DocumentViewer({
                     >
                       {showHeader && (
                         <div
-                          className="absolute left-0 right-0 z-50"
+                          className="absolute left-0 right-0 z-50 pointer-events-none select-none"
                           style={{
-                            top: '48px',
-                            paddingLeft: '96px',
-                            paddingRight: '96px',
+                            top: `${padTop}px`,
+                            paddingLeft: `${padLeft}px`,
+                            paddingRight: `${padRight}px`,
                             boxSizing: 'border-box'
                           }}
-                          dangerouslySetInnerHTML={{ __html: headerText }}
+                          dangerouslySetInnerHTML={{
+                            __html:
+                              resolveHeaderHtml(headerText, logo2Img, logo) ||
+                              '<div style="min-height: 20px;"></div>'
+                          }}
                         />
                       )}
 
                       {showFooter && (
                         <div
-                          className="absolute left-0 right-0 z-50"
+                          className="absolute left-0 right-0 z-50 pointer-events-none select-none"
                           style={{
                             bottom: '0px',
-                            paddingLeft: '96px',
-                            paddingRight: '96px',
+                            paddingLeft: `${padLeft}px`,
+                            paddingRight: `${padRight}px`,
                             paddingBottom: '24px',
                             boxSizing: 'border-box'
                           }}
-                          dangerouslySetInnerHTML={{ __html: footerText }}
+                          dangerouslySetInnerHTML={{
+                            __html:
+                              resolveHeaderHtml(footerText, logo2Img, logo) ||
+                              '<div style="min-height: 20px;"></div>'
+                          }}
                         />
                       )}
                     </div>
@@ -1116,7 +1315,7 @@ export default function DocumentViewer({
             <button
               onClick={handleDownloadDocument}
               className="p-2 bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 rounded-xl transition cursor-pointer flex items-center justify-center shadow-2xs hover:text-navy-blue"
-              title={isDocxSubmission ? (isPdfFile ? 'Download PDF Document' : 'Download DOCX Document') : 'Download Document'}
+              title={isDocxSubmission ? (isPdfFile ? 'Download PDF Document' : 'Download Original DOCX File') : 'Download Document'}
             >
               <Download className="w-4 h-4" />
             </button>
@@ -1196,9 +1395,8 @@ export default function DocumentViewer({
                       <div className="w-full h-1 bg-gray-200 rounded-full mb-1"></div>
                       <div className="w-5/6 h-1 bg-gray-200 rounded-full mb-1"></div>
                       <div className="w-4/5 h-1 bg-gray-200 rounded-full mb-1"></div>
-                      <p className="mt-1 line-clamp-6 opacity-60 scale-75 origin-top-left font-semibold text-gray-650">
-                        {page.content.replace(/<[^>]*>/g, '')}
-                      </p>
+                      <div className="w-full h-1 bg-gray-100 rounded-full mb-1"></div>
+                      <div className="w-2/3 h-1 bg-gray-100 rounded-full mb-1"></div>
                     </div>
                   ) : (
                     <div className="h-full flex flex-col justify-between">
@@ -1274,9 +1472,6 @@ export default function DocumentViewer({
                 pointer-events: none;
                 user-select: none;
               }
-              .page-break {
-                display: none !important;
-              }
               .ProseMirror p,
               .ProseMirror h1,
               .ProseMirror h2,
@@ -1315,28 +1510,57 @@ export default function DocumentViewer({
                 border-collapse: collapse !important;
                 border-spacing: 0 !important;
                 width: 100% !important;
-                margin: 12px 0;
-                border: 1.5px solid #000000 !important;
-                border-top: 1.5px solid #000000 !important;
-                border-bottom: 1.5px solid #000000 !important;
-                border-left: 1.5px solid #000000 !important;
-                border-right: 1.5px solid #000000 !important;
+                margin: 8px 0;
+                table-layout: fixed;
+                border: 1.5px solid #000000;
                 box-sizing: border-box !important;
               }
               .ProseMirror table th,
               .ProseMirror table td,
               table.movable-table th,
               table.movable-table td {
-                border: 1.5px solid #000000 !important;
-                border-top: 1.5px solid #000000 !important;
-                border-bottom: 1.5px solid #000000 !important;
-                border-left: 1.5px solid #000000 !important;
-                border-right: 1.5px solid #000000 !important;
-                padding: 6px 10px;
+                border: 1.5px solid #000000;
+                padding: 4px 8px;
                 font-size: 12px;
                 text-align: left;
                 position: relative;
+                word-break: break-word;
+                overflow-wrap: break-word;
                 box-sizing: border-box !important;
+              }
+              .ProseMirror table.compact-form-table {
+                margin: 1px 0 !important;
+              }
+              .ProseMirror table.compact-form-table th,
+              .ProseMirror table.compact-form-table td {
+                padding: 1px 5px !important;
+              }
+              .ProseMirror table.compact-form-table p {
+                margin: 0 !important;
+                padding: 0 !important;
+              }
+              .ProseMirror table.borderless,
+              .ProseMirror table.borderless th,
+              .ProseMirror table.borderless td,
+              .ProseMirror table[style*="border:none"],
+              .ProseMirror table[style*="border: none"],
+              .ProseMirror table[style*="border:none"] th,
+              .ProseMirror table[style*="border:none"] td,
+              .ProseMirror table[style*="border: none"] th,
+              .ProseMirror table[style*="border: none"] td,
+              .ProseMirror table th[style*="border:none"],
+              .ProseMirror table th[style*="border: none"],
+              .ProseMirror table td[style*="border:none"],
+              .ProseMirror table td[style*="border: none"] {
+                border: none !important;
+                background: transparent !important;
+              }
+              .ProseMirror th { background: #f3f4f6; font-weight: 600; }
+              .ProseMirror tr:nth-child(even) td { background: #fafafa; }
+              .ProseMirror table.borderless tr td,
+              .ProseMirror table[style*="border:none"] tr td,
+              .ProseMirror table[style*="border: none"] tr td {
+                background: transparent !important;
               }
               .ProseMirror table.movable-table th {
                 background: #f3f4f6;
@@ -1351,7 +1575,7 @@ export default function DocumentViewer({
               .ProseMirror sub { font-size: 0.75em; }
               .ProseMirror sup { font-size: 0.75em; }
 
-              /* Live DOCX Preview Styles */
+              /* Live DOCX / PDF Preview Styles */
               .docx-render-target .docx-wrapper {
                 background: transparent !important;
                 padding: 0 !important;
@@ -1368,6 +1592,18 @@ export default function DocumentViewer({
                 margin: 0 auto 28px auto !important;
                 box-sizing: border-box !important;
               }
+              .docx-render-target section.pdf-page-section {
+                padding: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                overflow: hidden !important;
+              }
+              .docx-render-target section.pdf-page-section canvas {
+                width: 100% !important;
+                height: auto !important;
+                display: block !important;
+              }
               .docx-render-target table {
                 border-collapse: collapse !important;
               }
@@ -1382,9 +1618,6 @@ export default function DocumentViewer({
                     <h4 className="text-sm font-bold text-navy-blue">
                       Loading and rendering submitted document...
                     </h4>
-                    <p className="text-xs text-gray-400">
-                      Rendering original {isPdfFile ? 'PDF' : 'Word'} document pages with exact formatting, layout, and images
-                    </p>
                   </div>
                 )}
 
@@ -1471,29 +1704,37 @@ export default function DocumentViewer({
                           {/* Page Header */}
                           {showHeader && (
                             <div
-                              className="absolute left-0 right-0 z-50"
+                              className="absolute left-0 right-0 z-50 pointer-events-none select-none"
                               style={{
-                                top: '48px',
-                                paddingLeft: '96px',
-                                paddingRight: '96px',
+                                top: `${padTop}px`,
+                                paddingLeft: `${padLeft}px`,
+                                paddingRight: `${padRight}px`,
                                 boxSizing: 'border-box'
                               }}
-                              dangerouslySetInnerHTML={{ __html: headerText }}
+                              dangerouslySetInnerHTML={{
+                                __html:
+                                  resolveHeaderHtml(headerText, logo2Img, logo) ||
+                                  '<div style="min-height: 20px;"></div>'
+                              }}
                             />
                           )}
 
                           {/* Page Footer */}
                           {showFooter && (
                             <div
-                              className="absolute left-0 right-0 z-50"
+                              className="absolute left-0 right-0 z-50 pointer-events-none select-none"
                               style={{
                                 bottom: '0px',
-                                paddingLeft: '96px',
-                                paddingRight: '96px',
+                                paddingLeft: `${padLeft}px`,
+                                paddingRight: `${padRight}px`,
                                 paddingBottom: '24px',
                                 boxSizing: 'border-box'
                               }}
-                              dangerouslySetInnerHTML={{ __html: footerText }}
+                              dangerouslySetInnerHTML={{
+                                __html:
+                                  resolveHeaderHtml(footerText, logo2Img, logo) ||
+                                  '<div style="min-height: 20px;"></div>'
+                              }}
                             />
                           )}
                         </div>
@@ -1617,7 +1858,7 @@ export default function DocumentViewer({
           </main>
 
           {/* Assessment & Actions Sidebar */}
-          <aside className="w-80 bg-white border-l border-gray-200 p-6 overflow-y-auto shrink-0 flex flex-col justify-between">
+          <aside className="w-80 bg-white border-l border-gray-200 p-6 overflow-y-auto shrink-0 flex flex-col justify-between select-none">
             <div className="space-y-5">
               <div>
                 <span className="text-[10px] text-sig-green font-bold uppercase tracking-wider">
@@ -1628,37 +1869,6 @@ export default function DocumentViewer({
 
               {/* Quick Details Cards */}
               <div className="space-y-3">
-                {report?.originalDocxUrl && (
-                  <div className={`flex items-start space-x-3 p-3 rounded-2xl ${isPdfFile ? 'bg-red-50/70 border border-red-100' : 'bg-blue-50/70 border border-blue-100'}`}>
-                    <FileText className={`w-4 h-4 shrink-0 mt-0.5 ${isPdfFile ? 'text-red-600' : 'text-blue-600'}`} />
-                    <div className="text-left min-w-0 flex-1">
-                      <span className={`text-[9px] block font-bold uppercase tracking-wider ${isPdfFile ? 'text-red-500' : 'text-blue-500'}`}>
-                        {isPdfFile ? 'Original PDF Upload' : 'Original DOCX Upload'}
-                      </span>
-                      <span className="text-[11px] font-bold text-navy-blue block truncate mt-0.5" title={report.originalDocxName}>
-                        {report.originalDocxName || (isPdfFile ? 'document.pdf' : 'document.docx')}
-                      </span>
-                      {report.comment && (
-                        <p className={`text-[10px] text-gray-600 bg-white/80 p-1.5 rounded-lg mt-1.5 border italic leading-snug ${isPdfFile ? 'border-red-100/60' : 'border-blue-100/60'}`}>
-                          &ldquo;{report.comment}&rdquo;
-                        </p>
-                      )}
-                      <button
-                        onClick={() =>
-                          downloadFileFromUrl(
-                            report.originalDocxUrl,
-                            report.originalDocxName || `${report.activityTitle || 'Report'}.${isPdfFile ? 'pdf' : 'docx'}`
-                          )
-                        }
-                        className={`mt-2 text-[10px] font-bold text-white px-3 py-1 rounded-full flex items-center gap-1 shadow-2xs cursor-pointer transition-all ${isPdfFile ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
-                      >
-                        <Download className="w-3 h-3" />
-                        <span>Download Original</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-
                 <div className="flex items-start space-x-3 p-3 rounded-2xl bg-gray-50 border border-gray-100/50">
                   <User className="w-4 h-4 text-navy-blue shrink-0 mt-0.5" />
                   <div className="text-left">
@@ -1705,24 +1915,24 @@ export default function DocumentViewer({
                         Feedback/Revision Instructions <span className="text-red-500">*</span>
                       </label>
                       <textarea
-                        value={internalFeedbackNote}
-                        onChange={handleFeedbackChange}
+                        value={feedbackNote}
+                        onChange={(e) => setFeedbackNote(e.target.value)}
                         placeholder="Specify required corrections clearly. Needed if returning for revision..."
-                        className="w-full p-3 text-xs bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-medium text-navy-blue placeholder-gray-400 select-text cursor-text relative z-10"
+                        className="w-full p-3 text-xs bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-medium text-navy-blue placeholder-gray-400"
                         rows="3"
                       ></textarea>
                     </div>
 
                     <div className="flex flex-col space-y-2">
                       <button
-                        onClick={() => handleReviewReport('returned', internalFeedbackNote)}
+                        onClick={() => handleReviewReport('returned')}
                         disabled={loading}
                         className="w-full bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-full font-bold text-xs py-2.5 transition duration-200 cursor-pointer text-center disabled:opacity-50"
                       >
                         {loading ? 'Processing...' : 'Return with Feedback'}
                       </button>
                       <button
-                        onClick={() => handleReviewReport('approved', internalFeedbackNote)}
+                        onClick={() => handleReviewReport('approved')}
                         disabled={loading}
                         className="w-full bg-navy-blue text-white rounded-full font-bold text-xs py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition duration-200 cursor-pointer text-center disabled:opacity-50"
                       >

@@ -61,7 +61,7 @@ export default function DocumentCanvas({
   const padBottom = margins.bottom
   const padLeft = margins.left
   const padRight = margins.right
-  const padTopActual = showHeader && isTemplateActive ? 170 : padTop
+  const padTopActual = showHeader && isTemplateActive ? (marginKey === 'Narrow' ? 142 : 220) : padTop
   const gapH = 36 // Constant page gap height (matching visual page breaks)
 
   // Strictly bound layout height by physical pages count
@@ -300,9 +300,9 @@ export default function DocumentCanvas({
                           <div
                             className="absolute left-0 right-0 z-50 pointer-events-none select-none"
                             style={{
-                              top: '48px',
-                              paddingLeft: 96,
-                              paddingRight: 96,
+                              top: `${padTop}px`,
+                              paddingLeft: padLeft,
+                              paddingRight: padRight,
                               boxSizing: 'border-box'
                             }}
                           >
@@ -322,8 +322,8 @@ export default function DocumentCanvas({
                             className="absolute left-0 right-0 z-50 pointer-events-none select-none"
                             style={{
                               bottom: '0px',
-                              paddingLeft: 96,
-                              paddingRight: 96,
+                              paddingLeft: padLeft,
+                              paddingRight: padRight,
                               paddingBottom: '24px',
                               boxSizing: 'border-box'
                             }}
@@ -567,25 +567,17 @@ export default function DocumentCanvas({
                     border-collapse: collapse !important;
                     border-spacing: 0 !important;
                     width: 100% !important;
-                    margin: 12px 0;
+                    margin: 8px 0;
                     table-layout: fixed;
-                    border: 1.5px solid #000000 !important;
-                    border-top: 1.5px solid #000000 !important;
-                    border-bottom: 1.5px solid #000000 !important;
-                    border-left: 1.5px solid #000000 !important;
-                    border-right: 1.5px solid #000000 !important;
+                    border: 1.5px solid #000000;
                     box-sizing: border-box !important;
                   }
                   .ProseMirror table th,
                   .ProseMirror table td,
                   table.movable-table th,
                   table.movable-table td {
-                    border: 1.5px solid #000000 !important;
-                    border-top: 1.5px solid #000000 !important;
-                    border-bottom: 1.5px solid #000000 !important;
-                    border-left: 1.5px solid #000000 !important;
-                    border-right: 1.5px solid #000000 !important;
-                    padding: 6px 10px;
+                    border: 1.5px solid #000000;
+                    padding: 4px 8px;
                     font-size: 12px;
                     text-align: left;
                     position: relative;
@@ -593,8 +585,40 @@ export default function DocumentCanvas({
                     overflow-wrap: break-word;
                     box-sizing: border-box !important;
                   }
+                  .ProseMirror table.compact-form-table {
+                    margin: 1px 0 !important;
+                  }
+                  .ProseMirror table.compact-form-table th,
+                  .ProseMirror table.compact-form-table td {
+                    padding: 1px 5px !important;
+                  }
+                  .ProseMirror table.compact-form-table p {
+                    margin: 0 !important;
+                    padding: 0 !important;
+                  }
+                  .ProseMirror table.borderless,
+                  .ProseMirror table.borderless th,
+                  .ProseMirror table.borderless td,
+                  .ProseMirror table[style*="border:none"],
+                  .ProseMirror table[style*="border: none"],
+                  .ProseMirror table[style*="border:none"] th,
+                  .ProseMirror table[style*="border:none"] td,
+                  .ProseMirror table[style*="border: none"] th,
+                  .ProseMirror table[style*="border: none"] td,
+                  .ProseMirror table th[style*="border:none"],
+                  .ProseMirror table th[style*="border: none"],
+                  .ProseMirror table td[style*="border:none"],
+                  .ProseMirror table td[style*="border: none"] {
+                    border: none !important;
+                    background: transparent !important;
+                  }
                   .ProseMirror th { background: #f3f4f6; font-weight: 600; }
                   .ProseMirror tr:nth-child(even) td { background: #fafafa; }
+                  .ProseMirror table.borderless tr td,
+                  .ProseMirror table[style*="border:none"] tr td,
+                  .ProseMirror table[style*="border: none"] tr td {
+                    background: transparent !important;
+                  }
                   .ProseMirror .selectedCell { background: #d4e4ff !important; }
                   .ProseMirror .column-resize-handle {
                     position: absolute; right: -2px; top: 0; bottom: 0;

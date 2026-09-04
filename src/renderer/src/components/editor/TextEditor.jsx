@@ -826,6 +826,201 @@
 //         show={showTemplatesModal}
 //         onClose={() => setShowTemplatesModal(false)}
 //         templates={customTemplates}
+//   return (
+//     <RichTextProvider editor={editor}>
+//       <div className="flex flex-col h-full overflow-hidden">
+//
+//       {/* ── Title Bar ── */}
+//       <div className="bg-navy-blue text-white flex items-center justify-between px-4 py-1.5 shrink-0">
+//         <div className="flex items-center gap-2.5">
+//           <div className="bg-white text-navy-blue rounded w-5 h-5 flex items-center justify-center font-bold text-xs shadow-sm">W</div>
+//           <span className="text-xs font-semibold text-gray-100 truncate max-w-xs">
+//             {docTitle} – DommUnity Word
+//           </span>
+//           {workspaceIsReadOnly && (
+//             <span className="text-[9px] bg-green-600 text-white px-2 py-0.5 rounded-full font-bold">Read-Only</span>
+//           )}
+//         </div>
+//         <div className="flex items-center gap-3 text-[10px] text-gray-300">
+//           {saveStatus === 'saving' && <span className="flex items-center gap-1"><RefreshCw className="w-3 h-3 animate-spin" />Saving…</span>}
+//           {saveStatus === 'saved' && <span className="flex items-center gap-1 text-green-400"><Check className="w-3 h-3" />Saved</span>}
+//           {saveStatus === 'error' && <span className="text-red-400">Save failed</span>}
+//           {autoSave && <span className="text-sig-green font-semibold">AutoSave ON</span>}
+//         </div>
+//       </div>
+//
+//       {/* ── Ribbon Tab Switcher ── */}
+//       <div className="bg-gray-50 border-b border-gray-200 flex items-center px-2 shrink-0">
+//         {/* File menu */}
+//         <div className="relative" ref={fileMenuRef}>
+//           <button
+//             onClick={() => setShowFileMenu(!showFileMenu)}
+//             className="px-3 py-1.5 text-xs font-bold bg-navy-blue text-white rounded-sm mr-1 hover:bg-navy-blue/90 transition cursor-pointer"
+//           >
+//             File
+//           </button>
+//           <DropdownWrapper open={showFileMenu} onClose={() => setShowFileMenu(false)} triggerRef={fileMenuRef} width={240}>
+//             <div className="py-1 w-56">
+//               {fileMenuItems.map((item, i) => {
+//                 if (!item) return <div key={i} className="my-1 border-t border-gray-100" />;
+//                 return (
+//                   <button
+//                     key={item.l}
+//                     onClick={() => { item.fn(); setShowFileMenu(false); }}
+//                     className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2.5 hover:bg-blue-50 cursor-pointer transition ${item.active ? 'text-blue-600 font-bold' : ''}`}
+//                   >
+//                     <item.icon className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+//                     <span>{item.l}</span>
+//                   </button>
+//                 );
+//               })}
+//             </div>
+//           </DropdownWrapper>
+//         </div>
+//
+//         {/* Ribbon tabs */}
+//         {['Home', 'Insert', 'Layout', 'Review', 'View'].map(tab => (
+//           <button
+//             key={tab}
+//             onClick={() => setActiveRibbonTab(tab)}
+//             className={`px-3 py-1.5 text-xs font-semibold transition cursor-pointer rounded-sm
+//               ${activeRibbonTab === tab
+//                 ? 'bg-white text-navy-blue border-b-2 border-blue-600 shadow-sm'
+//                 : 'text-gray-500 hover:bg-gray-200 hover:text-gray-700'}`}
+//           >
+//             {tab}
+//           </button>
+//         ))}
+//       </div>
+//
+//       {/* ── Ribbon Toolbar Content ── */}
+//       <div className="bg-white border-b border-gray-200 px-3 py-2 shrink-0 overflow-visible z-30">
+//         {activeRibbonTab === 'Home' && (
+//           <RibbonHome editor={activeEditor} lineSpacing={lineSpacing} setLineSpacing={setLineSpacing} onOpenFindReplace={() => setShowFindReplace(true)} />
+//         )}
+//         {activeRibbonTab === 'Insert' && (
+//           <RibbonInsert
+//             editor={activeEditor} imageInputRef={imageInputRef}
+//             showHeader={showHeader} setShowHeader={setShowHeader}
+//             showFooter={showFooter} setShowFooter={setShowFooter}
+//             onOpenComments={() => { setShowComments(true); setActiveRibbonTab('Review'); }}
+//           />
+//         )}
+//         {activeRibbonTab === 'Layout' && (
+//           <RibbonLayout
+//             editor={activeEditor}
+//             marginKey={marginKey} setMarginKey={setMarginKey}
+//             orientation={orientation} setOrientation={setOrientation}
+//             paperKey={paperKey} setPaperKey={setPaperKey}
+//             columns={columns} setColumns={setColumns}
+//             showLineNumbers={showLineNumbers} setShowLineNumbers={setShowLineNumbers}
+//             onOpenDocProps={() => setShowDocProps(true)}
+//           />
+//         )}
+//         {activeRibbonTab === 'Review' && (
+//           <RibbonReview
+//             editor={activeEditor}
+//             showComments={showComments} setShowComments={setShowComments}
+//             trackChanges={trackChanges} setTrackChanges={setTrackChanges}
+//             onOpenWordCount={() => setShowWordCount(true)}
+//             workspaceFeedback={workspaceFeedback}
+//           />
+//         )}
+//         {activeRibbonTab === 'View' && (
+//           <RibbonView
+//             zoom={zoom} setZoom={setZoom}
+//             readingMode={readingMode} setReadingMode={setReadingMode}
+//             showRuler={showRuler} setShowRuler={setShowRuler}
+//             showGridlines={showGridlines} setShowGridlines={setShowGridlines}
+//             showNavPane={showNavPane} setShowNavPane={setShowNavPane}
+//           />
+//         )}
+//       </div>
+//
+//       {/* ── Editor Body ── */}
+//       <div className="flex flex-1 overflow-hidden">
+//         <NavigationPane show={showNavPane} editor={activeEditor} />
+//         <CommentsPanel
+//           show={showComments} onClose={() => setShowComments(false)}
+//           comments={comments} setComments={setComments}
+//           commentInput={commentInput} setCommentInput={setCommentInput}
+//           onAddComment={handleAddComment}
+//         />
+//         <DocumentCanvas
+//           editor={editor} canvasRef={canvasRef}
+//           paperKey={paperKey} orientation={orientation} marginKey={marginKey}
+//           zoom={zoom} lineSpacing={lineSpacing} columns={columns}
+//           showRuler={showRuler} showGridlines={showGridlines} showLineNumbers={showLineNumbers}
+//           showHeader={showHeader} headerText={headerText} setHeaderText={setHeaderText}
+//           showFooter={showFooter} footerText={footerText} setFooterText={setFooterText}
+//           workspaceIsReadOnly={workspaceIsReadOnly} trackChanges={trackChanges}
+//           totalPages={totalPages}
+//           hasBeenEdited={hasBeenEdited}
+//           activeEditingArea={activeEditingArea}
+//           setActiveEditingArea={setActiveEditingArea}
+//           headerEditor={headerEditor}
+//           footerEditor={footerEditor}
+//           docxBuffer={docxBuffer}
+//           setDocxBuffer={setDocxBuffer}
+//           setTotalPages={setTotalPages}
+//           setCurrentPage={setCurrentPage}
+//           setWordCount={setWordCount}
+//           setCharCount={setCharCount}
+//         />
+//       </div>
+//
+//       {/* ── Floating Toolbar ── */}
+//       <FloatingToolbar editor={activeEditor} />
+//
+//       {/* ── Status Bar ── */}
+//       <StatusBar
+//         wordCount={wordCount} charCount={charCount}
+//         paperKey={paperKey} orientation={orientation} marginKey={marginKey}
+//         zoom={zoom} setZoom={setZoom}
+//         loading={loading} workspaceIsReadOnly={workspaceIsReadOnly}
+//         onSaveDraft={() => handleSave('draft')}
+//         onSubmit={() => handleSave('submitted')}
+//         currentPage={currentPage}
+//         totalPages={totalPages}
+//       />
+//
+//       {/* ── Dialogs ── */}
+//       <FindReplaceDialog
+//         show={showFindReplace} onClose={() => setShowFindReplace(false)}
+//         findText={findText} setFindText={setFindText}
+//         replaceText={replaceText} setReplaceText={setReplaceText}
+//         onFind={() => doFind(editor, findText)}
+//         onReplaceAll={() => doReplaceAll(editor, findText, replaceText)}
+//       />
+//       <WordCountDialog
+//         show={showWordCount} onClose={() => setShowWordCount(false)}
+//         wordCount={wordCount} charCount={charCount} editor={editor}
+//       />
+//       <OpenReportDialog
+//         show={showOpenModal} onClose={() => setShowOpenModal(false)}
+//         reports={myReports} eventsList={eventsList}
+//         onOpen={handleOpenReport} StatusBadge={StatusBadge}
+//       />
+//       <DocPropertiesDialog
+//         show={showDocProps} onClose={() => setShowDocProps(false)}
+//         workspaceReportAY={workspaceReportAY} setWorkspaceReportAY={setWorkspaceReportAY}
+//         workspaceReportSem={workspaceReportSem} setWorkspaceReportSem={setWorkspaceReportSem}
+//         workspaceReportType={workspaceReportType} setWorkspaceReportType={setWorkspaceReportType}
+//         workspaceReportOrgId={workspaceReportOrgId} setWorkspaceReportOrgId={setWorkspaceReportOrgId}
+//         workspaceReportBenef={workspaceReportBenef} setWorkspaceReportBenef={setWorkspaceReportBenef}
+//         workspaceReportEventId={workspaceReportEventId} setWorkspaceReportEventId={setWorkspaceReportEventId}
+//         workspaceReportTitle={workspaceReportTitle} setWorkspaceReportTitle={setWorkspaceReportTitle}
+//         workspaceReportDate={workspaceReportDate} setWorkspaceReportDate={setWorkspaceReportDate}
+//         workspaceReportLocation={workspaceReportLocation} setWorkspaceReportLocation={setWorkspaceReportLocation}
+//         workspaceIsReadOnly={workspaceIsReadOnly}
+//         workspaceFeedback={workspaceFeedback}
+//         linkToEvent={linkToEvent} setLinkToEvent={setLinkToEvent}
+//         orgsList={orgsList} eventsList={eventsList}
+//       />
+//       <TemplatesDialog
+//         show={showTemplatesModal}
+//         onClose={() => setShowTemplatesModal(false)}
+//         templates={customTemplates}
 //         onSelectTemplate={handleSelectTemplate}
 //         onDeleteTemplate={handleDeleteTemplate}
 //         onRenameTemplate={handleRenameTemplate}
@@ -847,9 +1042,6 @@
 // }
 //
 // ─────────────────────────────────────────────────────────────────────────────
-// ── NEW IMPLEMENTATION: RICH GOOGLE DOCS STYLE EDITOR ──────────────────────────
-// ─────────────────────────────────────────────────────────────────────────────
-
 // ── NEW IMPLEMENTATION: RICH GOOGLE DOCS STYLE EDITOR ──────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -895,6 +1087,8 @@ import {
   Check,
   X,
   ChevronDown,
+  ChevronLeft,
+  AlertTriangle,
   ZoomIn,
   ZoomOut
 } from 'lucide-react'
@@ -972,7 +1166,10 @@ export default function TextEditor({
   onOpenReport,
   onLoadData,
   setActiveTab,
-  StatusBadge
+  editorOrigin,
+  onBack,
+  StatusBadge,
+  workspaceReportStatus
 }) {
   const [customTemplates, setCustomTemplates] = useState([])
   const [defaultTemplateId, setDefaultTemplateId] = useState(null)
@@ -997,6 +1194,9 @@ export default function TextEditor({
   const [paperKey, setPaperKey] = useState('Letter')
   const [orientation, setOrientation] = useState('portrait')
   const [marginKey, setMarginKey] = useState('Normal')
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false)
+  const [openedFromTemplate, setOpenedFromTemplate] = useState(false)
 
   const fileMenuRef = useRef(null)
   const templatesMenuRef = useRef(null)
@@ -1005,6 +1205,7 @@ export default function TextEditor({
   const templateInputRef = useRef(null)
   const canvasRef = useRef(null)
   const autoSaveTimer = useRef(null)
+  const lastSavedContentRef = useRef(null)
   const lastLoadedReportIdRef = useRef(null)
 
   const zoomRef = useRef(zoom)
@@ -1059,9 +1260,13 @@ export default function TextEditor({
     },
     onUpdate: ({ editor: ed }) => {
       const txt = ed.getText()
+      const html = ed.getHTML()
       const words = txt.trim() ? txt.trim().split(/\s+/).length : 0
       setWordCount(words)
       setCharCount(txt.length)
+      if (lastSavedContentRef.current !== null && lastSavedContentRef.current !== html) {
+        setHasUnsavedChanges(true)
+      }
     }
   })
 
@@ -1107,6 +1312,7 @@ export default function TextEditor({
     onUpdate: ({ editor: ed }) => {
       if (ed.isFocused) {
         setHeaderText(ed.getHTML())
+        setHasUnsavedChanges(true)
       }
     }
   })
@@ -1152,6 +1358,7 @@ export default function TextEditor({
     onUpdate: ({ editor: ed }) => {
       if (ed.isFocused) {
         setFooterText(ed.getHTML())
+        setHasUnsavedChanges(true)
       }
     }
   })
@@ -1256,6 +1463,9 @@ export default function TextEditor({
       setActiveTemplateId(null)
       setDocxBuffer(null)
       setActiveEditingArea('body')
+      lastSavedContentRef.current = '<p></p>'
+      setHasUnsavedChanges(false)
+      setOpenedFromTemplate(false)
       if (editor) {
         editor.setEditable(true)
         loadInitialContentAndResetHistory(editor, '<p></p>')
@@ -1299,46 +1509,41 @@ export default function TextEditor({
         'Official multi-page narrative report template with Dominican College of Tarlac styling',
       paperKey: 'Folio',
       orientation: 'portrait',
-      marginKey: 'Narrative',
+      marginKey: 'Normal',
       showHeader: true,
       showFooter: true,
-      headerText: `<table style="width:100%;border-collapse:collapse;border:none;margin:0;padding:0;font-family:'Times New Roman',serif;table-layout:fixed;"><tbody><tr><td style="width:0.85in;vertical-align:middle;border:none;padding:0;text-align:left;"><img src="${logo2Img}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:1.1in;vertical-align:middle;border:none;padding:0 0.15in 0 0.1in;text-align:left;"><img src="${logoImg}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:4.55in;text-align:left;vertical-align:middle;border:none;border-left:2px solid #555;padding:0 0 0 0.15in;line-height:1.25;"><div style="font-family:'Book Antiqua','Palatino',serif;font-size:14pt;font-weight:bold;color:#000;margin:0 0 1px 0;">DOMINICAN COLLEGE OF TARLAC, INC.</div><div style="font-family:'Times New Roman',serif;font-size:12pt;color:#000;margin:0 0 2px 0;">COMMUNITY EXTENSION SERVICES</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">McArthur Highway, Poblacion (Sto. Rosario), Capas, 2315 Tarlac, Philippines</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">Institutional Contact No.: +63938-918-4093</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0;white-space:nowrap;">Website: dct.edu.ph | E-mail: <span style="color:#030e69;text-decoration:underline;">domct_2315@yahoo.com.ph / domct_2315@dct.edu.ph</span></div></td></tr></tbody></table><hr style="border:none;border-top:3px solid #000;margin:8px 0 0 0;width:110%;" />`,
-      footerText: `<hr style="border:none;border-top:3px solid #000;margin:0 0 8px 0;width:100%;" /><div style="text-align:center;font-family:'Times New Roman',serif;line-height:1.25;color:#000;"><div style="font-size:12pt;font-weight:bold;margin:0 0 2px 0;">FIDES. PATRIA. SAPIENTIA.</div><div style="font-size:10pt;font-style:italic;margin:0 0 2px 0;">A God-loving educational community with passion for truth and compassion for humanity.</div><div style="font-size:10pt;margin:0;">Department/Office Facebook Page: www.facebook.com/dctces</div></div>`,
+      headerText: `<table style="width:100%;border-collapse:collapse;border:none;margin:0;padding:0;font-family:'Times New Roman',Times,serif;table-layout:fixed;"><tbody><tr><td style="width:0.85in;vertical-align:middle;border:none;padding:0;text-align:left;"><img src="${logo2Img}" style="height:0.82in;width:0.82in;object-fit:contain;display:block;" /></td><td style="width:0.95in;vertical-align:middle;border:none;padding:0 0.08in 0 0.04in;text-align:left;"><img src="${logoImg}" style="height:0.82in;width:0.82in;object-fit:contain;display:block;" /></td><td style="width:auto;text-align:left;vertical-align:middle;border:none;border-left:1.5px solid #777777;padding:0 0 0 0.12in;line-height:1.2;"><div style="font-family:'Times New Roman',Times,serif;font-variant:small-caps;font-size:14pt;font-weight:bold;color:#262626;letter-spacing:0.3px;margin:0 0 1px 0;">Dominican College Of Tarlac, Inc.</div><div style="font-family:'Times New Roman',Times,serif;font-size:10.5pt;font-weight:normal;color:#404040;letter-spacing:0.5px;margin:0 0 2px 0;">COMMUNITY EXTENSION SERVICES</div><div style="font-family:'Times New Roman',Times,serif;font-size:9pt;color:#404040;margin:0 0 1px 0;line-height:1.2;">McArthur Highway, Poblacion (Sto. Rosario), Capas, 2315 Tarlac, Philippines</div><div style="font-family:'Times New Roman',serif;font-size:9pt;color:#404040;margin:0 0 1px 0;line-height:1.2;">Institutional Contact No.: +63938-918-4093</div><div style="font-family:'Times New Roman',serif;font-size:9pt;color:#404040;margin:0;line-height:1.2;white-space:nowrap;">Website: dct.edu.ph | E-mail: <span style="color:#0563c1;text-decoration:underline;">domct_2315@yahoo.com.ph / domct_2315@dct.edu.ph</span></div></td></tr></tbody></table><hr style="border:none;border-top:2.5px solid #8e9092;margin:6px 0 0 0;width:100%;" />`,
+      footerText: `<hr style="border:none;border-top:2.5px solid #8e9092;margin:0 0 6px 0;width:100%;" /><div style="text-align:center;font-family:'Times New Roman',Times,serif;line-height:1.25;color:#404040;"><div style="font-size:10.5pt;font-weight:bold;margin:0 0 2px 0;letter-spacing:0.5px;">FIDES. PATRIA. SAPIENTIA</div><div style="font-size:9pt;font-style:italic;margin:0 0 2px 0;color:#555;">A God-loving educational community with passion for truth and compassion for humanity.</div><div style="font-size:9pt;margin:0;color:#555;">Department/Office Facebook Page: www.facebook.com/dctces</div></div>`,
       html: `<p style="text-align: left;"><br></p>
 <p style="text-align: left;"><br></p>
 <p style="text-align: left;"><br></p>
+<p style="text-align: center;"><span style="font-size: 26pt; font-weight: bold; color: #002060; font-family: 'Times New Roman', Times, serif; letter-spacing: 0.5px;">NARRATIVE REPORT</span></p>
 <p style="text-align: left;"><br></p>
-<p style="text-align: center;"><span style="font-size: 28pt; font-weight: bold; color: #030e69; font-family: 'Times New Roman', serif;">NARRATIVE REPORT</span></p>
 <p style="text-align: left;"><br></p>
-<p style="text-align: left;"><br></p>
-<p style="text-align: center;"><span style="font-size: 20pt; font-weight: bold; font-family: 'Times New Roman', serif;">(PROGRAM)</span></p>
-<p style="text-align: center;"><span style="font-size: 20pt; font-weight: bold; font-family: 'Times New Roman', serif;">(VENUE)</span></p>
-<p style="text-align: center;"><span style="font-size: 20pt; font-weight: bold; font-family: 'Times New Roman', serif;">(DATE)</span></p>
-<p style="text-align: left;"><br></p>
+<p style="text-align: center;"><span style="font-size: 16pt; font-weight: bold; color: #000000; font-family: 'Times New Roman', Times, serif;">(PROGRAM)</span></p>
+<p style="text-align: center;"><span style="font-size: 16pt; font-weight: bold; color: #000000; font-family: 'Times New Roman', Times, serif;">(VENUE)</span></p>
+<p style="text-align: center;"><span style="font-size: 16pt; font-weight: bold; color: #000000; font-family: 'Times New Roman', Times, serif;">(DATE)</span></p>
 <p style="text-align: left;"><br></p>
 <p style="text-align: left;"><br></p>
 <p style="text-align: left;"><br></p>
 <p style="text-align: left;"><br></p>
-<p style="text-align: left;"><br></p>
-<p style="text-align: left;"><br></p>
-<p style="text-align: left;"><br></p>
-<table style="width:100%;table-layout:fixed;border-collapse:collapse;border:1.5px solid #000;font-family:'Times New Roman',serif;background-color:#ffffff !important;">
+<table style="width:100%;table-layout:fixed;border-collapse:collapse;border:1.5px solid #000000;font-family:'Times New Roman',Times,serif;background-color:#ffffff !important;">
   <tbody>
     <tr>
-      <td style="width:35%;font-weight:bold;border:1.5px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p>Program:</p></td>
-      <td style="width:65%;border:1.5px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p></p></td>
+      <td style="width:38%;font-weight:bold;border:1.5px solid #000000;padding:6px 10px;font-size:12pt;font-family:'Times New Roman',Times,serif;vertical-align:middle;background-color:#ffffff !important;color:#000000;"><p>Program:</p></td>
+      <td style="width:62%;border:1.5px solid #000000;padding:6px 10px;font-size:12pt;font-family:'Times New Roman',Times,serif;vertical-align:middle;background-color:#ffffff !important;color:#000000;"><p></p></td>
     </tr>
     <tr>
-      <td style="width:35%;font-weight:bold;border:1.5px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p>Volunteer/s:</p></td>
-      <td style="width:65%;border:1.5px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p></p></td>
+      <td style="width:38%;font-weight:bold;border:1.5px solid #000000;padding:6px 10px;font-size:12pt;font-family:'Times New Roman',Times,serif;vertical-align:middle;background-color:#ffffff !important;color:#000000;"><p>Volunteer/s:</p></td>
+      <td style="width:62%;border:1.5px solid #000000;padding:6px 10px;font-size:12pt;font-family:'Times New Roman',Times,serif;vertical-align:middle;background-color:#ffffff !important;color:#000000;"><p></p></td>
     </tr>
     <tr>
-      <td style="width:35%;font-weight:bold;border:1.5px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p>Venue:</p></td>
-      <td style="width:65%;border:1.5px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p></p></td>
+      <td style="width:38%;font-weight:bold;border:1.5px solid #000000;padding:6px 10px;font-size:12pt;font-family:'Times New Roman',Times,serif;vertical-align:middle;background-color:#ffffff !important;color:#000000;"><p>Venue:</p></td>
+      <td style="width:62%;border:1.5px solid #000000;padding:6px 10px;font-size:12pt;font-family:'Times New Roman',Times,serif;vertical-align:middle;background-color:#ffffff !important;color:#000000;"><p></p></td>
     </tr>
     <tr>
-      <td style="width:35%;font-weight:bold;border:1.5px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p>Beneficiaries:</p></td>
-      <td style="width:65%;border:1.5px solid #000;padding:10px 12px;font-size:20pt;font-family:'Times New Roman',serif;vertical-align:middle;background-color:#ffffff !important;color:#000;word-break:break-word;overflow-wrap:break-word;"><p></p></td>
+      <td style="width:38%;font-weight:bold;border:1.5px solid #000000;padding:6px 10px;font-size:12pt;font-family:'Times New Roman',Times,serif;vertical-align:middle;background-color:#ffffff !important;color:#000000;"><p>Beneficiaries:</p></td>
+      <td style="width:62%;border:1.5px solid #000000;padding:6px 10px;font-size:12pt;font-family:'Times New Roman',Times,serif;vertical-align:middle;background-color:#ffffff !important;color:#000000;"><p></p></td>
     </tr>
   </tbody>
 </table>
@@ -1365,161 +1570,14 @@ export default function TextEditor({
       name: 'DCT CES Request Form-College',
       description:
         'Official donation request form for college departments with collection tracking',
-      paperKey: 'Folio',
+      paperKey: 'A4',
       orientation: 'portrait',
       marginKey: 'Narrow',
       showHeader: true,
       showFooter: true,
-      headerText: `<table style="width:100%;border-collapse:collapse;border:none;margin:0;padding:0;font-family:'Times New Roman',serif;table-layout:fixed;"><tbody><tr><td style="width:0.85in;vertical-align:middle;border:none;padding:0;text-align:left;"><img src="${logo2Img}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:1.1in;vertical-align:middle;border:none;padding:0 0.15in 0 0.1in;text-align:left;"><img src="${logoImg}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:4.55in;text-align:left;vertical-align:middle;border:none;border-left:2px solid #555;padding:0 0 0 0.15in;line-height:1.25;"><div style="font-family:'Book Antiqua','Palatino',serif;font-size:14pt;font-weight:bold;color:#000;margin:0 0 1px 0;">DOMINICAN COLLEGE OF TARLAC, INC.</div><div style="font-family:'Times New Roman',serif;font-size:12pt;color:#000;margin:0 0 2px 0;">COMMUNITY ENGAGEMENT SERVICES</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">McArthur Highway, Poblacion (Sto. Rosario), Capas, 2315 Tarlac, Philippines</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">Institutional Contact No.: +63938-918-4093</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0;white-space:nowrap;">Website: dct.edu.ph | E-mail: <span style="color:#030e69;text-decoration:underline;">domct_2315@yahoo.com.ph / domct_2315@dct.edu.ph</span></div></td></tr></tbody></table><hr style="border:none;border-top:3px solid #000;margin:8px 0 0 0;width:110%;" />`,
-      footerText: `<table style="width:100%;border-collapse:collapse;border:1px solid #000;font-family:'Times New Roman',serif;font-size:8pt;margin:0 0 8px 0;"><tbody><tr><td style="border:1px solid #000;padding:4px 8px;width:25%;">Form No.: DCT-CES-01</td><td style="border:1px solid #000;padding:4px 8px;width:20%;">Revision No.: 01</td><td style="border:1px solid #000;padding:4px 8px;width:30%;">Effectivity Date: May 1, 2026</td><td style="border:1px solid #000;padding:4px 8px;width:25%;text-align:right;">Page 1 of 1</td></tr></tbody></table><hr style="border:none;border-top:3px solid #000;margin:0 0 8px 0;width:100%;" /><div style="text-align:center;font-family:'Times New Roman',serif;line-height:1.25;color:#000;"><div style="font-size:12pt;font-weight:bold;margin:0 0 2px 0;">FIDES. PATRIA. SAPIENTIA</div><div style="font-size:10pt;font-style:italic;margin:0 0 2px 0;">A God-loving educational community with passion for truth and compassion for humanity.</div><div style="font-size:10pt;margin:0;">Department/Office Facebook Page: www.facebook.com/dctces</div></div>`,
-      html: `<p style="text-align: left;"><br></p>
-<p style="text-align: right;"><span style="font-size: 12pt; font-weight: bold; font-family: 'Times New Roman', serif; border: 2px solid #000; padding: 4px 12px;">REQUEST FORM-COLLEGE</span></p>
-<p style="text-align: left;"><br></p>
-<p style="text-align: left;"><span style="font-size: 12pt; font-family: 'Times New Roman', serif;">Date: ________________</span></p>
-<p style="text-align: left;"><br></p>
-<p style="text-align: left;"><span style="font-size: 12pt; font-family: 'Times New Roman', serif;">Good day <span style="text-decoration: underline;">Dominikano</span>!</span></p>
-<p style="text-align: left;"><span style="font-size: 12pt; font-family: 'Times New Roman', serif;">We would like to ask your generous heart to give a donation.</span></p>
-<p style="text-align: left;"><br></p>
-<table style="width:100%;table-layout:fixed;border-collapse:collapse;border:1.5px solid #000;font-family:'Times New Roman',serif;">
-  <tbody>
-    <tr>
-      <td colspan="4" style="border:1.5px solid #000;padding:4px 8px;font-size:11pt;font-weight:bold;font-style:italic;font-family:'Times New Roman',serif;"><p><em><strong>For:</strong></em></p></td>
-    </tr>
-    <tr>
-      <td style="width:50%;border:1.5px solid #000;padding:6px 8px;font-size:11pt;font-family:'Times New Roman',serif;vertical-align:top;" colspan="2"><p>Name: ____________________________</p></td>
-      <td style="width:50%;border:1.5px solid #000;padding:6px 8px;font-size:11pt;font-family:'Times New Roman',serif;vertical-align:top;" colspan="2"><p>Year & Section: __________________</p></td>
-    </tr>
-    <tr>
-      <td colspan="4" style="border:1.5px solid #000;padding:6px 8px;font-size:11pt;font-family:'Times New Roman',serif;vertical-align:top;"><p>Reason:</p><p><br></p></td>
-    </tr>
-  </tbody>
-</table>
-<p style="text-align: left;"><br></p>
-<p style="text-align: left;"><span style="font-size: 12pt; font-family: 'Times New Roman', serif;">Thank you and God bless!</span></p>
-<p style="text-align: left;"><br></p>
-<p style="text-align: left;"><span style="font-size: 12pt; font-family: 'Times New Roman', serif;">Noted by:</span></p>
-<p style="text-align: left;"><br></p>
-<table style="width:100%;table-layout:fixed;border-collapse:collapse;border:none;font-family:'Times New Roman',serif;">
-  <tbody>
-    <tr>
-      <td style="width:50%;border:none;padding:2px 0;font-size:11pt;font-family:'Times New Roman',serif;vertical-align:top;"><p><span style="font-weight:bold;">Mr. Jan Hanz S. Huet</span></p><p>Head, Office of Student Affairs and Services</p></td>
-      <td style="width:50%;border:none;padding:2px 0;font-size:11pt;font-family:'Times New Roman',serif;vertical-align:top;"><p><span style="font-weight:bold;">Mrs. Faithful Anne F. Arugay</span></p><p>Head, Community Engagement Services</p></td>
-    </tr>
-  </tbody>
-</table>
-<p style="text-align: left;"><br></p>
-<p style="text-align: left;"><span style="font-size: 12pt; font-family: 'Times New Roman', serif;">Dean</span></p>
-<p style="text-align: left;"><br></p>
-<table style="width:100%;table-layout:fixed;border-collapse:collapse;border:1.5px solid #000;font-family:'Times New Roman',serif;">
-  <tbody>
-    <tr>
-      <td colspan="3" style="border:1.5px solid #000;padding:4px 8px;font-size:11pt;font-weight:bold;font-style:italic;font-family:'Times New Roman',serif;"><p><em><strong>Collected From:</strong></em></p></td>
-    </tr>
-    <tr>
-      <td style="width:40%;border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
-      <td style="width:25%;border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
-      <td style="width:35%;border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
-    </tr>
-    <tr>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
-    </tr>
-    <tr>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
-    </tr>
-    <tr>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
-    </tr>
-    <tr>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
-    </tr>
-    <tr>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
-    </tr>
-    <tr>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
-    </tr>
-    <tr>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
-    </tr>
-    <tr>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
-    </tr>
-    <tr>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
-    </tr>
-    <tr>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
-    </tr>
-    <tr>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
-    </tr>
-    <tr>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
-    </tr>
-    <tr>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
-    </tr>
-    <tr>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
-    </tr>
-    <tr>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
-    </tr>
-    <tr>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
-    </tr>
-    <tr>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
-    </tr>
-    <tr>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
-    </tr>
-    <tr>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Year & Section: _______________</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Amount:</p></td>
-      <td style="border:1.5px solid #000;padding:3px 8px;font-size:10pt;font-family:'Times New Roman',serif;"><p>Collected By:</p></td>
-    </tr>
-  </tbody>
-</table>
-<p style="text-align: left;"><span style="font-size: 8pt; font-family: 'Times New Roman', serif;">*(College Department) Collected by the class President and be surrendered to the Community Engagement Services Office</span></p>
-<p style="text-align: left;"><span style="font-size: 8pt; font-family: 'Times New Roman', serif;">(SHS Department) Collected by the class SSG(Governors) /Class Officers and be surrendered to the Community Engagement Services Office</span></p>
-<p style="text-align: left;"><span style="font-size: 8pt; font-family: 'Times New Roman', serif;">(JHS Department) Collected by the class SSG/JS (Grade Level Representative)/Class Officers and be surrendered to the the Community Engagement Services Office.</span></p>`
+      headerText: `<table style="width:100%;border-collapse:collapse;border:none;margin:0;padding:0;font-family:'Times New Roman',serif;table-layout:fixed;"><tbody><tr><td style="width:0.85in;vertical-align:middle;border:none;padding:0;text-align:left;"><img src="${logo2Img}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:1.1in;vertical-align:middle;border:none;padding:0 0.15in 0 0.1in;text-align:left;"><img src="${logoImg}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:4.55in;text-align:left;vertical-align:middle;border:none;border-left:2px solid #555;padding:0 0 0 0.15in;line-height:1.25;"><div style="font-family:'Book Antiqua','Palatino',serif;font-size:14pt;font-weight:bold;color:#000;margin:0 0 1px 0;">DOMINICAN COLLEGE OF TARLAC, INC.</div><div style="font-family:'Times New Roman',serif;font-size:12pt;color:#000;margin:0 0 2px 0;">COMMUNITY ENGAGEMENT SERVICES</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">McArthur Highway, Poblacion (Sto. Rosario), Capas, 2315 Tarlac, Philippines</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">Institutional Contact No.: +63938-918-4093</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0;white-space:nowrap;">Website: dct.edu.ph | E-mail: <span style="color:#030e69;text-decoration:underline;">domct_2315@yahoo.com.ph / domct_2315@dct.edu.ph</span></div></td></tr></tbody></table><hr style="border:none;border-top:2.5px solid #000;margin:4px 0 0 0;width:100%;" />`,
+      footerText: `<table style="width:100%;border-collapse:collapse;border:1.5px solid #000;font-family:'Times New Roman',serif;font-size:8pt;margin:0 0 4px 0;table-layout:fixed;"><tbody><tr><td style="border:1px solid #000;padding:2px 6px;width:30%;">Form No.: DCT-CES-01</td><td style="border:1px solid #000;padding:2px 6px;width:18%;">Revision No.: 01</td><td style="border:1px solid #000;padding:2px 6px;width:30%;">Effectivity Date: May 1, 2026</td><td style="border:1px solid #000;padding:2px 6px;width:22%;text-align:right;">Page 1 of 2</td></tr></tbody></table><hr style="border:none;border-top:2.5px solid #000;margin:0 0 4px 0;width:100%;" /><div style="text-align:center;font-family:'Times New Roman',serif;line-height:1.2;color:#000;"><div style="font-size:11pt;font-weight:bold;margin:0 0 1px 0;letter-spacing:0.5px;">FIDES. PATRIA. SAPIENTIA</div><div style="font-size:9.5pt;font-style:italic;margin:0 0 1px 0;">A God-loving educational community with passion for truth and compassion for humanity.</div><div style="font-size:9pt;margin:0;">Department/Office Facebook Page: www.facebook.com/dctces</div></div>`,
+      html: `<table class="borderless compact-form-table" style="width:100%;table-layout:fixed;border-collapse:collapse;border:none !important;margin:0 0 2px 0 !important;font-family:'Times New Roman',serif;"><tbody><tr><td style="width:55%;border:none !important;padding:0;vertical-align:bottom;text-align:left;"><span style="font-size:10.5pt;font-family:'Times New Roman',serif;">Date: <span style="display:inline-block;width:1.8in;border-bottom:1px solid #000;">&nbsp;</span></span></td><td style="width:45%;border:none !important;padding:0;vertical-align:middle;text-align:right;"><span style="font-size:10.5pt;font-weight:bold;font-family:'Times New Roman',serif;background-color:#737373;color:#ffffff;padding:2px 8px;display:inline-block;letter-spacing:0.5px;">REQUEST FORM-COLLEGE</span></td></tr></tbody></table><p style="margin:0 0 1px 0;font-size:10.5pt;font-family:'Times New Roman',serif;line-height:1.15;">Good day <span style="text-decoration:underline;">Dominikano</span>!</p><p style="margin:0 0 3px 0;font-size:10.5pt;font-family:'Times New Roman',serif;line-height:1.15;">We would like to ask your generous heart to give a donation.</p><table class="compact-form-table" style="width:100%;table-layout:fixed;border-collapse:collapse;border:1.5px solid #000 !important;margin:0 0 3px 0 !important;font-family:'Times New Roman',serif;"><tbody><tr><td style="width:55%;border:none !important;border-right:1px solid #000 !important;border-bottom:1px solid #000 !important;padding:2px 5px !important;font-size:10pt;vertical-align:top;"><p style="margin:0 0 1px 0;"><em><strong>For:</strong></em></p><p style="margin:0;">Name: <span style="display:inline-block;width:75%;border-bottom:1px solid #000;">&nbsp;</span></p></td><td style="width:45%;border:none !important;border-bottom:1px solid #000 !important;padding:2px 5px !important;font-size:10pt;vertical-align:bottom;"><p style="margin:0;">Year &amp; Section: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></p></td></tr><tr><td colspan="2" style="border:none !important;padding:2px 5px 8px 5px !important;font-size:10pt;"><p style="margin:0 0 4px 0;">Reason:</p><p style="margin:0;border-bottom:1px solid #000;width:100%;"></p></td></tr></tbody></table><p style="margin:3px 0 1px 0;font-size:10.5pt;font-family:'Times New Roman',serif;line-height:1.15;">Thank you and God bless!</p><p style="margin:0 0 2px 0;font-size:10.5pt;font-family:'Times New Roman',serif;line-height:1.15;">Noted by:</p><table class="borderless compact-form-table" style="width:100%;table-layout:fixed;border-collapse:collapse;border:none !important;margin:0 0 2px 0 !important;font-family:'Times New Roman',serif;"><tbody><tr><td style="width:50%;border:none !important;padding:0;font-size:10pt;vertical-align:top;line-height:1.2;"><p style="margin:0;font-weight:bold;">Mr. Jan Hanz S. Huet</p><p style="margin:0;">Head, Office of Student Affairs and Services</p></td><td style="width:50%;border:none !important;padding:0;font-size:10pt;vertical-align:top;line-height:1.2;"><p style="margin:0;font-weight:bold;">Mrs. Faithful Anne F. Arugay</p><p style="margin:0;">Head, Community Engagement Services</p></td></tr></tbody></table><p style="margin:2px 0 3px 0;font-size:10.5pt;font-family:'Times New Roman',serif;line-height:1.15;">Dean</p><table class="compact-form-table" style="width:100%;table-layout:fixed;border-collapse:collapse;border:1.5px solid #000 !important;margin:0 !important;font-family:'Times New Roman',serif;"><tbody><tr><td colspan="3" style="border:none !important;padding:2px 5px 1px 5px !important;font-size:10pt;font-family:'Times New Roman',serif;"><em><strong>Collected From:</strong></em></td></tr><tr><td style="width:38%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Year &amp; Section: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:25%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Amount: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:37%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Collected By: <span style="display:inline-block;width:60%;border-bottom:1px solid #000;">&nbsp;</span></td></tr><tr><td style="width:38%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Year &amp; Section: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:25%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Amount: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:37%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Collected By: <span style="display:inline-block;width:60%;border-bottom:1px solid #000;">&nbsp;</span></td></tr><tr><td style="width:38%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Year &amp; Section: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:25%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Amount: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:37%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Collected By: <span style="display:inline-block;width:60%;border-bottom:1px solid #000;">&nbsp;</span></td></tr><tr><td style="width:38%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Year &amp; Section: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:25%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Amount: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:37%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Collected By: <span style="display:inline-block;width:60%;border-bottom:1px solid #000;">&nbsp;</span></td></tr><tr><td style="width:38%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Year &amp; Section: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:25%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Amount: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:37%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Collected By: <span style="display:inline-block;width:60%;border-bottom:1px solid #000;">&nbsp;</span></td></tr><tr><td style="width:38%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Year &amp; Section: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:25%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Amount: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:37%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Collected By: <span style="display:inline-block;width:60%;border-bottom:1px solid #000;">&nbsp;</span></td></tr><tr><td style="width:38%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Year &amp; Section: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:25%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Amount: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:37%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Collected By: <span style="display:inline-block;width:60%;border-bottom:1px solid #000;">&nbsp;</span></td></tr><tr><td style="width:38%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Year &amp; Section: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:25%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Amount: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:37%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Collected By: <span style="display:inline-block;width:60%;border-bottom:1px solid #000;">&nbsp;</span></td></tr><tr><td style="width:38%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Year &amp; Section: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:25%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Amount: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:37%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Collected By: <span style="display:inline-block;width:60%;border-bottom:1px solid #000;">&nbsp;</span></td></tr><tr><td style="width:38%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Year &amp; Section: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:25%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Amount: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:37%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Collected By: <span style="display:inline-block;width:60%;border-bottom:1px solid #000;">&nbsp;</span></td></tr><tr><td style="width:38%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Year &amp; Section: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:25%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Amount: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:37%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Collected By: <span style="display:inline-block;width:60%;border-bottom:1px solid #000;">&nbsp;</span></td></tr><tr><td style="width:38%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Year &amp; Section: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:25%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Amount: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:37%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Collected By: <span style="display:inline-block;width:60%;border-bottom:1px solid #000;">&nbsp;</span></td></tr><tr><td style="width:38%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Year &amp; Section: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:25%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Amount: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:37%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Collected By: <span style="display:inline-block;width:60%;border-bottom:1px solid #000;">&nbsp;</span></td></tr><tr><td style="width:38%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Year &amp; Section: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:25%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Amount: <span style="display:inline-block;width:55%;border-bottom:1px solid #000;">&nbsp;</span></td><td style="width:37%;border:none !important;padding:0.5px 5px !important;font-size:9pt;font-family:'Times New Roman',serif;line-height:1.15;white-space:nowrap;">Collected By: <span style="display:inline-block;width:60%;border-bottom:1px solid #000;">&nbsp;</span></td></tr><tr><td colspan="3" style="border:none !important;padding:2px 5px 2px 5px !important;font-size:7pt;line-height:1.15;font-family:'Times New Roman',serif;"><p style="margin:0;">*(College Department) Collected by the class President and be surrendered to the Community Engagement Services Office</p><p style="margin:0;padding-left:7px;">(SHS Department) Collected by the class SSG(Governors) /Class Officers and be surrendered to the Community Engagement Services Office</p><p style="margin:0;padding-left:7px;">(JHS Department) Collected by the class SSGJS (Grade Level Representative)/Class Officers and be surrendered to the the Community Engagement Services Office.</p></td></tr></tbody></table>`
     }
   ]
 
@@ -1581,6 +1639,10 @@ export default function TextEditor({
         }
 
         setActiveEditingArea('body')
+        // Reset dirty tracking to match loaded template content
+        lastSavedContentRef.current = tpl.html || '<p></p>'
+        setHasUnsavedChanges(false)
+        setOpenedFromTemplate(true)
       }
       setShowTemplatesMenu(false)
     },
@@ -1625,8 +1687,8 @@ export default function TextEditor({
       if (lastLoadedReportIdRef.current !== workspaceReportId) {
         const rep = reportsList.find((r) => r.id === workspaceReportId)
         if (rep) {
-          const defaultHeader = `<table style="width:100%;border-collapse:collapse;border:none;margin:0;padding:0;font-family:'Times New Roman',serif;table-layout:fixed;"><tbody><tr><td style="width:0.85in;vertical-align:middle;border:none;padding:0;text-align:left;"><img src="${logo2Img}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:1.1in;vertical-align:middle;border:none;padding:0 0.15in 0 0.1in;text-align:left;"><img src="${logoImg}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:4.55in;text-align:left;vertical-align:middle;border:none;border-left:2px solid #555;padding:0 0 0 0.15in;line-height:1.25;"><div style="font-family:'Book Antiqua','Palatino',serif;font-size:14pt;font-weight:bold;color:#000;margin:0 0 1px 0;">DOMINICAN COLLEGE OF TARLAC, INC.</div><div style="font-family:'Times New Roman',serif;font-size:12pt;color:#000;margin:0 0 2px 0;">COMMUNITY EXTENSION SERVICES</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">McArthur Highway, Poblacion (Sto. Rosario), Capas, 2315 Tarlac, Philippines</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">Institutional Contact No.: +63938-918-4093</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0;white-space:nowrap;">Website: dct.edu.ph | E-mail: <span style="color:#030e69;text-decoration:underline;">domct_2315@yahoo.com.ph / domct_2315@dct.edu.ph</span></div></td></tr></tbody></table><hr style="border:none;border-top:3px solid #000;margin:8px 0 0 0;width:110%;" />`
-          const defaultFooter = `<hr style="border:none;border-top:3px solid #000;margin:0 0 8px 0;width:100%;" /><div style="text-align:center;font-family:'Times New Roman',serif;line-height:1.25;color:#000;"><div style="font-size:12pt;font-weight:bold;margin:0 0 2px 0;">FIDES. PATRIA. SAPIENTIA.</div><div style="font-size:10pt;font-style:italic;margin:0 0 2px 0;">A God-loving educational community with passion for truth and compassion for humanity.</div><div style="font-size:10pt;margin:0;">Department/Office Facebook Page: www.facebook.com/dctces</div></div>`
+          const defaultHeader = `<table style="width:100%;border-collapse:collapse;border:none;margin:0;padding:0;font-family:'Times New Roman',Times,serif;table-layout:fixed;"><tbody><tr><td style="width:0.85in;vertical-align:middle;border:none;padding:0;text-align:left;"><img src="${logo2Img}" style="height:0.82in;width:0.82in;object-fit:contain;display:block;" /></td><td style="width:0.95in;vertical-align:middle;border:none;padding:0 0.08in 0 0.04in;text-align:left;"><img src="${logoImg}" style="height:0.82in;width:0.82in;object-fit:contain;display:block;" /></td><td style="width:auto;text-align:left;vertical-align:middle;border:none;border-left:1.5px solid #777777;padding:0 0 0 0.12in;line-height:1.2;"><div style="font-family:'Times New Roman',Times,serif;font-variant:small-caps;font-size:14pt;font-weight:bold;color:#262626;letter-spacing:0.3px;margin:0 0 1px 0;">Dominican College Of Tarlac, Inc.</div><div style="font-family:'Times New Roman',Times,serif;font-size:10.5pt;font-weight:normal;color:#404040;letter-spacing:0.5px;margin:0 0 2px 0;">COMMUNITY EXTENSION SERVICES</div><div style="font-family:'Times New Roman',Times,serif;font-size:9pt;color:#404040;margin:0 0 1px 0;line-height:1.2;">McArthur Highway, Poblacion (Sto. Rosario), Capas, 2315 Tarlac, Philippines</div><div style="font-family:'Times New Roman',serif;font-size:9pt;color:#404040;margin:0 0 1px 0;line-height:1.2;">Institutional Contact No.: +63938-918-4093</div><div style="font-family:'Times New Roman',serif;font-size:9pt;color:#404040;margin:0;line-height:1.2;white-space:nowrap;">Website: dct.edu.ph | E-mail: <span style="color:#0563c1;text-decoration:underline;">domct_2315@yahoo.com.ph / domct_2315@dct.edu.ph</span></div></td></tr></tbody></table><hr style="border:none;border-top:2.5px solid #8e9092;margin:6px 0 0 0;width:100%;" />`
+          const defaultFooter = `<hr style="border:none;border-top:2.5px solid #8e9092;margin:0 0 6px 0;width:100%;" /><div style="text-align:center;font-family:'Times New Roman',Times,serif;line-height:1.25;color:#404040;"><div style="font-size:10.5pt;font-weight:bold;margin:0 0 2px 0;letter-spacing:0.5px;">FIDES. PATRIA. SAPIENTIA</div><div style="font-size:9pt;font-style:italic;margin:0 0 2px 0;color:#555;">A God-loving educational community with passion for truth and compassion for humanity.</div><div style="font-size:9pt;margin:0;color:#555;">Department/Office Facebook Page: www.facebook.com/dctces</div></div>`
 
           const headerVal = rep.headerText !== undefined ? rep.headerText : defaultHeader
           const resolvedHeader = resolveHeaderHtml(headerVal, logo2Img, logoImg)
@@ -1650,12 +1712,33 @@ export default function TextEditor({
           setMarginKey(marginKeyVal)
           setIsTemplateActive(isTemplateActiveVal)
           lastLoadedReportIdRef.current = workspaceReportId
+          // Initialize dirty tracking baseline from the loaded report
+          const loadedNarrative = rep.narrative || '<p></p>'
+          if (editor) {
+            editor.setEditable(!workspaceIsReadOnly)
+            loadInitialContentAndResetHistory(editor, loadedNarrative)
+          }
+          if (editor && editor.commands.updatePageFlowOptions) {
+            editor.commands.updatePageFlowOptions({
+              paperKey: paperKeyVal,
+              orientation: orientationVal,
+              marginKey: marginKeyVal,
+              showHeader: showHeaderVal,
+              showFooter: showFooterVal,
+              headerText: resolvedHeader || '',
+              footerText: footerVal || '',
+              isTemplateActive: isTemplateActiveVal
+            })
+          }
+          lastSavedContentRef.current = loadedNarrative
+          setHasUnsavedChanges(false)
+          setOpenedFromTemplate(false)
         }
       }
     } else if (!workspaceReportId) {
       lastLoadedReportIdRef.current = null
     }
-  }, [workspaceReportId, reportsList, editor, headerEditor, footerEditor])
+  }, [workspaceReportId, reportsList, editor, headerEditor, footerEditor, workspaceIsReadOnly])
 
   // ── Save current document as a template ──
   const handleSaveAsTemplate = useCallback(() => {
@@ -1832,6 +1915,8 @@ export default function TextEditor({
             }
 
             loadInitialContentAndResetHistory(editor, html || '<p></p>')
+            lastSavedContentRef.current = html
+            setHasUnsavedChanges(false)
             setActiveEditingArea('body')
           }
         } catch (err) {
@@ -1940,6 +2025,8 @@ export default function TextEditor({
             setShowFooter(false)
 
             editor.commands.setContent(html || '<p></p>')
+            lastSavedContentRef.current = html
+            setHasUnsavedChanges(false)
             setActiveEditingArea('body')
           }
         } catch (err) {
@@ -1988,6 +2075,8 @@ export default function TextEditor({
         marginKey,
         isTemplateActive
       })
+      lastSavedContentRef.current = html
+      setHasUnsavedChanges(false)
     },
     [
       editor,
@@ -2003,6 +2092,30 @@ export default function TextEditor({
       isTemplateActive
     ]
   )
+
+  // ── Context-aware Back Navigation ──
+  const executeBackNavigation = useCallback(() => {
+    if (openedFromTemplate) {
+      setOpenedFromTemplate(false)
+      if (onResetForm) {
+        onResetForm(editor)
+      } else if (window.__dommunityResetEditorLayout) {
+        window.__dommunityResetEditorLayout()
+      }
+      lastSavedContentRef.current = '<p></p>'
+      setHasUnsavedChanges(false)
+    } else {
+      if (onBack) onBack()
+    }
+  }, [openedFromTemplate, onBack, onResetForm, editor])
+
+  const handleBackClick = useCallback(() => {
+    if (hasUnsavedChanges) {
+      setShowLeaveConfirm(true)
+    } else {
+      executeBackNavigation()
+    }
+  }, [hasUnsavedChanges, executeBackNavigation])
 
   // ── AutoSave ──
   useEffect(() => {
@@ -2100,7 +2213,8 @@ export default function TextEditor({
             const paper = PAPER[paperKey] || PAPER.A4
             const pageHeight = orientation === 'landscape' ? paper.w : paper.h
             const margins = getMargins(marginKey)
-            const padTopActual = showHeader && isTemplateActive ? 170 : margins.top
+            const padTopActual =
+              showHeader && isTemplateActive ? (marginKey === 'Narrow' ? 142 : 170) : margins.top
             const usableHeight = pageHeight - (padTopActual + margins.bottom)
 
             let runningHeight = 0
@@ -2230,6 +2344,17 @@ export default function TextEditor({
       {/* ── Title Bar ── */}
       <div className="bg-navy-blue text-white flex items-center justify-between px-3 sm:px-4 py-1.5 sm:py-2 shrink-0 select-none gap-2">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          {onBack && (
+            <button
+              type="button"
+              onClick={handleBackClick}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-white/10 hover:bg-white/20 transition-all duration-150 cursor-pointer shrink-0 group border border-white/10 hover:border-white/25"
+              title="Go back"
+            >
+              <ChevronLeft className="w-4 h-4 text-white group-hover:text-sig-green transition-colors" />
+              <span className="text-[11px] font-semibold text-white/90 group-hover:text-white transition-colors hidden sm:inline">Back</span>
+            </button>
+          )}
           <div className="bg-white text-navy-blue rounded w-6 h-6 flex items-center justify-center font-bold text-sm shadow shrink-0">
             W
           </div>
@@ -2479,6 +2604,57 @@ export default function TextEditor({
 
       <FloatingToolbar editor={editor} />
       <TableFloatingToolbar editor={editor} />
+
+      {/* ── Unsaved Changes Confirmation Modal ── */}
+      {showLeaveConfirm && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl border border-neutral-200 w-full max-w-md mx-4 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="bg-navy-blue px-6 py-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-white font-bold text-sm">Unsaved Changes</h3>
+                <p className="text-white/70 text-xs mt-0.5">You have unsaved changes. Do you want to save before leaving?</p>
+              </div>
+            </div>
+            {/* Actions */}
+            <div className="px-6 py-4 flex items-center justify-end gap-2 bg-neutral-50">
+              <button
+                type="button"
+                onClick={() => setShowLeaveConfirm(false)}
+                className="px-4 py-2 text-xs font-semibold text-neutral-600 bg-white border border-neutral-200 rounded-lg hover:bg-neutral-100 transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLeaveConfirm(false)
+                  setHasUnsavedChanges(false)
+                  executeBackNavigation()
+                }}
+                className="px-4 py-2 text-xs font-semibold text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-all cursor-pointer"
+              >
+                Leave Without Saving
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setShowLeaveConfirm(false)
+                  const saveTargetStatus = workspaceReportStatus === 'returned' ? 'returned' : 'draft'
+                  await handleSave(saveTargetStatus, true)
+                  executeBackNavigation()
+                }}
+                className="px-4 py-2 text-xs font-bold text-white bg-navy-blue border border-navy-blue rounded-lg hover:bg-navy-blue/90 transition-all cursor-pointer"
+              >
+                Save & Leave
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

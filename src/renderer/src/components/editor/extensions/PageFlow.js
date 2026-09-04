@@ -155,7 +155,12 @@ export const PageFlow = Extension.create({
             const paper = PAPER[options.paperKey] || PAPER.A4
             const pageHeight = options.orientation === 'landscape' ? paper.w : paper.h
             const margins = getMargins(options.marginKey)
-            const padTopActual = options.showHeader && options.isTemplateActive ? 170 : margins.top
+            const padTopActual =
+              options.showHeader && options.isTemplateActive
+                ? options.marginKey === 'Narrow'
+                  ? 142
+                  : 220
+                : margins.top
             const usableHeight = pageHeight - (padTopActual + margins.bottom)
             const scale = getScale(dom)
 

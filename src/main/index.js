@@ -5,6 +5,7 @@ import icon from '../../resources/icon.png?asset'
 import fs from 'fs'
 import dns from 'dns'
 import net from 'net'
+import { exec } from 'child_process'
 
 import { autoUpdater } from 'electron-updater'
 
@@ -71,6 +72,202 @@ function verifyInternetConnection() {
 // IPC handler: check internet connectivity from main process
 ipcMain.handle('check-internet', async () => {
   return await verifyInternetConnection()
+})
+
+// Native MS Word COM conversion to in-memory PDF buffer (for Document Viewer preview fidelity)
+try {
+  ipcMain.removeHandler('convert-docx-to-pdf-buffer')
+} catch {}
+ipcMain.handle('convert-docx-to-pdf-buffer', async (event, { buffer }) => {
+  if (process.platform !== 'win32') {
+    return { success: false, error: 'Native Word conversion is only supported on Windows' }
+  }
+  const tempDir = app.getPath('temp')
+  const uniqueId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+  const inputPath = join(tempDir, `docx-view-in-${uniqueId}.docx`)
+  const outputPath = join(tempDir, `docx-view-out-${uniqueId}.pdf`)
+
+  try {
+    fs.writeFileSync(inputPath, Buffer.from(buffer))
+
+    const psScript = `
+      $inputPath = ${JSON.stringify(inputPath)}
+      $outputPath = ${JSON.stringify(outputPath)}
+      try {
+        $word = New-Object -ComObject Word.Application
+        $word.Visible = $false
+        $word.DisplayAlerts = 0
+        $doc = $word.Documents.Open($inputPath, $false, $true)
+        $doc.SaveAs([ref]$outputPath, [ref]17)
+        try { $doc.Close([ref]0) } catch {}
+        try { $word.Quit() } catch {}
+        try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($word) | Out-Null } catch {}
+        [System.GC]::Collect()
+        [System.GC]::WaitForPendingFinalizers()
+      } catch {
+        Write-Error $_.Exception.Message
+      }
+    `
+
+    const encodedCommand = Buffer.from(psScript, 'utf16le').toString('base64')
+
+    await new Promise((resolve, reject) => {
+      exec(
+        `powershell -NoProfile -NonInteractive -EncodedCommand ${encodedCommand}`,
+        { timeout: 30000 },
+        (err, stdout, stderr) => {
+          if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0) {
+            resolve(stdout)
+          } else {
+            reject(new Error(stderr || err?.message || 'PowerShell conversion failed'))
+          }
+        }
+      )
+    })
+
+    const pdfBuffer = fs.readFileSync(outputPath)
+    return { success: true, buffer: pdfBuffer }
+  } catch (err) {
+    console.warn('Native Word COM preview buffer conversion failed:', err.message)
+    return { success: false, error: err.message }
+  } finally {
+    try {
+      if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath)
+    } catch {}
+    try {
+      if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath)
+    } catch {}
+  }
+})
+
+// Native HTML to DOCX conversion via Word COM for built-in template document export
+try {
+  ipcMain.removeHandler('export-html-to-docx')
+} catch {}
+ipcMain.handle('export-html-to-docx', async (event, { html, title, options = {} }) => {
+  const defaultName = `${title || 'Document'}.docx`
+  const { filePath, canceled } = await dialog.showSaveDialog({
+    title: 'Save DOCX Document',
+    defaultPath: join(app.getPath('downloads'), defaultName),
+    filters: [{ name: 'Word Documents', extensions: ['docx'] }]
+  })
+
+  if (canceled || !filePath) {
+    return { success: false, cancelled: true }
+  }
+
+  const tempDir = app.getPath('temp')
+  const uniqueId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+  const inputPath = join(tempDir, `docx-exp-in-${uniqueId}.html`)
+
+  try {
+    fs.writeFileSync(inputPath, html, 'utf8')
+
+    // Dimensions for Word PageSetup (in points: 1 inch = 72 points)
+    const paperKey = options.paperKey || 'Folio'
+    let pageWidth = 8.5 * 72
+    let pageHeight = 13.0 * 72
+    if (paperKey === 'Letter') {
+      pageWidth = 8.5 * 72
+      pageHeight = 11.0 * 72
+    } else if (paperKey === 'Legal') {
+      pageWidth = 8.5 * 72
+      pageHeight = 14.0 * 72
+    } else if (paperKey === 'A4') {
+      pageWidth = 8.27 * 72
+      pageHeight = 11.69 * 72
+    }
+
+    if (options.orientation === 'landscape') {
+      const temp = pageWidth
+      pageWidth = pageHeight
+      pageHeight = temp
+    }
+
+    // Margins (in points)
+    const marginKey = options.marginKey || 'Normal'
+    let topMargin = 1.0 * 72
+    let bottomMargin = 1.0 * 72
+    let leftMargin = 1.0 * 72
+    let rightMargin = 1.0 * 72
+
+    if (marginKey === 'Narrative') {
+      leftMargin = 1.5 * 72
+    } else if (marginKey === 'Narrow') {
+      topMargin = 0.5 * 72
+      bottomMargin = 0.5 * 72
+      leftMargin = 0.5 * 72
+      rightMargin = 0.5 * 72
+    } else if (marginKey === 'Moderate') {
+      topMargin = 1.0 * 72
+      bottomMargin = 1.0 * 72
+      leftMargin = 0.75 * 72
+      rightMargin = 0.75 * 72
+    } else if (marginKey === 'Wide') {
+      topMargin = 1.0 * 72
+      bottomMargin = 1.0 * 72
+      leftMargin = 2.0 * 72
+      rightMargin = 2.0 * 72
+    }
+
+    const psScript = `
+      $inputPath = ${JSON.stringify(inputPath)}
+      $outputPath = ${JSON.stringify(filePath)}
+      try {
+        $word = New-Object -ComObject Word.Application
+        $word.Visible = $false
+        $word.DisplayAlerts = 0
+        $doc = $word.Documents.Open($inputPath, $false, $true)
+        
+        try {
+          $doc.PageSetup.PageWidth = ${pageWidth}
+          $doc.PageSetup.PageHeight = ${pageHeight}
+          $doc.PageSetup.TopMargin = ${topMargin}
+          $doc.PageSetup.BottomMargin = ${bottomMargin}
+          $doc.PageSetup.LeftMargin = ${leftMargin}
+          $doc.PageSetup.RightMargin = ${rightMargin}
+        } catch {}
+
+        $doc.SaveAs2([ref]$outputPath, [ref]16)
+        try { $doc.Close([ref]0) } catch {}
+        try { $word.Quit() } catch {}
+        try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($word) | Out-Null } catch {}
+        [System.GC]::Collect()
+        [System.GC]::WaitForPendingFinalizers()
+      } catch {
+        Write-Error $_.Exception.Message
+      }
+    `
+
+    const encodedCommand = Buffer.from(psScript, 'utf16le').toString('base64')
+
+    await new Promise((resolve, reject) => {
+      exec(
+        `powershell -NoProfile -NonInteractive -EncodedCommand ${encodedCommand}`,
+        { timeout: 35000 },
+        (err, stdout, stderr) => {
+          if (fs.existsSync(filePath) && fs.statSync(filePath).size > 0) {
+            resolve(stdout)
+          } else {
+            reject(new Error(stderr || err?.message || 'PowerShell DOCX conversion failed'))
+          }
+        }
+      )
+    })
+
+    return { success: true, filePath }
+  } catch (err) {
+    console.error('export-html-to-docx IPC error:', err)
+    dialog.showErrorBox(
+      'Export Failed',
+      `Unable to export DOCX: ${err.message || 'Unknown conversion error'}`
+    )
+    return { success: false, error: err.message }
+  } finally {
+    try {
+      if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath)
+    } catch {}
+  }
 })
 
 function createWindow() {
@@ -251,58 +448,23 @@ app.whenReady().then(() => {
       console.log('========================================')
       console.log('[STAGE 5: FILE SAVE PROMPT]')
 
-      const isDocxDefault = options?.defaultFormat === 'docx'
-      const baseTitle = (title || 'Document').replace(/\.(pdf|docx)$/i, '')
-      const defaultExt = isDocxDefault ? 'docx' : 'pdf'
-      const defaultName = `${baseTitle}.${defaultExt}`
-
-      const filters = isDocxDefault
-        ? [
-            { name: 'DOCX Document', extensions: ['docx'] },
-            { name: 'PDF Document', extensions: ['pdf'] }
-          ]
-        : [
-            { name: 'PDF Document', extensions: ['pdf'] },
-            { name: 'DOCX Document', extensions: ['docx'] }
-          ]
-
+      const defaultName = `${title || 'Document'}.pdf`
       const { filePath } = await dialog.showSaveDialog({
-        title: 'Save Report',
+        title: 'Save PDF',
         defaultPath: join(app.getPath('downloads'), defaultName),
-        filters
+        filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
       })
 
       if (filePath) {
         try {
-          const selectedExt = (filePath.split('.').pop() || '').toLowerCase()
-
-          if (selectedExt === 'docx') {
-            if (options?.originalDocxBase64) {
-              const buffer = Buffer.from(options.originalDocxBase64, 'base64')
-              fs.writeFileSync(filePath, buffer)
-            } else if (options?.docxContent) {
-              fs.writeFileSync(filePath, options.docxContent, 'utf8')
-            } else {
-              fs.writeFileSync(filePath, html, 'utf8')
-            }
-          } else {
-            // PDF chosen
-            if (options?.originalPdfBase64) {
-              const buffer = Buffer.from(options.originalPdfBase64, 'base64')
-              fs.writeFileSync(filePath, buffer)
-            } else {
-              fs.writeFileSync(filePath, pdfBuffer)
-            }
-          }
-
+          fs.writeFileSync(filePath, pdfBuffer)
           const fileStat = fs.statSync(filePath)
           console.log(`[STAGE 5: FILE SAVE SUCCESS]`)
           console.log(`  - Saved File Path: ${filePath}`)
-          console.log(`  - Saved File Format: ${selectedExt.toUpperCase()}`)
           console.log(`  - Saved File Size on Disk: ${fileStat.size} bytes`)
           console.log(`  - File Last Modified: ${fileStat.mtime.toISOString()}`)
           console.log('========================================')
-          return { success: true, filePath, format: selectedExt }
+          return { success: true, filePath }
         } catch (writeError) {
           if (writeError.code === 'EBUSY' || writeError.code === 'EPERM') {
             console.error(`[STAGE 5: FILE SAVE ERROR] File is locked by another process: ${filePath}`)
@@ -430,6 +592,81 @@ app.whenReady().then(() => {
     }
   })
 
+  // Native MS Word COM conversion handler (Windows only)
+  ipcMain.handle('convert-docx-to-pdf-native', async (event, { buffer, fileName }) => {
+    if (process.platform !== 'win32') {
+      return { success: false, error: 'Native Word conversion is only supported on Windows' }
+    }
+    const tempDir = app.getPath('temp')
+    const inputPath = join(tempDir, `docx-convert-in-${Date.now()}.docx`)
+    const outputPath = join(tempDir, `docx-convert-out-${Date.now()}.pdf`)
+
+    try {
+      fs.writeFileSync(inputPath, Buffer.from(buffer))
+
+      const psScript = `
+        $inputPath = ${JSON.stringify(inputPath)}
+        $outputPath = ${JSON.stringify(outputPath)}
+        try {
+          $word = New-Object -ComObject Word.Application
+          $word.Visible = $false
+          $word.DisplayAlerts = 0
+          $doc = $word.Documents.Open($inputPath, $false, $true)
+          $doc.SaveAs([ref]$outputPath, [ref]17)
+          try { $doc.Close([ref]0) } catch {}
+          try { $word.Quit() } catch {}
+          try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($word) | Out-Null } catch {}
+          [System.GC]::Collect()
+          [System.GC]::WaitForPendingFinalizers()
+        } catch {
+          Write-Error $_.Exception.Message
+        }
+      `
+
+      const encodedCommand = Buffer.from(psScript, 'utf16le').toString('base64')
+
+      await new Promise((resolve, reject) => {
+        exec(
+          `powershell -NoProfile -NonInteractive -EncodedCommand ${encodedCommand}`,
+          { timeout: 25000 },
+          (err, stdout, stderr) => {
+            if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0) {
+              resolve(stdout)
+            } else {
+              reject(new Error(stderr || err?.message || 'PowerShell conversion failed'))
+            }
+          }
+        )
+      })
+
+      const pdfBuffer = fs.readFileSync(outputPath)
+
+      // Prompt save dialog
+      const defaultName = (fileName || 'Document').replace(/\.docx$/i, '') + '.pdf'
+      const { filePath } = await dialog.showSaveDialog({
+        title: 'Save Converted PDF',
+        defaultPath: join(app.getPath('downloads'), defaultName),
+        filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
+      })
+
+      if (filePath) {
+        fs.writeFileSync(filePath, pdfBuffer)
+        return { success: true, filePath, engine: 'native_word' }
+      } else {
+        return { success: false, cancelled: true }
+      }
+    } catch (err) {
+      console.warn('Native Word COM conversion failed or Word not installed:', err.message)
+      return { success: false, error: err.message }
+    } finally {
+      try {
+        if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath)
+      } catch {}
+      try {
+        if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath)
+      } catch {}
+    }
+  })
 
   createWindow()
 
