@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'motion/react'
 import AboutVersionCard from '../../components/AboutVersionCard'
+import AcceptableUseNotice from '../../components/AcceptableUseNotice'
 import AnimatedModal from '../../components/motion/AnimatedModal'
 import AnimatedPage from '../../components/motion/AnimatedPage'
 import {
@@ -6326,6 +6327,9 @@ export default function AdminDashboard({ user, onLogout }) {
 
                       {/* ── 5. Developers ─────── */}
                       <DevelopersChart />
+
+                      {/* ── 6. Acceptable Use & Data Privacy Notice ─────── */}
+                      <AcceptableUseNotice mode="readonly" />
                     </div>
                   )
                 )}
@@ -7598,9 +7602,12 @@ export default function AdminDashboard({ user, onLogout }) {
       <AnimatedModal
         isOpen={!!actionSuccess}
         overlayClassName="fixed inset-0 z-[99999] flex items-center justify-center bg-navy-blue/40 backdrop-blur-sm p-4"
-        contentClassName="bg-white rounded-3xl p-6 shadow-2xl border border-gray-100 max-w-sm w-full text-center space-y-4"
+        contentClassName="bg-white rounded-3xl p-6 shadow-2xl border border-gray-100 max-w-sm w-full text-center space-y-4 font-poppins"
       >
-        <div>
+        <div className="flex flex-col items-center">
+          <div className="w-12 h-12 rounded-full bg-sig-green/15 text-sig-green flex items-center justify-center mb-1 shadow-xs">
+            <CheckCircle className="w-7 h-7 text-sig-green stroke-[2.2]" />
+          </div>
           <h4 className="font-bold text-navy-blue text-sm uppercase tracking-wide">Success</h4>
           <p className="text-xs text-gray-500 font-semibold mt-2 leading-relaxed">
             {actionSuccess}

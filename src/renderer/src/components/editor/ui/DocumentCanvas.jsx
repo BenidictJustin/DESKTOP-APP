@@ -61,7 +61,7 @@ export default function DocumentCanvas({
   const padBottom = margins.bottom
   const padLeft = margins.left
   const padRight = margins.right
-  const padTopActual = showHeader && isTemplateActive ? (marginKey === 'Narrow' ? 142 : 220) : padTop
+  const padTopActual = showHeader && isTemplateActive ? (marginKey === 'Narrow' ? 142 : 170) : padTop
   const gapH = 36 // Constant page gap height (matching visual page breaks)
 
   // Strictly bound layout height by physical pages count
@@ -300,9 +300,9 @@ export default function DocumentCanvas({
                           <div
                             className="absolute left-0 right-0 z-50 pointer-events-none select-none"
                             style={{
-                              top: `${padTop}px`,
-                              paddingLeft: padLeft,
-                              paddingRight: padRight,
+                              top: isTemplateActive && marginKey === 'Narrow' ? `${padTop}px` : '48px',
+                              paddingLeft: isTemplateActive && marginKey === 'Narrow' ? padLeft : 96,
+                              paddingRight: isTemplateActive && marginKey === 'Narrow' ? padRight : 96,
                               boxSizing: 'border-box'
                             }}
                           >
@@ -322,8 +322,8 @@ export default function DocumentCanvas({
                             className="absolute left-0 right-0 z-50 pointer-events-none select-none"
                             style={{
                               bottom: '0px',
-                              paddingLeft: padLeft,
-                              paddingRight: padRight,
+                              paddingLeft: isTemplateActive && marginKey === 'Narrow' ? padLeft : 96,
+                              paddingRight: isTemplateActive && marginKey === 'Narrow' ? padRight : 96,
                               paddingBottom: '24px',
                               boxSizing: 'border-box'
                             }}
@@ -577,7 +577,7 @@ export default function DocumentCanvas({
                   table.movable-table th,
                   table.movable-table td {
                     border: 1.5px solid #000000;
-                    padding: 4px 8px;
+                    padding: 6px 10px;
                     font-size: 12px;
                     text-align: left;
                     position: relative;

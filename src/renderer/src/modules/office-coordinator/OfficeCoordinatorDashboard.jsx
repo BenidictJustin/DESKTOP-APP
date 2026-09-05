@@ -1,7 +1,8 @@
 /* eslint-disable */
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import AboutVersionCard from '../../components/AboutVersionCard'
+import AcceptableUseNotice from '../../components/AcceptableUseNotice'
 import UpcomingEventsSchedule from '../../components/UpcomingEventsSchedule'
 import OrganizationalChart from '../../components/OrganizationalChart'
 import DevelopersChart from '../../components/DevelopersChart'
@@ -135,6 +136,44 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   const [approvedSearchQuery, setApprovedSearchQuery] = useState('')
   const [isDocxUploadModalOpen, setIsDocxUploadModalOpen] = useState(false)
   const [isDocxUploading, setIsDocxUploading] = useState(false)
+  const [actionSuccess, setActionSuccess] = useState('')
+  const [actionError, setActionError] = useState('')
+  const actionSuccessCallbackRef = useRef(null)
+  const successTimeoutRef = useRef(null)
+
+  const handleCloseSuccess = useCallback(() => {
+    if (successTimeoutRef.current) {
+      clearTimeout(successTimeoutRef.current)
+      successTimeoutRef.current = null
+    }
+    setActionSuccess('')
+    if (actionSuccessCallbackRef.current) {
+      const cb = actionSuccessCallbackRef.current
+      actionSuccessCallbackRef.current = null
+      cb()
+    }
+  }, [])
+
+  const triggerSuccess = useCallback(
+    (msg, onDismiss) => {
+      if (successTimeoutRef.current) {
+        clearTimeout(successTimeoutRef.current)
+        successTimeoutRef.current = null
+      }
+      setActionError('')
+      actionSuccessCallbackRef.current = onDismiss || null
+      setActionSuccess(msg)
+      successTimeoutRef.current = setTimeout(() => {
+        handleCloseSuccess()
+      }, 5000)
+    },
+    [handleCloseSuccess]
+  )
+
+  const triggerError = useCallback((msg) => {
+    setActionSuccess('')
+    setActionError(msg)
+  }, [])
 
   // ── Database ──
   const [reportsList, setReportsList] = useState([])
@@ -263,14 +302,14 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     async (status, html, silent = false, layoutOptions = {}) => {
       if (isOffline) {
         if (!silent) {
-          alert('Cannot save or submit report: Internet connection is offline. Your draft remains safe in the editor. Please reconnect to sync.')
+          triggerError('Cannot save or submit report: Internet connection is offline. Your draft remains safe in the editor. Please reconnect to sync.')
         }
         setSaveStatus('offline')
         return
       }
 
       if (!html || html === '<p></p>') {
-        if (!silent) alert('Please write some content before saving.')
+        if (!silent) triggerError('Please write some content before saving.')
         return
       }
 
@@ -343,26 +382,28 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
         setSaveStatus('saved')
         if (!silent) {
-          alert(
+          const successMsg =
             effectiveStatus === 'returned'
               ? 'Changes saved to returned report successfully!'
               : status === 'draft'
-                ? 'Draft saved successfully!'
+                ? 'Report saved as draft successfully!'
                 : 'Report submitted to Admin successfully!'
-          )
-          if (effectiveStatus !== 'returned') {
-            resetForm()
-          }
-          if (status === 'submitted') {
-            setCompiledReportsTab('submitted')
-            setActiveTab('reports')
-          }
+
+          triggerSuccess(successMsg, () => {
+            if (effectiveStatus !== 'returned') {
+              resetForm()
+            }
+            if (status === 'submitted') {
+              setCompiledReportsTab('submitted')
+              setActiveTab('reports')
+            }
+          })
         }
         loadData()
       } catch (err) {
         console.error('Save failed:', err)
         setSaveStatus('error')
-        if (!silent) alert('Save failed. Please try again.')
+        if (!silent) triggerError('Save failed. Please try again.')
       } finally {
         setLoading(false)
         setTimeout(() => setSaveStatus(''), 3000)
@@ -394,7 +435,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   // ── Direct DOCX Upload & Submit Handler (Bypasses Tiptap to preserve 100% formatting) ──
   const handleDocxUploadSubmit = async ({ file, comment, eventId }) => {
     if (isOffline) {
-      alert('Cannot submit report: Internet connection is offline. Please reconnect to sync.')
+      triggerError('Cannot submit report: Internet connection is offline. Please reconnect to sync.')
       return
     }
     setIsDocxUploading(true)
@@ -445,13 +486,17 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
       await addReport(payload, user.uid)
       setIsDocxUploadModalOpen(false)
-      alert(`Original ${isPdf ? 'PDF' : 'Word'} document submitted directly to Admin successfully! Formatting is 100% preserved.`)
-      setCompiledReportsTab('submitted')
-      setActiveTab('reports')
+      triggerSuccess(
+        `Original ${isPdf ? 'PDF' : 'Word'} document submitted directly to Admin successfully! Formatting is 100% preserved.`,
+        () => {
+          setCompiledReportsTab('submitted')
+          setActiveTab('reports')
+        }
+      )
       await loadData()
     } catch (err) {
       console.error('Failed to submit document report:', err)
-      alert('Failed to submit report: ' + (err.message || err))
+      triggerError('Failed to submit report: ' + (err.message || err))
     } finally {
       setIsDocxUploading(false)
     }
@@ -1593,6 +1638,9 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
                     {/* ── 5. Developers ─────── */}
                     <DevelopersChart />
+
+                    {/* ── 6. Acceptable Use & Data Privacy Notice ─────── */}
+                    <AcceptableUseNotice mode="readonly" />
                   </div>
                 </div>
               )
@@ -1790,6 +1838,53 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         eventsList={eventsList}
         isSubmitting={isDocxUploading}
       />
+
+      {/* ── GLOBAL CENTERED POP-UP SUCCESS DIALOG ── */}
+      <AnimatedModal
+        isOpen={!!actionSuccess}
+        overlayClassName="fixed inset-0 z-[99999] flex items-center justify-center bg-navy-blue/40 backdrop-blur-sm p-4"
+        contentClassName="bg-white rounded-3xl p-6 shadow-2xl border border-gray-100 max-w-sm w-full text-center space-y-4 font-poppins"
+      >
+        <div className="flex flex-col items-center">
+          <div className="w-12 h-12 rounded-full bg-sig-green/15 text-sig-green flex items-center justify-center mb-1 shadow-xs">
+            <CheckCircle2 className="w-7 h-7 text-sig-green stroke-[2.2]" />
+          </div>
+          <h4 className="font-bold text-navy-blue text-sm uppercase tracking-wide">Success</h4>
+          <p className="text-xs text-gray-500 font-semibold mt-2 leading-relaxed">
+            {actionSuccess}
+          </p>
+        </div>
+        <button
+          autoFocus
+          type="button"
+          onClick={handleCloseSuccess}
+          className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition-all duration-150 cursor-pointer"
+        >
+          OK
+        </button>
+      </AnimatedModal>
+
+      {/* ── GLOBAL CENTERED POP-UP ACTION WARNING / ERROR DIALOG ── */}
+      <AnimatedModal
+        isOpen={!!actionError}
+        overlayClassName="fixed inset-0 z-[99999] flex items-center justify-center bg-navy-blue/40 backdrop-blur-sm p-4"
+        contentClassName="bg-white rounded-3xl p-6 shadow-2xl border border-gray-100 max-w-sm w-full text-center space-y-4 font-poppins"
+      >
+        <div>
+          <h4 className="font-bold text-navy-blue text-sm uppercase tracking-wide">Action Warning</h4>
+          <p className="text-xs text-gray-500 font-semibold mt-2 leading-relaxed">
+            {actionError}
+          </p>
+        </div>
+        <button
+          autoFocus
+          type="button"
+          onClick={() => setActionError('')}
+          className="w-full bg-navy-blue text-white rounded-full text-xs font-semibold py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition-all duration-150 cursor-pointer"
+        >
+          OK
+        </button>
+      </AnimatedModal>
     </div>
   )
 }

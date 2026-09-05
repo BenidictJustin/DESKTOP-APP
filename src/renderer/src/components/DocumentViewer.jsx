@@ -365,8 +365,8 @@ export default function DocumentViewer({
   const author = usersList.find((u) => u.uid === report.authorId)
 
   // Layout settings with fallbacks
-  const defaultHeader = `<table style="width:100%;border-collapse:collapse;border:none;margin:0;padding:0;font-family:'Times New Roman',Times,serif;table-layout:fixed;"><tbody><tr><td style="width:0.85in;vertical-align:middle;border:none;padding:0;text-align:left;"><img src="${logo2Img}" style="height:0.82in;width:0.82in;object-fit:contain;display:block;" /></td><td style="width:0.95in;vertical-align:middle;border:none;padding:0 0.08in 0 0.04in;text-align:left;"><img src="${logo}" style="height:0.82in;width:0.82in;object-fit:contain;display:block;" /></td><td style="width:auto;text-align:left;vertical-align:middle;border:none;border-left:1.5px solid #777777;padding:0 0 0 0.12in;line-height:1.2;"><div style="font-family:'Times New Roman',Times,serif;font-variant:small-caps;font-size:14pt;font-weight:bold;color:#262626;letter-spacing:0.3px;margin:0 0 1px 0;">Dominican College Of Tarlac, Inc.</div><div style="font-family:'Times New Roman',Times,serif;font-size:10.5pt;font-weight:normal;color:#404040;letter-spacing:0.5px;margin:0 0 2px 0;">COMMUNITY EXTENSION SERVICES</div><div style="font-family:'Times New Roman',serif;font-size:9pt;color:#404040;margin:0 0 1px 0;line-height:1.2;">McArthur Highway, Poblacion (Sto. Rosario), Capas, 2315 Tarlac, Philippines</div><div style="font-family:'Times New Roman',serif;font-size:9pt;color:#404040;margin:0 0 1px 0;line-height:1.2;">Institutional Contact No.: +63938-918-4093</div><div style="font-family:'Times New Roman',serif;font-size:9pt;color:#404040;margin:0;line-height:1.2;white-space:nowrap;">Website: dct.edu.ph | E-mail: <span style="color:#0563c1;text-decoration:underline;">domct_2315@yahoo.com.ph / domct_2315@dct.edu.ph</span></div></td></tr></tbody></table><hr style="border:none;border-top:2.5px solid #8e9092;margin:6px 0 0 0;width:100%;" />`
-  const defaultFooter = `<hr style="border:none;border-top:2.5px solid #8e9092;margin:0 0 6px 0;width:100%;" /><div style="text-align:center;font-family:'Times New Roman',Times,serif;line-height:1.25;color:#404040;"><div style="font-size:10.5pt;font-weight:bold;margin:0 0 2px 0;letter-spacing:0.5px;">FIDES. PATRIA. SAPIENTIA</div><div style="font-size:9pt;font-style:italic;margin:0 0 2px 0;color:#555;">A God-loving educational community with passion for truth and compassion for humanity.</div><div style="font-size:9pt;margin:0;color:#555;">Department/Office Facebook Page: www.facebook.com/dctces</div></div>`
+  const defaultHeader = `<table style="width:100%;border-collapse:collapse;border:none;margin:0;padding:0;font-family:'Times New Roman',serif;table-layout:fixed;"><tbody><tr><td style="width:0.85in;vertical-align:middle;border:none;padding:0;text-align:left;"><img src="${logo2Img}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:1.1in;vertical-align:middle;border:none;padding:0 0.15in 0 0.1in;text-align:left;"><img src="${logo}" style="height:0.85in;width:0.85in;object-fit:contain;display:block;" /></td><td style="width:4.55in;text-align:left;vertical-align:middle;border:none;border-left:2px solid #555;padding:0 0 0 0.15in;line-height:1.25;"><div style="font-family:'Book Antiqua','Palatino',serif;font-size:14pt;font-weight:bold;color:#000;margin:0 0 1px 0;">DOMINICAN COLLEGE OF TARLAC, INC.</div><div style="font-family:'Times New Roman',serif;font-size:12pt;color:#000;margin:0 0 2px 0;">COMMUNITY EXTENSION SERVICES</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">McArthur Highway, Poblacion (Sto. Rosario), Capas, 2315 Tarlac, Philippines</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0 0 1px 0;">Institutional Contact No.: +63938-918-4093</div><div style="font-family:'Times New Roman',serif;font-size:10pt;color:#333;margin:0;white-space:nowrap;">Website: dct.edu.ph | E-mail: <span style="color:#030e69;text-decoration:underline;">domct_2315@yahoo.com.ph / domct_2315@dct.edu.ph</span></div></td></tr></tbody></table><hr style="border:none;border-top:3px solid #000;margin:8px 0 0 0;width:110%;" />`
+  const defaultFooter = `<hr style="border:none;border-top:3px solid #000;margin:0 0 8px 0;width:100%;" /><div style="text-align:center;font-family:'Times New Roman',serif;line-height:1.25;color:#000;"><div style="font-size:12pt;font-weight:bold;margin:0 0 2px 0;">FIDES. PATRIA. SAPIENTIA.</div><div style="font-size:10pt;font-style:italic;margin:0 0 2px 0;">A God-loving educational community with passion for truth and compassion for humanity.</div><div style="font-size:10pt;margin:0;">Department/Office Facebook Page: www.facebook.com/dctces</div></div>`
 
   const rawHeader = report.headerText !== undefined ? report.headerText : defaultHeader
   const headerText = resolveHeaderHtml(rawHeader, logo2Img, logo)
@@ -390,7 +390,7 @@ export default function DocumentViewer({
   const padBottom = margins.bottom
   const padLeft = margins.left
   const padRight = margins.right
-  const padTopActual = showHeader && isTemplateActive ? (marginKey === 'Narrow' ? 142 : 220) : padTop
+  const padTopActual = showHeader && isTemplateActive ? (marginKey === 'Narrow' ? 142 : 170) : padTop
   const gapH = 36
 
   const paper = PAPER[paperKey] || PAPER.Letter
@@ -900,7 +900,7 @@ export default function DocumentViewer({
           table.movable-table th,
           table.movable-table td {
             border: 1.5px solid #000000;
-            padding: 4px 8px;
+            padding: 6px 10px;
             font-size: 12px;
             text-align: left;
             position: relative;
@@ -1036,9 +1036,9 @@ export default function DocumentViewer({
                         <div
                           className="absolute left-0 right-0 z-50 pointer-events-none select-none"
                           style={{
-                            top: `${padTop}px`,
-                            paddingLeft: `${padLeft}px`,
-                            paddingRight: `${padRight}px`,
+                            top: isTemplateActive && marginKey === 'Narrow' ? `${padTop}px` : '48px',
+                            paddingLeft: isTemplateActive && marginKey === 'Narrow' ? `${padLeft}px` : '96px',
+                            paddingRight: isTemplateActive && marginKey === 'Narrow' ? `${padRight}px` : '96px',
                             boxSizing: 'border-box'
                           }}
                           dangerouslySetInnerHTML={{
@@ -1054,8 +1054,8 @@ export default function DocumentViewer({
                           className="absolute left-0 right-0 z-50 pointer-events-none select-none"
                           style={{
                             bottom: '0px',
-                            paddingLeft: `${padLeft}px`,
-                            paddingRight: `${padRight}px`,
+                            paddingLeft: isTemplateActive && marginKey === 'Narrow' ? `${padLeft}px` : '96px',
+                            paddingRight: isTemplateActive && marginKey === 'Narrow' ? `${padRight}px` : '96px',
                             paddingBottom: '24px',
                             boxSizing: 'border-box'
                           }}
@@ -1520,7 +1520,7 @@ export default function DocumentViewer({
               table.movable-table th,
               table.movable-table td {
                 border: 1.5px solid #000000;
-                padding: 4px 8px;
+                padding: 6px 10px;
                 font-size: 12px;
                 text-align: left;
                 position: relative;
@@ -1706,9 +1706,9 @@ export default function DocumentViewer({
                             <div
                               className="absolute left-0 right-0 z-50 pointer-events-none select-none"
                               style={{
-                                top: `${padTop}px`,
-                                paddingLeft: `${padLeft}px`,
-                                paddingRight: `${padRight}px`,
+                                top: isTemplateActive && marginKey === 'Narrow' ? `${padTop}px` : '48px',
+                                paddingLeft: isTemplateActive && marginKey === 'Narrow' ? `${padLeft}px` : '96px',
+                                paddingRight: isTemplateActive && marginKey === 'Narrow' ? `${padRight}px` : '96px',
                                 boxSizing: 'border-box'
                               }}
                               dangerouslySetInnerHTML={{
@@ -1725,8 +1725,8 @@ export default function DocumentViewer({
                               className="absolute left-0 right-0 z-50 pointer-events-none select-none"
                               style={{
                                 bottom: '0px',
-                                paddingLeft: `${padLeft}px`,
-                                paddingRight: `${padRight}px`,
+                                paddingLeft: isTemplateActive && marginKey === 'Narrow' ? `${padLeft}px` : '96px',
+                                paddingRight: isTemplateActive && marginKey === 'Narrow' ? `${padRight}px` : '96px',
                                 paddingBottom: '24px',
                                 boxSizing: 'border-box'
                               }}

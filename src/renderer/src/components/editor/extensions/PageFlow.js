@@ -159,7 +159,7 @@ export const PageFlow = Extension.create({
               options.showHeader && options.isTemplateActive
                 ? options.marginKey === 'Narrow'
                   ? 142
-                  : 220
+                  : 170
                 : margins.top
             const usableHeight = pageHeight - (padTopActual + margins.bottom)
             const scale = getScale(dom)

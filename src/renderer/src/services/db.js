@@ -648,6 +648,48 @@ export const logout = async () => {
   }
 }
 
+// ── Policy Acceptance ──────────────────────────────────────
+export const hasAcceptedPolicy = async (uid) => {
+  if (isDemoMode) {
+    try {
+      const accepted = localStorage.getItem('dommunity_policy_accepted_' + uid)
+      return !!accepted
+    } catch {
+      return false
+    }
+  } else {
+    try {
+      const userDoc = await getDoc(doc(fdb, 'users', uid))
+      if (userDoc.exists() && userDoc.data().acceptedPolicyAt) return true
+      return false
+    } catch {
+      return false
+    }
+  }
+}
+
+export const acceptPolicy = async (uid) => {
+  const now = new Date()
+  if (isDemoMode) {
+    try {
+      localStorage.setItem('dommunity_policy_accepted_' + uid, now.toISOString())
+      // Also stamp the user record in local storage
+      const users = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.USERS) || '[]')
+      const idx = users.findIndex((u) => u.uid === uid)
+      if (idx !== -1) {
+        users[idx].acceptedPolicyAt = now.toISOString()
+        localStorage.setItem(LOCAL_STORAGE_KEYS.USERS, JSON.stringify(users))
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  } else {
+    await updateDoc(doc(fdb, 'users', uid), {
+      acceptedPolicyAt: now
+    })
+  }
+}
+
 export const getCurrentUser = () => {
   if (isDemoMode) {
     return getLocalData(LOCAL_STORAGE_KEYS.LOGGED_IN_USER) || null
