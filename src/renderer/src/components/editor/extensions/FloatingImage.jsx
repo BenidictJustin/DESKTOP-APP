@@ -3,16 +3,99 @@ import { ReactNodeViewRenderer, NodeViewWrapper } from '@tiptap/react'
 import React, { useRef, useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { Trash2, Scissors, Copy, Layers, Crop, Square, Check } from 'lucide-react'
+import { useEditorStore } from '../store/useEditorStore'
+
+// Helper to read layout and page geometry from document container
+const getLayoutMetrics = (targetEl = null, targetPage = 1) => {
+  const pageContainer =
+    targetEl?.closest?.('.doc-page-container') ||
+    targetEl?.closest?.('.doc-page') ||
+    (typeof document !== 'undefined'
+      ? document.querySelector('.doc-page-container') || document.querySelector('.doc-page')
+      : null)
+  let scale = 1
+  if (pageContainer) {
+    let el = pageContainer
+    while (el) {
+      if (el.style && el.style.transform && el.style.transform.includes('scale')) {
+        const match = el.style.transform.match(/scale\(([^)]+)\)/)
+        if (match) {
+          scale = parseFloat(match[1]) || 1
+          break
+        }
+      }
+      el = el.parentElement
+    }
+  }
+
+  const docW = parseFloat(pageContainer?.dataset?.docW) || 816
+  const docH = parseFloat(pageContainer?.dataset?.docH) || 1056
+  const gapH = parseFloat(pageContainer?.dataset?.gapH) || 36
+  let padTop = parseFloat(pageContainer?.dataset?.padTop) || 96
+  let padBottom = parseFloat(pageContainer?.dataset?.padBottom) || 96
+  const padLeft = parseFloat(pageContainer?.dataset?.padLeft) || 96
+  const padRight = parseFloat(pageContainer?.dataset?.padRight) || 96
+  const totalPages = parseInt(pageContainer?.dataset?.totalPages) || 1
+
+  // Dynamic DOM header / footer boundary check if available
+  if (typeof document !== 'undefined') {
+    const pageEl = document.getElementById(`doc-viewer-page-${targetPage || 1}`)
+    if (pageEl) {
+      const headerEl = pageEl.querySelector('[data-header-region="true"]')
+      if (headerEl) {
+        const hBottom = (headerEl.offsetTop || 0) + (headerEl.offsetHeight || 0)
+        if (hBottom > 0) {
+          padTop = Math.max(padTop, hBottom)
+        }
+      }
+      const footerEl = pageEl.querySelector('[data-footer-region="true"]')
+      if (footerEl) {
+        const fH = footerEl.offsetHeight || 0
+        if (fH > 0) {
+          padBottom = Math.max(padBottom, fH)
+        }
+      }
+    }
+  }
+
+  // Dynamic DOM body width calculation from ProseMirror container
+  let calculatedBodyWidth = 0
+  if (typeof document !== 'undefined') {
+    const proseMirrorEl =
+      pageContainer?.querySelector?.('.ProseMirror') ||
+      document.querySelector('.ProseMirror')
+    if (proseMirrorEl && proseMirrorEl.clientWidth > 0) {
+      calculatedBodyWidth = proseMirrorEl.clientWidth
+    }
+  }
+  const bodyWidth =
+    calculatedBodyWidth > 0 ? calculatedBodyWidth : Math.max(100, docW - padLeft - padRight)
+
+  return {
+    scale,
+    docW,
+    docH,
+    gapH,
+    padTop,
+    padBottom,
+    padLeft,
+    padRight,
+    totalPages,
+    pageStride: docH + gapH,
+    bodyWidth,
+    bodyHeight: Math.max(100, docH - padTop - padBottom)
+  }
+}
 
 const FloatingImageComponent = ({ node, updateAttributes, selected, editor, deleteNode }) => {
-  const { src, left, top, width, zIndex, cropLeft, cropRight, cropTop, cropBottom } = node.attrs
+  const { src, left, top, page = 1, width, zIndex, cropLeft, cropRight, cropTop, cropBottom } = node.attrs
   const containerRef = useRef(null)
 
   // Dragging/Resizing States
   const [isMouseDown, setIsMouseDown] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0, left: 0, top: 0 })
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0, left: 0, top: 0, page: 1 })
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0 })
 
   // Cropping States
@@ -62,17 +145,44 @@ const FloatingImageComponent = ({ node, updateAttributes, selected, editor, dele
     }
   }, [isCropping])
 
+  // Cropping geometry calculations
+  const cropL = cropLeft || 0
+  const cropR = cropRight || 0
+  const cropT = cropTop || 0
+  const cropB = cropBottom || 0
+
+  const hasCrop = cropL > 0 || cropR > 0 || cropT > 0 || cropB > 0
+
+  const scaleX = 1 - (cropL + cropR) / 100
+  const scaleY = 1 - (cropT + cropB) / 100
+
+  const displayContainerWidth = width
+  const displayFullWidth = displayContainerWidth / scaleX
+  const displayFullHeight = displayFullWidth / aspectRatio
+  const displayContainerHeight = displayFullHeight * scaleY
+
+  const leftOffset = -displayFullWidth * (cropL / 100)
+  const topOffset = -displayFullHeight * (cropT / 100)
+
+  // Overlay scaling factors for Crop Mode
+  const boxWidth = 100 - cropL - cropR
+  const boxHeight = 100 - cropT - cropB
+  const multiplierX = 100 / boxWidth
+  const multiplierY = 100 / boxHeight
+
   const handleMouseDown = (e) => {
     if (!isEditable) return
     if (isCropping) return // Prevent dragging while in cropping mode
     if (e.target.classList.contains('resize-handle')) return
+    if (e.target.closest('.image-context-menu')) return
 
     setIsMouseDown(true)
     setDragStart({
       x: e.clientX,
       y: e.clientY,
-      left: left,
-      top: top
+      left: typeof left === 'number' ? left : (containerRef.current?.offsetLeft ?? 0),
+      top: typeof top === 'number' ? top : (containerRef.current?.offsetTop ?? 0),
+      page: page || 1
     })
   }
 
@@ -187,35 +297,67 @@ const FloatingImageComponent = ({ node, updateAttributes, selected, editor, dele
         const dx = e.clientX - dragStart.x
         const dy = e.clientY - dragStart.y
         const dist = Math.sqrt(dx * dx + dy * dy)
-        if (dist > 5) {
+        if (dist > 3) {
           setIsDragging(true)
         }
       }
 
       if (isDragging) {
-        const dx = e.clientX - dragStart.x
-        const dy = e.clientY - dragStart.y
+        const metrics = getLayoutMetrics(containerRef.current, dragStart.page)
+        const dx = (e.clientX - dragStart.x) / metrics.scale
+        const dy = (e.clientY - dragStart.y) / metrics.scale
 
-        const parentEl = containerRef.current?.parentElement?.parentElement
-        const editorDom = parentEl?.closest('.ProseMirror')
-        let printableWidth = 600
-        if (editorDom) {
-          const style = window.getComputedStyle(editorDom)
-          const padLeft = parseFloat(style.paddingLeft) || 0
-          const padRight = parseFloat(style.paddingRight) || 0
-          printableWidth = editorDom.clientWidth - (padLeft + padRight)
-        }
+        const imgWidth = containerRef.current?.offsetWidth || displayContainerWidth || 200
+        const imgHeight = hasCrop
+          ? displayContainerHeight
+          : (containerRef.current?.offsetHeight || displayContainerWidth / (aspectRatio || 1.5))
 
-        const newLeft = Math.max(0, Math.min(printableWidth - width, dragStart.left + dx))
+        // Continuous Y in ProseMirror container
+        const startContinuousY = (dragStart.page - 1) * metrics.pageStride + dragStart.top
+        const rawContinuousY = startContinuousY + dy
+
+        // Determine which page the image is on
+        let targetPage = Math.floor(rawContinuousY / metrics.pageStride) + 1
+        targetPage = Math.max(1, Math.min(metrics.totalPages, targetPage))
+
+        const targetMetrics = getLayoutMetrics(containerRef.current, targetPage)
+        const pageTopContinuous = (targetPage - 1) * targetMetrics.pageStride
+        const rawTopOnPage = rawContinuousY - pageTopContinuous
+
+        // Clamp vertically on targetPage (Header/Footer boundaries 100% PRESERVED):
+        // Top boundary: 0 (exact bottom edge of Header)
+        // Bottom boundary: bodyHeight - imgHeight (exact top edge of Footer)
+        const maxTopAllowed = Math.max(0, targetMetrics.bodyHeight - imgHeight)
+        const clampedTop = Math.max(0, Math.min(maxTopAllowed, rawTopOnPage))
+
+        // Clamp horizontally:
+        // Left boundary: 0 (exact left edge of Body area, matching Screenshot 1)
+        // Right boundary: bodyWidth - imgWidth (exact right edge of Body area, matching Screenshot 2)
+        const rawLeft = dragStart.left + dx
+        const maxLeftAllowed = Math.max(0, targetMetrics.bodyWidth - imgWidth)
+        const clampedLeft = Math.max(0, Math.min(maxLeftAllowed, rawLeft))
+
         updateAttributes({
-          left: newLeft,
-          top: dragStart.top + dy
+          left: Math.round(clampedLeft),
+          top: Math.round(clampedTop),
+          page: targetPage
         })
       } else if (isResizing) {
-        const dx = e.clientX - resizeStart.x
-        const newWidth = Math.max(50, resizeStart.width + dx)
+        const metrics = getLayoutMetrics(containerRef.current, page || 1)
+        const dx = (e.clientX - resizeStart.x) / metrics.scale
+        const currentLeft = typeof left === 'number' ? left : 0
+        const currentTop = typeof top === 'number' ? top : 0
+
+        // Max width constrained by right edge of printable body area
+        const maxAllowedWidth = Math.max(50, metrics.bodyWidth - currentLeft)
+        // Also ensure proportional height does not exceed bottom edge of printable body area
+        const maxAllowedHeight = Math.max(50, metrics.bodyHeight - currentTop)
+        const maxAllowedWidthFromHeight = maxAllowedHeight * (aspectRatio || 1.5)
+        const effectiveMaxWidth = Math.min(maxAllowedWidth, maxAllowedWidthFromHeight)
+
+        const newWidth = Math.max(50, Math.min(effectiveMaxWidth, resizeStart.width + dx))
         updateAttributes({
-          width: newWidth,
+          width: Math.round(newWidth),
           height: 'auto'
         })
       }
@@ -236,7 +378,7 @@ const FloatingImageComponent = ({ node, updateAttributes, selected, editor, dele
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [isMouseDown, isDragging, isResizing, dragStart, resizeStart, width])
+  }, [isMouseDown, isDragging, isResizing, dragStart, resizeStart, width, left, top, page, hasCrop, displayContainerWidth, displayContainerHeight, aspectRatio])
 
   // Context Menu Actions
   const handleCut = () => {
@@ -251,17 +393,28 @@ const FloatingImageComponent = ({ node, updateAttributes, selected, editor, dele
   }
 
   const handlePaste = () => {
+    if (!useEditorStore.getState().canInsertImage()) {
+      alert('Maximum of 10 images allowed per document.')
+      setShowMenu(false)
+      return
+    }
     navigator.clipboard
       .readText()
       .then((text) => {
+        if (!useEditorStore.getState().canInsertImage()) {
+          alert('Maximum of 10 images allowed per document.')
+          return
+        }
         if (text && (text.startsWith('data:image') || text.startsWith('http'))) {
           editor
             .chain()
-            .focus()
-            .insertContent({
-              type: 'floatingImage',
-              attrs: { src: text, left: left + 20, top: top + 20 }
+            .setImage({
+              src: text,
+              left: (typeof left === 'number' ? left : 0) + 30,
+              top: (typeof top === 'number' ? top : 0) + 30,
+              page: page || 1
             })
+            .focus()
             .run()
         } else {
           alert('Clipboard does not contain a valid image source (base64 or URL).')
@@ -289,39 +442,20 @@ const FloatingImageComponent = ({ node, updateAttributes, selected, editor, dele
 
   const activeZIndex = parseInt(zIndex) || 100
 
-  // Cropping geometry calculations
-  const cropL = cropLeft || 0
-  const cropR = cropRight || 0
-  const cropT = cropTop || 0
-  const cropB = cropBottom || 0
-
-  const hasCrop = cropL > 0 || cropR > 0 || cropT > 0 || cropB > 0
-
-  const scaleX = 1 - (cropL + cropR) / 100
-  const scaleY = 1 - (cropT + cropB) / 100
-
-  const displayContainerWidth = width
-  const displayFullWidth = displayContainerWidth / scaleX
-  const displayFullHeight = displayFullWidth / aspectRatio
-  const displayContainerHeight = displayFullHeight * scaleY
-
-  const leftOffset = -displayFullWidth * (cropL / 100)
-  const topOffset = -displayFullHeight * (cropT / 100)
-
-  // Overlay scaling factors for Crop Mode
-  const boxWidth = 100 - cropL - cropR
-  const boxHeight = 100 - cropT - cropB
-  const multiplierX = 100 / boxWidth
-  const multiplierY = 100 / boxHeight
+  const metrics = getLayoutMetrics(containerRef.current, page || 1)
+  const renderLeft = typeof left === 'number' ? left : 0
+  const renderTop = ((page || 1) - 1) * metrics.pageStride + (typeof top === 'number' ? top : 0)
 
   return (
     <NodeViewWrapper
       style={{
-        position: 'relative',
+        position: 'static',
         display: 'block',
         height: 0,
+        width: 0,
         overflow: 'visible',
-        zIndex: isDragging || isResizing ? activeZIndex + 100 : activeZIndex
+        margin: 0,
+        padding: 0
       }}
     >
       <div
@@ -330,8 +464,8 @@ const FloatingImageComponent = ({ node, updateAttributes, selected, editor, dele
         onContextMenu={handleContextMenu}
         style={{
           position: 'absolute',
-          left: `${left}px`,
-          top: `${top}px`,
+          left: `${renderLeft}px`,
+          top: `${renderTop}px`,
           width: isCropping ? `${displayFullWidth}px` : `${displayContainerWidth}px`,
           height: isCropping
             ? `${displayFullHeight}px`
@@ -351,7 +485,7 @@ const FloatingImageComponent = ({ node, updateAttributes, selected, editor, dele
             : 'default',
           boxSizing: 'border-box',
           userSelect: 'none',
-          zIndex: activeZIndex
+          zIndex: isDragging || isResizing ? activeZIndex + 100 : activeZIndex
         }}
         className={isEditable ? 'group hover:border-blue-300' : ''}
       >
@@ -601,6 +735,36 @@ const FloatingImageComponent = ({ node, updateAttributes, selected, editor, dele
             }}
           />
         )}
+
+        {/* Quick Delete Button (only shown when selected) */}
+        {isEditable && selected && !isCropping && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              deleteNode()
+            }}
+            title="Delete image"
+            style={{
+              position: 'absolute',
+              top: '-10px',
+              right: '-10px',
+              width: '20px',
+              height: '20px',
+              backgroundColor: '#ef4444',
+              color: '#ffffff',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              border: '2px solid #ffffff',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+              zIndex: 20
+            }}
+          >
+            <Trash2 style={{ width: '10px', height: '10px' }} />
+          </button>
+        )}
       </div>
 
       {/* Context Menu */}
@@ -705,8 +869,11 @@ export const FloatingImage = Node.create({
       title: {
         default: null
       },
+      page: {
+        default: 1
+      },
       left: {
-        default: 50
+        default: 0
       },
       top: {
         default: 0
@@ -743,6 +910,7 @@ export const FloatingImage = Node.create({
           src: dom.getAttribute('data-src'),
           alt: dom.getAttribute('data-alt'),
           title: dom.getAttribute('data-title'),
+          page: parseInt(dom.getAttribute('data-page')) || 1,
           left: parseFloat(dom.getAttribute('data-left')) || 0,
           top: parseFloat(dom.getAttribute('data-top')) || 0,
           width: parseFloat(dom.getAttribute('data-width')) || 200,
@@ -764,14 +932,11 @@ export const FloatingImage = Node.create({
     const cropBottom = HTMLAttributes.cropBottom || 0
 
     const scaleX = 1 - (cropLeft + cropRight) / 100
-    const scaleY = 1 - (cropTop + cropBottom) / 100
-
-    const displayContainerWidth = HTMLAttributes.width || 200
-    // Calculate display full width based on cropped container width
-    const displayFullWidth = displayContainerWidth / scaleX
-
-    // In read-only mode, we offset the underlying image inside the visible cropped container bounds
-    const leftOffset = -displayFullWidth * (cropLeft / 100)
+    const page = HTMLAttributes.page || 1
+    const pageStride = 1056 + 36
+    const topOnPage = HTMLAttributes.top || 0
+    const renderTop = (page - 1) * pageStride + topOnPage
+    const renderLeft = HTMLAttributes.left || 0
 
     return [
       'div',
@@ -780,6 +945,7 @@ export const FloatingImage = Node.create({
         'data-src': HTMLAttributes.src,
         'data-alt': HTMLAttributes.alt,
         'data-title': HTMLAttributes.title,
+        'data-page': page,
         'data-left': HTMLAttributes.left,
         'data-top': HTMLAttributes.top,
         'data-width': HTMLAttributes.width,
@@ -789,12 +955,12 @@ export const FloatingImage = Node.create({
         'data-crop-right': cropRight,
         'data-crop-top': cropTop,
         'data-crop-bottom': cropBottom,
-        style: `position: relative; display: block; margin: 0; padding: 0; height: 0; overflow: visible; z-index: ${HTMLAttributes.zIndex || 100};`
+        style: `position: static; display: block; margin: 0; padding: 0; height: 0; width: 0; overflow: visible; z-index: ${HTMLAttributes.zIndex || 100};`
       }),
       [
         'div',
         {
-          style: `position: absolute; left: ${HTMLAttributes.left}px; top: ${HTMLAttributes.top}px; width: ${HTMLAttributes.width}px; overflow: hidden; pointer-events: auto; z-index: ${HTMLAttributes.zIndex || 100};`
+          style: `position: absolute; left: ${renderLeft}px; top: ${renderTop}px; width: ${HTMLAttributes.width}px; overflow: hidden; pointer-events: auto; z-index: ${HTMLAttributes.zIndex || 100};`
         },
         [
           'div',
@@ -819,10 +985,71 @@ export const FloatingImage = Node.create({
     return {
       setImage:
         (options) =>
-        ({ commands }) => {
+        ({ commands, state }) => {
+          if (!useEditorStore.getState().canInsertImage()) {
+            alert('Maximum of 10 images allowed per document.')
+            return false
+          }
+
+          let finalAttrs = { ...options }
+          const sel = state.selection
+          const selectedNode = sel.node
+
+          // 1. If an existing image is currently selected, NEVER replace it!
+          // Insert a new independent image object in the body, staggered next to the selected image.
+          if (selectedNode && selectedNode.type.name === this.name) {
+            const prevLeft = typeof selectedNode.attrs.left === 'number' ? selectedNode.attrs.left : 0
+            const prevTop = typeof selectedNode.attrs.top === 'number' ? selectedNode.attrs.top : 0
+            const prevPage = selectedNode.attrs.page || 1
+
+            const metrics = getLayoutMetrics(null)
+            const targetWidth = finalAttrs.width || 200
+            let staggeredLeft = prevLeft + 30
+            let staggeredTop = prevTop + 30
+
+            // Clamp: image right edge must not exceed body right edge
+            if (staggeredLeft + targetWidth > metrics.bodyWidth) {
+              staggeredLeft = 0
+            }
+            // Clamp: image must not exceed body bottom edge (before footer)
+            if (staggeredTop + 150 > metrics.bodyHeight) {
+              staggeredTop = 0
+            }
+
+            if (finalAttrs.left === undefined) finalAttrs.left = staggeredLeft
+            if (finalAttrs.top === undefined) finalAttrs.top = staggeredTop
+            if (finalAttrs.page === undefined) finalAttrs.page = prevPage
+
+            return commands.insertContentAt(sel.to, {
+              type: this.name,
+              attrs: finalAttrs
+            })
+          }
+
+          // 2. If any other node is selected, insert after it to prevent replacement
+          if (sel.node) {
+            if (finalAttrs.page === undefined) {
+              finalAttrs.page = useEditorStore.getState().currentPage || 1
+            }
+            if (finalAttrs.left === undefined) finalAttrs.left = 0
+            if (finalAttrs.top === undefined) finalAttrs.top = 0
+
+            return commands.insertContentAt(sel.to, {
+              type: this.name,
+              attrs: finalAttrs
+            })
+          }
+
+          // 3. Normal insertion at cursor or active page
+          if (finalAttrs.page === undefined) {
+            finalAttrs.page = useEditorStore.getState().currentPage || 1
+          }
+          if (finalAttrs.left === undefined) finalAttrs.left = 0
+          if (finalAttrs.top === undefined) finalAttrs.top = 0
+
           return commands.insertContent({
             type: this.name,
-            attrs: options
+            attrs: finalAttrs
           })
         }
     }

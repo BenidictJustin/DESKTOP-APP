@@ -1216,6 +1216,45 @@ export default function TextEditor({
   const leftMargin = useEditorStore((state) => state.leftMargin)
   const rightMargin = useEditorStore((state) => state.rightMargin)
   const setEditor = useEditorStore((state) => state.setEditor)
+  const setMainEditor = useEditorStore((state) => state.setMainEditor)
+  const setHeaderEditor = useEditorStore((state) => state.setHeaderEditor)
+  const setFooterEditor = useEditorStore((state) => state.setFooterEditor)
+
+  const imagePasteDropProps = {
+    handlePaste: (view, event) => {
+      const items = event.clipboardData?.items || []
+      let hasImage = false
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith('image/')) {
+          hasImage = true
+          break
+        }
+      }
+      if (hasImage) {
+        if (!useEditorStore.getState().canInsertImage()) {
+          alert('Maximum of 10 images allowed per document.')
+          return true
+        }
+      }
+      return false
+    },
+    handleDrop: (view, event, slice, moved) => {
+      if (!moved && event.dataTransfer?.files?.length > 0) {
+        let hasImage = false
+        for (let i = 0; i < event.dataTransfer.files.length; i++) {
+          if (event.dataTransfer.files[i].type.startsWith('image/')) {
+            hasImage = true
+            break
+          }
+        }
+        if (hasImage && !useEditorStore.getState().canInsertImage()) {
+          alert('Maximum of 10 images allowed per document.')
+          return true
+        }
+      }
+      return false
+    }
+  }
 
   // ── Editor Instance ──
   const editor = useEditor({
@@ -1243,6 +1282,9 @@ export default function TextEditor({
     ],
     content: '<p></p>',
     editable: !workspaceIsReadOnly && activeEditingArea === 'body',
+    editorProps: {
+      ...imagePasteDropProps
+    },
     onCreate: ({ editor: ed }) => {
       try {
         ed.commands.clearHistory()
@@ -1292,7 +1334,8 @@ export default function TextEditor({
     editorProps: {
       attributes: {
         class: 'focus:outline-none text-[10px] text-gray-800 font-sans'
-      }
+      },
+      ...imagePasteDropProps
     },
     onCreate: ({ editor: ed }) => {
       try {
@@ -1338,7 +1381,8 @@ export default function TextEditor({
     editorProps: {
       attributes: {
         class: 'focus:outline-none text-[10px] text-gray-800 font-sans'
-      }
+      },
+      ...imagePasteDropProps
     },
     onCreate: ({ editor: ed }) => {
       try {
@@ -1362,6 +1406,12 @@ export default function TextEditor({
       }
     }
   })
+
+  useEffect(() => {
+    setMainEditor(editor)
+    setHeaderEditor(headerEditor)
+    setFooterEditor(footerEditor)
+  }, [editor, headerEditor, footerEditor, setMainEditor, setHeaderEditor, setFooterEditor])
 
   // ── Sync Editable State & Focus ──
   useEffect(() => {
@@ -1406,6 +1456,7 @@ export default function TextEditor({
   const handlePageChange = useCallback((cur, tot) => {
     setCurrentPage(cur)
     setTotalPages(tot)
+    useEditorStore.getState().setCurrentPage?.(cur)
   }, [])
 
   useEffect(() => {

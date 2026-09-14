@@ -1745,6 +1745,14 @@ export default function DocumentViewer({
                   {/* Editor Content Area */}
                   <div
                     className="relative doc-page select-text"
+                    data-doc-w={docW}
+                    data-doc-h={docH}
+                    data-gap-h={gapH}
+                    data-pad-top={padTopActual}
+                    data-pad-bottom={padBottom}
+                    data-pad-left={padLeft}
+                    data-pad-right={padRight}
+                    data-total-pages={narrativeTotalPages}
                     style={{
                       width: `${docW}px`,
                       minHeight: `${canvasHeight}px`,

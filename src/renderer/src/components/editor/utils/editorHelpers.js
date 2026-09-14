@@ -1,6 +1,7 @@
 import JSZip from 'jszip'
 import { EditorState } from 'prosemirror-state'
 import { createDocument } from '@tiptap/core'
+import { useEditorStore } from '../store/useEditorStore'
 
 /**
  * Loads baseline content into a Tiptap editor and resets the ProseMirror undo/redo history state to 0 steps.
@@ -160,15 +161,24 @@ export function handleLink(editor) {
 export function handleInsertImage(editor, e) {
   const file = e.target.files?.[0]
   if (!file || !editor) return
+
+  const canInsert = useEditorStore.getState().canInsertImage()
+  if (!canInsert) {
+    alert('Maximum of 10 images allowed per document.')
+    e.target.value = ''
+    return
+  }
+
   const reader = new FileReader()
   reader.onload = () => {
+    if (!useEditorStore.getState().canInsertImage()) {
+      alert('Maximum of 10 images allowed per document.')
+      return
+    }
     editor
       .chain()
+      .setImage({ src: reader.result })
       .focus()
-      .insertContent({
-        type: 'floatingImage',
-        attrs: { src: reader.result }
-      })
       .run()
   }
   reader.readAsDataURL(file)
@@ -858,6 +868,7 @@ export async function preparePrintHtmlPayload(element, title, options = {}) {
         <style>
           /* ProseMirror Typography & Element Formatting Styles */
           .ProseMirror {
+            position: relative !important;
             min-height: 100% !important;
             outline: none !important;
             box-sizing: border-box !important;

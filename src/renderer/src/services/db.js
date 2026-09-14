@@ -101,7 +101,8 @@ const LOCAL_STORAGE_KEYS = {
   EVENTS: 'dommunity_events',
   REPORTS: 'dommunity_reports',
   LOGGED_IN_USER: 'dommunity_current_user',
-  RESET_REQUESTS: 'dommunity_reset_requests'
+  RESET_REQUESTS: 'dommunity_reset_requests',
+  SESSION_ID: 'dommunity_session_id'
 }
 
 // Initial Seed Data for Demo Mode
@@ -529,6 +530,70 @@ const saveLocalData = (key, data) => {
 // 2. EXPOSED API SERVICES
 // ==========================================
 
+// --- SESSION MANAGEMENT ---
+let currentSessionId = null
+let isLoggingIn = false
+
+export const generateSessionId = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return 'sess_' + Date.now() + '_' + crypto.randomUUID()
+  }
+  return 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 11)
+}
+
+export const getLocalSessionId = () => {
+  if (currentSessionId) return currentSessionId
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      const sid = sessionStorage.getItem(LOCAL_STORAGE_KEYS.SESSION_ID)
+      if (sid) {
+        currentSessionId = sid
+        return sid
+      }
+    }
+  } catch {
+    // Ignore storage access error
+  }
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const sid = localStorage.getItem(LOCAL_STORAGE_KEYS.SESSION_ID)
+      if (sid) {
+        currentSessionId = sid
+        return sid
+      }
+    }
+  } catch {
+    // Ignore storage access error
+  }
+  return null
+}
+
+export const setLocalSessionId = (id) => {
+  currentSessionId = id
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      if (id) {
+        sessionStorage.setItem(LOCAL_STORAGE_KEYS.SESSION_ID, id)
+      } else {
+        sessionStorage.removeItem(LOCAL_STORAGE_KEYS.SESSION_ID)
+      }
+    }
+  } catch {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      if (id) {
+        localStorage.setItem(LOCAL_STORAGE_KEYS.SESSION_ID, id)
+      } else {
+        localStorage.removeItem(LOCAL_STORAGE_KEYS.SESSION_ID)
+      }
+    }
+  } catch {}
+}
+
+export const clearLocalSessionId = () => {
+  setLocalSessionId(null)
+}
+
 // --- AUTH SERVICES ---
 
 export const login = async (email, password) => {
@@ -561,12 +626,24 @@ export const login = async (email, password) => {
       if (user.status === 'inactive') {
         throw new Error('This account is inactive. Please contact the CES Admin.')
       }
+      const newSessionId = generateSessionId()
+      setLocalSessionId(newSessionId)
+      user.currentSessionId = newSessionId
+      const updatedUsers = users.map((u) =>
+        u.uid === user.uid ? { ...u, currentSessionId: newSessionId } : u
+      )
+      saveLocalData(LOCAL_STORAGE_KEYS.USERS, updatedUsers)
       saveLocalData(LOCAL_STORAGE_KEYS.LOGGED_IN_USER, user)
+      window.dispatchEvent(new Event('dommunity_users_updated'))
       return user
     } else {
       throw new Error('Invalid email or password credentials.')
     }
   } else {
+    isLoggingIn = true
+    const newSessionId = generateSessionId()
+    setLocalSessionId(newSessionId)
+
     let loginEmail = (email || '').trim().toLowerCase()
     if (!loginEmail.includes('@')) {
       try {
@@ -589,56 +666,81 @@ export const login = async (email, password) => {
       }
     }
 
-    const userCredential = await signInWithEmailAndPassword(fauth, loginEmail, password)
-    let userData = null
-
     try {
-      const userDoc = await getDoc(doc(fdb, 'users', userCredential.user.uid))
-      if (userDoc.exists()) {
-        userData = userDoc.data()
-      }
-    } catch (e) {
-      console.warn('Direct user doc fetch by UID failed:', e)
-    }
+      const userCredential = await signInWithEmailAndPassword(fauth, loginEmail, password)
 
-    if (!userData) {
+      // Immediately register active session token in Firestore
+      const userDocRef = doc(fdb, 'users', userCredential.user.uid)
+      await setDoc(
+        userDocRef,
+        {
+          currentSessionId: newSessionId,
+          lastLoginAt: Timestamp.now()
+        },
+        { merge: true }
+      )
+
+      let userData = null
+
       try {
-        const q = query(
-          collection(fdb, 'users'),
-          where('email', '==', loginEmail.toLowerCase())
-        )
-        const qSnap = await getDocs(q)
-        if (!qSnap.empty) {
-          userData = qSnap.docs[0].data()
+        const userDoc = await getDoc(userDocRef)
+        if (userDoc.exists()) {
+          userData = userDoc.data()
         }
       } catch (e) {
-        console.warn('Fallback user query by email failed:', e)
+        console.warn('Direct user doc fetch by UID failed:', e)
       }
-    }
 
-    if (userData) {
-      if (userData.status === 'inactive') {
-        await signOut(fauth)
-        throw new Error('This account is inactive. Please contact the CES Admin.')
+      if (!userData) {
+        try {
+          const q = query(
+            collection(fdb, 'users'),
+            where('email', '==', loginEmail.toLowerCase())
+          )
+          const qSnap = await getDocs(q)
+          if (!qSnap.empty) {
+            userData = qSnap.docs[0].data()
+          }
+        } catch (e) {
+          console.warn('Fallback user query by email failed:', e)
+        }
       }
-      return userData
-    }
 
-    // Fail-safe: User successfully authenticated via Firebase Auth
-    // Construct valid user session object if Firestore document fetch was restricted
-    const fallbackUser = {
-      uid: userCredential.user.uid,
-      email: loginEmail,
-      username: loginEmail.split('@')[0],
-      name: loginEmail.split('@')[0],
-      role: 'admin',
-      status: 'active'
+      if (userData) {
+        if (userData.status === 'inactive') {
+          clearLocalSessionId()
+          isLoggingIn = false
+          await signOut(fauth)
+          throw new Error('This account is inactive. Please contact the CES Admin.')
+        }
+        userData.currentSessionId = newSessionId
+        isLoggingIn = false
+        return userData
+      }
+
+      // Fail-safe: User successfully authenticated via Firebase Auth
+      // Construct valid user session object if Firestore document fetch was restricted
+      const fallbackUser = {
+        uid: userCredential.user.uid,
+        email: loginEmail,
+        username: loginEmail.split('@')[0],
+        name: loginEmail.split('@')[0],
+        role: 'admin',
+        status: 'active',
+        currentSessionId: newSessionId
+      }
+      isLoggingIn = false
+      return fallbackUser
+    } catch (err) {
+      isLoggingIn = false
+      clearLocalSessionId()
+      throw err
     }
-    return fallbackUser
   }
 }
 
 export const logout = async () => {
+  clearLocalSessionId()
   if (isDemoMode) {
     localStorage.removeItem(LOCAL_STORAGE_KEYS.LOGGED_IN_USER)
     return true
@@ -935,9 +1037,21 @@ export const listenToAuthChanges = (callback) => {
         const users = getLocalData(LOCAL_STORAGE_KEYS.USERS) || []
         const currentInDb = users.find((u) => u.uid === loggedUser.uid)
         if (!currentInDb || currentInDb.status === 'inactive') {
+          clearLocalSessionId()
           localStorage.removeItem(LOCAL_STORAGE_KEYS.LOGGED_IN_USER)
           callback(null, { deactivated: true })
         } else {
+          const localSessionId = getLocalSessionId()
+          if (
+            currentInDb.currentSessionId &&
+            localSessionId &&
+            currentInDb.currentSessionId !== localSessionId
+          ) {
+            clearLocalSessionId()
+            localStorage.removeItem(LOCAL_STORAGE_KEYS.LOGGED_IN_USER)
+            callback(null, { concurrentSession: true })
+            return
+          }
           callback(currentInDb)
         }
       } catch (e) {
@@ -979,6 +1093,11 @@ export const listenToAuthChanges = (callback) => {
             userDocRef,
             async (snapshot) => {
               try {
+                if (isLoggingIn) {
+                  // Device actively logging in; wait for login routine to conclude session storage
+                  return
+                }
+
                 if (snapshot.exists()) {
                   const userData = snapshot.data()
                   if (userData.status === 'inactive') {
@@ -986,16 +1105,59 @@ export const listenToAuthChanges = (callback) => {
                       unsubscribeUserSnapshot()
                       unsubscribeUserSnapshot = null
                     }
+                    clearLocalSessionId()
                     await signOut(fauth)
                     callback(null, { deactivated: true })
-                  } else {
-                    callback(userData)
+                    return
                   }
+
+                  const localSessionId = getLocalSessionId()
+
+                  // Check if another device claimed the active session
+                  if (
+                    userData.currentSessionId &&
+                    localSessionId &&
+                    userData.currentSessionId !== localSessionId
+                  ) {
+                    if (unsubscribeUserSnapshot) {
+                      unsubscribeUserSnapshot()
+                      unsubscribeUserSnapshot = null
+                    }
+                    clearLocalSessionId()
+                    await signOut(fauth)
+                    callback(null, { concurrentSession: true })
+                    return
+                  }
+
+                  // If user doc in Firestore has no session ID yet (e.g. legacy/seed user)
+                  if (!userData.currentSessionId) {
+                    const sid = localSessionId || generateSessionId()
+                    setLocalSessionId(sid)
+                    try {
+                      await setDoc(userDocRef, { currentSessionId: sid }, { merge: true })
+                      userData.currentSessionId = sid
+                    } catch (e) {
+                      console.warn('Could not initialize session ID on user doc:', e)
+                    }
+                  } else if (!localSessionId) {
+                    // Document has an active session ID, but this device has none stored
+                    if (unsubscribeUserSnapshot) {
+                      unsubscribeUserSnapshot()
+                      unsubscribeUserSnapshot = null
+                    }
+                    clearLocalSessionId()
+                    await signOut(fauth)
+                    callback(null, { concurrentSession: true })
+                    return
+                  }
+
+                  callback(userData)
                 } else {
                   if (unsubscribeUserSnapshot) {
                     unsubscribeUserSnapshot()
                     unsubscribeUserSnapshot = null
                   }
+                  clearLocalSessionId()
                   await signOut(fauth)
                   callback(null, { deactivated: true })
                 }
@@ -1010,6 +1172,7 @@ export const listenToAuthChanges = (callback) => {
             }
           )
         } else {
+          clearLocalSessionId()
           callback(null)
         }
       })

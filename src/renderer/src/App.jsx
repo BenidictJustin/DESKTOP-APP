@@ -20,6 +20,7 @@ function AppContent() {
   const [policyAccepted, setPolicyAccepted] = useState(null) // null = checking, true = accepted, false = needs ack
 
   const [deactivationNotice, setDeactivationNotice] = useState('')
+  const [sessionNotice, setSessionNotice] = useState('')
 
   const searchParams =
     typeof window !== 'undefined'
@@ -46,6 +47,15 @@ function AppContent() {
     const unsubscribe = listenToAuthChanges((currentUser, info) => {
       if (info && info.deactivated) {
         setDeactivationNotice('Your account has been deactivated. Please contact the Administrator.')
+        setSessionNotice('')
+        setActiveUser(null)
+        setLoading(false)
+        return
+      }
+
+      if (info && info.concurrentSession) {
+        setSessionNotice('Your account was signed in on another device. You have been logged out.')
+        setDeactivationNotice('')
         setActiveUser(null)
         setLoading(false)
         return
@@ -94,6 +104,7 @@ function AppContent() {
     try {
       await logout()
       setDeactivationNotice('')
+      setSessionNotice('')
       setActiveUser(null)
       if (typeof document !== 'undefined') {
         document.body.style.overflow = ''
@@ -108,6 +119,7 @@ function AppContent() {
 
   const handleLoginSuccess = (authenticatedUser) => {
     setDeactivationNotice('')
+    setSessionNotice('')
     setPolicyAccepted(null) // reset to checking state for the new user
     setActiveUser(authenticatedUser)
   }
@@ -168,7 +180,11 @@ function AppContent() {
               exit="exit"
               transition={authTransition}
             >
-              <Login onLoginSuccess={handleLoginSuccess} deactivationNotice={deactivationNotice} />
+              <Login
+                onLoginSuccess={handleLoginSuccess}
+                deactivationNotice={deactivationNotice}
+                sessionNotice={sessionNotice}
+              />
             </motion.div>
           ) : policyAccepted === null ? (
             /* Checking policy status — show brief loading state */

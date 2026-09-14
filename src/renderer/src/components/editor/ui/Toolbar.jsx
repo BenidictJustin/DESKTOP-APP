@@ -396,20 +396,33 @@ const AlignButton = () => {
 }
 
 const ImageButton = () => {
-  const { editor } = useEditorStore()
+  const { editor, canInsertImage } = useEditorStore()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [imageUrl, setImageUrl] = useState('')
 
   const onChange = (src) => {
-    editor?.chain().focus().setImage({ src }).run()
+    if (!canInsertImage()) {
+      alert('Maximum of 10 images allowed per document.')
+      return
+    }
+    editor?.chain().setImage({ src }).focus().run()
   }
 
   const onUpload = () => {
+    if (!canInsertImage()) {
+      alert('Maximum of 10 images allowed per document.')
+      return
+    }
+
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = 'image/*'
 
     input.onchange = (e) => {
+      if (!canInsertImage()) {
+        alert('Maximum of 10 images allowed per document.')
+        return
+      }
       const file = e.target.files?.[0]
       if (file) {
         const reader = new FileReader()
@@ -424,6 +437,10 @@ const ImageButton = () => {
   }
 
   const handleImageUrlSubmit = () => {
+    if (!canInsertImage()) {
+      alert('Maximum of 10 images allowed per document.')
+      return
+    }
     if (imageUrl) {
       onChange(imageUrl)
       setImageUrl('')
@@ -444,7 +461,16 @@ const ImageButton = () => {
             <Upload className="size-4 mr-2" />
             Upload from computer
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setIsDialogOpen(true)} className="cursor-pointer">
+          <DropdownMenuItem
+            onClick={() => {
+              if (!canInsertImage()) {
+                alert('Maximum of 10 images allowed per document.')
+                return
+              }
+              setIsDialogOpen(true)
+            }}
+            className="cursor-pointer"
+          >
             <Search className="size-4 mr-2" />
             Paste image URL
           </DropdownMenuItem>

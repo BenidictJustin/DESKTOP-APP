@@ -17,12 +17,12 @@ import {
 } from './motion/motionConfig'
 import AnimatedModal from './motion/AnimatedModal'
 
-export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
+export default function Login({ onLoginSuccess, deactivationNotice = '', sessionNotice = '' }) {
   const { isOffline, registerReconnectHandler } = useNetworkStatus()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState(deactivationNotice || '')
+  const [error, setError] = useState(sessionNotice || deactivationNotice || '')
   const [loading, setLoading] = useState(false)
   const [showForgotModal, setShowForgotModal] = useState(false)
   const [forgotEmail, setForgotEmail] = useState('')
@@ -38,10 +38,12 @@ export default function Login({ onLoginSuccess, deactivationNotice = '' }) {
   const cooldownRef = useRef(null)
 
   useEffect(() => {
-    if (deactivationNotice) {
+    if (sessionNotice) {
+      setError(sessionNotice)
+    } else if (deactivationNotice) {
       setError(deactivationNotice)
     }
-  }, [deactivationNotice])
+  }, [sessionNotice, deactivationNotice])
 
   // Automatically clear network-related errors when connection returns
   useEffect(() => {

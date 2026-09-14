@@ -298,6 +298,7 @@ export default function DocumentCanvas({
                         {/* -- Static Template Header -- */}
                         {showHeader && (
                           <div
+                            data-header-region="true"
                             className="absolute left-0 right-0 z-50 pointer-events-none select-none"
                             style={{
                               top: isTemplateActive && marginKey === 'Narrow' ? `${padTop}px` : '48px',
@@ -319,6 +320,7 @@ export default function DocumentCanvas({
                         {/* -- Static Template Footer -- */}
                         {showFooter && (
                           <div
+                            data-footer-region="true"
                             className="absolute left-0 right-0 z-50 pointer-events-none select-none"
                             style={{
                               bottom: '0px',
@@ -344,6 +346,7 @@ export default function DocumentCanvas({
                         {/* Header Region */}
                         {showHeader && (
                           <div
+                            data-header-region="true"
                             className={`absolute top-0 left-0 right-0 z-50 select-text transition-colors ${
                               activeEditingArea === 'header' && editingPage === pageNum
                                 ? 'bg-white'
@@ -395,6 +398,7 @@ export default function DocumentCanvas({
                         {/* Footer Region */}
                         {showFooter && (
                           <div
+                            data-footer-region="true"
                             className={`absolute bottom-0 left-0 right-0 z-50 select-text transition-colors ${
                               activeEditingArea === 'footer' && editingPage === pageNum
                                 ? 'bg-white'
@@ -473,6 +477,14 @@ export default function DocumentCanvas({
                 }
               }}
               className={`relative doc-page doc-page-container select-text ${showGridlines ? 'bg-grid' : ''}`}
+              data-doc-w={docW}
+              data-doc-h={docH}
+              data-gap-h={gapH}
+              data-pad-top={padTopActual}
+              data-pad-bottom={padBottom}
+              data-pad-left={padLeft}
+              data-pad-right={padRight}
+              data-total-pages={totalPages}
               style={{
                 width: docW,
                 minHeight: canvasHeight,
@@ -506,6 +518,7 @@ export default function DocumentCanvas({
                     overflow: visible !important;
                   }
                   .ProseMirror {
+                    position: relative !important;
                     padding: 0 !important;
                     background-color: transparent !important;
                     background-image: none !important;
