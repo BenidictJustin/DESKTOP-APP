@@ -2,8 +2,11 @@ import { Node, mergeAttributes } from '@tiptap/core'
 import { ReactNodeViewRenderer, NodeViewWrapper } from '@tiptap/react'
 import React, { useRef, useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Trash2, Scissors, Copy, Layers, Crop, Square, Check } from 'lucide-react'
+import { Trash2, Scissors, Copy, Layers, Crop, Square, Check, ClipboardPaste } from 'lucide-react'
 import { useEditorStore } from '../store/useEditorStore'
+
+// Module-level cache for copied floating image data
+let copiedFloatingImageData = null
 
 // Helper to read layout and page geometry from document container
 const getLayoutMetrics = (targetEl = null, targetPage = 1) => {
@@ -87,7 +90,7 @@ const getLayoutMetrics = (targetEl = null, targetPage = 1) => {
   }
 }
 
-const FloatingImageComponent = ({ node, updateAttributes, selected, editor, deleteNode }) => {
+const FloatingImageComponent = ({ node, updateAttributes, selected, editor, deleteNode, getPos }) => {
   const { src, left, top, page = 1, width, zIndex, cropLeft, cropRight, cropTop, cropBottom } = node.attrs
   const containerRef = useRef(null)
 
@@ -202,6 +205,17 @@ const FloatingImageComponent = ({ node, updateAttributes, selected, editor, dele
     if (!isEditable) return
     e.preventDefault()
     e.stopPropagation()
+
+    if (typeof getPos === 'function' && editor) {
+      try {
+        const pos = getPos()
+        if (typeof pos === 'number') {
+          editor.commands.setNodeSelection(pos)
+        }
+      } catch (err) {
+        console.warn('Failed to setNodeSelection:', err)
+      }
+    }
 
     const menuWidth = 180
     const menuHeight = 250
@@ -381,49 +395,165 @@ const FloatingImageComponent = ({ node, updateAttributes, selected, editor, dele
   }, [isMouseDown, isDragging, isResizing, dragStart, resizeStart, width, left, top, page, hasCrop, displayContainerWidth, displayContainerHeight, aspectRatio])
 
   // Context Menu Actions
-  const handleCut = () => {
-    navigator.clipboard.writeText(src)
+  const handleCopy = async () => {
+    const currentAttrs = {
+      src,
+      width: typeof width === 'number' ? width : 200,
+      height: 'auto',
+      page: page || 1,
+      left: typeof left === 'number' ? left : 0,
+      top: typeof top === 'number' ? top : 0,
+      zIndex: parseInt(zIndex) || 100,
+      cropLeft: cropLeft || 0,
+      cropRight: cropRight || 0,
+      cropTop: cropTop || 0,
+      cropBottom: cropBottom || 0
+    }
+
+    copiedFloatingImageData = { ...currentAttrs }
+    if (typeof window !== 'undefined') {
+      window.__copiedFloatingImageData = { ...currentAttrs }
+    }
+
+    try {
+      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+        const pageStride = 1056 + 36
+        const renderTop = ((currentAttrs.page || 1) - 1) * pageStride + (currentAttrs.top || 0)
+        const renderLeft = currentAttrs.left || 0
+
+        const htmlPayload = `<div data-floating-image="true" data-src="${currentAttrs.src}" data-page="${currentAttrs.page}" data-left="${currentAttrs.left}" data-top="${currentAttrs.top}" data-width="${currentAttrs.width}" data-height="auto" data-z-index="${currentAttrs.zIndex}" data-crop-left="${currentAttrs.cropLeft}" data-crop-right="${currentAttrs.cropRight}" data-crop-top="${currentAttrs.cropTop}" data-crop-bottom="${currentAttrs.cropBottom}" style="position: static; display: block; margin: 0; padding: 0; height: 0; width: 0; overflow: visible;"><div style="position: absolute; left: ${renderLeft}px; top: ${renderTop}px; width: ${currentAttrs.width}px;"><img src="${currentAttrs.src}" /></div></div>`
+
+        const item = new ClipboardItem({
+          'text/html': new Blob([htmlPayload], { type: 'text/html' }),
+          'text/plain': new Blob([''], { type: 'text/plain' })
+        })
+        await navigator.clipboard.write([item])
+      }
+    } catch (err) {
+      console.warn('System clipboard write failed (memory fallback active):', err)
+    }
+
+    setShowMenu(false)
+  }
+
+  const handleCut = async () => {
+    await handleCopy()
     deleteNode()
-    setShowMenu(false)
   }
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(src)
+  const handlePaste = async () => {
     setShowMenu(false)
-  }
 
-  const handlePaste = () => {
     if (!useEditorStore.getState().canInsertImage()) {
       alert('Maximum of 10 images allowed per document.')
-      setShowMenu(false)
       return
     }
-    navigator.clipboard
-      .readText()
-      .then((text) => {
-        if (!useEditorStore.getState().canInsertImage()) {
-          alert('Maximum of 10 images allowed per document.')
-          return
+
+    let imageToPaste =
+      copiedFloatingImageData ||
+      (typeof window !== 'undefined' ? window.__copiedFloatingImageData : null)
+
+    // Fallback: try reading system clipboard HTML
+    if (!imageToPaste && navigator.clipboard?.read) {
+      try {
+        const items = await navigator.clipboard.read()
+        for (const item of items) {
+          if (item.types.includes('text/html')) {
+            const blob = await item.getType('text/html')
+            const html = await blob.text()
+            const parser = new DOMParser()
+            const doc = parser.parseFromString(html, 'text/html')
+            const floatingDiv = doc.querySelector('div[data-floating-image]')
+            if (floatingDiv) {
+              imageToPaste = {
+                src: floatingDiv.getAttribute('data-src'),
+                page: parseInt(floatingDiv.getAttribute('data-page')) || 1,
+                left: parseFloat(floatingDiv.getAttribute('data-left')) || 0,
+                top: parseFloat(floatingDiv.getAttribute('data-top')) || 0,
+                width: parseFloat(floatingDiv.getAttribute('data-width')) || 200,
+                height: 'auto',
+                zIndex: parseInt(floatingDiv.getAttribute('data-z-index')) || 100,
+                cropLeft: parseFloat(floatingDiv.getAttribute('data-crop-left')) || 0,
+                cropRight: parseFloat(floatingDiv.getAttribute('data-crop-right')) || 0,
+                cropTop: parseFloat(floatingDiv.getAttribute('data-crop-top')) || 0,
+                cropBottom: parseFloat(floatingDiv.getAttribute('data-crop-bottom')) || 0
+              }
+              break
+            }
+          }
         }
-        if (text && (text.startsWith('data:image') || text.startsWith('http'))) {
-          editor
-            .chain()
-            .setImage({
-              src: text,
-              left: (typeof left === 'number' ? left : 0) + 30,
-              top: (typeof top === 'number' ? top : 0) + 30,
-              page: page || 1
-            })
-            .focus()
-            .run()
-        } else {
-          alert('Clipboard does not contain a valid image source (base64 or URL).')
+      } catch (err) {
+        console.warn('System clipboard read HTML failed:', err)
+      }
+    }
+
+    // Secondary fallback: check clipboard text if it contains image URL or base64
+    if (!imageToPaste && navigator.clipboard?.readText) {
+      try {
+        const text = await navigator.clipboard.readText()
+        if (
+          text &&
+          (text.startsWith('data:image') ||
+            text.startsWith('http://') ||
+            text.startsWith('https://') ||
+            text.startsWith('blob:'))
+        ) {
+          imageToPaste = {
+            src: text,
+            page: page || 1,
+            left: typeof left === 'number' ? left : 0,
+            top: typeof top === 'number' ? top : 0,
+            width: typeof width === 'number' ? width : 200,
+            height: 'auto',
+            zIndex: 100,
+            cropLeft: 0,
+            cropRight: 0,
+            cropTop: 0,
+            cropBottom: 0
+          }
         }
-      })
-      .catch((err) => {
-        console.warn('Clipboard read failed:', err)
-      })
-    setShowMenu(false)
+      } catch (err) {
+        console.warn('System clipboard readText failed:', err)
+      }
+    }
+
+    if (!imageToPaste || !imageToPaste.src) {
+      alert('Clipboard does not contain a copied image.')
+      return
+    }
+
+    const targetPage = imageToPaste.page || page || 1
+    const metrics = getLayoutMetrics(containerRef.current, targetPage)
+    const targetWidth = imageToPaste.width || 200
+    let targetLeft = (typeof imageToPaste.left === 'number' ? imageToPaste.left : 0) + 30
+    let targetTop = (typeof imageToPaste.top === 'number' ? imageToPaste.top : 0) + 30
+
+    if (targetLeft + targetWidth > metrics.bodyWidth) {
+      targetLeft = 0
+    }
+    if (targetTop + 150 > metrics.bodyHeight) {
+      targetTop = 0
+    }
+
+    const finalAttrs = {
+      src: imageToPaste.src,
+      width: targetWidth,
+      height: 'auto',
+      page: targetPage,
+      left: Math.round(targetLeft),
+      top: Math.round(targetTop),
+      zIndex: (parseInt(imageToPaste.zIndex) || 100) + 1,
+      cropLeft: imageToPaste.cropLeft || 0,
+      cropRight: imageToPaste.cropRight || 0,
+      cropTop: imageToPaste.cropTop || 0,
+      cropBottom: imageToPaste.cropBottom || 0
+    }
+
+    editor
+      .chain()
+      .setImage(finalAttrs)
+      .focus()
+      .run()
   }
 
   const handleBringForward = () => {
@@ -827,8 +957,8 @@ const FloatingImageComponent = ({ node, updateAttributes, selected, editor, dele
               onClick={handlePaste}
               className="w-full text-left px-2.5 py-1.5 flex items-center gap-2 hover:bg-white/10 hover:text-white rounded cursor-pointer transition font-medium"
             >
-              <Square className="w-3.5 h-3.5 text-gray-400" />
-              <span>Paste Link/Base64</span>
+              <ClipboardPaste className="w-3.5 h-3.5 text-gray-400" />
+              <span>Paste</span>
             </button>
 
             <div className="border-t border-gray-800 my-1" />
@@ -997,7 +1127,7 @@ export const FloatingImage = Node.create({
 
           // 1. If an existing image is currently selected, NEVER replace it!
           // Insert a new independent image object in the body, staggered next to the selected image.
-          if (selectedNode && selectedNode.type.name === this.name) {
+          if (selectedNode && selectedNode.type.name === 'floatingImage') {
             const prevLeft = typeof selectedNode.attrs.left === 'number' ? selectedNode.attrs.left : 0
             const prevTop = typeof selectedNode.attrs.top === 'number' ? selectedNode.attrs.top : 0
             const prevPage = selectedNode.attrs.page || 1
@@ -1021,7 +1151,7 @@ export const FloatingImage = Node.create({
             if (finalAttrs.page === undefined) finalAttrs.page = prevPage
 
             return commands.insertContentAt(sel.to, {
-              type: this.name,
+              type: 'floatingImage',
               attrs: finalAttrs
             })
           }
@@ -1035,7 +1165,7 @@ export const FloatingImage = Node.create({
             if (finalAttrs.top === undefined) finalAttrs.top = 0
 
             return commands.insertContentAt(sel.to, {
-              type: this.name,
+              type: 'floatingImage',
               attrs: finalAttrs
             })
           }
@@ -1048,7 +1178,7 @@ export const FloatingImage = Node.create({
           if (finalAttrs.top === undefined) finalAttrs.top = 0
 
           return commands.insertContent({
-            type: this.name,
+            type: 'floatingImage',
             attrs: finalAttrs
           })
         }
