@@ -18,6 +18,7 @@ import {
 
 // Professional Google Docs Brand Icon SVG
 export const GoogleDocsIcon = ({ className = 'w-4 h-4' }) => (
+  
   <svg
     viewBox="0 0 48 48"
     className={className}
@@ -71,8 +72,19 @@ export default function GoogleDocsModal({
     const url = getPersistedDocUrl()
     if (url) {
       setInputUrl(url)
+    } else if (isOpen && navigator.clipboard?.readText) {
+      navigator.clipboard
+        .readText()
+        .then((text) => {
+          const match = text && text.trim().match(/https:\/\/docs\.google\.com\/document\/d\/([a-zA-Z0-9-_]+)/)
+          if (match) {
+            const detected = `https://docs.google.com/document/d/${match[1]}/edit`
+            setInputUrl(detected)
+          }
+        })
+        .catch(() => {})
     }
-  }, [googleDocsUrl, workspaceReportId])
+  }, [googleDocsUrl, workspaceReportId, isOpen])
 
   if (!isOpen) return null
 
@@ -547,7 +559,29 @@ function showExportModal(title, html, docUrl) {
                     className="flex-1 border border-neutral-300 rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono"
                   />
                   <button
-                    onClick={handleSaveUrl}
+                    onClick={async () => {
+                      try {
+                        const text = await navigator.clipboard?.readText()
+                        const match = text && text.trim().match(/https:\/\/docs\.google\.com\/document\/d\/([a-zA-Z0-9-_]+)/)
+                        if (match) {
+                          const cleanUrl = `https://docs.google.com/document/d/${match[1]}/edit`
+                          setInputUrl(cleanUrl)
+                          handleSaveUrl(cleanUrl)
+                        } else {
+                          alert('No Google Docs URL found on clipboard. Please copy your document link from the browser address bar.')
+                        }
+                      } catch (e) {
+                        alert('Unable to access clipboard. Please paste the URL into the input field.')
+                      }
+                    }}
+                    className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 shrink-0"
+                    title="Paste Google Docs URL from clipboard"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Paste Clipboard</span>
+                  </button>
+                  <button
+                    onClick={() => handleSaveUrl()}
                     className="px-4 py-2 bg-navy-blue hover:bg-navy-blue/90 text-white rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shrink-0"
                   >
                     {savedUrlSuccess ? (
