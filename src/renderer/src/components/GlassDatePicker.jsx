@@ -265,7 +265,7 @@ export default function GlassDatePicker({
     d.setHours(0, 0, 0, 0)
     let threshold = new Date()
     if (minDate) {
-      threshold = new Date(minDate)
+      threshold = parseValueDate(minDate)
     }
     threshold.setHours(0, 0, 0, 0)
     return d.getTime() < threshold.getTime()
@@ -406,7 +406,11 @@ export default function GlassDatePicker({
                         key={`day-${day}`}
                         type="button"
                         disabled={true}
-                        className="py-1.5 rounded-lg text-xs font-normal text-gray-300 cursor-not-allowed select-none bg-gray-50/40"
+                        className={`py-1.5 rounded-lg text-xs select-none ${
+                          sel
+                            ? 'bg-navy-blue/40 text-white font-bold cursor-not-allowed ring-1 ring-navy-blue/60'
+                            : 'font-normal text-gray-300 cursor-not-allowed bg-gray-50/40'
+                        }`}
                       >
                         {day}
                       </button>

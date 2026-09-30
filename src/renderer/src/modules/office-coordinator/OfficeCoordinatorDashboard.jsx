@@ -55,6 +55,7 @@ import DocumentViewer from '../../components/DocumentViewer'
 import DocxUploadModal from '../../components/DocxUploadModal'
 import AnimatedSidebar from '../../components/AnimatedSidebar'
 import AnimatedModal from '../../components/motion/AnimatedModal'
+import { useWordBridge } from '../../context/WordBridgeContext'
 import {
   sanitizeOklchInDocument,
   loadInitialContentAndResetHistory,
@@ -92,10 +93,23 @@ const StatusBadge = ({ status }) => {
 
 export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   const { isOffline, registerReconnectHandler } = useNetworkStatus()
+  const { startWordSession } = useWordBridge()
   // ── Navigation ──
   const [activeTab, setActiveTab] = useState('dashboard')
   const [previousTab, setPreviousTab] = useState('reports')
   const [editorOrigin, setEditorOrigin] = useState(null) // 'new' | 'reports' — tracks where user came from
+
+  const handleEditInWord = useCallback(
+    async (rep) => {
+      await startWordSession({
+        report: rep,
+        title: rep.activityTitle,
+        htmlFallback: rep.narrative,
+        isOffline
+      })
+    },
+    [startWordSession, isOffline]
+  )
 
   const navigateTab = useCallback(
     (nextTab) => {
@@ -1102,6 +1116,16 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                           <span>Export PDF</span>
                                         </button>
                                         <button
+                                          onClick={() => handleEditInWord(rep)}
+                                          className="flex items-center gap-1.5 bg-[#005a9e] text-white text-xs font-semibold px-3.5 py-1.5 rounded-full hover:bg-[#004b87] transition-all duration-150 cursor-pointer shadow-xs group"
+                                          title="Open and edit directly in Microsoft Word desktop"
+                                        >
+                                          <div className="w-3.5 h-3.5 bg-white text-[#005a9e] rounded flex items-center justify-center font-bold text-[9px] group-hover:scale-105 transition-transform">
+                                            W
+                                          </div>
+                                          <span>Edit in Word</span>
+                                        </button>
+                                        <button
                                           onClick={() => openReport(rep)}
                                           className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-xs"
                                         >
@@ -1365,6 +1389,16 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                             </button>
                                           </div>
                                         )}
+                                        <button
+                                          onClick={() => handleEditInWord(rep)}
+                                          className="flex items-center gap-1.5 bg-[#005a9e] text-white text-xs font-semibold px-3.5 py-1.5 rounded-full hover:bg-[#004b87] transition-all duration-150 cursor-pointer shadow-xs group"
+                                          title="Open and edit directly in Microsoft Word desktop"
+                                        >
+                                          <div className="w-3.5 h-3.5 bg-white text-[#005a9e] rounded flex items-center justify-center font-bold text-[9px] group-hover:scale-105 transition-transform">
+                                            W
+                                          </div>
+                                          <span>Edit in Word</span>
+                                        </button>
                                         <button
                                           onClick={() => openReport(rep)}
                                           className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-xs"

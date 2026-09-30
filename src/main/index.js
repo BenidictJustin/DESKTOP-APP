@@ -8,6 +8,7 @@ import net from 'net'
 import { exec } from 'child_process'
 
 import { autoUpdater } from 'electron-updater'
+import { initWordBridge } from './wordBridge'
 
 // Configure autoUpdater log and settings
 autoUpdater.logger = console
@@ -669,6 +670,7 @@ app.whenReady().then(() => {
   })
 
   createWindow()
+  initWordBridge(() => mainWindow)
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the

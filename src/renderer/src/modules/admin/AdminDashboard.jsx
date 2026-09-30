@@ -133,6 +133,7 @@ import SearchableDropdown from '../../components/SearchableDropdown'
 import CustomSelect from '../../components/CustomSelect'
 import DocumentViewer from '../../components/DocumentViewer'
 import GlassDatePicker from '../../components/GlassDatePicker'
+import { isPastDate, DATE_ERROR_MESSAGES } from '../../utils/dateValidation'
 import AnimatedSidebar from '../../components/AnimatedSidebar'
 import EventCalendar from '../../components/EventCalendar'
 import UpcomingEventsSchedule from '../../components/UpcomingEventsSchedule'
@@ -1048,7 +1049,19 @@ export default function AdminDashboard({ user, onLogout }) {
     if (!itemCategory.trim()) errors.itemCategory = 'Category is required.'
     if (!itemUnit.trim()) errors.itemUnit = 'Unit of measurement is required.'
     if (!itemQty) errors.itemQty = 'Quantity is required.'
-    if (!isSchoolSupplies && !itemExpiry) errors.itemExpiry = 'Expiration date is required.'
+
+    const isOriginalItemExpiry =
+      itemEditing?.expiryDate &&
+      itemExpiry &&
+      (itemExpiry === itemEditing.expiryDate ||
+        itemExpiry === itemEditing.expiryDate.split('T')[0] ||
+        new Date(itemExpiry).getTime() === new Date(itemEditing.expiryDate).getTime())
+
+    if (!isSchoolSupplies && !itemExpiry) {
+      errors.itemExpiry = 'Expiration date is required.'
+    } else if (itemExpiry && !isOriginalItemExpiry && isPastDate(itemExpiry)) {
+      errors.itemExpiry = DATE_ERROR_MESSAGES.EXPIRY_PAST
+    }
     if (isAlreadyGrouped && !itemPiecesPerUnit)
       errors.itemPiecesPerUnit = 'Pieces per unit is required.'
 
@@ -1512,7 +1525,11 @@ export default function AdminDashboard({ user, onLogout }) {
     const errors = {}
     if (!donorName.trim()) errors.donorName = 'Donor name is required.'
     if (!donPurpose.trim()) errors.donPurpose = 'Purpose is required.'
-    if (!donDate) errors.donDate = 'Donation date is required.'
+    if (!donDate) {
+      errors.donDate = 'Donation date is required.'
+    } else if (isPastDate(donDate)) {
+      errors.donDate = DATE_ERROR_MESSAGES.DONATION_PAST
+    }
 
     // Check donation items
     const itemErrors = []
@@ -1529,7 +1546,11 @@ export default function AdminDashboard({ user, onLogout }) {
       if (!item.name || !item.name.trim()) itemErr.name = 'Item name is required.'
       if (!item.quantity) itemErr.quantity = 'Quantity is required.'
       if (!item.unit) itemErr.unit = 'Unit is required.'
-      if (!isSchoolSupplies && !item.expiryDate) itemErr.expiryDate = 'Expiration date is required.'
+      if (!isSchoolSupplies && !item.expiryDate) {
+        itemErr.expiryDate = 'Expiration date is required.'
+      } else if (item.expiryDate && isPastDate(item.expiryDate)) {
+        itemErr.expiryDate = DATE_ERROR_MESSAGES.EXPIRY_PAST
+      }
       if (isAlreadyGrouped && !item.piecesPerUnit)
         itemErr.piecesPerUnit = 'Pieces per unit is required.'
 
@@ -1913,11 +1934,7 @@ export default function AdminDashboard({ user, onLogout }) {
     setEvtName('')
     setEvtDesc('')
     if (targetDate) {
-      const target = new Date(targetDate)
-      target.setHours(0, 0, 0, 0)
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      if (target.getTime() < today.getTime()) {
+      if (isPastDate(targetDate)) {
         triggerError('Cannot schedule events on past dates. Please select today or a future date.')
         return
       }
@@ -2040,13 +2057,15 @@ export default function AdminDashboard({ user, onLogout }) {
     if (!evtName.trim()) errors.evtName = 'Activity name is required.'
     if (!evtDate) {
       errors.evtDate = 'Schedule date is required.'
-    } else if (!editingEvent) {
-      const selectedDay = new Date(evtDate)
-      selectedDay.setHours(0, 0, 0, 0)
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      if (selectedDay.getTime() < today.getTime()) {
-        errors.evtDate = 'Cannot schedule an event on a past date. Please select today or a future date.'
+    } else {
+      const isOriginalDate =
+        editingEvent?.scheduleDate &&
+        (new Date(evtDate).getTime() === new Date(editingEvent.scheduleDate).getTime() ||
+          evtDate === editingEvent.scheduleDate ||
+          evtDate.split('T')[0] ===
+            new Date(editingEvent.scheduleDate).toISOString().split('T')[0])
+      if (!isOriginalDate && isPastDate(evtDate)) {
+        errors.evtDate = DATE_ERROR_MESSAGES.EVENT_PAST
       }
     }
     if (!evtLoc.trim()) errors.evtLoc = 'Target location is required.'
@@ -3255,13 +3274,21 @@ export default function AdminDashboard({ user, onLogout }) {
                                     <GlassDatePicker
                                       value={itemExpiry ? itemExpiry.split('T')[0] : ''}
                                       disabled={isSuppliesCategory(itemCategory)}
+                                      disablePast={true}
                                       onChange={(val) => {
                                         setItemExpiry(val)
-                                        setItemErrors((prev) => {
-                                          const copy = { ...prev }
-                                          delete copy.itemExpiry
-                                          return copy
-                                        })
+                                        if (val && isPastDate(val)) {
+                                          setItemErrors((prev) => ({
+                                            ...prev,
+                                            itemExpiry: DATE_ERROR_MESSAGES.EXPIRY_PAST
+                                          }))
+                                        } else {
+                                          setItemErrors((prev) => {
+                                            const copy = { ...prev }
+                                            delete copy.itemExpiry
+                                            return copy
+                                          })
+                                        }
                                       }}
                                       showTime={false}
                                       placeholder="dd/mm/yyyy"
@@ -3550,13 +3577,30 @@ export default function AdminDashboard({ user, onLogout }) {
                                     <GlassDatePicker
                                       value={itemExpiry ? itemExpiry.split('T')[0] : ''}
                                       disabled={isSuppliesCategory(itemCategory)}
+                                      disablePast={
+                                        !(itemEditing?.expiryDate && isPastDate(itemEditing.expiryDate))
+                                      }
                                       onChange={(val) => {
                                         setItemExpiry(val)
-                                        setItemErrors((prev) => {
-                                          const copy = { ...prev }
-                                          delete copy.itemExpiry
-                                          return copy
-                                        })
+                                        const isOriginal =
+                                          itemEditing?.expiryDate &&
+                                          val &&
+                                          (val === itemEditing.expiryDate.split('T')[0] ||
+                                            val === itemEditing.expiryDate ||
+                                            new Date(val).getTime() ===
+                                              new Date(itemEditing.expiryDate).getTime())
+                                        if (val && !isOriginal && isPastDate(val)) {
+                                          setItemErrors((prev) => ({
+                                            ...prev,
+                                            itemExpiry: DATE_ERROR_MESSAGES.EXPIRY_PAST
+                                          }))
+                                        } else {
+                                          setItemErrors((prev) => {
+                                            const copy = { ...prev }
+                                            delete copy.itemExpiry
+                                            return copy
+                                          })
+                                        }
                                       }}
                                       showTime={false}
                                       placeholder="dd/mm/yyyy"
@@ -4528,13 +4572,35 @@ export default function AdminDashboard({ user, onLogout }) {
                                         value={evtDate}
                                         onChange={(val) => {
                                           setEvtDate(val)
-                                          setEvtErrors((prev) => {
-                                            const copy = { ...prev }
-                                            delete copy.evtDate
-                                            return copy
-                                          })
+                                          const isOriginalDate =
+                                            editingEvent?.scheduleDate &&
+                                            val &&
+                                            (new Date(val).getTime() ===
+                                              new Date(editingEvent.scheduleDate).getTime() ||
+                                              val === editingEvent.scheduleDate ||
+                                              val.split('T')[0] ===
+                                                new Date(editingEvent.scheduleDate)
+                                                  .toISOString()
+                                                  .split('T')[0])
+                                          if (val && !isOriginalDate && isPastDate(val)) {
+                                            setEvtErrors((prev) => ({
+                                              ...prev,
+                                              evtDate: DATE_ERROR_MESSAGES.EVENT_PAST
+                                            }))
+                                          } else {
+                                            setEvtErrors((prev) => {
+                                              const copy = { ...prev }
+                                              delete copy.evtDate
+                                              return copy
+                                            })
+                                          }
                                         }}
-                                        disablePast={!editingEvent}
+                                        disablePast={
+                                          !(
+                                            editingEvent?.scheduleDate &&
+                                            isPastDate(editingEvent.scheduleDate)
+                                          )
+                                        }
                                         showTime={true}
                                         placeholder="dd/mm/yyyy, --:-- --"
                                       />
@@ -6731,16 +6797,27 @@ export default function AdminDashboard({ user, onLogout }) {
                     >
                       <GlassDatePicker
                         value={donDate}
+                        disablePast={true}
                         onChange={(val) => {
                           setDonDate(val)
-                          setDonErrors((prev) => {
-                            const copy = { ...prev }
-                            if (copy.fields) {
-                              copy.fields = { ...copy.fields }
-                              delete copy.fields.donDate
-                            }
-                            return copy
-                          })
+                          if (val && isPastDate(val)) {
+                            setDonErrors((prev) => ({
+                              ...prev,
+                              fields: {
+                                ...(prev.fields || {}),
+                                donDate: DATE_ERROR_MESSAGES.DONATION_PAST
+                              }
+                            }))
+                          } else {
+                            setDonErrors((prev) => {
+                              const copy = { ...prev }
+                              if (copy.fields) {
+                                copy.fields = { ...copy.fields }
+                                delete copy.fields.donDate
+                              }
+                              return copy
+                            })
+                          }
                         }}
                         showTime={false}
                         placeholder="dd/mm/yyyy"
@@ -7108,17 +7185,30 @@ export default function AdminDashboard({ user, onLogout }) {
                                 <GlassDatePicker
                                   value={item.expiryDate ? item.expiryDate.split('T')[0] : ''}
                                   disabled={isSchoolSupplies}
+                                  disablePast={true}
                                   onChange={(val) => {
                                     handleDonItemChange(idx, 'expiryDate', val)
-                                    setDonErrors((prev) => {
-                                      const copy = { ...prev }
-                                      if (copy.items && copy.items[idx]) {
-                                        copy.items = [...copy.items]
-                                        copy.items[idx] = { ...copy.items[idx] }
-                                        delete copy.items[idx].expiryDate
-                                      }
-                                      return copy
-                                    })
+                                    if (val && isPastDate(val)) {
+                                      setDonErrors((prev) => {
+                                        const copy = { ...prev }
+                                        const itemsCopy = [...(copy.items || [])]
+                                        itemsCopy[idx] = {
+                                          ...(itemsCopy[idx] || {}),
+                                          expiryDate: DATE_ERROR_MESSAGES.EXPIRY_PAST
+                                        }
+                                        return { ...copy, items: itemsCopy }
+                                      })
+                                    } else {
+                                      setDonErrors((prev) => {
+                                        const copy = { ...prev }
+                                        if (copy.items && copy.items[idx]) {
+                                          copy.items = [...copy.items]
+                                          copy.items[idx] = { ...copy.items[idx] }
+                                          delete copy.items[idx].expiryDate
+                                        }
+                                        return copy
+                                      })
+                                    }
                                   }}
                                   showTime={false}
                                   placeholder="dd/mm/yyyy"

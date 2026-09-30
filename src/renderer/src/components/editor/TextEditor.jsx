@@ -1121,6 +1121,7 @@ import FloatingToolbar from './ui/FloatingToolbar'
 import TableFloatingToolbar from './ui/TableFloatingToolbar'
 import { cn } from './utils/cn'
 import MovableTable from './extensions/MovableTable'
+import { useWordBridge } from '../../context/WordBridgeContext'
 
 export default function TextEditor({
   user,
@@ -2204,6 +2205,50 @@ export default function TextEditor({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [editor, handleSave, docTitle, paperKey, orientation, marginKey, activeDocW, activeDocH])
 
+  const { startWordSession } = useWordBridge()
+
+  const handleOpenInWord = useCallback(async () => {
+    let currentReport = reportsList?.find((r) => r.id === workspaceReportId)
+    if (!currentReport && workspaceReportId) {
+      currentReport = {
+        id: workspaceReportId,
+        activityTitle: workspaceReportTitle,
+        academicYear: workspaceReportAY,
+        eventId: workspaceReportEventId,
+        narrative: editor?.getHTML()
+      }
+    }
+    if (!currentReport) {
+      currentReport = {
+        id: 'draft_' + Date.now(),
+        activityTitle: workspaceReportTitle || 'New Report',
+        academicYear: workspaceReportAY || '2024-2025',
+        eventId: workspaceReportEventId || null,
+        narrative: editor?.getHTML()
+      }
+      setWorkspaceReportId(currentReport.id)
+    }
+
+    await startWordSession({
+      report: currentReport,
+      title: workspaceReportTitle || currentReport.activityTitle,
+      buffer: docxBuffer,
+      htmlFallback: editor?.getHTML(),
+      isOffline
+    })
+  }, [
+    reportsList,
+    workspaceReportId,
+    workspaceReportTitle,
+    workspaceReportAY,
+    workspaceReportEventId,
+    editor,
+    docxBuffer,
+    isOffline,
+    startWordSession,
+    setWorkspaceReportId
+  ])
+
   // ── File menu actions ──
   const fileMenuItems = [
     {
@@ -2351,6 +2396,11 @@ export default function TextEditor({
         }
       }
     },
+    {
+      icon: FileText,
+      l: 'Edit in Microsoft Word (Desktop)',
+      fn: handleOpenInWord
+    },
     null,
     { icon: Save, l: 'Save Draft (Ctrl+S)', fn: () => handleSave('draft') },
     { icon: Send, l: 'Submit to Admin', fn: () => handleSave('submitted') },
@@ -2496,6 +2546,18 @@ export default function TextEditor({
             </div>
           </DropdownWrapper>
         </div>
+
+        {/* Microsoft Word Native Bridge Action */}
+        <button
+          onClick={handleOpenInWord}
+          className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold bg-[#005a9e] text-white rounded hover:bg-[#004b87] transition shadow-xs cursor-pointer group shrink-0"
+          title="Open and edit this document directly in Microsoft Word desktop"
+        >
+          <div className="w-3.5 h-3.5 bg-white text-[#005a9e] rounded flex items-center justify-center font-bold text-[9px] group-hover:scale-105 transition-transform">
+            W
+          </div>
+          <span>Edit in Microsoft Word</span>
+        </button>
 
         <div className="h-4 w-px bg-neutral-300 mx-1" />
 

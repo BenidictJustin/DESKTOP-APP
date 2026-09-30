@@ -2587,8 +2587,36 @@ export const updateReport = async (reportId, updates, userId) => {
         await updateEvent(reports[idx].eventId, { status: 'completed' })
       }
       return reports[idx]
+    } else {
+      // Upsert report if not found in local storage
+      const newReport = {
+        id: reportId,
+        status: updates.status || 'draft',
+        activityTitle: updates.activityTitle || 'New Report',
+        academicYear: updates.academicYear || '2024-2025',
+        eventId: updates.eventId || null,
+        authorId: userId,
+        photos: [],
+        adminFeedback: null,
+        history: [
+          {
+            status: updates.status || 'draft',
+            changedBy: userId,
+            timestamp: new Date().toISOString(),
+            notes: 'Report initialized via Microsoft Word.'
+          }
+        ],
+        ...updates,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+      reports.push(newReport)
+      saveLocalData(LOCAL_STORAGE_KEYS.REPORTS, reports)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('dommunity_reports_updated'))
+      }
+      return newReport
     }
-    throw new Error('Report not found')
   } else {
     const dbUpdates = { ...updates, updatedAt: Timestamp.now() }
     const reportDoc = await getDoc(doc(fdb, 'narrative_reports', reportId))
@@ -2607,7 +2635,23 @@ export const updateReport = async (reportId, updates, userId) => {
       dbUpdates.history = history
     }
 
-    await updateDoc(doc(fdb, 'narrative_reports', reportId), dbUpdates)
+    if (!rep) {
+      // Newly created draft initialized from Word session
+      dbUpdates.createdAt = Timestamp.now()
+      dbUpdates.status = updates.status || 'draft'
+      dbUpdates.authorId = userId
+      dbUpdates.history = [
+        {
+          status: dbUpdates.status,
+          changedBy: userId,
+          timestamp: Timestamp.now(),
+          notes: 'Report initialized via Microsoft Word.'
+        }
+      ]
+      await setDoc(doc(fdb, 'narrative_reports', reportId), dbUpdates)
+    } else {
+      await updateDoc(doc(fdb, 'narrative_reports', reportId), dbUpdates)
+    }
 
     if (rep && (updates.status === 'submitted' || updates.status === 'approved') && rep.eventId) {
       await updateDoc(doc(fdb, 'events', rep.eventId), { status: 'completed' })

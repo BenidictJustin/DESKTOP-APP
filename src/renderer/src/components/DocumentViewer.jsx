@@ -83,6 +83,7 @@ import {
   exportDocxToPDF,
   exportElementToDOCX
 } from './editor/utils/editorHelpers'
+import { useWordBridge } from '../context/WordBridgeContext'
 
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -146,6 +147,20 @@ export default function DocumentViewer({
   const [viewMode, setViewMode] = useState('select') // 'select' or 'pan'
 
   const [narrativeTotalPages, setNarrativeTotalPages] = useState(1)
+
+  const { startWordSession } = useWordBridge()
+
+  const handleEditInWord = async () => {
+    if (!report) return
+    await startWordSession({
+      report,
+      title: report.activityTitle,
+      htmlFallback: report.narrative
+    })
+    if (typeof onClose === 'function') {
+      onClose()
+    }
+  }
 
   // DOCX / PDF Direct View State
   const isDocxSubmission = Boolean(report?.submissionType === 'docx_upload' || report?.originalDocxUrl)
@@ -1305,6 +1320,18 @@ export default function DocumentViewer({
 
           {/* Right Action Options & Close */}
           <div className="flex items-center space-x-2.5">
+            {(report?.status === 'draft' || report?.status === 'returned') && !isExportOnly && (
+              <button
+                onClick={handleEditInWord}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#005a9e] hover:bg-[#004b87] text-white rounded-xl transition cursor-pointer text-xs font-semibold shadow-2xs group"
+                title="Open and edit this document in Microsoft Word desktop"
+              >
+                <div className="w-3.5 h-3.5 bg-white text-[#005a9e] rounded flex items-center justify-center font-bold text-[9px] group-hover:scale-105 transition-transform">
+                  W
+                </div>
+                <span>Edit in Word</span>
+              </button>
+            )}
             <button
               onClick={handlePrint}
               className="p-2 bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 rounded-xl transition cursor-pointer flex items-center justify-center shadow-2xs hover:text-navy-blue"
