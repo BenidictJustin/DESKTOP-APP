@@ -372,8 +372,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
             layoutOptions.googleDocsUrl !== undefined && layoutOptions.googleDocsUrl !== null
               ? layoutOptions.googleDocsUrl
               : (workspaceReportId
-                  ? localStorage.getItem(`dommunity_gdocs_${workspaceReportId}`)
-                  : localStorage.getItem('dommunity_saved_gdoc_url')) || null
+                ? localStorage.getItem(`dommunity_gdocs_${workspaceReportId}`)
+                : localStorage.getItem('dommunity_saved_gdoc_url')) || null
         }
 
         if (workspaceReportId) {
@@ -963,19 +963,17 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                           <button
                             type="button"
                             onClick={() => setCompiledReportsTab('draft')}
-                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${
-                              compiledReportsTab === 'draft'
+                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${compiledReportsTab === 'draft'
                                 ? 'bg-navy-blue text-white shadow-sm'
                                 : 'text-gray-600 hover:text-navy-blue hover:bg-white/50'
-                            }`}
+                              }`}
                           >
                             <span>Draft</span>
                             <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${
-                                compiledReportsTab === 'draft'
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${compiledReportsTab === 'draft'
                                   ? 'bg-white/20 text-white'
                                   : 'bg-gray-200 text-gray-700'
-                              }`}
+                                }`}
                             >
                               {stats.drafts}
                             </span>
@@ -985,21 +983,19 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                           <button
                             type="button"
                             onClick={() => setCompiledReportsTab('submitted')}
-                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${
-                              compiledReportsTab === 'submitted'
+                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${compiledReportsTab === 'submitted'
                                 ? 'bg-navy-blue text-white shadow-sm'
                                 : 'text-gray-600 hover:text-navy-blue hover:bg-white/50'
-                            }`}
+                              }`}
                           >
                             <span>Submitted</span>
                             <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${
-                                stats.submitted > 0
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${stats.submitted > 0
                                   ? 'bg-amber-500 text-white shadow-xs'
                                   : compiledReportsTab === 'submitted'
                                     ? 'bg-white/20 text-white'
                                     : 'bg-gray-200 text-gray-700'
-                              }`}
+                                }`}
                             >
                               {stats.submitted}
                             </span>
@@ -1009,21 +1005,19 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                           <button
                             type="button"
                             onClick={() => setCompiledReportsTab('returned')}
-                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${
-                              compiledReportsTab === 'returned'
+                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${compiledReportsTab === 'returned'
                                 ? 'bg-navy-blue text-white shadow-sm'
                                 : 'text-gray-600 hover:text-navy-blue hover:bg-white/50'
-                            }`}
+                              }`}
                           >
                             <span>Returned</span>
                             <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${
-                                stats.returned > 0
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${stats.returned > 0
                                   ? 'bg-red-500 text-white shadow-xs'
                                   : compiledReportsTab === 'returned'
                                     ? 'bg-white/20 text-white'
                                     : 'bg-gray-200 text-gray-700'
-                              }`}
+                                }`}
                             >
                               {stats.returned}
                             </span>
@@ -1033,19 +1027,17 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                           <button
                             type="button"
                             onClick={() => setCompiledReportsTab('approved')}
-                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${
-                              compiledReportsTab === 'approved'
+                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${compiledReportsTab === 'approved'
                                 ? 'bg-navy-blue text-white shadow-sm'
                                 : 'text-gray-600 hover:text-navy-blue hover:bg-white/50'
-                            }`}
+                              }`}
                           >
                             <span>Approved</span>
                             <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${
-                                compiledReportsTab === 'approved'
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${compiledReportsTab === 'approved'
                                   ? 'bg-white/20 text-white'
                                   : 'bg-gray-200 text-gray-700'
-                              }`}
+                                }`}
                             >
                               {stats.approved}
                             </span>

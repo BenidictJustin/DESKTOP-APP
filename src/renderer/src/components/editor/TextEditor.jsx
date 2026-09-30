@@ -2591,7 +2591,7 @@ export default function TextEditor({
     },
     {
       icon: FileCode2,
-      l: 'Google Docs & Script Integration…',
+      l: 'Link Settings',
       fn: () => setShowGoogleDocsModal(true)
     }
   ]
@@ -2760,11 +2760,6 @@ export default function TextEditor({
             >
               <GoogleDocsIcon className="w-3.5 h-3.5 shrink-0" />
               <span>{googleDocsUrl ? 'Reopen Google Doc' : 'Google Docs'}</span>
-              {googleDocsUrl ? (
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Connected to document" />
-              ) : hasLaunchedGoogleDocs ? (
-                <span className="w-2 h-2 rounded-full bg-blue-400" title="Google Docs session active" />
-              ) : null}
             </button>
             <button
               onClick={() => setShowGoogleDocsMenu(!showGoogleDocsMenu)}
@@ -2797,10 +2792,7 @@ export default function TextEditor({
                 className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-neutral-100 cursor-pointer transition text-neutral-800"
               >
                 <Plus className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <span className="font-semibold block truncate">Direct to New Google Doc</span>
-                  <span className="text-[10px] text-neutral-400 block truncate">docs.new (instant blank doc)</span>
-                </div>
+                <span className="font-semibold flex-1 truncate">New Blank Doc</span>
                 <ExternalLink className="w-3 h-3 text-neutral-400 shrink-0" />
               </button>
 
@@ -2814,10 +2806,7 @@ export default function TextEditor({
                   className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-neutral-100 cursor-pointer transition text-neutral-800 bg-blue-50/40"
                 >
                   <Link2 className="w-3.5 h-3.5 text-green-600 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <span className="font-semibold text-green-700 block truncate">Open Connected Doc</span>
-                    <span className="text-[10px] text-neutral-400 block truncate">{googleDocsUrl}</span>
-                  </div>
+                  <span className="font-semibold text-green-700 flex-1 truncate">Open Connected Doc</span>
                   <ExternalLink className="w-3 h-3 text-neutral-400 shrink-0" />
                 </button>
               )}
@@ -2833,26 +2822,8 @@ export default function TextEditor({
                 className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-neutral-100 cursor-pointer transition text-neutral-800"
               >
                 <Globe className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <span className="font-semibold block truncate">Google Docs Home (Recent Docs)</span>
-                  <span className="text-[10px] text-neutral-400 block truncate">See your recently edited docs</span>
-                </div>
+                <span className="font-semibold flex-1 truncate">Recent Documents</span>
                 <ExternalLink className="w-3 h-3 text-neutral-400 shrink-0" />
-              </button>
-
-              {/* Copy & Go to Docs */}
-              <button
-                onClick={() => {
-                  handleCopyAndGoToGoogleDocs()
-                  setShowGoogleDocsMenu(false)
-                }}
-                className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-neutral-100 cursor-pointer transition text-neutral-800"
-              >
-                <Copy className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <span className="font-semibold block truncate">Copy Content & Open Docs</span>
-                  <span className="text-[10px] text-neutral-400 block truncate">Formatted for paste (Ctrl+V)</span>
-                </div>
               </button>
 
               {/* Google Docs Dashboard */}
@@ -2864,24 +2835,22 @@ export default function TextEditor({
                 className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-neutral-100 cursor-pointer transition text-neutral-800"
               >
                 <Globe className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <span className="font-semibold block truncate">Google Docs Home</span>
-                  <span className="text-[10px] text-neutral-400 block truncate">docs.google.com</span>
-                </div>
+                <span className="font-semibold flex-1 truncate">Google Docs Home</span>
+                <ExternalLink className="w-3 h-3 text-neutral-400 shrink-0" />
               </button>
 
               <div className="my-1 border-t border-neutral-100" />
 
-              {/* Google Script & Integration Settings Modal */}
+              {/* Link Settings Modal */}
               <button
                 onClick={() => {
                   setShowGoogleDocsMenu(false)
                   setShowGoogleDocsModal(true)
                 }}
-                className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-blue-50 cursor-pointer transition text-blue-700 font-semibold"
+                className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-blue-50 cursor-pointer transition text-navy-blue font-semibold"
               >
-                <FileCode2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                <span>Google Apps Script & Link Settings…</span>
+                <FileCode2 className="w-3.5 h-3.5 text-navy-blue shrink-0" />
+                <span>Link Settings</span>
               </button>
             </div>
           </DropdownWrapper>

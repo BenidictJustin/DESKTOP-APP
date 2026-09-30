@@ -33,7 +33,6 @@ import {
   ExternalLink,
   Send
 } from 'lucide-react'
-import { GoogleDocsIcon } from './editor/ui/GoogleDocsModal'
 import logo from '../assets/logo.png'
 import logo2Img from '../assets/logo2.png'
 import { renderAsync } from 'docx-preview'
@@ -1323,32 +1322,7 @@ export default function DocumentViewer({
             >
               <Download className="w-4 h-4" />
             </button>
-            <button
-              onClick={() => {
-                const targetUrl =
-                  report?.googleDocsUrl ||
-                  (report?.id ? localStorage.getItem(`dommunity_gdocs_${report.id}`) : null) ||
-                  localStorage.getItem('dommunity_saved_gdoc_url') ||
-                  'https://docs.google.com'
-                window.open(targetUrl, '_blank', 'noopener,noreferrer')
-              }}
-              className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#1a73e8] border border-blue-200 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-2xs font-semibold text-xs"
-              title={report?.googleDocsUrl ? 'Open connected Google Doc in browser' : 'Direct to Google Docs'}
-            >
-              <GoogleDocsIcon className="w-3.5 h-3.5 shrink-0" />
-              <span className="hidden sm:inline">Google Docs</span>
-              <ExternalLink className="w-3 h-3 opacity-60" />
-            </button>
-            {report?.status === 'draft' && onSubmitDraft && (
-              <button
-                onClick={() => onSubmitDraft(report)}
-                className="px-3.5 py-1.5 bg-sig-green hover:bg-sig-green-600 text-navy-blue font-bold text-xs rounded-xl shadow-xs transition cursor-pointer flex items-center gap-1.5"
-                title="Submit this draft to Admin"
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span>Submit to Admin</span>
-              </button>
-            )}
+
             <div className="w-px h-6 bg-gray-200 mx-1"></div>
             <button
               onClick={onClose}
@@ -2001,15 +1975,7 @@ export default function DocumentViewer({
                       </p>
                     </div>
                   </div>
-                  {onSubmitDraft && (
-                    <button
-                      onClick={() => onSubmitDraft(report)}
-                      className="w-full bg-sig-green hover:bg-sig-green-600 text-navy-blue font-bold text-xs py-2.5 rounded-full transition shadow-xs cursor-pointer flex items-center justify-center gap-2"
-                    >
-                      <Send className="w-4 h-4" />
-                      <span>Submit to Admin</span>
-                    </button>
-                  )}
+
                 </div>
               )}
 

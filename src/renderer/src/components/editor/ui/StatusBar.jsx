@@ -1,8 +1,8 @@
 import React from 'react'
-import { Save, Send, ZoomIn, ZoomOut } from 'lucide-react'
+import { ZoomIn, ZoomOut } from 'lucide-react'
 
 /**
- * StatusBar — Bottom bar showing word count, document info, zoom, and save/submit buttons.
+ * StatusBar — Bottom bar showing word count, document info, and zoom controls.
  */
 export default function StatusBar({
   wordCount,
@@ -12,11 +12,7 @@ export default function StatusBar({
   marginKey,
   zoom,
   setZoom,
-  loading,
   isOffline = false,
-  workspaceIsReadOnly,
-  onSaveDraft,
-  onSubmit,
   currentPage = 1,
   totalPages = 1
 }) {
@@ -52,32 +48,11 @@ export default function StatusBar({
         )}
       </div>
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-        {!workspaceIsReadOnly && (
-          <>
-            <button
-              onClick={onSaveDraft}
-              disabled={loading}
-              title={isOffline ? 'Offline: Draft is preserved in memory. Connect to sync.' : 'Save Draft'}
-              className="flex items-center gap-1 bg-white/10 hover:bg-white/20 px-2 sm:px-2.5 py-0.5 rounded text-white font-semibold transition cursor-pointer disabled:opacity-50"
-            >
-              <Save className="w-3 h-3" />
-              <span className="hidden xs:inline">Save Draft</span>
-            </button>
-            <button
-              onClick={onSubmit}
-              disabled={loading || isOffline}
-              title={isOffline ? 'Connect to internet to submit' : 'Submit Report'}
-              className="flex items-center gap-1 bg-sig-green text-navy-blue px-2 sm:px-2.5 py-0.5 rounded font-bold transition hover:bg-sig-green/90 cursor-pointer disabled:opacity-50"
-            >
-              <Send className="w-3 h-3" />
-              <span>Submit</span>
-            </button>
-          </>
-        )}
         <div className="flex items-center gap-1">
           <button
             onClick={() => setZoom((z) => Math.max(50, z - 10))}
             className="hover:text-white cursor-pointer transition p-0.5"
+            title="Zoom Out"
           >
             <ZoomOut className="w-3 h-3" />
           </button>
@@ -87,6 +62,7 @@ export default function StatusBar({
           <button
             onClick={() => setZoom((z) => Math.min(200, z + 10))}
             className="hover:text-white cursor-pointer transition p-0.5"
+            title="Zoom In"
           >
             <ZoomIn className="w-3 h-3" />
           </button>

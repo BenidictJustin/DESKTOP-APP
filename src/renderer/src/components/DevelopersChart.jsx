@@ -1,94 +1,204 @@
 import React from 'react'
 import { User, Code2 } from 'lucide-react'
 
+// DommUnity palette
+const NAVY = '#030e69'
+const NAVY_MID = '#0B2545'
+const SIG_GREEN = '#80cc2a'
+const WHITE = '#ffffff'
+
 const DEVELOPERS_LIST = [
-  {
-    name: 'BENIDICT JUSTIN SALUNGA',
-    role: 'LEAD PROGRAMMER',
-    initials: 'BS'
-  },
-  {
-    name: 'MC HARRY TOLENTINO',
-    role: 'PROJECT MANAGER',
-    initials: 'MT'
-  },
-  {
-    name: 'ARON STEFAN TARUC',
-    role: 'UI/UX DESIGNER',
-    initials: 'AT'
-  },
-  {
-    name: 'JOHN HAROLD SANTOS',
-    role: 'TESTER',
-    initials: 'JS'
-  }
+  { name: 'MC HARRY TOLENTINO', role: 'PROJECT MANAGER' },
+  { name: 'BENIDICT JUSTIN SALUNGA', role: 'PROGRAMMER' },
+  { name: 'ARON STEFAN TARUC', role: 'UI/UX DESIGNER' },
+  { name: 'JOHN HAROLD SANTOS', role: 'TESTER' }
 ]
+
+/**
+ * Avatar built to match Image 1:
+ *   [thick navy outer ring] → [white gap] → [light neutral inner circle + user icon]
+ *   + a small green arc accent at the top of the outer ring
+ */
+function DevAvatar() {
+  const OUTER = 64   // outer ring radius
+  const GAP = 8    // gap between outer ring and inner circle
+  const INNER = OUTER - GAP  // inner circle radius
+  const RING_W = 10   // outer ring stroke width
+  const CX = 80
+  const CY = 80
+  const TOTAL = (CX + RING_W + 4) * 2   // 168 → viewBox size
+
+  return (
+    <div style={{ position: 'relative', width: '140px', height: '140px' }}>
+      <svg
+        width="140"
+        height="140"
+        viewBox={`0 0 ${TOTAL} ${TOTAL}`}
+        style={{ position: 'absolute', top: 0, left: 0 }}
+      >
+        {/* ── Thick navy outer ring ── */}
+        <circle
+          cx={CX}
+          cy={CY}
+          r={OUTER}
+          fill="none"
+          stroke={NAVY}
+          strokeWidth={RING_W}
+        />
+
+        {/* ── Green accent arc at the top of the outer ring ── */}
+        <path
+          d={`M ${CX - OUTER * 0.55} ${CY - OUTER * 0.84}
+              A ${OUTER} ${OUTER} 0 0 1 ${CX + OUTER * 0.55} ${CY - OUTER * 0.84}`}
+          fill="none"
+          stroke={SIG_GREEN}
+          strokeWidth={RING_W + 2}
+          strokeLinecap="round"
+        />
+
+        {/* ── White gap ring ── */}
+        <circle
+          cx={CX}
+          cy={CY}
+          r={INNER + 3}
+          fill="none"
+          stroke={WHITE}
+          strokeWidth={6}
+        />
+
+        {/* ── Inner circle fill (light neutral) ── */}
+        <circle
+          cx={CX}
+          cy={CY}
+          r={INNER - 1}
+          fill="url(#avatarGrad)"
+        />
+
+        <defs>
+          <radialGradient id="avatarGrad" cx="50%" cy="35%" r="60%">
+            <stop offset="0%" stopColor="#EEF0F4" />
+            <stop offset="100%" stopColor="#D8DCE3" />
+          </radialGradient>
+        </defs>
+      </svg>
+
+      {/* ── User icon centered over the inner circle ── */}
+      <div style={{
+        position: 'absolute',
+        top: 0, left: 0,
+        width: '140px', height: '140px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <User
+          size={40}
+          strokeWidth={1.4}
+          style={{ color: `rgba(3,14,105,0.45)`, marginTop: '4px' }}
+        />
+      </div>
+    </div>
+  )
+}
 
 export default function DevelopersChart() {
   return (
-    <div className="bg-white rounded-3xl p-6 sm:p-7 shadow-sm border border-gray-100 space-y-6 text-center font-poppins flex flex-col items-center w-full">
-      {/* Top Banner Header */}
-      <div className="w-full bg-navy-blue text-white rounded-2xl py-2.5 px-4 shadow-2xs border-b-2 border-sig-green flex items-center justify-center gap-2">
-        <Code2 className="w-4 h-4 text-sig-green" />
-        <h2 className="font-extrabold text-sm uppercase tracking-widest text-white">
+    <div style={{
+      backgroundColor: WHITE,
+      borderRadius: '28px',
+      padding: '36px 44px 52px',
+      boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+      border: '1px solid #f0f1f3',
+      width: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      fontFamily: "'Poppins', sans-serif",
+      boxSizing: 'border-box'
+    }}>
+
+      {/* ══ DEVELOPERS Header Banner ══ */}
+      <div style={{
+        width: '100%',
+        background: NAVY,
+        borderRadius: '9999px',
+        padding: '15px 40px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '10px',
+        boxShadow: `0 4px 16px rgba(3,14,105,0.30)`,
+        // Green accent line at the bottom of the pill
+        outline: `3px solid ${SIG_GREEN}`,
+        outlineOffset: '-3px'
+      }}>
+        <Code2 size={20} strokeWidth={2.8} style={{ color: SIG_GREEN, flexShrink: 0 }} />
+        <h2 style={{
+          margin: 0,
+          fontWeight: 800,
+          fontSize: '15px',
+          letterSpacing: '0.22em',
+          textTransform: 'uppercase',
+          color: WHITE
+        }}>
           DEVELOPERS
         </h2>
       </div>
 
-      {/* Horizontal Developers Row (Lead Programmer | Project Manager | UI/UX Designer | Tester) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 w-full pt-2">
-        {DEVELOPERS_LIST.map((dev) => {
-          return (
-            <div
-              key={dev.name}
-              className="group flex flex-col items-center text-center transition-all duration-200 hover:scale-[1.03] cursor-default p-3 rounded-2xl hover:bg-slate-50/80"
-            >
-              {/* Avatar with Curved Partial Circular Accent Arc */}
-              <div className="relative w-20 h-20 flex items-center justify-center mb-3">
-                {/* Outer SVG Curved Partial Ring */}
-                <svg
-                  className="absolute inset-0 w-full h-full -rotate-45 transition-transform duration-300 group-hover:rotate-0"
-                  viewBox="0 0 100 100"
-                >
-                  {/* Base Light Circular Track */}
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="43"
-                    fill="none"
-                    stroke="#F1F5F9"
-                    strokeWidth="5"
-                  />
-                  {/* Bold Curved Partial Arc Accent */}
-                  <path
-                    d="M 50 7 A 43 43 0 0 1 93 50"
-                    fill="none"
-                    stroke="#0B2545"
-                    strokeWidth="6.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
+      {/* ══ Four Developer Profiles — one horizontal row ══ */}
+      <div style={{
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'space-evenly',
+        alignItems: 'flex-start',
+        marginTop: '48px',
+        flexWrap: 'wrap',
+        gap: '32px 0'
+      }}>
+        {DEVELOPERS_LIST.map((dev) => (
+          <div
+            key={dev.name}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              textAlign: 'center',
+              flex: '1 1 0',
+              minWidth: '140px',
+              maxWidth: '220px'
+            }}
+          >
+            {/* Avatar */}
+            <DevAvatar />
 
-                {/* Circular Profile Container */}
-                <div className="w-14 h-14 rounded-full bg-gradient-to-b from-slate-100 to-slate-200/80 border-2 border-white shadow-xs flex items-center justify-center overflow-hidden">
-                  <div className="flex flex-col items-center justify-center">
-                    <User className="w-6 h-6 text-navy-blue/70" />
-                  </div>
-                </div>
-              </div>
+            {/* Name */}
+            <p style={{
+              margin: '16px 0 5px',
+              fontSize: '11px',
+              fontWeight: 600,
+              color: '#9CA3AF',
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              lineHeight: 1.35
+            }}>
+              {dev.name}
+            </p>
 
-              {/* Name */}
-              <p className="text-[12px] font-bold text-gray-500 uppercase tracking-wide leading-tight">
-                {dev.name}
-              </p>
-
-              {/* Position / Title */}
-              <p className="text-[13.5px] font-black text-navy-blue uppercase tracking-tight mt-1.5 leading-snug">
-                {dev.role}
-              </p>
-            </div>
-          )
-        })}
+            {/* Role */}
+            <p style={{
+              margin: 0,
+              fontSize: '13.5px',
+              fontWeight: 800,
+              color: NAVY,
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              lineHeight: 1.3
+            }}>
+              {dev.role}
+            </p>
+          </div>
+        ))}
       </div>
     </div>
   )
