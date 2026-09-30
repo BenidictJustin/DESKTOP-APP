@@ -29,8 +29,11 @@ import {
   FileText,
   FileDown,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  ExternalLink,
+  Send
 } from 'lucide-react'
+import { GoogleDocsIcon } from './editor/ui/GoogleDocsModal'
 import logo from '../assets/logo.png'
 import logo2Img from '../assets/logo2.png'
 import { renderAsync } from 'docx-preview'
@@ -83,7 +86,6 @@ import {
   exportDocxToPDF,
   exportElementToDOCX
 } from './editor/utils/editorHelpers'
-import { useWordBridge } from '../context/WordBridgeContext'
 
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -135,6 +137,7 @@ export default function DocumentViewer({
   setFeedbackNote,
   handleReviewReport,
   compileReportPDF,
+  onSubmitDraft,
   loading = false,
   isExportOnly = false,
   exportFormat = 'pdf',
@@ -147,20 +150,6 @@ export default function DocumentViewer({
   const [viewMode, setViewMode] = useState('select') // 'select' or 'pan'
 
   const [narrativeTotalPages, setNarrativeTotalPages] = useState(1)
-
-  const { startWordSession } = useWordBridge()
-
-  const handleEditInWord = async () => {
-    if (!report) return
-    await startWordSession({
-      report,
-      title: report.activityTitle,
-      htmlFallback: report.narrative
-    })
-    if (typeof onClose === 'function') {
-      onClose()
-    }
-  }
 
   // DOCX / PDF Direct View State
   const isDocxSubmission = Boolean(report?.submissionType === 'docx_upload' || report?.originalDocxUrl)
@@ -1320,18 +1309,6 @@ export default function DocumentViewer({
 
           {/* Right Action Options & Close */}
           <div className="flex items-center space-x-2.5">
-            {(report?.status === 'draft' || report?.status === 'returned') && !isExportOnly && (
-              <button
-                onClick={handleEditInWord}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#005a9e] hover:bg-[#004b87] text-white rounded-xl transition cursor-pointer text-xs font-semibold shadow-2xs group"
-                title="Open and edit this document in Microsoft Word desktop"
-              >
-                <div className="w-3.5 h-3.5 bg-white text-[#005a9e] rounded flex items-center justify-center font-bold text-[9px] group-hover:scale-105 transition-transform">
-                  W
-                </div>
-                <span>Edit in Word</span>
-              </button>
-            )}
             <button
               onClick={handlePrint}
               className="p-2 bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 rounded-xl transition cursor-pointer flex items-center justify-center shadow-2xs hover:text-navy-blue"
@@ -1346,6 +1323,32 @@ export default function DocumentViewer({
             >
               <Download className="w-4 h-4" />
             </button>
+            <button
+              onClick={() => {
+                const targetUrl =
+                  report?.googleDocsUrl ||
+                  (report?.id ? localStorage.getItem(`dommunity_gdocs_${report.id}`) : null) ||
+                  localStorage.getItem('dommunity_saved_gdoc_url') ||
+                  'https://docs.google.com'
+                window.open(targetUrl, '_blank', 'noopener,noreferrer')
+              }}
+              className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#1a73e8] border border-blue-200 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-2xs font-semibold text-xs"
+              title={report?.googleDocsUrl ? 'Open connected Google Doc in browser' : 'Direct to Google Docs'}
+            >
+              <GoogleDocsIcon className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden sm:inline">Google Docs</span>
+              <ExternalLink className="w-3 h-3 opacity-60" />
+            </button>
+            {report?.status === 'draft' && onSubmitDraft && (
+              <button
+                onClick={() => onSubmitDraft(report)}
+                className="px-3.5 py-1.5 bg-sig-green hover:bg-sig-green-600 text-navy-blue font-bold text-xs rounded-xl shadow-xs transition cursor-pointer flex items-center gap-1.5"
+                title="Submit this draft to Admin"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Submit to Admin</span>
+              </button>
+            )}
             <div className="w-px h-6 bg-gray-200 mx-1"></div>
             <button
               onClick={onClose}
@@ -1988,15 +1991,25 @@ export default function DocumentViewer({
                 ))}
 
               {report.status === 'draft' && (
-                <div className="flex items-start space-x-2 text-gray-700 bg-gray-50 p-4 rounded-2xl border border-gray-250 text-xs text-left">
-                  <FileText className="w-4.5 h-4.5 shrink-0 text-gray-550 mt-0.5" />
-                  <div>
-                    <span className="font-bold">Draft Document</span>
-                    <p className="mt-1 text-gray-500 leading-normal font-medium">
-                      This is a draft version. You can close this viewer and click "Edit" to
-                      complete and submit it to the Admin.
-                    </p>
+                <div className="space-y-3">
+                  <div className="flex items-start space-x-2 text-gray-700 bg-gray-50 p-4 rounded-2xl border border-gray-250 text-xs text-left">
+                    <FileText className="w-4.5 h-4.5 shrink-0 text-gray-550 mt-0.5" />
+                    <div>
+                      <span className="font-bold">Draft Document</span>
+                      <p className="mt-1 text-gray-500 leading-normal font-medium">
+                        This draft can be edited or submitted directly to Admin for official review.
+                      </p>
+                    </div>
                   </div>
+                  {onSubmitDraft && (
+                    <button
+                      onClick={() => onSubmitDraft(report)}
+                      className="w-full bg-sig-green hover:bg-sig-green-600 text-navy-blue font-bold text-xs py-2.5 rounded-full transition shadow-xs cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <Send className="w-4 h-4" />
+                      <span>Submit to Admin</span>
+                    </button>
+                  )}
                 </div>
               )}
 

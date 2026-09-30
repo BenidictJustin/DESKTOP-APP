@@ -10,8 +10,6 @@ import SplashScreen from './components/SplashScreen'
 import UpdateNotification from './components/UpdateNotification'
 import OfflineModal from './components/OfflineModal'
 import { NetworkProvider, useNetworkStatus } from './context/NetworkContext'
-import { WordBridgeProvider } from './context/WordBridgeContext'
-import WordSessionBanner from './components/WordSessionBanner'
 import { authTransitionVariants, authTransition } from './components/motion/motionConfig'
 
 function AppContent() {
@@ -146,11 +144,9 @@ function AppContent() {
   }, [activeUser])
 
   return (
-    <WordBridgeProvider user={activeUser}>
-      <div className="min-h-screen w-screen bg-[#F1EFEC] font-poppins relative overflow-hidden">
-        <UpdateNotification />
-        <OfflineModal />
-        <WordSessionBanner />
+    <div className="min-h-screen w-screen bg-[#F1EFEC] font-poppins relative overflow-hidden">
+      <UpdateNotification />
+      <OfflineModal />
       <AnimatePresence>
         {showSplash && <SplashScreen key="splash" onComplete={handleSplashComplete} />}
       </AnimatePresence>
@@ -267,8 +263,7 @@ function AppContent() {
           )}
         </AnimatePresence>
       )}
-      </div>
-    </WordBridgeProvider>
+    </div>
   )
 }
 

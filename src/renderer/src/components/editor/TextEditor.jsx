@@ -1090,8 +1090,15 @@ import {
   ChevronLeft,
   AlertTriangle,
   ZoomIn,
-  ZoomOut
+  ZoomOut,
+  ExternalLink,
+  Copy,
+  Link2,
+  Globe,
+  FileCode2
 } from 'lucide-react'
+
+import GoogleDocsModal, { GoogleDocsIcon } from './ui/GoogleDocsModal'
 
 import { useEditorStore } from './store/useEditorStore'
 import { FontSizeExtension } from './extensions/fontSize'
@@ -1121,7 +1128,6 @@ import FloatingToolbar from './ui/FloatingToolbar'
 import TableFloatingToolbar from './ui/TableFloatingToolbar'
 import { cn } from './utils/cn'
 import MovableTable from './extensions/MovableTable'
-import { useWordBridge } from '../../context/WordBridgeContext'
 
 export default function TextEditor({
   user,
@@ -1201,6 +1207,44 @@ export default function TextEditor({
 
   const fileMenuRef = useRef(null)
   const templatesMenuRef = useRef(null)
+  const googleDocsMenuRef = useRef(null)
+  const [showGoogleDocsModal, setShowGoogleDocsModal] = useState(false)
+  const [showGoogleDocsMenu, setShowGoogleDocsMenu] = useState(false)
+  const [googleDocsUrl, setGoogleDocsUrl] = useState(() => {
+    return (
+      (workspaceReportId && localStorage.getItem(`dommunity_gdocs_${workspaceReportId}`)) ||
+      localStorage.getItem('dommunity_saved_gdoc_url') ||
+      ''
+    )
+  })
+
+  useEffect(() => {
+    if (workspaceReportId) {
+      const rep = reportsList?.find((r) => r.id === workspaceReportId)
+      const saved =
+        rep?.googleDocsUrl ||
+        localStorage.getItem(`dommunity_gdocs_${workspaceReportId}`) ||
+        localStorage.getItem('dommunity_saved_gdoc_url') ||
+        ''
+      setGoogleDocsUrl(saved)
+    }
+  }, [workspaceReportId, reportsList])
+
+  const handleSaveGoogleDocsUrl = useCallback((url) => {
+    setGoogleDocsUrl(url)
+    if (url) {
+      localStorage.setItem('dommunity_saved_gdoc_url', url)
+      if (workspaceReportId) {
+        localStorage.setItem(`dommunity_gdocs_${workspaceReportId}`, url)
+      }
+    } else {
+      localStorage.removeItem('dommunity_saved_gdoc_url')
+      if (workspaceReportId) {
+        localStorage.removeItem(`dommunity_gdocs_${workspaceReportId}`)
+      }
+    }
+  }, [workspaceReportId])
+
   const docxInputRef = useRef(null)
   const pdfInputRef = useRef(null)
   const templateInputRef = useRef(null)
@@ -1680,6 +1724,10 @@ export default function TextEditor({
         if (setWorkspaceReportId) {
           setWorkspaceReportId(null)
         }
+        if (tpl.googleDocsUrl) {
+          setGoogleDocsUrl(tpl.googleDocsUrl)
+          localStorage.setItem('dommunity_saved_gdoc_url', tpl.googleDocsUrl)
+        }
 
         setActiveEditingArea('body')
         // Reset dirty tracking to match loaded template content
@@ -1789,6 +1837,12 @@ export default function TextEditor({
     const name = window.prompt('Save Current Document as Template — Enter Name:')
     if (!name || !name.trim()) return
 
+    const currentDocUrl =
+      googleDocsUrl ||
+      (workspaceReportId && localStorage.getItem(`dommunity_gdocs_${workspaceReportId}`)) ||
+      localStorage.getItem('dommunity_saved_gdoc_url') ||
+      ''
+
     const newTpl = {
       id: 'tpl-' + Math.random().toString(36).substr(2, 9),
       name: name.trim(),
@@ -1797,7 +1851,11 @@ export default function TextEditor({
       headerText,
       footerText,
       showHeader,
-      showFooter
+      showFooter,
+      paperKey,
+      orientation,
+      marginKey,
+      googleDocsUrl: currentDocUrl
     }
 
     setCustomTemplates((prev) => {
@@ -1806,7 +1864,7 @@ export default function TextEditor({
       return updated
     })
     alert(`Template "${name}" saved successfully!`)
-  }, [editor, headerText, footerText, showHeader, showFooter])
+  }, [editor, headerText, footerText, showHeader, showFooter, paperKey, orientation, marginKey, googleDocsUrl, workspaceReportId])
 
   // ── Import a .docx file as a template ──
   const handleImportTemplateFile = useCallback((e) => {
@@ -2095,7 +2153,7 @@ export default function TextEditor({
 
   // ── Save/Submit handler ──
   const handleSave = useCallback(
-    async (status, silent = false) => {
+    async (status, silent = false, explicitGDocUrl) => {
       if (!editor) return
       if (isOffline) {
         if (!silent) {
@@ -2108,6 +2166,14 @@ export default function TextEditor({
         if (!silent) alert('Please write some content before saving.')
         return
       }
+      const resolvedGDocUrl =
+        explicitGDocUrl !== undefined && explicitGDocUrl !== null
+          ? explicitGDocUrl
+          : googleDocsUrl ||
+            (workspaceReportId ? localStorage.getItem(`dommunity_gdocs_${workspaceReportId}`) : '') ||
+            localStorage.getItem('dommunity_saved_gdoc_url') ||
+            ''
+
       await onSave(status, html, silent, {
         headerText,
         footerText,
@@ -2116,7 +2182,8 @@ export default function TextEditor({
         paperKey,
         orientation,
         marginKey,
-        isTemplateActive
+        isTemplateActive,
+        googleDocsUrl: resolvedGDocUrl
       })
       lastSavedContentRef.current = html
       setHasUnsavedChanges(false)
@@ -2132,7 +2199,9 @@ export default function TextEditor({
       paperKey,
       orientation,
       marginKey,
-      isTemplateActive
+      isTemplateActive,
+      googleDocsUrl,
+      workspaceReportId
     ]
   )
 
@@ -2205,49 +2274,38 @@ export default function TextEditor({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [editor, handleSave, docTitle, paperKey, orientation, marginKey, activeDocW, activeDocH])
 
-  const { startWordSession } = useWordBridge()
-
-  const handleOpenInWord = useCallback(async () => {
-    let currentReport = reportsList?.find((r) => r.id === workspaceReportId)
-    if (!currentReport && workspaceReportId) {
-      currentReport = {
-        id: workspaceReportId,
-        activityTitle: workspaceReportTitle,
-        academicYear: workspaceReportAY,
-        eventId: workspaceReportEventId,
-        narrative: editor?.getHTML()
-      }
+  const handleOpenGoogleDocs = useCallback((targetUrl) => {
+    const persisted =
+      (workspaceReportId && localStorage.getItem(`dommunity_gdocs_${workspaceReportId}`)) ||
+      localStorage.getItem('dommunity_saved_gdoc_url') ||
+      ''
+    const finalUrl = targetUrl || googleDocsUrl || persisted || 'https://docs.new'
+    if (typeof window !== 'undefined') {
+      window.open(finalUrl, '_blank', 'noopener,noreferrer')
     }
-    if (!currentReport) {
-      currentReport = {
-        id: 'draft_' + Date.now(),
-        activityTitle: workspaceReportTitle || 'New Report',
-        academicYear: workspaceReportAY || '2024-2025',
-        eventId: workspaceReportEventId || null,
-        narrative: editor?.getHTML()
-      }
-      setWorkspaceReportId(currentReport.id)
-    }
+  }, [googleDocsUrl, workspaceReportId])
 
-    await startWordSession({
-      report: currentReport,
-      title: workspaceReportTitle || currentReport.activityTitle,
-      buffer: docxBuffer,
-      htmlFallback: editor?.getHTML(),
-      isOffline
-    })
-  }, [
-    reportsList,
-    workspaceReportId,
-    workspaceReportTitle,
-    workspaceReportAY,
-    workspaceReportEventId,
-    editor,
-    docxBuffer,
-    isOffline,
-    startWordSession,
-    setWorkspaceReportId
-  ])
+  const handleCopyAndGoToGoogleDocs = useCallback(async () => {
+    try {
+      const html = editor?.getHTML() || '<p></p>'
+      const text = editor?.getText() || ''
+      if (navigator.clipboard && window.ClipboardItem) {
+        const blobHtml = new Blob([html], { type: 'text/html' })
+        const blobText = new Blob([text], { type: 'text/plain' })
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/html': blobHtml,
+            'text/plain': blobText
+          })
+        ])
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(text)
+      }
+    } catch (err) {
+      console.warn('Clipboard copy warning:', err)
+    }
+    handleOpenGoogleDocs()
+  }, [editor, handleOpenGoogleDocs])
 
   // ── File menu actions ──
   const fileMenuItems = [
@@ -2396,11 +2454,6 @@ export default function TextEditor({
         }
       }
     },
-    {
-      icon: FileText,
-      l: 'Edit in Microsoft Word (Desktop)',
-      fn: handleOpenInWord
-    },
     null,
     { icon: Save, l: 'Save Draft (Ctrl+S)', fn: () => handleSave('draft') },
     { icon: Send, l: 'Submit to Admin', fn: () => handleSave('submitted') },
@@ -2428,6 +2481,17 @@ export default function TextEditor({
           paperW: activeDocW,
           paperH: activeDocH
         })
+    },
+    null,
+    {
+      icon: ExternalLink,
+      l: 'Direct to Google Docs',
+      fn: () => handleOpenGoogleDocs()
+    },
+    {
+      icon: FileCode2,
+      l: 'Google Docs & Script Integration…',
+      fn: () => setShowGoogleDocsModal(true)
     }
   ]
 
@@ -2459,22 +2523,48 @@ export default function TextEditor({
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2 sm:gap-4 text-[11px] sm:text-xs text-gray-300 shrink-0">
-          {saveStatus === 'saving' && (
-            <span className="flex items-center gap-1.5">
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-              <span className="hidden xs:inline">Saving…</span>
-            </span>
-          )}
-          {saveStatus === 'saved' && (
-            <span className="flex items-center gap-1.5 text-green-400">
-              <Check className="w-3.5 h-3.5" />
-              <span className="hidden xs:inline">Saved</span>
-            </span>
-          )}
-          {saveStatus === 'error' && <span className="text-red-400">Save failed</span>}
-          {autoSave && <span className="text-green-400 font-semibold hidden sm:inline">AutoSave ON</span>}
-        </div>
+          <div className="flex items-center gap-2 sm:gap-3 text-[11px] sm:text-xs text-gray-300 shrink-0">
+            {saveStatus === 'saving' && (
+              <span className="flex items-center gap-1.5">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span className="hidden xs:inline">Saving…</span>
+              </span>
+            )}
+            {saveStatus === 'saved' && (
+              <span className="flex items-center gap-1.5 text-green-400">
+                <Check className="w-3.5 h-3.5" />
+                <span className="hidden xs:inline">Saved</span>
+              </span>
+            )}
+            {saveStatus === 'error' && <span className="text-red-400">Save failed</span>}
+            {autoSave && <span className="text-green-400 font-semibold hidden md:inline">AutoSave ON</span>}
+
+            {!workspaceIsReadOnly && (
+              <div className="flex items-center gap-2 pl-2 border-l border-white/20">
+                <button
+                  type="button"
+                  onClick={() => handleSave('draft')}
+                  disabled={saveStatus === 'saving' || isOffline}
+                  className="flex items-center gap-1.5 px-3 py-1 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs rounded-md border border-white/15 transition cursor-pointer"
+                  title="Save draft to Compiled Reports (Ctrl+S)"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Save Draft</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSave('submitted')}
+                  disabled={saveStatus === 'saving' || isOffline}
+                  className="flex items-center gap-1.5 px-3.5 py-1 bg-sig-green hover:bg-sig-green-600 text-navy-blue font-bold text-xs rounded-md shadow-xs transition cursor-pointer"
+                  title="Submit this report to Admin"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Submit to Admin</span>
+                </button>
+              </div>
+            )}
+          </div>
       </div>
 
       {/* ── Menu & Actions Row ── */}
@@ -2547,17 +2637,122 @@ export default function TextEditor({
           </DropdownWrapper>
         </div>
 
-        {/* Microsoft Word Native Bridge Action */}
-        <button
-          onClick={handleOpenInWord}
-          className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold bg-[#005a9e] text-white rounded hover:bg-[#004b87] transition shadow-xs cursor-pointer group shrink-0"
-          title="Open and edit this document directly in Microsoft Word desktop"
-        >
-          <div className="w-3.5 h-3.5 bg-white text-[#005a9e] rounded flex items-center justify-center font-bold text-[9px] group-hover:scale-105 transition-transform">
-            W
+        {/* Google Docs Direct Button & Options Dropdown */}
+        <div className="relative" ref={googleDocsMenuRef}>
+          <div className="flex items-center rounded overflow-hidden shadow-xs border border-blue-200 bg-white">
+            <button
+              onClick={() => handleOpenGoogleDocs()}
+              className="px-2.5 py-1 text-xs font-semibold text-[#1a73e8] hover:bg-blue-50 transition cursor-pointer flex items-center gap-1.5"
+              title={googleDocsUrl ? "Direct to linked Google Doc" : "Direct to Google Docs (docs.new)"}
+            >
+              <GoogleDocsIcon className="w-3.5 h-3.5 shrink-0" />
+              <span>Google Docs</span>
+              {googleDocsUrl && (
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" title="Linked to document" />
+              )}
+            </button>
+            <button
+              onClick={() => setShowGoogleDocsMenu(!showGoogleDocsMenu)}
+              className="px-1 py-1 text-xs text-[#1a73e8] hover:bg-blue-50 border-l border-blue-100 transition cursor-pointer flex items-center justify-center"
+              title="More Google Docs Options & Google Script"
+            >
+              <ChevronDown className="w-3 h-3" />
+            </button>
           </div>
-          <span>Edit in Microsoft Word</span>
-        </button>
+
+          <DropdownWrapper
+            open={showGoogleDocsMenu}
+            onClose={() => setShowGoogleDocsMenu(false)}
+            triggerRef={googleDocsMenuRef}
+            width={260}
+          >
+            <div className="py-1 w-64 bg-white border border-neutral-200 shadow-xl rounded-lg">
+              <div className="px-3 py-1.5 border-b border-neutral-100 bg-neutral-50/70">
+                <span className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider block">
+                  Google Docs Quick Access
+                </span>
+              </div>
+
+              {/* Direct to docs.new */}
+              <button
+                onClick={() => {
+                  handleOpenGoogleDocs('https://docs.new')
+                  setShowGoogleDocsMenu(false)
+                }}
+                className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-neutral-100 cursor-pointer transition text-neutral-800"
+              >
+                <Plus className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <span className="font-semibold block truncate">Direct to New Google Doc</span>
+                  <span className="text-[10px] text-neutral-400 block truncate">docs.new (instant blank doc)</span>
+                </div>
+                <ExternalLink className="w-3 h-3 text-neutral-400 shrink-0" />
+              </button>
+
+              {/* Open linked doc (if any) */}
+              {googleDocsUrl && (
+                <button
+                  onClick={() => {
+                    handleOpenGoogleDocs(googleDocsUrl)
+                    setShowGoogleDocsMenu(false)
+                  }}
+                  className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-neutral-100 cursor-pointer transition text-neutral-800 bg-blue-50/40"
+                >
+                  <Link2 className="w-3.5 h-3.5 text-green-600 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span className="font-semibold text-green-700 block truncate">Open Connected Doc</span>
+                    <span className="text-[10px] text-neutral-400 block truncate">{googleDocsUrl}</span>
+                  </div>
+                  <ExternalLink className="w-3 h-3 text-neutral-400 shrink-0" />
+                </button>
+              )}
+
+              {/* Copy & Go to Docs */}
+              <button
+                onClick={() => {
+                  handleCopyAndGoToGoogleDocs()
+                  setShowGoogleDocsMenu(false)
+                }}
+                className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-neutral-100 cursor-pointer transition text-neutral-800"
+              >
+                <Copy className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <span className="font-semibold block truncate">Copy Content & Open Docs</span>
+                  <span className="text-[10px] text-neutral-400 block truncate">Formatted for paste (Ctrl+V)</span>
+                </div>
+              </button>
+
+              {/* Google Docs Dashboard */}
+              <button
+                onClick={() => {
+                  handleOpenGoogleDocs('https://docs.google.com/document/u/0/')
+                  setShowGoogleDocsMenu(false)
+                }}
+                className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-neutral-100 cursor-pointer transition text-neutral-800"
+              >
+                <Globe className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <span className="font-semibold block truncate">Google Docs Home</span>
+                  <span className="text-[10px] text-neutral-400 block truncate">docs.google.com</span>
+                </div>
+              </button>
+
+              <div className="my-1 border-t border-neutral-100" />
+
+              {/* Google Script & Integration Settings Modal */}
+              <button
+                onClick={() => {
+                  setShowGoogleDocsMenu(false)
+                  setShowGoogleDocsModal(true)
+                }}
+                className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-blue-50 cursor-pointer transition text-blue-700 font-semibold"
+              >
+                <FileCode2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                <span>Google Apps Script & Link Settings…</span>
+              </button>
+            </div>
+          </DropdownWrapper>
+        </div>
 
         <div className="h-4 w-px bg-neutral-300 mx-1" />
 
@@ -2759,6 +2954,29 @@ export default function TextEditor({
           </div>
         </div>
       )}
+      {/* ── Google Docs Integration & Script Modal ── */}
+      <GoogleDocsModal
+        isOpen={showGoogleDocsModal}
+        onClose={() => setShowGoogleDocsModal(false)}
+        editor={editor}
+        docTitle={docTitle}
+        workspaceReportId={workspaceReportId}
+        googleDocsUrl={googleDocsUrl}
+        onSaveGoogleDocsUrl={handleSaveGoogleDocsUrl}
+        onSaveDraft={async (explicitUrl) => {
+          if (explicitUrl) {
+            handleSaveGoogleDocsUrl(explicitUrl)
+          }
+          await handleSave('draft', false, explicitUrl)
+        }}
+        onSubmitToAdmin={async (explicitUrl) => {
+          if (explicitUrl) {
+            handleSaveGoogleDocsUrl(explicitUrl)
+          }
+          await handleSave('submitted', false, explicitUrl)
+        }}
+        user={user}
+      />
     </div>
   )
 }

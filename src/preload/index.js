@@ -35,22 +35,6 @@ const api = {
     const handler = (_, err) => callback(err)
     ipcRenderer.on('update-error', handler)
     return () => ipcRenderer.removeListener('update-error', handler)
-  },
-  // Microsoft Word Desktop File Bridge APIs
-  checkWordInstalled: () => ipcRenderer.invoke('word-bridge:check-word-installed'),
-  openDocxInWord: (options) => ipcRenderer.invoke('word-bridge:open-document', options),
-  forceSyncWordDocument: (options) => ipcRenderer.invoke('word-bridge:force-sync', options),
-  closeWordSession: (options) => ipcRenderer.invoke('word-bridge:close-session', options),
-  getActiveWordSessions: () => ipcRenderer.invoke('word-bridge:get-active-sessions'),
-  onWordDocumentSaved: (callback) => {
-    const handler = (_, data) => callback(data)
-    ipcRenderer.on('word-bridge:document-saved', handler)
-    return () => ipcRenderer.removeListener('word-bridge:document-saved', handler)
-  },
-  onWordSessionClosed: (callback) => {
-    const handler = (_, data) => callback(data)
-    ipcRenderer.on('word-bridge:session-closed', handler)
-    return () => ipcRenderer.removeListener('word-bridge:session-closed', handler)
   }
 }
 

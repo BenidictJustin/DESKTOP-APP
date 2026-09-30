@@ -48,14 +48,14 @@ import {
   ChevronRight,
   ChevronLeft,
   Search,
-  Upload
+  Upload,
+  Send
 } from 'lucide-react'
 import TextEditor from '../../components/editor/TextEditor'
 import DocumentViewer from '../../components/DocumentViewer'
 import DocxUploadModal from '../../components/DocxUploadModal'
 import AnimatedSidebar from '../../components/AnimatedSidebar'
 import AnimatedModal from '../../components/motion/AnimatedModal'
-import { useWordBridge } from '../../context/WordBridgeContext'
 import {
   sanitizeOklchInDocument,
   loadInitialContentAndResetHistory,
@@ -93,23 +93,10 @@ const StatusBadge = ({ status }) => {
 
 export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   const { isOffline, registerReconnectHandler } = useNetworkStatus()
-  const { startWordSession } = useWordBridge()
   // ── Navigation ──
   const [activeTab, setActiveTab] = useState('dashboard')
   const [previousTab, setPreviousTab] = useState('reports')
   const [editorOrigin, setEditorOrigin] = useState(null) // 'new' | 'reports' — tracks where user came from
-
-  const handleEditInWord = useCallback(
-    async (rep) => {
-      await startWordSession({
-        report: rep,
-        title: rep.activityTitle,
-        htmlFallback: rep.narrative,
-        isOffline
-      })
-    },
-    [startWordSession, isOffline]
-  )
 
   const navigateTab = useCallback(
     (nextTab) => {
@@ -297,6 +284,10 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     setWorkspaceIsReadOnly(isReadOnly)
     setWorkspaceFeedback(rep.status === 'returned' ? rep.adminFeedback : null)
     setLinkToEvent(!!rep.eventId)
+    if (rep.googleDocsUrl) {
+      localStorage.setItem(`dommunity_gdocs_${rep.id}`, rep.googleDocsUrl)
+      localStorage.setItem('dommunity_saved_gdoc_url', rep.googleDocsUrl)
+    }
     // Load content into editor
     const ed = editor || window.__dommunityEditor
     if (ed) {
@@ -376,17 +367,29 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           orientation: layoutOptions.orientation || 'portrait',
           marginKey: layoutOptions.marginKey || 'Normal',
           isTemplateActive:
-            layoutOptions.isTemplateActive !== undefined ? layoutOptions.isTemplateActive : true
+            layoutOptions.isTemplateActive !== undefined ? layoutOptions.isTemplateActive : true,
+          googleDocsUrl:
+            layoutOptions.googleDocsUrl !== undefined && layoutOptions.googleDocsUrl !== null
+              ? layoutOptions.googleDocsUrl
+              : (workspaceReportId
+                  ? localStorage.getItem(`dommunity_gdocs_${workspaceReportId}`)
+                  : localStorage.getItem('dommunity_saved_gdoc_url')) || null
         }
 
         if (workspaceReportId) {
           await updateReport(workspaceReportId, payload, user.uid)
+          if (payload.googleDocsUrl) {
+            localStorage.setItem(`dommunity_gdocs_${workspaceReportId}`, payload.googleDocsUrl)
+          }
         } else {
           payload.createdAt = new Date().toISOString()
           const newReportObj = await addReport(payload, user.uid)
           if (newReportObj) {
             const actualId = newReportObj.id || newReportObj
             setWorkspaceReportId(actualId)
+            if (payload.googleDocsUrl) {
+              localStorage.setItem(`dommunity_gdocs_${actualId}`, payload.googleDocsUrl)
+            }
           }
         }
 
@@ -400,16 +403,29 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
             effectiveStatus === 'returned'
               ? 'Changes saved to returned report successfully!'
               : status === 'draft'
-                ? 'Report saved as draft successfully!'
+                ? 'Report saved as draft in Compiled Reports!'
                 : 'Report submitted to Admin successfully!'
 
+          // Immediately switch view to Compiled Reports
+          if (status === 'draft') {
+            setCompiledReportsTab('draft')
+            setActiveTab('reports')
+          } else if (status === 'submitted') {
+            setCompiledReportsTab('submitted')
+            setActiveTab('reports')
+          }
+
           triggerSuccess(successMsg, () => {
-            if (effectiveStatus !== 'returned') {
+            if (status === 'draft') {
               resetForm()
-            }
-            if (status === 'submitted') {
+              setCompiledReportsTab('draft')
+              setActiveTab('reports')
+            } else if (status === 'submitted') {
+              resetForm()
               setCompiledReportsTab('submitted')
               setActiveTab('reports')
+            } else if (effectiveStatus !== 'returned') {
+              resetForm()
             }
           })
         }
@@ -444,6 +460,36 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       resetForm,
       loadData
     ]
+  )
+
+  // ── Direct Submit Draft to Admin Handler ──
+  const handleDirectSubmitDraft = useCallback(
+    async (rep) => {
+      if (isOffline) {
+        triggerError('Cannot submit report: Internet connection is offline.')
+        return
+      }
+      setLoading(true)
+      try {
+        const payload = {
+          status: 'submitted',
+          submittedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+        await updateReport(rep.id, payload, user.uid)
+        setCompiledReportsTab('submitted')
+        triggerSuccess('Report submitted to Admin successfully!', () => {
+          setCompiledReportsTab('submitted')
+        })
+        loadData()
+      } catch (err) {
+        console.error('Submit draft failed:', err)
+        triggerError('Failed to submit report. Please try again.')
+      } finally {
+        setLoading(false)
+      }
+    },
+    [isOffline, user.uid, triggerError, triggerSuccess, loadData]
   )
 
   // ── Direct DOCX Upload & Submit Handler (Bypasses Tiptap to preserve 100% formatting) ──
@@ -1116,21 +1162,20 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                           <span>Export PDF</span>
                                         </button>
                                         <button
-                                          onClick={() => handleEditInWord(rep)}
-                                          className="flex items-center gap-1.5 bg-[#005a9e] text-white text-xs font-semibold px-3.5 py-1.5 rounded-full hover:bg-[#004b87] transition-all duration-150 cursor-pointer shadow-xs group"
-                                          title="Open and edit directly in Microsoft Word desktop"
-                                        >
-                                          <div className="w-3.5 h-3.5 bg-white text-[#005a9e] rounded flex items-center justify-center font-bold text-[9px] group-hover:scale-105 transition-transform">
-                                            W
-                                          </div>
-                                          <span>Edit in Word</span>
-                                        </button>
-                                        <button
                                           onClick={() => openReport(rep)}
                                           className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-xs"
                                         >
                                           <Edit3 className="w-3.5 h-3.5" />
                                           <span>Edit</span>
+                                        </button>
+                                        <button
+                                          onClick={() => handleDirectSubmitDraft(rep)}
+                                          disabled={loading}
+                                          className="flex items-center gap-1.5 bg-sig-green hover:bg-sig-green-600 text-navy-blue text-xs font-bold px-4 py-1.5 rounded-full transition-all duration-150 cursor-pointer shadow-xs"
+                                          title="Submit this draft to Admin"
+                                        >
+                                          <Send className="w-3.5 h-3.5" />
+                                          <span>Submit to Admin</span>
                                         </button>
                                       </div>
                                     </div>
@@ -1389,16 +1434,6 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                             </button>
                                           </div>
                                         )}
-                                        <button
-                                          onClick={() => handleEditInWord(rep)}
-                                          className="flex items-center gap-1.5 bg-[#005a9e] text-white text-xs font-semibold px-3.5 py-1.5 rounded-full hover:bg-[#004b87] transition-all duration-150 cursor-pointer shadow-xs group"
-                                          title="Open and edit directly in Microsoft Word desktop"
-                                        >
-                                          <div className="w-3.5 h-3.5 bg-white text-[#005a9e] rounded flex items-center justify-center font-bold text-[9px] group-hover:scale-105 transition-transform">
-                                            W
-                                          </div>
-                                          <span>Edit in Word</span>
-                                        </button>
                                         <button
                                           onClick={() => openReport(rep)}
                                           className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-xs"
@@ -1691,6 +1726,10 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           orgsList={orgsList}
           usersList={usersList}
           compileReportPDF={compileReportPDF}
+          onSubmitDraft={async (rep) => {
+            setSelectedViewerReport(null)
+            await handleDirectSubmitDraft(rep)
+          }}
         />
       )}
 
