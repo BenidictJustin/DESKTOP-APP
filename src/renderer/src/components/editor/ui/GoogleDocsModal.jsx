@@ -4,7 +4,8 @@ import {
   Check,
   Link2,
   X,
-  Send
+  Send,
+  Loader2
 } from 'lucide-react'
 import AnimatedModal from '../../motion/AnimatedModal'
 
@@ -50,6 +51,7 @@ export default function GoogleDocsModal({
 
   const [inputUrl, setInputUrl] = useState(() => getPersistedDocUrl())
   const [savedUrlSuccess, setSavedUrlSuccess] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     const url = getPersistedDocUrl()
@@ -70,11 +72,18 @@ export default function GoogleDocsModal({
   }, [googleDocsUrl, workspaceReportId, isOpen, getPersistedDocUrl])
 
   // Save the connected Google Doc URL permanently
-  const handleSaveUrl = (customUrl) => {
+  const handleSaveUrl = async (customUrl) => {
     const trimmed = (customUrl !== undefined ? customUrl : inputUrl).trim()
     setInputUrl(trimmed)
+    if (trimmed) {
+      const match = trimmed.match(/\/document\/d\/([a-zA-Z0-9-_]+)/)
+      if (!match) {
+        alert('Please enter a valid Google Docs URL (e.g. https://docs.google.com/document/d/.../edit).')
+        return false
+      }
+    }
     if (onSaveGoogleDocsUrl) {
-      onSaveGoogleDocsUrl(trimmed)
+      await onSaveGoogleDocsUrl(trimmed)
     }
     if (trimmed) {
       localStorage.setItem('dommunity_saved_gdoc_url', trimmed)
@@ -89,6 +98,7 @@ export default function GoogleDocsModal({
     }
     setSavedUrlSuccess(true)
     setTimeout(() => setSavedUrlSuccess(false), 2500)
+    return true
   }
 
   // Paste Google Docs URL directly from clipboard
@@ -230,17 +240,44 @@ export default function GoogleDocsModal({
         {onSubmitToAdmin && (
           <button
             type="button"
+            disabled={isSubmitting}
             onClick={async () => {
               const trimmed = inputUrl.trim()
-              if (trimmed) handleSaveUrl(trimmed)
-              onClose()
-              await onSubmitToAdmin(trimmed)
+              if (!trimmed) {
+                alert('Please enter or paste your Google Docs link before submitting to Admin.')
+                return
+              }
+              const match = trimmed.match(/\/document\/d\/([a-zA-Z0-9-_]+)/)
+              if (!match) {
+                alert('Please enter a valid Google Docs URL (e.g. https://docs.google.com/document/d/.../edit).')
+                return
+              }
+              setIsSubmitting(true)
+              try {
+                const saveOk = await handleSaveUrl(trimmed)
+                if (saveOk === false) return
+                const submitOk = await onSubmitToAdmin(trimmed)
+                if (submitOk !== false) {
+                  onClose()
+                }
+              } finally {
+                setIsSubmitting(false)
+              }
             }}
-            className="px-5 py-2.5 bg-sig-green hover:bg-sig-green-600 text-navy-blue font-extrabold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+            className="px-5 py-2.5 bg-sig-green hover:bg-sig-green-600 disabled:opacity-60 text-navy-blue font-extrabold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
             title="Submit this report to Admin"
           >
-            <Send className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span>Submit to Admin</span>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Submitting...</span>
+              </>
+            ) : (
+              <>
+                <Send className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>Submit to Admin</span>
+              </>
+            )}
           </button>
         )}
       </div>

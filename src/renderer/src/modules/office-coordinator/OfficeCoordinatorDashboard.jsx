@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import AboutVersionCard from '../../components/AboutVersionCard'
-import AcceptableUseNotice from '../../components/AcceptableUseNotice'
 import UpcomingEventsSchedule from '../../components/UpcomingEventsSchedule'
 import OrganizationalChart from '../../components/OrganizationalChart'
 import DevelopersChart from '../../components/DevelopersChart'
@@ -48,8 +47,7 @@ import {
   ChevronRight,
   ChevronLeft,
   Search,
-  Upload,
-  Send
+  Upload
 } from 'lucide-react'
 import TextEditor from '../../components/editor/TextEditor'
 import DocumentViewer from '../../components/DocumentViewer'
@@ -313,8 +311,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         return
       }
 
-      if (!html || html === '<p></p>') {
-        if (!silent) triggerError('Please write some content before saving.')
+      if ((!html || html === '<p></p>') && !layoutOptions.googleDocsUrl) {
+        if (!silent) triggerError('Please write some content or connect a Google Doc before saving.')
         return
       }
 
@@ -326,9 +324,15 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         const ev = eventsList.find((e) => e.id === workspaceReportEventId)
         if (ev) {
           title = ev.name
-          date = ev.scheduleDate
+          date = ev.scheduleDate || date
           location = ev.venueLocation || ''
         }
+      }
+
+      if (!title || !title.trim()) {
+        title =
+          layoutOptions.gdocTitle ||
+          (layoutOptions.googleDocsUrl ? 'Google Doc Narrative Report' : 'CES Narrative Report')
       }
 
       setSaveStatus('saving')
@@ -342,19 +346,24 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         }
 
         const payload = {
-          academicYear: workspaceReportAY,
-          semester: workspaceReportSem,
-          type: workspaceReportType,
+          academicYear: workspaceReportAY || '2026-2027',
+          semester: workspaceReportSem || '1st Semester',
+          type: workspaceReportType || 'outreach',
           eventId: linkToEvent ? workspaceReportEventId : null,
           activityTitle: title,
-          activityDate: date,
-          location,
-          beneficiaries: workspaceReportBenef,
+          activityDate: date || new Date().toISOString().split('T')[0],
+          location: location || '',
+          beneficiaries: workspaceReportBenef || '',
           organizationId: workspaceReportOrgId || null,
-          narrative: html,
-          photos: workspaceReportPhotos,
+          narrative: html || '',
+          photos: workspaceReportPhotos || [],
           status: effectiveStatus,
-          adminFeedback: effectiveStatus === 'submitted' ? null : (workspaceReportStatus === 'returned' ? workspaceFeedback : null),
+          adminFeedback:
+            effectiveStatus === 'submitted'
+              ? null
+              : workspaceReportStatus === 'returned'
+                ? workspaceFeedback
+                : null,
           authorId: user.uid,
           authorName: user.name,
           authorEmail: user.email,
@@ -376,13 +385,33 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                 : localStorage.getItem('dommunity_saved_gdoc_url')) || null
         }
 
+        if (effectiveStatus === 'submitted') {
+          payload.submittedAt = new Date().toISOString()
+        }
+
+        if (layoutOptions.originalDocxUrl) {
+          payload.originalDocxUrl = layoutOptions.originalDocxUrl
+          payload.originalDocxName = `${title.replace(/[^a-zA-Z0-9_-]+/g, '_')}.docx`
+          payload.submissionType = 'docx_upload'
+        } else if (payload.googleDocsUrl) {
+          payload.submissionType = 'gdoc_submission'
+        }
+
         if (workspaceReportId) {
+          const existingRep = reportsList.find((r) => r.id === workspaceReportId)
+          if (existingRep?.authorId) {
+            delete payload.authorId
+            delete payload.authorName
+            delete payload.authorEmail
+            delete payload.submittedBy
+          }
           await updateReport(workspaceReportId, payload, user.uid)
           if (payload.googleDocsUrl) {
             localStorage.setItem(`dommunity_gdocs_${workspaceReportId}`, payload.googleDocsUrl)
           }
         } else {
           payload.createdAt = new Date().toISOString()
+          payload.submittedBy = user.name || user.username || 'Coordinator'
           const newReportObj = await addReport(payload, user.uid)
           if (newReportObj) {
             const actualId = newReportObj.id || newReportObj
@@ -398,6 +427,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         }
 
         setSaveStatus('saved')
+        await loadData()
         if (!silent) {
           const successMsg =
             effectiveStatus === 'returned'
@@ -540,6 +570,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         authorId: user.uid,
         authorName: user.name || user.username || 'Coordinator',
         authorEmail: user.email || '',
+        submittedBy: user.name || user.username || 'Coordinator',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }
@@ -599,16 +630,37 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     setExportingDocxReport(report)
   }, [])
 
-  // Helper to extract timestamp for chronological sorting (oldest first)
+  // Helper to extract timestamp for chronological sorting
   const getReportTimestamp = (rep, targetStatus) => {
     if (!rep) return 0
-    if (targetStatus === 'draft') {
+    if (targetStatus === 'submitted') {
+      if (rep.submittedAt) {
+        const t = new Date(rep.submittedAt).getTime()
+        if (!isNaN(t)) return t
+      }
+      if (Array.isArray(rep.history) && rep.history.length > 0) {
+        const subEntry = [...rep.history].reverse().find((h) => h.status === 'submitted')
+        if (subEntry?.timestamp) {
+          const t = new Date(subEntry.timestamp).getTime()
+          if (!isNaN(t)) return t
+        }
+      }
+      if (rep.updatedAt) {
+        const t = new Date(rep.updatedAt).getTime()
+        if (!isNaN(t)) return t
+      }
       if (rep.createdAt) {
         const t = new Date(rep.createdAt).getTime()
         if (!isNaN(t)) return t
       }
+    }
+    if (targetStatus === 'draft') {
       if (rep.updatedAt) {
         const t = new Date(rep.updatedAt).getTime()
+        if (!isNaN(t)) return t
+      }
+      if (rep.createdAt) {
+        const t = new Date(rep.createdAt).getTime()
         if (!isNaN(t)) return t
       }
     }
@@ -624,6 +676,10 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           if (!isNaN(t)) return t
         }
       }
+      if (rep.updatedAt) {
+        const t = new Date(rep.updatedAt).getTime()
+        if (!isNaN(t)) return t
+      }
     }
     if (targetStatus === 'approved') {
       if (rep.approvedAt) {
@@ -636,6 +692,10 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           const t = new Date(appEntry.timestamp).getTime()
           if (!isNaN(t)) return t
         }
+      }
+      if (rep.updatedAt) {
+        const t = new Date(rep.updatedAt).getTime()
+        if (!isNaN(t)) return t
       }
     }
     if (rep.submittedAt) {
@@ -679,6 +739,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         ev?.description,
         author?.name,
         rep.authorName,
+        rep.submittedBy,
         rep.location,
         rep.beneficiaries,
         rep.academicYear,
@@ -694,10 +755,12 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   )
 
   // ── Derived ──
+  // Shared visibility for submitted, returned, and approved reports across all coordinators.
+  // Drafts remain personal to the logged-in coordinator (or unassigned).
   const myReports = reportsList.filter((r) => {
-    const ev = eventsList.find((e) => e.id === r.eventId)
-    const title = ev?.name || r.activityTitle
-    return !!(title && title.trim())
+    if (user?.role === 'admin') return true
+    if (r.status === 'submitted' || r.status === 'returned' || r.status === 'approved') return true
+    return r.authorId === user?.uid || !r.authorId
   })
   const stats = {
     total: myReports.length,
@@ -1088,7 +1151,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                           {(() => {
                             const draftReports = myReports
                               .filter((r) => r.status === 'draft')
-                              .sort((a, b) => getReportTimestamp(a, 'draft') - getReportTimestamp(b, 'draft'))
+                              .sort((a, b) => getReportTimestamp(b, 'draft') - getReportTimestamp(a, 'draft'))
 
                             if (draftReports.length === 0) {
                               return (
@@ -1124,7 +1187,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                         <p className="text-[10px] text-gray-400">
                                           Created by{' '}
                                           <span className="font-semibold text-gray-700">
-                                            {author ? author.name : 'Coordinator'}
+                                            {author ? author.name : rep.authorName || rep.submittedBy || 'Coordinator'}
                                           </span>{' '}
                                           · Draft dated {new Date(getReportTimestamp(rep, 'draft')).toLocaleDateString()}
                                         </p>
@@ -1160,15 +1223,6 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                           <Edit3 className="w-3.5 h-3.5" />
                                           <span>Edit</span>
                                         </button>
-                                        <button
-                                          onClick={() => handleDirectSubmitDraft(rep)}
-                                          disabled={loading}
-                                          className="flex items-center gap-1.5 bg-sig-green hover:bg-sig-green-600 text-navy-blue text-xs font-bold px-4 py-1.5 rounded-full transition-all duration-150 cursor-pointer shadow-xs"
-                                          title="Submit this draft to Admin"
-                                        >
-                                          <Send className="w-3.5 h-3.5" />
-                                          <span>Submit to Admin</span>
-                                        </button>
                                       </div>
                                     </div>
                                   )
@@ -1191,7 +1245,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                           {(() => {
                             const submittedReports = myReports
                               .filter((r) => r.status === 'submitted')
-                              .sort((a, b) => getReportTimestamp(a, 'submitted') - getReportTimestamp(b, 'submitted'))
+                              .sort((a, b) => getReportTimestamp(b, 'submitted') - getReportTimestamp(a, 'submitted'))
 
                             if (submittedReports.length === 0) {
                               return (
@@ -1229,7 +1283,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                         <p className="text-[10px] text-gray-400">
                                           Submitted by{' '}
                                           <span className="font-semibold text-gray-700">
-                                            {author ? author.name : 'Coordinator'}
+                                            {author ? author.name : rep.authorName || rep.submittedBy || 'Coordinator'}
                                           </span>{' '}
                                           · Submitted on {new Date(getReportTimestamp(rep, 'submitted')).toLocaleDateString()}
                                           {rep.originalDocxName && (
@@ -1282,11 +1336,11 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                           <div className="flex items-center gap-1.5">
                                             <button
                                               onClick={() => compileReportDOCX(rep)}
-                                              className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-3.5 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
+                                              className="flex items-center gap-1 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
                                               title="Download DOCX Document"
                                             >
                                               <Download className="w-3.5 h-3.5" />
-                                              <span>Download DOCX</span>
+                                              <span>DOCX</span>
                                             </button>
                                             <button
                                               onClick={() => compileReportPDF(rep)}
@@ -1320,7 +1374,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                           {(() => {
                             const returnedReports = myReports
                               .filter((r) => r.status === 'returned')
-                              .sort((a, b) => getReportTimestamp(a, 'returned') - getReportTimestamp(b, 'returned'))
+                              .sort((a, b) => getReportTimestamp(b, 'returned') - getReportTimestamp(a, 'returned'))
 
                             if (returnedReports.length === 0) {
                               return (
@@ -1356,7 +1410,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                         <p className="text-[10px] text-gray-400">
                                           Submitted by{' '}
                                           <span className="font-semibold text-gray-700">
-                                            {author ? author.name : 'Coordinator'}
+                                            {author ? author.name : rep.authorName || rep.submittedBy || 'Coordinator'}
                                           </span>{' '}
                                           · Returned on {new Date(getReportTimestamp(rep, 'returned')).toLocaleDateString()}
                                         </p>
@@ -1410,11 +1464,11 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                           <div className="flex items-center gap-1.5">
                                             <button
                                               onClick={() => compileReportDOCX(rep)}
-                                              className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-3.5 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
+                                              className="flex items-center gap-1 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
                                               title="Download DOCX Document"
                                             >
                                               <Download className="w-3.5 h-3.5" />
-                                              <span>Download DOCX</span>
+                                              <span>DOCX</span>
                                             </button>
                                             <button
                                               onClick={() => compileReportPDF(rep)}
@@ -1475,7 +1529,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                           {(() => {
                             const approvedReports = myReports
                               .filter((r) => r.status === 'approved')
-                              .sort((a, b) => getReportTimestamp(a, 'approved') - getReportTimestamp(b, 'approved'))
+                              .sort((a, b) => getReportTimestamp(b, 'approved') - getReportTimestamp(a, 'approved'))
 
                             const filteredApproved = approvedReports.filter((rep) => {
                               if (!approvedSearchQuery.trim()) return true
@@ -1526,7 +1580,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                         <p className="text-[10px] text-gray-400">
                                           Submitted by{' '}
                                           <span className="font-semibold text-gray-700">
-                                            {author ? author.name : 'Coordinator'}
+                                            {author ? author.name : rep.authorName || rep.submittedBy || 'Coordinator'}
                                           </span>{' '}
                                           · Approved on {new Date(getReportTimestamp(rep, 'approved')).toLocaleDateString()}
                                         </p>
@@ -1569,7 +1623,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                           <div className="flex items-center gap-1.5">
                                             <button
                                               onClick={() => compileReportDOCX(rep)}
-                                              className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-3.5 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
+                                              className="flex items-center gap-1 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
                                               title="Download DOCX Document"
                                             >
                                               <Download className="w-3.5 h-3.5" />
@@ -1699,9 +1753,6 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
                     {/* ── 5. Developers ─────── */}
                     <DevelopersChart />
-
-                    {/* ── 6. Acceptable Use & Data Privacy Notice ─────── */}
-                    <AcceptableUseNotice mode="readonly" />
                   </div>
                 </div>
               )

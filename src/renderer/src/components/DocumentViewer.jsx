@@ -83,8 +83,11 @@ import {
   downloadFileFromUrl,
   getDocxArrayBuffer,
   exportDocxToPDF,
-  exportElementToDOCX
+  exportElementToDOCX,
+  cleanGoogleDocHtml,
+  fetchGoogleDocData
 } from './editor/utils/editorHelpers'
+import { GoogleDocsIcon } from './editor/ui/GoogleDocsModal'
 
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
@@ -465,8 +468,23 @@ export default function DocumentViewer({
   useEffect(() => {
     if (editor && report?.narrative) {
       editor.commands.setContent(report.narrative)
+    } else if (
+      editor &&
+      (!report?.narrative || report.narrative === '<p></p>') &&
+      report?.googleDocsUrl
+    ) {
+      fetchGoogleDocData(report.googleDocsUrl)
+        .then((res) => {
+          if (res && res.success && res.html) {
+            const cleaned = cleanGoogleDocHtml(res.html)
+            if (cleaned) {
+              editor.commands.setContent(cleaned)
+            }
+          }
+        })
+        .catch((e) => console.warn('DocumentViewer Google Docs fallback load failed:', e))
     }
-  }, [editor, report?.narrative])
+  }, [editor, report?.narrative, report?.googleDocsUrl])
 
   // Pre-generate pages for indexing and sidebar
   const pages = []
@@ -1888,10 +1906,10 @@ export default function DocumentViewer({
                       Submitted By
                     </span>
                     <span className="text-[11px] font-bold text-navy-blue block leading-tight mt-0.5">
-                      {author ? author.name : 'Coordinator'}
+                      {author ? author.name : report.authorName || report.submittedBy || 'Coordinator'}
                     </span>
                     <span className="text-[9px] text-gray-550 block">
-                      Submitted: {new Date(report.updatedAt).toLocaleDateString()}
+                      Submitted: {new Date(report.submittedAt || report.updatedAt || report.createdAt).toLocaleDateString()}
                     </span>
                   </div>
                 </div>
@@ -1914,6 +1932,26 @@ export default function DocumentViewer({
                     </span>
                   </div>
                 </div>
+
+                {report.googleDocsUrl && (
+                  <div className="flex items-start space-x-3 p-3 rounded-2xl bg-blue-50/60 border border-blue-100/70">
+                    <GoogleDocsIcon className="w-4 h-4 shrink-0 mt-0.5" />
+                    <div className="text-left min-w-0 flex-1">
+                      <span className="text-[9px] text-blue-600 block font-bold uppercase tracking-wider">
+                        Google Docs Document
+                      </span>
+                      <a
+                        href={report.googleDocsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[11px] font-bold text-navy-blue hover:text-blue-600 underline block leading-tight mt-0.5 truncate"
+                        title={report.googleDocsUrl}
+                      >
+                        Open in Google Docs ↗
+                      </a>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

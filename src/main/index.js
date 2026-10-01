@@ -74,6 +74,141 @@ ipcMain.handle('check-internet', async () => {
   return await verifyInternetConnection()
 })
 
+// IPC handler: fetch Google Docs content directly without CORS restrictions
+try {
+  ipcMain.removeHandler('fetch-google-doc')
+} catch {}
+ipcMain.handle('fetch-google-doc', async (event, { url }) => {
+  if (!url || typeof url !== 'string') {
+    return { success: false, error: 'Please provide a valid Google Docs URL.' }
+  }
+  const match = url.trim().match(/\/document\/d\/([a-zA-Z0-9-_]+)/)
+  if (!match) {
+    return {
+      success: false,
+      error: 'Invalid Google Docs URL. Expected format: https://docs.google.com/document/d/YOUR_DOC_ID/edit'
+    }
+  }
+  const docId = match[1]
+
+  try {
+    // 1. Fetch HTML export with redirect tracking
+    const exportHtmlUrl = `https://docs.google.com/document/d/${docId}/export?format=html`
+    const htmlRes = await fetch(exportHtmlUrl, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      },
+      redirect: 'follow'
+    })
+
+    // Check if Google redirected to login page (means private / permission denied)
+    if (htmlRes.url && htmlRes.url.includes('accounts.google.com')) {
+      return {
+        success: false,
+        error:
+          'Access denied: This Google Doc is private and requires sign-in. In Google Docs, click "Share" (top-right) and set General access to "Anyone with the link" (Viewer or Editor) so DommUnity can retrieve the document.'
+      }
+    }
+
+    if (!htmlRes.ok) {
+      if (htmlRes.status === 404) {
+        return {
+          success: false,
+          error: 'Google Doc not found (404). Please verify that the document link is correct and has not been deleted.'
+        }
+      }
+      if (htmlRes.status === 403 || htmlRes.status === 401) {
+        return {
+          success: false,
+          error:
+            'Permission denied (HTTP ' +
+            htmlRes.status +
+            '). Please ensure document sharing is set to "Anyone with the link".'
+        }
+      }
+      return {
+        success: false,
+        error: `Unable to access Google Doc (HTTP error ${htmlRes.status}).`
+      }
+    }
+
+    const htmlText = await htmlRes.text()
+    if (!htmlText || htmlText.trim().length === 0) {
+      return {
+        success: false,
+        error: 'The retrieved Google Doc contains no content.'
+      }
+    }
+
+    // Double-check if the HTML text is an HTML login or error page
+    if (htmlText.includes('ServiceLogin') && htmlText.includes('identifier')) {
+      return {
+        success: false,
+        error:
+          'Access denied: Google Doc requires sign-in. Please set document sharing to "Anyone with the link".'
+      }
+    }
+
+    // Extract title from HTML tag if available
+    let docTitle = ''
+    const titleMatch = htmlText.match(/<title>([^<]+)<\/title>/i)
+    if (titleMatch && titleMatch[1]) {
+      docTitle = titleMatch[1].replace(/ - Google Docs$/i, '').trim()
+    }
+
+    // 2. Fetch DOCX export for high-fidelity conversion in DocumentViewer
+    let docxBase64 = null
+    try {
+      const exportDocxUrl = `https://docs.google.com/document/d/${docId}/export?format=docx`
+      const docxRes = await fetch(exportDocxUrl, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        },
+        redirect: 'follow'
+      })
+      if (docxRes.ok && (!docxRes.url || !docxRes.url.includes('accounts.google.com'))) {
+        const arrayBuf = await docxRes.arrayBuffer()
+        if (arrayBuf && arrayBuf.byteLength > 0) {
+          const buf = Buffer.from(arrayBuf)
+          docxBase64 =
+            'data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,' +
+            buf.toString('base64')
+        }
+      }
+    } catch (docxErr) {
+      console.warn('DOCX export from Google Docs failed, will rely on HTML:', docxErr)
+    }
+
+    return {
+      success: true,
+      docId,
+      title: docTitle,
+      html: htmlText,
+      docxBase64
+    }
+  } catch (netErr) {
+    console.error('Failed to fetch Google Doc in main process:', netErr)
+    return {
+      success: false,
+      error: `Network error while retrieving Google Doc: ${netErr.message || 'Check your internet connection.'}`
+    }
+  }
+})
+
+// Capture renderer error and print to terminal
+try {
+  ipcMain.removeHandler('log-error')
+} catch {}
+ipcMain.handle('log-error', async (event, { msg }) => {
+  console.error('\n==================== RENDERER ERROR ====================')
+  console.error(msg)
+  console.error('========================================================\n')
+  return true
+})
+
 // Native MS Word COM conversion to in-memory PDF buffer (for Document Viewer preview fidelity)
 try {
   ipcMain.removeHandler('convert-docx-to-pdf-buffer')
@@ -302,6 +437,12 @@ function createWindow() {
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
+  })
+
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    if (level >= 2 || (typeof message === 'string' && (message.includes('Error') || message.includes('Exception')))) {
+      console.error(`[Renderer Console Error] (${sourceId}:${line}): ${message}`)
+    }
   })
 
   // HMR for renderer base on electron-vite cli.

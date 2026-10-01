@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'motion/react'
 import AboutVersionCard from '../../components/AboutVersionCard'
-import AcceptableUseNotice from '../../components/AcceptableUseNotice'
 import AnimatedModal from '../../components/motion/AnimatedModal'
 import AnimatedPage from '../../components/motion/AnimatedPage'
 import {
@@ -1050,16 +1049,9 @@ export default function AdminDashboard({ user, onLogout }) {
     if (!itemUnit.trim()) errors.itemUnit = 'Unit of measurement is required.'
     if (!itemQty) errors.itemQty = 'Quantity is required.'
 
-    const isOriginalItemExpiry =
-      itemEditing?.expiryDate &&
-      itemExpiry &&
-      (itemExpiry === itemEditing.expiryDate ||
-        itemExpiry === itemEditing.expiryDate.split('T')[0] ||
-        new Date(itemExpiry).getTime() === new Date(itemEditing.expiryDate).getTime())
-
     if (!isSchoolSupplies && !itemExpiry) {
       errors.itemExpiry = 'Expiration date is required.'
-    } else if (itemExpiry && !isOriginalItemExpiry && isPastDate(itemExpiry)) {
+    } else if (itemExpiry && isPastDate(itemExpiry)) {
       errors.itemExpiry = DATE_ERROR_MESSAGES.EXPIRY_PAST
     }
     if (isAlreadyGrouped && !itemPiecesPerUnit)
@@ -2219,7 +2211,7 @@ export default function AdminDashboard({ user, onLogout }) {
     setExportingDocxReport(report)
   }
 
-  // Helper to get consistent submission timestamp for pending queue chronological sorting (oldest first)
+  // Helper to get consistent submission timestamp for pending queue chronological sorting (newest first)
   const getPendingReportTimestamp = (rep) => {
     if (!rep) return 0
     if (rep.submittedAt) {
@@ -2531,6 +2523,10 @@ export default function AdminDashboard({ user, onLogout }) {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {reportsList
                               .filter((r) => r.status === 'submitted')
+                              .sort(
+                                (a, b) =>
+                                  getPendingReportTimestamp(b) - getPendingReportTimestamp(a)
+                              )
                               .slice(0, 4)
                               .map((rep) => {
                                 const ev = eventsList.find((e) => e.id === rep.eventId)
@@ -2554,7 +2550,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                         {ev ? ev.name : rep.activityTitle || 'Submitted Report'}
                                       </h4>
                                       <p className="text-xs text-gray-500 mt-0.5">
-                                        Submitted by {author ? author.name : 'Coordinator'}
+                                        Submitted by {author ? author.name : rep.authorName || rep.submittedBy || 'Coordinator'}
                                       </p>
                                     </div>
                                     <div className="flex items-center gap-2 shrink-0">
@@ -2903,6 +2899,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                                   : ''
                                               )
                                               setItemGroupUnit(item.groupUnit || 'none')
+                                              setItemErrors({})
                                             }}
                                             className="p-1 text-gray-400 hover:text-navy-blue transition-all duration-150 cursor-pointer"
                                           >
@@ -3577,19 +3574,10 @@ export default function AdminDashboard({ user, onLogout }) {
                                     <GlassDatePicker
                                       value={itemExpiry ? itemExpiry.split('T')[0] : ''}
                                       disabled={isSuppliesCategory(itemCategory)}
-                                      disablePast={
-                                        !(itemEditing?.expiryDate && isPastDate(itemEditing.expiryDate))
-                                      }
+                                      disablePast={true}
                                       onChange={(val) => {
                                         setItemExpiry(val)
-                                        const isOriginal =
-                                          itemEditing?.expiryDate &&
-                                          val &&
-                                          (val === itemEditing.expiryDate.split('T')[0] ||
-                                            val === itemEditing.expiryDate ||
-                                            new Date(val).getTime() ===
-                                              new Date(itemEditing.expiryDate).getTime())
-                                        if (val && !isOriginal && isPastDate(val)) {
+                                        if (val && isPastDate(val)) {
                                           setItemErrors((prev) => ({
                                             ...prev,
                                             itemExpiry: DATE_ERROR_MESSAGES.EXPIRY_PAST
@@ -5846,7 +5834,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                 )
                                 .sort(
                                   (a, b) =>
-                                    getPendingReportTimestamp(a) - getPendingReportTimestamp(b)
+                                    getPendingReportTimestamp(b) - getPendingReportTimestamp(a)
                                 )
                                 .map((rep) => {
                                   const event = eventsList.find((e) => e.id === rep.eventId)
@@ -5881,7 +5869,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                           {event ? event.name : rep.activityTitle || rep.title || 'Outreach Activity'}
                                         </h4>
                                         <div className="text-xs text-gray-400 font-medium">
-                                          Submitted by {author ? author.name : rep.submittedBy || 'Coordinator'} on{' '}
+                                          Submitted by {author ? author.name : rep.authorName || rep.submittedBy || 'Coordinator'} on{' '}
                                           {new Date(getPendingReportTimestamp(rep)).toLocaleDateString()}
                                         </div>
                                       </div>
@@ -6001,6 +5989,10 @@ export default function AdminDashboard({ user, onLogout }) {
                             <div className="space-y-3 pt-1">
                               {reportsList
                                 .filter((r) => r.status === 'approved')
+                                .sort(
+                                  (a, b) =>
+                                    getPendingReportTimestamp(b) - getPendingReportTimestamp(a)
+                                )
                                 .filter((rep) => {
                                   if (!approvedSearchQuery.trim()) return true
                                   const query = approvedSearchQuery.toLowerCase().trim()
@@ -6035,7 +6027,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                           {event ? event.name : rep.activityTitle || rep.title || 'Outreach Activity'}
                                         </h4>
                                         <div className="text-xs text-gray-400 font-medium">
-                                          Submitted by {author ? author.name : rep.submittedBy || 'Coordinator'} on{' '}
+                                          Submitted by {author ? author.name : rep.authorName || rep.submittedBy || 'Coordinator'} on{' '}
                                           {new Date(rep.updatedAt || rep.createdAt).toLocaleDateString()}
                                         </div>
                                       </div>
@@ -6393,9 +6385,6 @@ export default function AdminDashboard({ user, onLogout }) {
 
                       {/* ── 5. Developers ─────── */}
                       <DevelopersChart />
-
-                      {/* ── 6. Acceptable Use & Data Privacy Notice ─────── */}
-                      <AcceptableUseNotice mode="readonly" />
                     </div>
                   )
                 )}

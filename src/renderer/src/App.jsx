@@ -1,7 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { listenToAuthChanges, logout, hasAcceptedPolicy, acceptPolicy } from './services/db'
-import AcceptableUseNotice from './components/AcceptableUseNotice'
+import { listenToAuthChanges, logout } from './services/db'
 import Login from './components/Login'
 import ResetPassword from './components/ResetPassword'
 import AdminDashboard from './modules/admin/AdminDashboard'
@@ -17,7 +16,6 @@ function AppContent() {
   const [activeUser, setActiveUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [showSplash, setShowSplash] = useState(true)
-  const [policyAccepted, setPolicyAccepted] = useState(null) // null = checking, true = accepted, false = needs ack
 
   const [deactivationNotice, setDeactivationNotice] = useState('')
   const [sessionNotice, setSessionNotice] = useState('')
@@ -120,28 +118,8 @@ function AppContent() {
   const handleLoginSuccess = (authenticatedUser) => {
     setDeactivationNotice('')
     setSessionNotice('')
-    setPolicyAccepted(null) // reset to checking state for the new user
     setActiveUser(authenticatedUser)
   }
-
-  // ── Policy acceptance check ──────────────────────────────
-  useEffect(() => {
-    if (!activeUser || !activeUser.uid) {
-      setPolicyAccepted(null)
-      return
-    }
-    let cancelled = false
-    hasAcceptedPolicy(activeUser.uid).then((accepted) => {
-      if (!cancelled) setPolicyAccepted(accepted)
-    })
-    return () => { cancelled = true }
-  }, [activeUser])
-
-  const handlePolicyAccept = useCallback(async () => {
-    if (!activeUser?.uid) return
-    await acceptPolicy(activeUser.uid)
-    setPolicyAccepted(true)
-  }, [activeUser])
 
   return (
     <div className="min-h-screen w-screen bg-[#F1EFEC] font-poppins relative overflow-hidden">
@@ -185,30 +163,6 @@ function AppContent() {
                 deactivationNotice={deactivationNotice}
                 sessionNotice={sessionNotice}
               />
-            </motion.div>
-          ) : policyAccepted === null ? (
-            /* Checking policy status — show brief loading state */
-            <motion.div
-              key="policy-check"
-              className="absolute inset-0 w-full h-full flex flex-col items-center justify-center font-poppins bg-[#F1EFEC] z-10"
-              variants={authTransitionVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              transition={authTransition}
-            />
-          ) : policyAccepted === false ? (
-            /* First-login policy acknowledgment */
-            <motion.div
-              key="policy-ack"
-              className="absolute inset-0 w-full h-full bg-[#F1EFEC] z-10"
-              variants={authTransitionVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              transition={authTransition}
-            >
-              <AcceptableUseNotice mode="acknowledge" onAccept={handlePolicyAccept} />
             </motion.div>
           ) : activeUser.role === 'admin' ? (
             <motion.div

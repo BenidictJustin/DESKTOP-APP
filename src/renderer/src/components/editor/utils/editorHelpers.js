@@ -1886,3 +1886,87 @@ export async function getDocxArrayBuffer(url) {
     return await res.arrayBuffer()
   }
 }
+
+/**
+ * Strips wrappers, scripts, and google tracking redirects from Google Docs HTML export.
+ */
+export function cleanGoogleDocHtml(fullHtml) {
+  if (!fullHtml || typeof fullHtml !== 'string') return ''
+  // 1. Extract body content if wrapped in <html><body>
+  const bodyMatch = fullHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i)
+  let content = bodyMatch ? bodyMatch[1] : fullHtml
+
+  // 2. Decode Google redirect links (e.g. https://www.google.com/url?q=https://example.com&...)
+  content = content.replace(/https:\/\/(?:www\.)?google\.com\/url\?q=([^&"'>\s]+)(?:&amp;|&)[^"'>\s]*/gi, (m, realUrl) => {
+    try {
+      return decodeURIComponent(realUrl)
+    } catch {
+      return m
+    }
+  })
+
+  // 3. Remove script tags and style tags inside body
+  content = content.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+
+  // 4. Strip empty paragraphs or dummy spans that Google Docs injects
+  content = content.replace(/<span[^>]*>\s*<\/span>/gi, '')
+
+  return content.trim()
+}
+
+/**
+ * Fetches Google Docs content and optional DOCX buffer via Electron IPC (no CORS) or fetch fallback.
+ */
+export async function fetchGoogleDocData(url) {
+  if (!url || typeof url !== 'string') {
+    return { success: false, error: 'Please provide a valid Google Docs URL.' }
+  }
+  const match = url.trim().match(/\/document\/d\/([a-zA-Z0-9-_]+)/)
+  if (!match) {
+    return {
+      success: false,
+      error: 'Invalid Google Docs URL format. Expected: https://docs.google.com/document/d/.../edit'
+    }
+  }
+
+  // Use Electron IPC if available (bypasses browser CORS completely)
+  if (window.api?.fetchGoogleDoc) {
+    try {
+      const res = await window.api.fetchGoogleDoc(url.trim())
+      return res
+    } catch (err) {
+      console.warn('window.api.fetchGoogleDoc IPC failed, attempting renderer fallback:', err)
+    }
+  }
+
+  // Fallback for browser environments
+  const docId = match[1]
+  try {
+    const res = await fetch(`https://docs.google.com/document/d/${docId}/export?format=html`, {
+      redirect: 'follow'
+    })
+    if (res.url && res.url.includes('accounts.google.com')) {
+      return {
+        success: false,
+        error:
+          'Access denied: Google Doc is private and requires sign-in. In Google Docs, click "Share" and set General access to "Anyone with the link".'
+      }
+    }
+    if (!res.ok) {
+      return {
+        success: false,
+        error: `Unable to access Google Doc (HTTP ${res.status}). Ensure sharing is set to "Anyone with the link".`
+      }
+    }
+    const htmlText = await res.text()
+    if (!htmlText || htmlText.trim().length === 0) {
+      return { success: false, error: 'Google Doc content is empty.' }
+    }
+    return { success: true, docId, html: htmlText }
+  } catch (err) {
+    return {
+      success: false,
+      error: `Failed to fetch Google Doc: ${err.message || 'Check your internet connection.'}`
+    }
+  }
+}

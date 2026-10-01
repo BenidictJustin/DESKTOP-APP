@@ -12,9 +12,16 @@ export default class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     console.error('Uncaught app rendering exception captured by ErrorBoundary:', error, errorInfo)
+    try {
+      const fullError = `${error?.stack || error?.toString()}\n\nComponent Stack:\n${errorInfo?.componentStack || 'N/A'}`
+      if (typeof window !== 'undefined' && window.api?.logError) {
+        window.api.logError(fullError)
+      }
+    } catch {}
   }
 
   handleReload = () => {
+    this.setState({ hasError: false, error: null })
     window.location.reload()
   }
 
@@ -22,6 +29,7 @@ export default class ErrorBoundary extends React.Component {
     try {
       localStorage.removeItem('dommunity_current_user')
       sessionStorage.clear()
+      this.setState({ hasError: false, error: null })
       window.location.reload()
     } catch (e) {
       window.location.reload()
@@ -32,7 +40,7 @@ export default class ErrorBoundary extends React.Component {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen w-screen flex flex-col items-center justify-center p-6 text-center font-poppins">
-          <div className="glass-modal rounded-2xl p-8 max-w-lg shadow-glass-xl border border-white/80 text-gray-800 animate-fade-in-scale">
+          <div className="glass-modal rounded-2xl p-8 max-w-2xl shadow-glass-xl border border-white/80 text-gray-800 animate-fade-in-scale">
             <div className="h-14 w-14 bg-error-50 text-error-600 rounded-xl flex items-center justify-center mx-auto mb-5 text-2xl font-bold border border-error-100">
               !
             </div>
@@ -43,8 +51,13 @@ export default class ErrorBoundary extends React.Component {
               A runtime component exception occurred. To prevent a blank white screen, this
               safe-mode boundary has paused rendering.
             </p>
-            <div className="bg-error-50 text-error-700 text-[11px] font-mono p-3.5 rounded-lg text-left max-h-40 overflow-auto mb-6 border border-error-100">
-              {this.state.error?.toString()}
+            <div className="bg-error-50 text-error-700 text-[11px] font-mono p-3.5 rounded-lg text-left max-h-60 overflow-auto mb-6 border border-error-100 whitespace-pre-wrap select-text">
+              <div className="font-bold mb-1">{this.state.error?.toString()}</div>
+              {this.state.error?.stack && (
+                <div className="text-[10px] text-error-600 opacity-80 mt-1">
+                  {this.state.error.stack}
+                </div>
+              )}
             </div>
             <div className="flex items-center justify-center gap-3">
               <button

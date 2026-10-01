@@ -1108,6 +1108,7 @@ import { Ruler } from './ui/Ruler'
 import StatusBar from './ui/StatusBar'
 import { DropdownWrapper } from './ui/DropdownWrapper'
 import { DocPropertiesDialog } from './ui/Dialogs'
+import { updateReport } from '../../services/db'
 import {
   handleExportPDF,
   handleExportDOCX,
@@ -1116,7 +1117,9 @@ import {
   docxToHtml,
   parseDocxLayout,
   loadInitialContentAndResetHistory,
-  resolveHeaderHtml
+  resolveHeaderHtml,
+  cleanGoogleDocHtml,
+  fetchGoogleDocData
 } from './utils/editorHelpers'
 import { PAPER } from './constants'
 import DocumentCanvas from './ui/DocumentCanvas'
@@ -1230,20 +1233,65 @@ export default function TextEditor({
     }
   }, [workspaceReportId, reportsList])
 
-  const handleSaveGoogleDocsUrl = useCallback((url) => {
-    setGoogleDocsUrl(url)
-    if (url) {
-      localStorage.setItem('dommunity_saved_gdoc_url', url)
-      if (workspaceReportId) {
-        localStorage.setItem(`dommunity_gdocs_${workspaceReportId}`, url)
+  const handleSaveGoogleDocsUrl = useCallback(
+    async (url) => {
+      const cleanUrl = (url || '').trim()
+      setGoogleDocsUrl(cleanUrl)
+      if (cleanUrl) {
+        localStorage.setItem('dommunity_saved_gdoc_url', cleanUrl)
+        if (workspaceReportId) {
+          localStorage.setItem(`dommunity_gdocs_${workspaceReportId}`, cleanUrl)
+          try {
+            await updateReport(workspaceReportId, { googleDocsUrl: cleanUrl }, user?.uid)
+          } catch (e) {
+            console.warn('Failed to update report with googleDocsUrl in Firestore:', e)
+          }
+        } else if (onSave) {
+          // Immediately associate and persist Google Docs link to current report draft
+          try {
+            const currentHtml =
+              (typeof window !== 'undefined' && window.__dommunityEditor?.getHTML()) || '<p></p>'
+            await onSave('draft', currentHtml, true, {
+              headerText,
+              footerText,
+              showHeader,
+              showFooter,
+              paperKey,
+              orientation,
+              marginKey,
+              isTemplateActive,
+              googleDocsUrl: cleanUrl
+            })
+          } catch (e) {
+            console.warn('Failed to auto-save initial draft for googleDocsUrl:', e)
+          }
+        }
+      } else {
+        localStorage.removeItem('dommunity_saved_gdoc_url')
+        if (workspaceReportId) {
+          localStorage.removeItem(`dommunity_gdocs_${workspaceReportId}`)
+          try {
+            await updateReport(workspaceReportId, { googleDocsUrl: null }, user?.uid)
+          } catch (e) {
+            console.warn('Failed to remove googleDocsUrl in Firestore:', e)
+          }
+        }
       }
-    } else {
-      localStorage.removeItem('dommunity_saved_gdoc_url')
-      if (workspaceReportId) {
-        localStorage.removeItem(`dommunity_gdocs_${workspaceReportId}`)
-      }
-    }
-  }, [workspaceReportId])
+    },
+    [
+      workspaceReportId,
+      user?.uid,
+      onSave,
+      headerText,
+      footerText,
+      showHeader,
+      showFooter,
+      paperKey,
+      orientation,
+      marginKey,
+      isTemplateActive
+    ]
+  )
 
   const [hasLaunchedGoogleDocs, setHasLaunchedGoogleDocs] = useState(() => {
     return Boolean(
@@ -2199,15 +2247,13 @@ export default function TextEditor({
       if (!editor) return
       if (isOffline) {
         if (!silent) {
-          alert('Cannot save or submit report: Internet connection is offline. Your changes remain safe in the editor. Please reconnect to sync.')
+          alert(
+            'Cannot save or submit report: Internet connection is offline. Your changes remain safe in the editor. Please reconnect to sync.'
+          )
         }
         return
       }
-      const html = editor.getHTML()
-      if (!html || html === '<p></p>') {
-        if (!silent) alert('Please write some content before saving.')
-        return
-      }
+
       const resolvedGDocUrl =
         explicitGDocUrl !== undefined && explicitGDocUrl !== null
           ? explicitGDocUrl
@@ -2216,7 +2262,65 @@ export default function TextEditor({
             localStorage.getItem('dommunity_saved_gdoc_url') ||
             ''
 
-      await onSave(status, html, silent, {
+      let finalHtml = editor.getHTML()
+      let fetchedDocxBase64 = null
+      let fetchedDocTitle = null
+
+      if (resolvedGDocUrl) {
+        const match = resolvedGDocUrl.match(/\/document\/d\/([a-zA-Z0-9-_]+)/)
+        if (!match) {
+          if (!silent) {
+            alert('The saved Google Docs link is invalid. Please verify the URL in Link Settings.')
+          }
+          return false
+        }
+
+        // Fetch document content from Google Docs
+        setLoading(true)
+        let gDocResult
+        try {
+          gDocResult = await fetchGoogleDocData(resolvedGDocUrl)
+        } catch (fetchErr) {
+          gDocResult = { success: false, error: fetchErr.message }
+        } finally {
+          setLoading(false)
+        }
+
+        if (!gDocResult || !gDocResult.success) {
+          const errMsg =
+            gDocResult?.error ||
+            'Unable to access or retrieve content from the saved Google Docs link. Please verify the link and ensure document sharing is set to "Anyone with the link".'
+          if (!silent) {
+            alert(errMsg)
+          }
+          return false
+        }
+
+        // Successfully retrieved Google Doc content!
+        const cleanedHtml = cleanGoogleDocHtml(gDocResult.html)
+        if (cleanedHtml) {
+          finalHtml = cleanedHtml
+          try {
+            editor.commands.setContent(cleanedHtml)
+          } catch (edErr) {
+            console.warn('Failed to load Google Doc HTML into TipTap editor:', edErr)
+          }
+        }
+        if (gDocResult.docxBase64) {
+          fetchedDocxBase64 = gDocResult.docxBase64
+        }
+        if (gDocResult.title) {
+          fetchedDocTitle = gDocResult.title
+        }
+      }
+
+      // Check content before saving
+      if (!finalHtml || finalHtml === '<p></p>') {
+        if (!silent) alert('Please write some content or link a valid Google Doc before saving.')
+        return false
+      }
+
+      await onSave(status, finalHtml, silent, {
         headerText,
         footerText,
         showHeader,
@@ -2225,10 +2329,13 @@ export default function TextEditor({
         orientation,
         marginKey,
         isTemplateActive,
-        googleDocsUrl: resolvedGDocUrl
+        googleDocsUrl: resolvedGDocUrl,
+        originalDocxUrl: fetchedDocxBase64,
+        gdocTitle: fetchedDocTitle
       })
-      lastSavedContentRef.current = html
+      lastSavedContentRef.current = finalHtml
       setHasUnsavedChanges(false)
+      return true
     },
     [
       editor,
@@ -3174,13 +3281,13 @@ export default function TextEditor({
           if (explicitUrl) {
             handleSaveGoogleDocsUrl(explicitUrl)
           }
-          await handleSave('draft', false, explicitUrl)
+          return await handleSave('draft', false, explicitUrl)
         }}
         onSubmitToAdmin={async (explicitUrl) => {
           if (explicitUrl) {
             handleSaveGoogleDocsUrl(explicitUrl)
           }
-          await handleSave('submitted', false, explicitUrl)
+          return await handleSave('submitted', false, explicitUrl)
         }}
         user={user}
       />
