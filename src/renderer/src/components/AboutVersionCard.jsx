@@ -5,7 +5,7 @@ import { useNetworkStatus } from '../context/NetworkContext'
 
 export default function AboutVersionCard() {
   const { isOffline } = useNetworkStatus()
-  const [currentVersion, setCurrentVersion] = useState('1.0.5')
+  const [currentVersion, setCurrentVersion] = useState('1.0.6')
   const [status, setStatus] = useState('idle') // 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'up-to-date' | 'error'
   const [updateInfo, setUpdateInfo] = useState(null)
   const [progress, setProgress] = useState(0)
