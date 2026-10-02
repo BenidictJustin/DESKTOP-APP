@@ -1101,7 +1101,7 @@ import {
 import GoogleDocsModal, { GoogleDocsIcon } from './ui/GoogleDocsModal'
 
 import { useEditorStore } from './store/useEditorStore'
-import { FontSizeExtension } from './extensions/fontSize'
+import { FontSizeExtension } from './extensions/FontSize'
 import { LineHeightExtension } from './extensions/lineHeight'
 import { Toolbar } from './ui/Toolbar'
 import { Ruler } from './ui/Ruler'

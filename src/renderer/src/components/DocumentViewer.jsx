@@ -107,7 +107,7 @@ import { FontFamily } from '@tiptap/extension-font-family'
 import { TextStyle } from '@tiptap/extension-text-style'
 import ImageResize from 'tiptap-extension-resize-image'
 
-import { FontSizeExtension } from './editor/extensions/fontSize'
+import { FontSizeExtension } from './editor/extensions/FontSize'
 import { LineHeightExtension } from './editor/extensions/lineHeight'
 import PageFlow from './editor/extensions/PageFlow'
 import PageBreak from './editor/extensions/PageBreak'
@@ -152,6 +152,23 @@ export default function DocumentViewer({
   const [viewMode, setViewMode] = useState('select') // 'select' or 'pan'
 
   const [narrativeTotalPages, setNarrativeTotalPages] = useState(1)
+
+  // Feedback State Management
+  const [internalFeedback, setInternalFeedback] = useState(report?.adminFeedback || '')
+  const activeFeedback = feedbackNote !== undefined ? feedbackNote : internalFeedback
+  const handleFeedbackChange = (val) => {
+    if (setFeedbackNote) setFeedbackNote(val)
+    setInternalFeedback(val)
+  }
+
+  useEffect(() => {
+    if (report?.adminFeedback) {
+      if (setFeedbackNote && !feedbackNote) {
+        setFeedbackNote(report.adminFeedback)
+      }
+      setInternalFeedback(report.adminFeedback)
+    }
+  }, [report])
 
   // DOCX / PDF Direct View State
   const isDocxSubmission = Boolean(report?.submissionType === 'docx_upload' || report?.originalDocxUrl)
@@ -1888,7 +1905,7 @@ export default function DocumentViewer({
           </main>
 
           {/* Assessment & Actions Sidebar */}
-          <aside className="w-80 bg-white border-l border-gray-200 p-6 overflow-y-auto shrink-0 flex flex-col justify-between select-none">
+          <aside className="w-80 bg-white border-l border-gray-200 p-6 overflow-y-auto shrink-0 flex flex-col justify-between">
             <div className="space-y-5">
               <div>
                 <span className="text-[10px] text-sig-green font-bold uppercase tracking-wider">
@@ -1957,98 +1974,119 @@ export default function DocumentViewer({
 
             {/* Assessment Input & Actions Panel */}
             <div className="border-t border-gray-150 pt-5 mt-6 space-y-4">
-              {report.status === 'submitted' &&
-                (handleReviewReport ? (
-                  <>
-                    <div className="text-left">
-                      <label className="block text-gray-700 text-xs font-semibold mb-1">
-                        Feedback/Revision Instructions <span className="text-red-500">*</span>
-                      </label>
-                      <textarea
-                        value={feedbackNote}
-                        onChange={(e) => setFeedbackNote(e.target.value)}
-                        placeholder="Specify required corrections clearly. Needed if returning for revision..."
-                        className="w-full p-3 text-xs bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-medium text-navy-blue placeholder-gray-400"
-                        rows="3"
-                      ></textarea>
-                    </div>
-
-                    <div className="flex flex-col space-y-2">
-                      <button
-                        onClick={() => handleReviewReport('returned')}
-                        disabled={loading}
-                        className="w-full bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-full font-bold text-xs py-2.5 transition duration-200 cursor-pointer text-center disabled:opacity-50"
-                      >
-                        {loading ? 'Processing...' : 'Return with Feedback'}
-                      </button>
-                      <button
-                        onClick={() => handleReviewReport('approved')}
-                        disabled={loading}
-                        className="w-full bg-navy-blue text-white rounded-full font-bold text-xs py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition duration-200 cursor-pointer text-center disabled:opacity-50"
-                      >
-                        {loading ? 'Processing...' : 'Approve'}
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex items-start space-x-2 text-amber-700 bg-amber-50/50 p-4 rounded-2xl border border-amber-200/50 text-xs text-left">
-                    <Clock className="w-4.5 h-4.5 shrink-0 text-amber-650 mt-0.5" />
-                    <div>
-                      <span className="font-bold">Pending Review</span>
-                      <p className="mt-1 text-amber-650/80 leading-normal font-medium">
-                        This report has been submitted and is currently pending review by the Admin.
+              {Boolean(handleReviewReport && (report.status === 'submitted' || report.status === 'returned')) ? (
+                <>
+                  <div className="text-left">
+                    <label className="block text-gray-700 text-xs font-semibold mb-1">
+                      Feedback/Revision Instructions <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={activeFeedback}
+                      onChange={(e) => handleFeedbackChange(e.target.value)}
+                      placeholder="Specify required corrections clearly. Needed if returning for revision..."
+                      className="w-full p-3 text-xs bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-medium text-navy-blue placeholder-gray-400 select-text resize-y min-h-[90px]"
+                      rows="3"
+                    ></textarea>
+                    {report.status === 'returned' && report.adminFeedback && (
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        Current feedback is pre-filled above. You can edit it before returning again.
                       </p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => handleReviewReport('returned')}
+                      disabled={loading}
+                      className="w-full bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 rounded-full font-bold text-xs py-2.5 transition duration-200 cursor-pointer text-center disabled:opacity-50"
+                    >
+                      {loading ? 'Processing...' : 'Return with Feedback'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleReviewReport('approved')}
+                      disabled={loading}
+                      className="w-full bg-navy-blue text-white rounded-full font-bold text-xs py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition duration-200 cursor-pointer text-center disabled:opacity-50"
+                    >
+                      {loading ? 'Processing...' : 'Approve'}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {report.status === 'submitted' && (
+                    <div className="flex items-start space-x-2 text-amber-700 bg-amber-50/50 p-4 rounded-2xl border border-amber-200/50 text-xs text-left">
+                      <Clock className="w-4.5 h-4.5 shrink-0 text-amber-650 mt-0.5" />
+                      <div>
+                        <span className="font-bold">Pending Review</span>
+                        <p className="mt-1 text-amber-650/80 leading-normal font-medium">
+                          This report has been submitted and is currently pending review by the Admin.
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )}
 
-              {report.status === 'draft' && (
-                <div className="space-y-3">
-                  <div className="flex items-start space-x-2 text-gray-700 bg-gray-50 p-4 rounded-2xl border border-gray-250 text-xs text-left">
-                    <FileText className="w-4.5 h-4.5 shrink-0 text-gray-550 mt-0.5" />
-                    <div>
-                      <span className="font-bold">Draft Document</span>
-                      <p className="mt-1 text-gray-500 leading-normal font-medium">
-                        This draft can be edited or submitted directly to Admin for official review.
-                      </p>
+                  {report.status === 'draft' && (
+                    <div className="space-y-3">
+                      <div className="flex items-start space-x-2 text-gray-700 bg-gray-50 p-4 rounded-2xl border border-gray-250 text-xs text-left">
+                        <FileText className="w-4.5 h-4.5 shrink-0 text-gray-550 mt-0.5" />
+                        <div>
+                          <span className="font-bold">Draft Document</span>
+                          <p className="mt-1 text-gray-500 leading-normal font-medium">
+                            This draft can be edited or submitted directly to Admin for official review.
+                          </p>
+                        </div>
+                      </div>
+                      {onSubmitDraft && (
+                        <button
+                          type="button"
+                          onClick={() => onSubmitDraft(report)}
+                          disabled={loading}
+                          className="w-full bg-navy-blue text-white rounded-full font-bold text-xs py-2.5 border-b-2 border-sig-green hover:bg-navy-blue/95 transition duration-200 cursor-pointer text-center disabled:opacity-50"
+                        >
+                          {loading ? 'Submitting...' : 'Submit to Admin'}
+                        </button>
+                      )}
                     </div>
-                  </div>
+                  )}
 
-                </div>
-              )}
-
-              {report.status === 'approved' && (
-                <div className="flex items-start space-x-2 text-green-700 bg-green-50/50 p-4 rounded-2xl border border-green-200/50 text-xs text-left">
-                  <Check className="w-4.5 h-4.5 shrink-0 bg-green-600 text-white rounded-full p-0.5 mt-0.5" />
-                  <div>
-                    <span className="font-bold">Report Approved</span>
-                    <p className="mt-1 text-green-600/80 leading-normal font-medium">
-                      This narrative report has been reviewed, approved, and locked in the archives.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {report.status === 'returned' && (
-                <div className="space-y-3.5 text-left font-poppins">
-                  <div className="flex items-start space-x-2 text-amber-700 bg-amber-50/50 p-4 rounded-2xl border border-amber-200/50 text-xs">
-                    <Clock className="w-4.5 h-4.5 shrink-0 text-amber-650 mt-0.5" />
-                    <div>
-                      <span className="font-bold">Returned for Revision</span>
-                      <p className="mt-1 text-amber-650/80 leading-normal font-medium">
-                        Returned to the office coordinator for revisions.
-                      </p>
+                  {report.status === 'approved' && (
+                    <div className="flex items-start space-x-2 text-green-700 bg-green-50/50 p-4 rounded-2xl border border-green-200/50 text-xs text-left">
+                      <Check className="w-4.5 h-4.5 shrink-0 bg-green-600 text-white rounded-full p-0.5 mt-0.5" />
+                      <div>
+                        <span className="font-bold">Report Approved</span>
+                        <p className="mt-1 text-green-600/80 leading-normal font-medium">
+                          This narrative report has been reviewed, approved, and locked in the archives.
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-xs border border-gray-150 p-3.5 rounded-2xl bg-gray-50 text-gray-600">
-                    <strong className="text-navy-blue font-bold block mb-1">
-                      Active Revision Request:
-                    </strong>
-                    <p className="font-semibold leading-relaxed text-gray-700">
-                      {report.adminFeedback}
-                    </p>
-                  </div>
-                </div>
+                  )}
+
+                  {report.status === 'returned' && (
+                    <div className="space-y-3.5 text-left font-poppins">
+                      <div className="flex items-start space-x-2 text-amber-700 bg-amber-50/50 p-4 rounded-2xl border border-amber-200/50 text-xs">
+                        <Clock className="w-4.5 h-4.5 shrink-0 text-amber-650 mt-0.5" />
+                        <div>
+                          <span className="font-bold">Returned for Revision</span>
+                          <p className="mt-1 text-amber-650/80 leading-normal font-medium">
+                            Returned to the office coordinator for revisions.
+                          </p>
+                        </div>
+                      </div>
+                      {report.adminFeedback && (
+                        <div className="text-xs border border-gray-150 p-3.5 rounded-2xl bg-gray-50 text-gray-600">
+                          <strong className="text-navy-blue font-bold block mb-1">
+                            Active Revision Request:
+                          </strong>
+                          <p className="font-semibold leading-relaxed text-gray-700 whitespace-pre-wrap">
+                            {report.adminFeedback}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </aside>

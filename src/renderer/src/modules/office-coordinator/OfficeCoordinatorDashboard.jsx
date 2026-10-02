@@ -47,7 +47,8 @@ import {
   ChevronRight,
   ChevronLeft,
   Search,
-  Upload
+  Upload,
+  Send
 } from 'lucide-react'
 import TextEditor from '../../components/editor/TextEditor'
 import DocumentViewer from '../../components/DocumentViewer'
@@ -61,7 +62,8 @@ import {
   resolveHeaderHtml,
   parseNarrativePages,
   downloadFileFromUrl,
-  exportDocxToPDF
+  exportDocxToPDF,
+  fetchGoogleDocData
 } from '../../components/editor/utils/editorHelpers'
 import { PAPER, MARGINS } from '../../components/editor/constants'
 import { useNetworkStatus } from '../../context/NetworkContext'
@@ -300,6 +302,58 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     setActiveTab('editor')
   }, [])
 
+  // ── Source-Based Editing Rule for Returned Reports ──
+  const handleEditReturnedReport = useCallback(
+    (rep) => {
+      if (!rep) return
+
+      const gdocUrl =
+        rep.googleDocsUrl ||
+        localStorage.getItem(`dommunity_gdocs_${rep.id}`) ||
+        (rep.submissionType === 'gdoc_submission'
+          ? localStorage.getItem('dommunity_saved_gdoc_url')
+          : null)
+
+      const isGoogleDocs = Boolean(rep.submissionType === 'gdoc_submission' || rep.googleDocsUrl)
+      const isUploadedDoc = Boolean(rep.submissionType === 'docx_upload' || rep.originalDocxUrl)
+
+      // 3. Coordinator – Returned Google Docs Report
+      // If the Coordinator originally submitted the report using Google Docs / a saved Google Docs link:
+      // Open the same saved Google Docs document directly.
+      // Do not open the DommUnity Document Editor for this type of report.
+      // Preserve the existing Google Docs link and report association.
+      if (isGoogleDocs) {
+        const targetUrl = gdocUrl || 'https://docs.google.com/document/u/0/'
+        if (window.electron?.shell?.openExternal) {
+          window.electron.shell.openExternal(targetUrl)
+        } else {
+          window.open(targetUrl, '_blank', 'noopener,noreferrer')
+        }
+        return
+      }
+
+      // 4. Coordinator – Returned Uploaded Document
+      // If the original report was submitted through the Upload workflow:
+      // Open Google Docs when the report is returned.
+      // Do not redirect it to document editor.
+      if (isUploadedDoc) {
+        const targetUrl = gdocUrl || 'https://docs.google.com/document/u/0/'
+        if (window.electron?.shell?.openExternal) {
+          window.electron.shell.openExternal(targetUrl)
+        } else {
+          window.open(targetUrl, '_blank', 'noopener,noreferrer')
+        }
+        return
+      }
+
+      // 5. Built-in Template – DO NOT CHANGE
+      // If the report was created using a built-in DommUnity template, do not change the existing behavior.
+      // Returned → Coordinator clicks Edit → Existing DommUnity Document Editor
+      openReport(rep)
+    },
+    [openReport]
+  )
+
   // ── Save/Submit handler ──
   const handleSave = useCallback(
     async (status, html, silent = false, layoutOptions = {}) => {
@@ -492,7 +546,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     ]
   )
 
-  // ── Direct Submit Draft to Admin Handler ──
+  // ── Direct Submit / Re-submit Draft to Admin Handler ──
   const handleDirectSubmitDraft = useCallback(
     async (rep) => {
       if (isOffline) {
@@ -504,8 +558,36 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         const payload = {
           status: 'submitted',
           submittedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
+          adminFeedback: null
         }
+
+        const gdocUrl =
+          rep.googleDocsUrl ||
+          localStorage.getItem(`dommunity_gdocs_${rep.id}`) ||
+          (rep.submissionType === 'gdoc_submission'
+            ? localStorage.getItem('dommunity_saved_gdoc_url')
+            : null)
+
+        if (gdocUrl) {
+          payload.googleDocsUrl = gdocUrl
+          payload.submissionType = 'gdoc_submission'
+          try {
+            const gDocResult = await fetchGoogleDocData(gdocUrl)
+            if (gDocResult?.html) {
+              payload.narrative = gDocResult.html
+            }
+            if (gDocResult?.docxBase64) {
+              payload.originalDocxUrl = gDocResult.docxBase64
+            }
+            if (gDocResult?.title && (!rep.activityTitle || rep.activityTitle === 'Untitled Report')) {
+              payload.activityTitle = gDocResult.title
+            }
+          } catch (gdocErr) {
+            console.warn('Could not refresh Google Doc content during resubmit:', gdocErr)
+          }
+        }
+
         await updateReport(rep.id, payload, user.uid)
         setCompiledReportsTab('submitted')
         triggerSuccess('Report submitted to Admin successfully!', () => {
@@ -1426,7 +1508,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                           </div>
                                         )}
                                       </div>
-                                      <div className="mt-3 md:mt-0 flex items-center gap-2 shrink-0">
+                                      <div className="mt-3 md:mt-0 flex items-center gap-2 shrink-0 flex-wrap">
                                         <button
                                           onClick={() => setSelectedViewerReport(rep)}
                                           className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
@@ -1481,11 +1563,26 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                           </div>
                                         )}
                                         <button
-                                          onClick={() => openReport(rep)}
+                                          onClick={() => handleEditReturnedReport(rep)}
                                           className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-xs"
+                                          title={
+                                            rep.googleDocsUrl || rep.submissionType === 'gdoc_submission'
+                                              ? 'Open saved Google Docs document'
+                                              : rep.submissionType === 'docx_upload' || rep.originalDocxUrl
+                                                ? 'Open Google Docs'
+                                                : 'Edit & Revise in DommUnity Document Editor'
+                                          }
                                         >
                                           <Edit3 className="w-3.5 h-3.5" />
                                           <span>Edit & Revise</span>
+                                        </button>
+                                        <button
+                                          onClick={() => handleDirectSubmitDraft(rep)}
+                                          className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
+                                          title="Re-submit report to Admin for review"
+                                        >
+                                          <Send className="w-3.5 h-3.5" />
+                                          <span>Re-submit</span>
                                         </button>
                                       </div>
                                     </div>

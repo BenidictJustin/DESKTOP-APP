@@ -2128,8 +2128,9 @@ export default function AdminDashboard({ user, onLogout }) {
       return
     }
     if (!selectedReport) return
-    if (status === 'returned' && !feedbackNote.trim()) {
-      alert('Feedback notes are mandatory to return reports.')
+    const trimmedFeedback = (feedbackNote || '').trim()
+    if (status === 'returned' && !trimmedFeedback) {
+      triggerError('Feedback notes are mandatory to return reports for revision. Please type your feedback before returning.')
       return
     }
 
@@ -2139,7 +2140,7 @@ export default function AdminDashboard({ user, onLogout }) {
         selectedReport.id,
         {
           status,
-          adminFeedback: status === 'returned' ? feedbackNote : null
+          adminFeedback: status === 'returned' ? trimmedFeedback : null
         },
         user.uid
       )
@@ -2557,7 +2558,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                       <button
                                         onClick={() => {
                                           setSelectedReport(rep)
-                                          setFeedbackNote('')
+                                          setFeedbackNote(rep.adminFeedback || '')
                                         }}
                                         className="bg-navy-blue hover:bg-navy-blue-600 text-white font-semibold py-1.5 px-3 rounded-lg text-xs flex items-center gap-1 shadow-xs transition-all cursor-pointer shrink-0"
                                       >
@@ -5878,7 +5879,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                         <button
                                           onClick={() => {
                                             setSelectedReport(rep)
-                                            setFeedbackNote('')
+                                            setFeedbackNote(rep.adminFeedback || '')
                                           }}
                                           className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 cursor-pointer shadow-2xs"
                                         >
@@ -6036,7 +6037,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                         <button
                                           onClick={() => {
                                             setSelectedReport(rep)
-                                            setFeedbackNote('')
+                                            setFeedbackNote(rep.adminFeedback || '')
                                           }}
                                           className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 cursor-pointer shadow-2xs"
                                         >

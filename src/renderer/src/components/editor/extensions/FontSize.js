@@ -45,3 +45,5 @@ export const FontSizeExtension = Extension.create({
     }
   }
 })
+
+export default FontSizeExtension
