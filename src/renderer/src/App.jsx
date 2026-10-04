@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import { listenToAuthChanges, logout } from './services/db'
 import Login from './components/Login'
 import ResetPassword from './components/ResetPassword'
+import ChangePassword from './components/ChangePassword'
 import AdminDashboard from './modules/admin/AdminDashboard'
 import OfficeCoordinatorDashboard from './modules/office-coordinator/OfficeCoordinatorDashboard'
 import SplashScreen from './components/SplashScreen'
@@ -44,7 +45,9 @@ function AppContent() {
     // Listen to changes in auth context (either Firebase auth or LocalStorage simulation)
     const unsubscribe = listenToAuthChanges((currentUser, info) => {
       if (info && info.deactivated) {
-        setDeactivationNotice('Your account has been deactivated. Please contact the Administrator.')
+        setDeactivationNotice(
+          'Your account has been deactivated. Please contact the Administrator.'
+        )
         setSessionNotice('')
         setActiveUser(null)
         setLoading(false)
@@ -68,6 +71,13 @@ function AppContent() {
           // If already loaded and user is logged out: clear active user.
           // Login handles setting activeUser via handleLoginSuccess to allow login animation to complete.
           setActiveUser(null)
+        } else {
+          setActiveUser((prev) => {
+            if (prev && currentUser && prev.uid === currentUser.uid) {
+              return { ...prev, ...currentUser }
+            }
+            return prev
+          })
         }
         return prevLoading
       })
@@ -121,6 +131,14 @@ function AppContent() {
     setActiveUser(authenticatedUser)
   }
 
+  const handlePasswordChanged = (updatedUser) => {
+    setActiveUser((prev) => ({
+      ...prev,
+      ...updatedUser,
+      mustChangePassword: false
+    }))
+  }
+
   return (
     <div className="min-h-screen w-screen bg-[#F1EFEC] font-poppins relative overflow-hidden">
       <UpdateNotification />
@@ -162,6 +180,22 @@ function AppContent() {
                 onLoginSuccess={handleLoginSuccess}
                 deactivationNotice={deactivationNotice}
                 sessionNotice={sessionNotice}
+              />
+            </motion.div>
+          ) : activeUser.mustChangePassword ? (
+            <motion.div
+              key="change-password"
+              className="absolute inset-0 w-full h-full bg-[#020516] z-10"
+              variants={authTransitionVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              transition={authTransition}
+            >
+              <ChangePassword
+                user={activeUser}
+                onPasswordChanged={handlePasswordChanged}
+                onLogout={handleLogout}
               />
             </motion.div>
           ) : activeUser.role === 'admin' ? (
@@ -228,4 +262,3 @@ export default function App() {
     </NetworkProvider>
   )
 }
-

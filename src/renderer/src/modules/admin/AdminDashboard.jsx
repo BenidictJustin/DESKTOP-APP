@@ -883,7 +883,16 @@ export default function AdminDashboard({ user, onLogout }) {
         triggerSuccess(`Account successfully updated for ${fullName}.`)
       } else {
         const initialPassword = coordPassword.trim() || 'Dommunity@123'
-        await registerUser(coordEmail, username, initialPassword, fullName, coordRole, assignedOrg)
+        const isCoordinator = coordRole === 'office_coordinator'
+        await registerUser(
+          coordEmail,
+          username,
+          initialPassword,
+          fullName,
+          coordRole,
+          assignedOrg,
+          isCoordinator
+        )
         triggerSuccess(`Account successfully established for ${fullName}.`)
       }
 

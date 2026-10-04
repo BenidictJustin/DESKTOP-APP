@@ -145,14 +145,18 @@ export default function Login({ onLoginSuccess, deactivationNotice = '', session
     try {
       const user = await login(email, password)
       setLoading(false)
-      setShowLoginSuccessModal(true)
-      setTimeout(() => {
-        setShowLoginSuccessModal(false)
-        setIsSuccessTransition(true)
+      if (user?.mustChangePassword) {
+        onLoginSuccess(user)
+      } else {
+        setShowLoginSuccessModal(true)
         setTimeout(() => {
-          onLoginSuccess(user)
-        }, 2000)
-      }, 1800)
+          setShowLoginSuccessModal(false)
+          setIsSuccessTransition(true)
+          setTimeout(() => {
+            onLoginSuccess(user)
+          }, 2000)
+        }, 1800)
+      }
     } catch (err) {
       const msg = err?.message || ''
       if (

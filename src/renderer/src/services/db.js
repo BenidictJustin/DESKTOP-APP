@@ -23,7 +23,10 @@ import {
   sendPasswordResetEmail,
   fetchSignInMethodsForEmail,
   confirmPasswordReset,
-  verifyPasswordResetCode
+  verifyPasswordResetCode,
+  updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider
 } from 'firebase/auth'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import {
@@ -1162,10 +1165,15 @@ export const registerUser = async (
   password,
   name,
   role = 'office_coordinator',
-  organizationId = null
+  organizationId = null,
+  mustChangePassword = null
 ) => {
   const normalizedRole = role === 'admin' ? 'admin' : 'office_coordinator'
   const assignedOrg = normalizedRole === 'admin' ? organizationId || null : organizationId || null
+  const shouldRequirePasswordChange =
+    mustChangePassword !== null
+      ? Boolean(mustChangePassword)
+      : normalizedRole === 'office_coordinator'
 
   if (isDemoMode) {
     const users = getLocalData(LOCAL_STORAGE_KEYS.USERS)
@@ -1180,6 +1188,7 @@ export const registerUser = async (
       role: normalizedRole,
       organizationId: assignedOrg,
       status: 'active',
+      mustChangePassword: shouldRequirePasswordChange,
       photoURL: null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -1209,6 +1218,7 @@ export const registerUser = async (
         role: normalizedRole,
         organizationId: assignedOrg,
         status: 'active',
+        mustChangePassword: shouldRequirePasswordChange,
         photoURL: null,
         createdAt: new Date(),
         updatedAt: new Date()
@@ -1598,7 +1608,131 @@ export const resetPasswordWithCode = async (oobCode, newPassword) => {
   if (isDemoMode) {
     return true
   }
-  return await confirmPasswordReset(fauth, oobCode, newPassword)
+  let resetEmail = null
+  try {
+    resetEmail = await verifyPasswordResetCode(fauth, oobCode)
+  } catch {
+    // If verify code failed, confirmPasswordReset will throw proper error
+  }
+  const result = await confirmPasswordReset(fauth, oobCode, newPassword)
+  if (resetEmail) {
+    try {
+      const q = query(
+        collection(fdb, 'users'),
+        where('email', '==', resetEmail.trim().toLowerCase())
+      )
+      const snap = await getDocs(q)
+      snap.forEach(async (d) => {
+        await setDoc(
+          d.ref,
+          {
+            password: newPassword,
+            mustChangePassword: false,
+            updatedAt: Timestamp.now()
+          },
+          { merge: true }
+        )
+      })
+    } catch (e) {
+      console.warn('Could not reset mustChangePassword in Firestore for reset user:', e)
+    }
+  }
+  return result
+}
+
+export const changeFirstLoginPassword = async (currentPassword, newPassword) => {
+  if (!currentPassword) {
+    throw new Error('Current or temporary password is required.')
+  }
+  if (!newPassword) {
+    throw new Error('New password is required.')
+  }
+  if (newPassword.length < 8) {
+    throw new Error('The new password must contain at least 8 characters.')
+  }
+  if (currentPassword === newPassword) {
+    throw new Error('New password cannot be the same as the temporary password.')
+  }
+
+  if (isDemoMode) {
+    const currentUser = getLocalData(LOCAL_STORAGE_KEYS.LOGGED_IN_USER)
+    if (!currentUser) throw new Error('No user is currently logged in.')
+    if (currentUser.password && currentUser.password !== currentPassword) {
+      throw new Error('Current/Temporary password is incorrect.')
+    }
+    const users = getLocalData(LOCAL_STORAGE_KEYS.USERS) || []
+    const idx = users.findIndex((u) => u.uid === currentUser.uid)
+    if (idx !== -1) {
+      users[idx].password = newPassword
+      users[idx].mustChangePassword = false
+      users[idx].updatedAt = new Date().toISOString()
+      saveLocalData(LOCAL_STORAGE_KEYS.USERS, users)
+    }
+    const updatedUser = {
+      ...currentUser,
+      password: newPassword,
+      mustChangePassword: false,
+      updatedAt: new Date().toISOString()
+    }
+    setLocalData(LOCAL_STORAGE_KEYS.LOGGED_IN_USER, updatedUser)
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('dommunity_users_updated'))
+    }
+    return updatedUser
+  } else {
+    const user = fauth.currentUser
+    if (!user || !user.email) {
+      throw new Error('No active authenticated session found. Please log in again.')
+    }
+
+    // 1. Re-authenticate with current/temporary password to verify credentials
+    try {
+      const credential = EmailAuthProvider.credential(user.email, currentPassword)
+      await reauthenticateWithCredential(user, credential)
+    } catch (authErr) {
+      const msg = (authErr.message || '').toLowerCase()
+      const code = (authErr.code || '').toLowerCase()
+      if (
+        code.includes('wrong-password') ||
+        code.includes('invalid-credential') ||
+        code.includes('invalid-password') ||
+        msg.includes('wrong-password') ||
+        msg.includes('invalid-credential') ||
+        msg.includes('invalid-password')
+      ) {
+        throw new Error('Current/Temporary password is incorrect.')
+      }
+      throw authErr
+    }
+
+    // 2. Update Firebase Authentication password
+    await updatePassword(user, newPassword)
+
+    // 3. Update Firestore user profile
+    const userDocRef = doc(fdb, 'users', user.uid)
+    await setDoc(
+      userDocRef,
+      {
+        password: newPassword,
+        mustChangePassword: false,
+        updatedAt: Timestamp.now()
+      },
+      { merge: true }
+    )
+
+    // 4. Return updated user object
+    let updatedData = { uid: user.uid, email: user.email, mustChangePassword: false }
+    try {
+      const userSnap = await getDoc(userDocRef)
+      if (userSnap.exists()) {
+        updatedData = { ...userSnap.data(), mustChangePassword: false }
+      }
+    } catch (e) {
+      console.warn('Could not re-fetch user document after password update:', e)
+    }
+
+    return updatedData
+  }
 }
 
 export const getResetRequests = async () => {
