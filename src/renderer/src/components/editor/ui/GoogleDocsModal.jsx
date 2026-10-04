@@ -5,7 +5,8 @@ import {
   Link2,
   X,
   Send,
-  Loader2
+  Loader2,
+  Save
 } from 'lucide-react'
 import AnimatedModal from '../../motion/AnimatedModal'
 
@@ -52,6 +53,7 @@ export default function GoogleDocsModal({
   const [inputUrl, setInputUrl] = useState(() => getPersistedDocUrl())
   const [savedUrlSuccess, setSavedUrlSuccess] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSavingDraft, setIsSavingDraft] = useState(false)
 
   useEffect(() => {
     const url = getPersistedDocUrl()
@@ -237,10 +239,56 @@ export default function GoogleDocsModal({
         >
           Close
         </button>
+
+        {onSaveDraft && (
+          <button
+            type="button"
+            disabled={isSubmitting || isSavingDraft}
+            onClick={async () => {
+              const trimmed = inputUrl.trim()
+              if (!trimmed) {
+                alert('Please enter or paste your Google Docs link before saving as draft.')
+                return
+              }
+              const match = trimmed.match(/\/document\/d\/([a-zA-Z0-9-_]+)/)
+              if (!match) {
+                alert('Please enter a valid Google Docs URL (e.g. https://docs.google.com/document/d/.../edit).')
+                return
+              }
+              setIsSavingDraft(true)
+              try {
+                if (workspaceReportId) {
+                  localStorage.setItem(`dommunity_gdocs_${workspaceReportId}`, trimmed)
+                }
+                const draftOk = await onSaveDraft(trimmed)
+                if (draftOk !== false) {
+                  onClose()
+                }
+              } finally {
+                setIsSavingDraft(false)
+              }
+            }}
+            className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+            title="Save this report as draft in Compiled Reports"
+          >
+            {isSavingDraft ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Saving Draft...</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-3.5 h-3.5" />
+                <span>Save Draft</span>
+              </>
+            )}
+          </button>
+        )}
+
         {onSubmitToAdmin && (
           <button
             type="button"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isSavingDraft}
             onClick={async () => {
               const trimmed = inputUrl.trim()
               if (!trimmed) {
@@ -254,8 +302,9 @@ export default function GoogleDocsModal({
               }
               setIsSubmitting(true)
               try {
-                const saveOk = await handleSaveUrl(trimmed)
-                if (saveOk === false) return
+                if (workspaceReportId) {
+                  localStorage.setItem(`dommunity_gdocs_${workspaceReportId}`, trimmed)
+                }
                 const submitOk = await onSubmitToAdmin(trimmed)
                 if (submitOk !== false) {
                   onClose()
@@ -265,7 +314,7 @@ export default function GoogleDocsModal({
               }
             }}
             className="px-5 py-2.5 bg-sig-green hover:bg-sig-green-600 disabled:opacity-60 text-navy-blue font-extrabold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
-            title="Submit this report to Admin"
+            title="Submit this report directly to Admin"
           >
             {isSubmitting ? (
               <>

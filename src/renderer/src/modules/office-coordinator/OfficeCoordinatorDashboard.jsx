@@ -55,6 +55,7 @@ import DocumentViewer from '../../components/DocumentViewer'
 import DocxUploadModal from '../../components/DocxUploadModal'
 import AnimatedSidebar from '../../components/AnimatedSidebar'
 import AnimatedModal from '../../components/motion/AnimatedModal'
+import { compressHtmlImages, compressImage } from '../../utils/imageCompressor'
 import {
   sanitizeOklchInDocument,
   loadInitialContentAndResetHistory,
@@ -98,15 +99,6 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   const [previousTab, setPreviousTab] = useState('reports')
   const [editorOrigin, setEditorOrigin] = useState(null) // 'new' | 'reports' — tracks where user came from
 
-  const navigateTab = useCallback(
-    (nextTab) => {
-      if (activeTab !== 'editor') {
-        setPreviousTab(activeTab)
-      }
-      setActiveTab(nextTab)
-    },
-    [activeTab]
-  )
 
   // ── Report metadata ──
   const [workspaceReportId, setWorkspaceReportId] = useState(null)
@@ -247,6 +239,10 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     setWorkspaceIsReadOnly(false)
     setWorkspaceFeedback(null)
     setLinkToEvent(true)
+    try {
+      localStorage.removeItem('dommunity_saved_gdoc_url')
+      localStorage.removeItem('dommunity_gdoc_dirty')
+    } catch {}
     // Reset editor content
     if (window.__dommunityResetEditorLayout) {
       try {
@@ -263,6 +259,19 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       }
     }
   }, [])
+
+  const navigateTab = useCallback(
+    (nextTab) => {
+      if (activeTab !== 'editor') {
+        setPreviousTab(activeTab)
+      }
+      if (nextTab === 'editor' && (workspaceReportStatus === 'submitted' || workspaceReportStatus === 'approved')) {
+        resetForm()
+      }
+      setActiveTab(nextTab)
+    },
+    [activeTab, workspaceReportStatus, resetForm]
+  )
 
   // ── Open a report for editing ──
   const openReport = useCallback((rep, editor) => {
@@ -399,6 +408,33 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           effectiveStatus = 'returned'
         }
 
+        // 1. Optimize HTML narrative: compress embedded base64 images to stay safely under Firestore 1MB limit
+        let optimizedHtml = html || ''
+        if (optimizedHtml && optimizedHtml.includes('data:image/')) {
+          try {
+            optimizedHtml = await compressHtmlImages(optimizedHtml, { maxWidth: 1200, maxHeight: 1200, quality: 0.75 })
+          } catch (e) {
+            console.warn('HTML image compression warning:', e)
+          }
+        }
+
+        // 2. Compress photos array if any base64 photos exist
+        let optimizedPhotos = workspaceReportPhotos || []
+        if (Array.isArray(optimizedPhotos) && optimizedPhotos.length > 0) {
+          optimizedPhotos = await Promise.all(
+            optimizedPhotos.map(async (photo) => {
+              if (typeof photo === 'string' && photo.startsWith('data:image/') && photo.length > 50000) {
+                try {
+                  return await compressImage(photo, { maxWidth: 1000, maxHeight: 1000, quality: 0.7 })
+                } catch {
+                  return photo
+                }
+              }
+              return photo
+            })
+          )
+        }
+
         const payload = {
           academicYear: workspaceReportAY || '2026-2027',
           semester: workspaceReportSem || '1st Semester',
@@ -409,8 +445,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           location: location || '',
           beneficiaries: workspaceReportBenef || '',
           organizationId: workspaceReportOrgId || null,
-          narrative: html || '',
-          photos: workspaceReportPhotos || [],
+          narrative: optimizedHtml,
+          photos: optimizedPhotos,
           status: effectiveStatus,
           adminFeedback:
             effectiveStatus === 'submitted'
@@ -419,8 +455,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                 ? workspaceFeedback
                 : null,
           authorId: user.uid,
-          authorName: user.name,
-          authorEmail: user.email,
+          authorName: user.name || user.username || 'Coordinator',
+          authorEmail: user.email || '',
           updatedAt: new Date().toISOString(),
           headerText: layoutOptions.headerText || '',
           footerText: layoutOptions.footerText || '',
@@ -443,14 +479,44 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           payload.submittedAt = new Date().toISOString()
         }
 
-        if (layoutOptions.originalDocxUrl) {
+        // Handle submission types: Google Doc submissions take precedence when googleDocsUrl is set
+        if (payload.googleDocsUrl) {
+          payload.submissionType = 'gdoc_submission'
+          // Google Doc submissions are synced via narrative HTML and linked via googleDocsUrl;
+          // never store huge DOCX base64 blobs in Firestore to avoid 1MB document limit rejections.
+          delete payload.originalDocxUrl
+          delete payload.originalDocxName
+
+          // If a PDF snapshot was retrieved during submission, attempt cloud storage upload
+          // so any device/admin can view the exact frozen submission without relying on live link
+          if (layoutOptions.pdfBase64) {
+            try {
+              const base64Data = layoutOptions.pdfBase64.split(',')[1] || layoutOptions.pdfBase64
+              const byteCharacters = atob(base64Data)
+              const byteNumbers = new Uint8Array(byteCharacters.length)
+              for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i)
+              }
+              const blob = new Blob([byteNumbers], { type: 'application/pdf' })
+              const safeFileName = `${title.replace(/[^a-zA-Z0-9_-]+/g, '_')}_${Date.now()}.pdf`
+              const fileObj = new File([blob], safeFileName, { type: 'application/pdf' })
+              const storageUrl = await uploadDocxReportFile(workspaceReportAY || '2026-2027', payload.eventId, fileObj)
+              if (storageUrl && typeof storageUrl === 'string' && storageUrl.startsWith('http')) {
+                payload.originalDocxUrl = storageUrl
+                payload.originalDocxName = safeFileName
+                payload.fileType = 'pdf'
+              }
+            } catch (storageErr) {
+              console.warn('Could not upload submitted PDF to Firebase Storage (will use local cache):', storageErr)
+            }
+          }
+        } else if (layoutOptions.originalDocxUrl) {
           payload.originalDocxUrl = layoutOptions.originalDocxUrl
           payload.originalDocxName = `${title.replace(/[^a-zA-Z0-9_-]+/g, '_')}.docx`
           payload.submissionType = 'docx_upload'
-        } else if (payload.googleDocsUrl) {
-          payload.submissionType = 'gdoc_submission'
         }
 
+        let actualId = workspaceReportId
         if (workspaceReportId) {
           const existingRep = reportsList.find((r) => r.id === workspaceReportId)
           if (existingRep?.authorId) {
@@ -468,20 +534,63 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           payload.submittedBy = user.name || user.username || 'Coordinator'
           const newReportObj = await addReport(payload, user.uid)
           if (newReportObj) {
-            const actualId = newReportObj.id || newReportObj
-            setWorkspaceReportId(actualId)
+            actualId = newReportObj.id || newReportObj
             if (payload.googleDocsUrl) {
               localStorage.setItem(`dommunity_gdocs_${actualId}`, payload.googleDocsUrl)
             }
           }
         }
 
-        if (effectiveStatus === 'submitted') {
-          setWorkspaceReportStatus('submitted')
+        // Cache the submitted document snapshot permanently under this report's unique ID
+        if (actualId) {
+          if (layoutOptions.pdfBase64) {
+            try {
+              if (layoutOptions.pdfBase64.length < 4500000) {
+                localStorage.setItem(`dommunity_gdoc_pdf_${actualId}`, layoutOptions.pdfBase64)
+              }
+            } catch {}
+          } else if (payload.googleDocsUrl) {
+            const prePdf = localStorage.getItem(`dommunity_gdoc_pdf_${payload.googleDocsUrl}`)
+            if (prePdf) {
+              try {
+                localStorage.setItem(`dommunity_gdoc_pdf_${actualId}`, prePdf)
+              } catch {}
+            }
+          }
+
+          if (layoutOptions.docxBase64) {
+            try {
+              if (layoutOptions.docxBase64.length < 3500000) {
+                localStorage.setItem(`dommunity_gdoc_buffer_${actualId}`, layoutOptions.docxBase64)
+              }
+            } catch {}
+          } else if (payload.googleDocsUrl) {
+            const preDocx = localStorage.getItem(`dommunity_gdoc_buffer_${payload.googleDocsUrl}`)
+            if (preDocx) {
+              try {
+                localStorage.setItem(`dommunity_gdoc_buffer_${actualId}`, preDocx)
+              } catch {}
+            }
+          }
         }
 
         setSaveStatus('saved')
         await loadData()
+
+        if (effectiveStatus === 'submitted') {
+          // Once a report is submitted to Admin, it is final/locked pending review.
+          // Immediately reset the editor form and detach workspaceReportId
+          // so any subsequent report creation is a brand new submission that cannot overwrite this submitted report
+          resetForm()
+          try {
+            localStorage.removeItem('dommunity_saved_gdoc_url')
+          } catch {}
+          setCompiledReportsTab('submitted')
+          setActiveTab('reports')
+        } else {
+          setWorkspaceReportId(actualId)
+        }
+
         if (!silent) {
           const successMsg =
             effectiveStatus === 'returned'
@@ -494,22 +603,19 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           if (status === 'draft') {
             setCompiledReportsTab('draft')
             setActiveTab('reports')
-          } else if (status === 'submitted') {
+          } else if (effectiveStatus === 'submitted') {
             setCompiledReportsTab('submitted')
             setActiveTab('reports')
           }
 
           triggerSuccess(successMsg, () => {
-            if (status === 'draft') {
+            if (effectiveStatus === 'submitted') {
+              setCompiledReportsTab('submitted')
+              setActiveTab('reports')
+            } else if (status === 'draft') {
               resetForm()
               setCompiledReportsTab('draft')
               setActiveTab('reports')
-            } else if (status === 'submitted') {
-              resetForm()
-              setCompiledReportsTab('submitted')
-              setActiveTab('reports')
-            } else if (effectiveStatus !== 'returned') {
-              resetForm()
             }
           })
         }
@@ -572,13 +678,12 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         if (gdocUrl) {
           payload.googleDocsUrl = gdocUrl
           payload.submissionType = 'gdoc_submission'
+          delete payload.originalDocxUrl
+          delete payload.originalDocxName
           try {
             const gDocResult = await fetchGoogleDocData(gdocUrl)
             if (gDocResult?.html) {
               payload.narrative = gDocResult.html
-            }
-            if (gDocResult?.docxBase64) {
-              payload.originalDocxUrl = gDocResult.docxBase64
             }
             if (gDocResult?.title && (!rep.activityTitle || rep.activityTitle === 'Untitled Report')) {
               payload.activityTitle = gDocResult.title
@@ -659,6 +764,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
       await addReport(payload, user.uid)
       setIsDocxUploadModalOpen(false)
+      setCompiledReportsTab('submitted')
+      setActiveTab('reports')
       triggerSuccess(
         `Original ${isPdf ? 'PDF' : 'Word'} document submitted directly to Admin successfully! Formatting is 100% preserved.`,
         () => {
@@ -698,6 +805,19 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       }
       return
     }
+
+    if (report?.googleDocsUrl) {
+      const match = report.googleDocsUrl.match(/\/document\/d\/([a-zA-Z0-9-_]+)/)
+      if (match) {
+        const docId = match[1]
+        downloadFileFromUrl(
+          `https://docs.google.com/document/d/${docId}/export?format=pdf`,
+          `${(report.activityTitle || 'Report').replace(/[^a-zA-Z0-9_-]+/g, '_')}.pdf`
+        )
+        return
+      }
+    }
+
     setExportingReport(report)
   }, [])
 
@@ -709,6 +829,19 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       )
       return
     }
+
+    if (report?.googleDocsUrl) {
+      const match = report.googleDocsUrl.match(/\/document\/d\/([a-zA-Z0-9-_]+)/)
+      if (match) {
+        const docId = match[1]
+        downloadFileFromUrl(
+          `https://docs.google.com/document/d/${docId}/export?format=docx`,
+          `${(report.activityTitle || 'Report').replace(/[^a-zA-Z0-9_-]+/g, '_')}.docx`
+        )
+        return
+      }
+    }
+
     setExportingDocxReport(report)
   }, [])
 

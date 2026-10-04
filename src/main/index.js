@@ -7,7 +7,8 @@ import dns from 'dns'
 import net from 'net'
 import { exec } from 'child_process'
 
-import { autoUpdater } from 'electron-updater'
+import electronUpdater from 'electron-updater'
+const { autoUpdater } = electronUpdater
 
 // Configure autoUpdater log and settings
 autoUpdater.logger = console
@@ -17,7 +18,33 @@ autoUpdater.autoInstallOnAppQuit = true
 // Disable Chromium's print preview feature to force classic Windows native print dialog
 app.commandLine.appendSwitch('disable-print-preview')
 
+// On Windows, redirect userData to %LOCALAPPDATA% to prevent SQLite WAL file locks
+// and permissions conflicts caused by Windows Search Indexer and OneDrive.
+if (process.platform === 'win32') {
+  const localAppData = process.env.LOCALAPPDATA || join(app.getPath('appData'), '..', 'Local')
+  const freshUserData = join(localAppData, 'dommunity-data')
+  app.setPath('userData', freshUserData)
+}
+
+// Use a dedicated disk-cache-dir so stale Chromium cache locks from prior sessions don't block startup.
+const cachePath = join(app.getPath('temp'), 'dommunity-cache')
+app.commandLine.appendSwitch('disk-cache-dir', cachePath)
+app.commandLine.appendSwitch('gpu-disk-cache-dir', join(cachePath, 'gpu'))
+
 let mainWindow = null
+
+// Enforce single instance to prevent duplicate processes from locking Chromium caches/quota DB
+const gotTheLock = app.requestSingleInstanceLock()
+if (!gotTheLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+    }
+  })
+}
 
 // Robust internet verification in main process using DNS + raw TCP socket with strict safety timeout
 function verifyInternetConnection() {
@@ -158,7 +185,29 @@ ipcMain.handle('fetch-google-doc', async (event, { url }) => {
       docTitle = titleMatch[1].replace(/ - Google Docs$/i, '').trim()
     }
 
-    // 2. Fetch DOCX export for high-fidelity conversion in DocumentViewer
+    // 2. Fetch native PDF export for exact vector layout and zero-overlap preview in DocumentViewer
+    let pdfBase64 = null
+    try {
+      const exportPdfUrl = `https://docs.google.com/document/d/${docId}/export?format=pdf`
+      const pdfRes = await fetch(exportPdfUrl, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        },
+        redirect: 'follow'
+      })
+      if (pdfRes.ok && (!pdfRes.url || !pdfRes.url.includes('accounts.google.com'))) {
+        const arrayBuf = await pdfRes.arrayBuffer()
+        if (arrayBuf && arrayBuf.byteLength > 0) {
+          const buf = Buffer.from(arrayBuf)
+          pdfBase64 = 'data:application/pdf;base64,' + buf.toString('base64')
+        }
+      }
+    } catch (pdfErr) {
+      console.warn('PDF export from Google Docs failed:', pdfErr)
+    }
+
+    // 3. Fetch DOCX export as fallback and for DOCX downloading
     let docxBase64 = null
     try {
       const exportDocxUrl = `https://docs.google.com/document/d/${docId}/export?format=docx`
@@ -187,7 +236,8 @@ ipcMain.handle('fetch-google-doc', async (event, { url }) => {
       docId,
       title: docTitle,
       html: htmlText,
-      docxBase64
+      docxBase64,
+      pdfBase64
     }
   } catch (netErr) {
     console.error('Failed to fetch Google Doc in main process:', netErr)
@@ -417,7 +467,9 @@ function createWindow() {
     backgroundColor: '#F1EFEC',
     icon,
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: fs.existsSync(join(__dirname, '../preload/index.mjs'))
+        ? join(__dirname, '../preload/index.mjs')
+        : join(__dirname, '../preload/index.js'),
       sandbox: false
     }
   })
@@ -439,9 +491,13 @@ function createWindow() {
     return { action: 'deny' }
   })
 
-  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
-    if (level >= 2 || (typeof message === 'string' && (message.includes('Error') || message.includes('Exception')))) {
-      console.error(`[Renderer Console Error] (${sourceId}:${line}): ${message}`)
+  mainWindow.webContents.on('console-message', (event) => {
+    const msg = event?.message || ''
+    const lvl = event?.level ?? 0
+    const lineNum = event?.lineNumber ?? 0
+    const src = event?.sourceId || ''
+    if (lvl >= 2 || (typeof msg === 'string' && (msg.includes('Error') || msg.includes('Exception')))) {
+      console.error(`[Renderer Console Error] (${src}:${lineNum}): ${msg}`)
     }
   })
 

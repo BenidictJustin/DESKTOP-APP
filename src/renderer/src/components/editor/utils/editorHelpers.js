@@ -157,8 +157,10 @@ export function handleLink(editor) {
   editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
 }
 
-/** Insert an image from a file input event. */
-export function handleInsertImage(editor, e) {
+import { compressImage } from '../../../utils/imageCompressor'
+
+/** Insert an image from a file input event with automatic downscaling. */
+export async function handleInsertImage(editor, e) {
   const file = e.target.files?.[0]
   if (!file || !editor) return
 
@@ -169,19 +171,26 @@ export function handleInsertImage(editor, e) {
     return
   }
 
-  const reader = new FileReader()
-  reader.onload = () => {
+  try {
+    const compressedDataUrl = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.75 })
     if (!useEditorStore.getState().canInsertImage()) {
       alert('Maximum of 10 images allowed per document.')
       return
     }
     editor
       .chain()
-      .setImage({ src: reader.result })
+      .setImage({ src: compressedDataUrl })
       .focus()
       .run()
+  } catch (err) {
+    console.error('Failed to compress and insert image:', err)
+    // Fallback to basic file reader
+    const reader = new FileReader()
+    reader.onload = () => {
+      editor.chain().setImage({ src: reader.result }).focus().run()
+    }
+    reader.readAsDataURL(file)
   }
-  reader.readAsDataURL(file)
   e.target.value = ''
 }
 
@@ -1962,7 +1971,48 @@ export async function fetchGoogleDocData(url) {
     if (!htmlText || htmlText.trim().length === 0) {
       return { success: false, error: 'Google Doc content is empty.' }
     }
-    return { success: true, docId, html: htmlText }
+
+    let pdfBase64 = null
+    try {
+      const pdfRes = await fetch(`https://docs.google.com/document/d/${docId}/export?format=pdf`, {
+        redirect: 'follow'
+      })
+      if (pdfRes.ok && (!pdfRes.url || !pdfRes.url.includes('accounts.google.com'))) {
+        const ab = await pdfRes.arrayBuffer()
+        if (ab && ab.byteLength > 0) {
+          const bytes = new Uint8Array(ab)
+          let binary = ''
+          const len = bytes.byteLength
+          for (let i = 0; i < len; i++) {
+            binary += String.fromCharCode(bytes[i])
+          }
+          pdfBase64 = 'data:application/pdf;base64,' + btoa(binary)
+        }
+      }
+    } catch {}
+
+    let docxBase64 = null
+    try {
+      const docxRes = await fetch(`https://docs.google.com/document/d/${docId}/export?format=docx`, {
+        redirect: 'follow'
+      })
+      if (docxRes.ok && (!docxRes.url || !docxRes.url.includes('accounts.google.com'))) {
+        const ab = await docxRes.arrayBuffer()
+        if (ab && ab.byteLength > 0) {
+          const bytes = new Uint8Array(ab)
+          let binary = ''
+          const len = bytes.byteLength
+          for (let i = 0; i < len; i++) {
+            binary += String.fromCharCode(bytes[i])
+          }
+          docxBase64 =
+            'data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,' +
+            btoa(binary)
+        }
+      }
+    } catch {}
+
+    return { success: true, docId, html: htmlText, docxBase64, pdfBase64 }
   } catch (err) {
     return {
       success: false,

@@ -126,8 +126,6 @@ import {
   CalendarDays,
   Grid
 } from 'lucide-react'
-import { useEditor, EditorContent } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
 import SearchableDropdown from '../../components/SearchableDropdown'
 import CustomSelect from '../../components/CustomSelect'
 import DocumentViewer from '../../components/DocumentViewer'
@@ -577,38 +575,51 @@ export default function AdminDashboard({ user, onLogout }) {
   }
 
   const handleDeleteCategory = (catToDelete) => {
-    const catLower = catToDelete.toLowerCase().trim()
-    const updated = [...deletedCategories, catLower]
+    const catStr =
+      typeof catToDelete === 'object' && catToDelete !== null
+        ? catToDelete.name || catToDelete.id || catToDelete.value || ''
+        : String(catToDelete || '')
+    const catLower = catStr.toLowerCase().trim()
+    if (!catLower) return
+
+    const updated = [...new Set([...deletedCategories, catLower])]
     setDeletedCategories(updated)
     localStorage.setItem('dommunity_deleted_categories', JSON.stringify(updated))
-    triggerSuccess(`Category "${catToDelete}" has been permanently deleted from the list.`)
+    triggerSuccess(`Category "${catStr}" has been permanently deleted from the list.`)
 
     // Clear selections matching the deleted category
-    if (prevAddCategoryRef.current.toLowerCase().trim() === catLower) {
+    if ((prevAddCategoryRef.current || '').toLowerCase().trim() === catLower) {
       prevAddCategoryRef.current = ''
     }
-    if (prevEditCategoryRef.current.toLowerCase().trim() === catLower) {
+    if ((prevEditCategoryRef.current || '').toLowerCase().trim() === catLower) {
       prevEditCategoryRef.current = ''
     }
-    if (itemCategory.toLowerCase().trim() === catLower) {
+    if ((itemCategory || '').toLowerCase().trim() === catLower) {
       setItemCategory('')
     }
   }
 
   const handleDeleteUnit = (unitToDelete) => {
-    const unitLower = unitToDelete.toLowerCase().trim()
-    const updated = [...deletedUnits, unitLower]
+    const unitStr =
+      typeof unitToDelete === 'object' && unitToDelete !== null
+        ? unitToDelete.name || unitToDelete.id || unitToDelete.value || ''
+        : String(unitToDelete || '')
+    const unitLower = unitStr.toLowerCase().trim()
+    if (!unitLower) return
+
+    const updated = [...new Set([...deletedUnits, unitLower])]
     setDeletedUnits(updated)
     localStorage.setItem('dommunity_deleted_units', JSON.stringify(updated))
+    triggerSuccess(`Unit "${unitStr}" has been permanently deleted from the list.`)
 
     // Clear selections matching the deleted unit
-    if (prevAddUnitRef.current.toLowerCase().trim() === unitLower) {
+    if ((prevAddUnitRef.current || '').toLowerCase().trim() === unitLower) {
       prevAddUnitRef.current = ''
     }
-    if (prevEditUnitRef.current.toLowerCase().trim() === unitLower) {
+    if ((prevEditUnitRef.current || '').toLowerCase().trim() === unitLower) {
       prevEditUnitRef.current = ''
     }
-    if (itemUnit.toLowerCase().trim() === unitLower) {
+    if ((itemUnit || '').toLowerCase().trim() === unitLower) {
       setItemUnit('')
     }
   }
@@ -2197,6 +2208,19 @@ export default function AdminDashboard({ user, onLogout }) {
       }
       return
     }
+
+    if (report?.googleDocsUrl) {
+      const match = report.googleDocsUrl.match(/\/document\/d\/([a-zA-Z0-9-_]+)/)
+      if (match) {
+        const docId = match[1]
+        downloadFileFromUrl(
+          `https://docs.google.com/document/d/${docId}/export?format=pdf`,
+          `${(report.activityTitle || 'Report').replace(/[^a-zA-Z0-9_-]+/g, '_')}.pdf`
+        )
+        return
+      }
+    }
+
     setExportingReport(report)
   }
 
@@ -2209,6 +2233,19 @@ export default function AdminDashboard({ user, onLogout }) {
       )
       return
     }
+
+    if (report?.googleDocsUrl) {
+      const match = report.googleDocsUrl.match(/\/document\/d\/([a-zA-Z0-9-_]+)/)
+      if (match) {
+        const docId = match[1]
+        downloadFileFromUrl(
+          `https://docs.google.com/document/d/${docId}/export?format=docx`,
+          `${(report.activityTitle || 'Report').replace(/[^a-zA-Z0-9_-]+/g, '_')}.docx`
+        )
+        return
+      }
+    }
+
     setExportingDocxReport(report)
   }
 
@@ -2776,10 +2813,10 @@ export default function AdminDashboard({ user, onLogout }) {
 
                           <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
                             <table className="w-full text-left border-collapse">
-                              <thead>
+                              <thead className="sticky top-0 z-10 bg-gray-50">
                                 <tr className="border-b border-gray-100 bg-gray-50 text-xs uppercase font-bold text-gray-500">
                                   <th className="py-3 px-3">Item Details</th>
-                                  <th className="py-3 px-2">
+                                  <th className="py-3 px-2 min-w-[170px]">
                                     <CustomSelect
                                       value={categoryFilter}
                                       onChange={(e) => setCategoryFilter(e.target.value)}
@@ -2788,10 +2825,12 @@ export default function AdminDashboard({ user, onLogout }) {
                                         ...allCategories.map((cat) => ({ value: cat, label: cat }))
                                       ]}
                                       placeholder="Category (All)"
-                                      style={{ height: '36px', minWidth: '130px' }}
+                                      style={{ height: '36px', minWidth: '170px' }}
+                                      usePortal={true}
+                                      menuMinWidth={190}
                                     />
                                   </th>
-                                  <th className="py-3 px-2">
+                                  <th className="py-3 px-2 min-w-[175px]">
                                     <CustomSelect
                                       value={statusFilter}
                                       onChange={(e) => setStatusFilter(e.target.value)}
@@ -2802,7 +2841,9 @@ export default function AdminDashboard({ user, onLogout }) {
                                         { value: 'expired', label: 'Expired' }
                                       ]}
                                       placeholder="Stock Level (All)"
-                                      style={{ height: '36px', minWidth: '135px' }}
+                                      style={{ height: '36px', minWidth: '175px' }}
+                                      usePortal={true}
+                                      menuMinWidth={180}
                                     />
                                   </th>
                                   <th className="py-3 px-2">Status</th>
@@ -2813,10 +2854,17 @@ export default function AdminDashboard({ user, onLogout }) {
                                 {inventoryList
                                   .filter(
                                     (item) =>
-                                      categoryFilter === 'all' || item.category === categoryFilter
+                                      categoryFilter === 'all' ||
+                                      item.category === categoryFilter ||
+                                      (item.category || '').toLowerCase().trim() ===
+                                        categoryFilter.toLowerCase().trim()
                                   )
                                   .filter(
-                                    (item) => statusFilter === 'all' || item.status === statusFilter
+                                    (item) =>
+                                      statusFilter === 'all' ||
+                                      item.status === statusFilter ||
+                                      (item.status || '').toLowerCase().trim() ===
+                                        statusFilter.toLowerCase().trim()
                                   )
                                   .map((item) => (
                                     <tr

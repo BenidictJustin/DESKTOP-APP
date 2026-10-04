@@ -30,7 +30,9 @@ import FloatingTextBox from './FloatingTextBox'
 export function getEditorExtensions() {
   return [
     StarterKit.configure({
-      heading: { levels: [1, 2, 3, 4, 5, 6] }
+      heading: { levels: [1, 2, 3, 4, 5, 6] },
+      link: false,
+      underline: false
     }),
     Underline,
     TextAlign.configure({ types: ['heading', 'paragraph'] }),

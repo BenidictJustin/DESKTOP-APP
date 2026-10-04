@@ -41,6 +41,7 @@ import {
 import { cn } from '../utils/cn'
 import { Separator } from './shadcn/Separator'
 import { useEditorStore } from '../store/useEditorStore'
+import { compressImage } from '../../../utils/imageCompressor'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -418,18 +419,23 @@ const ImageButton = () => {
     input.type = 'file'
     input.accept = 'image/*'
 
-    input.onchange = (e) => {
+    input.onchange = async (e) => {
       if (!canInsertImage()) {
         alert('Maximum of 10 images allowed per document.')
         return
       }
       const file = e.target.files?.[0]
       if (file) {
-        const reader = new FileReader()
-        reader.onload = (event) => {
-          onChange(event.target.result)
+        try {
+          const compressed = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.75 })
+          onChange(compressed)
+        } catch {
+          const reader = new FileReader()
+          reader.onload = (event) => {
+            onChange(event.target.result)
+          }
+          reader.readAsDataURL(file)
         }
-        reader.readAsDataURL(file)
       }
     }
 

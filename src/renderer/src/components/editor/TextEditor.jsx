@@ -62,6 +62,7 @@ import StatusBar from './ui/StatusBar'
 import { DropdownWrapper } from './ui/DropdownWrapper'
 import { DocPropertiesDialog } from './ui/Dialogs'
 import { updateReport } from '../../services/db'
+import { compressImage } from '../../utils/imageCompressor'
 import {
   handleExportPDF,
   handleExportDOCX,
@@ -169,7 +170,6 @@ export default function TextEditor({
   const [googleDocsUrl, setGoogleDocsUrl] = useState(() => {
     return (
       (workspaceReportId && localStorage.getItem(`dommunity_gdocs_${workspaceReportId}`)) ||
-      localStorage.getItem('dommunity_saved_gdoc_url') ||
       ''
     )
   })
@@ -180,9 +180,10 @@ export default function TextEditor({
       const saved =
         rep?.googleDocsUrl ||
         localStorage.getItem(`dommunity_gdocs_${workspaceReportId}`) ||
-        localStorage.getItem('dommunity_saved_gdoc_url') ||
         ''
       setGoogleDocsUrl(saved)
+    } else {
+      setGoogleDocsUrl('')
     }
   }, [workspaceReportId, reportsList])
 
@@ -191,32 +192,12 @@ export default function TextEditor({
       const cleanUrl = (url || '').trim()
       setGoogleDocsUrl(cleanUrl)
       if (cleanUrl) {
-        localStorage.setItem('dommunity_saved_gdoc_url', cleanUrl)
         if (workspaceReportId) {
           localStorage.setItem(`dommunity_gdocs_${workspaceReportId}`, cleanUrl)
           try {
             await updateReport(workspaceReportId, { googleDocsUrl: cleanUrl }, user?.uid)
           } catch (e) {
             console.warn('Failed to update report with googleDocsUrl in Firestore:', e)
-          }
-        } else if (onSave) {
-          // Immediately associate and persist Google Docs link to current report draft
-          try {
-            const currentHtml =
-              (typeof window !== 'undefined' && window.__dommunityEditor?.getHTML()) || '<p></p>'
-            await onSave('draft', currentHtml, true, {
-              headerText,
-              footerText,
-              showHeader,
-              showFooter,
-              paperKey,
-              orientation,
-              marginKey,
-              isTemplateActive,
-              googleDocsUrl: cleanUrl
-            })
-          } catch (e) {
-            console.warn('Failed to auto-save initial draft for googleDocsUrl:', e)
           }
         }
       } else {
@@ -231,19 +212,7 @@ export default function TextEditor({
         }
       }
     },
-    [
-      workspaceReportId,
-      user?.uid,
-      onSave,
-      headerText,
-      footerText,
-      showHeader,
-      showFooter,
-      paperKey,
-      orientation,
-      marginKey,
-      isTemplateActive
-    ]
+    [workspaceReportId, user?.uid]
   )
 
   const [hasLaunchedGoogleDocs, setHasLaunchedGoogleDocs] = useState(() => {
@@ -311,33 +280,45 @@ export default function TextEditor({
   const imagePasteDropProps = {
     handlePaste: (view, event) => {
       const items = event.clipboardData?.items || []
-      let hasImage = false
       for (let i = 0; i < items.length; i++) {
         if (items[i].type.startsWith('image/')) {
-          hasImage = true
-          break
-        }
-      }
-      if (hasImage) {
-        if (!useEditorStore.getState().canInsertImage()) {
-          alert('Maximum of 10 images allowed per document.')
-          return true
+          if (!useEditorStore.getState().canInsertImage()) {
+            alert('Maximum of 10 images allowed per document.')
+            return true
+          }
+          const file = items[i].getAsFile()
+          if (file) {
+            compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.75 })
+              .then((compressedSrc) => {
+                if (compressedSrc) {
+                  editor?.chain().setImage({ src: compressedSrc }).focus().run()
+                }
+              })
+              .catch((err) => console.error('Pasted image compression failed:', err))
+            return true
+          }
         }
       }
       return false
     },
     handleDrop: (view, event, slice, moved) => {
       if (!moved && event.dataTransfer?.files?.length > 0) {
-        let hasImage = false
         for (let i = 0; i < event.dataTransfer.files.length; i++) {
-          if (event.dataTransfer.files[i].type.startsWith('image/')) {
-            hasImage = true
-            break
+          const file = event.dataTransfer.files[i]
+          if (file.type.startsWith('image/')) {
+            if (!useEditorStore.getState().canInsertImage()) {
+              alert('Maximum of 10 images allowed per document.')
+              return true
+            }
+            compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.75 })
+              .then((compressedSrc) => {
+                if (compressedSrc) {
+                  editor?.chain().setImage({ src: compressedSrc }).focus().run()
+                }
+              })
+              .catch((err) => console.error('Dropped image compression failed:', err))
+            return true
           }
-        }
-        if (hasImage && !useEditorStore.getState().canInsertImage()) {
-          alert('Maximum of 10 images allowed per document.')
-          return true
         }
       }
       return false
@@ -347,7 +328,10 @@ export default function TextEditor({
   // ── Editor Instance ──
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        link: false,
+        underline: false
+      }),
       Underline,
       Color,
       TextStyle,
@@ -403,7 +387,9 @@ export default function TextEditor({
   // ── Header/Footer Editors ──
   const headerEditor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        underline: false
+      }),
       Underline,
       Color,
       TextStyle,
@@ -450,7 +436,9 @@ export default function TextEditor({
 
   const footerEditor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        underline: false
+      }),
       Underline,
       Color,
       TextStyle,
@@ -1212,11 +1200,11 @@ export default function TextEditor({
           ? explicitGDocUrl
           : googleDocsUrl ||
             (workspaceReportId ? localStorage.getItem(`dommunity_gdocs_${workspaceReportId}`) : '') ||
-            localStorage.getItem('dommunity_saved_gdoc_url') ||
             ''
 
       let finalHtml = editor.getHTML()
       let fetchedDocxBase64 = null
+      let fetchedPdfBase64 = null
       let fetchedDocTitle = null
 
       if (resolvedGDocUrl) {
@@ -1259,8 +1247,27 @@ export default function TextEditor({
             console.warn('Failed to load Google Doc HTML into TipTap editor:', edErr)
           }
         }
+        if (gDocResult.pdfBase64) {
+          fetchedPdfBase64 = gDocResult.pdfBase64
+          try {
+            if (gDocResult.pdfBase64.length < 4500000) {
+              if (workspaceReportId) {
+                localStorage.setItem(`dommunity_gdoc_pdf_${workspaceReportId}`, gDocResult.pdfBase64)
+              }
+              localStorage.setItem(`dommunity_gdoc_pdf_${resolvedGDocUrl}`, gDocResult.pdfBase64)
+            }
+          } catch {}
+        }
         if (gDocResult.docxBase64) {
           fetchedDocxBase64 = gDocResult.docxBase64
+          try {
+            if (gDocResult.docxBase64.length < 3500000) {
+              if (workspaceReportId) {
+                localStorage.setItem(`dommunity_gdoc_buffer_${workspaceReportId}`, gDocResult.docxBase64)
+              }
+              localStorage.setItem(`dommunity_gdoc_buffer_${resolvedGDocUrl}`, gDocResult.docxBase64)
+            }
+          } catch {}
         }
         if (gDocResult.title) {
           fetchedDocTitle = gDocResult.title
@@ -1283,8 +1290,10 @@ export default function TextEditor({
         marginKey,
         isTemplateActive,
         googleDocsUrl: resolvedGDocUrl,
-        originalDocxUrl: fetchedDocxBase64,
-        gdocTitle: fetchedDocTitle
+        originalDocxUrl: null,
+        gdocTitle: fetchedDocTitle,
+        pdfBase64: fetchedPdfBase64,
+        docxBase64: fetchedDocxBase64
       })
       lastSavedContentRef.current = finalHtml
       setHasUnsavedChanges(false)
@@ -2232,13 +2241,19 @@ export default function TextEditor({
         onSaveGoogleDocsUrl={handleSaveGoogleDocsUrl}
         onSaveDraft={async (explicitUrl) => {
           if (explicitUrl) {
-            handleSaveGoogleDocsUrl(explicitUrl)
+            setGoogleDocsUrl(explicitUrl)
+            if (workspaceReportId) {
+              localStorage.setItem(`dommunity_gdocs_${workspaceReportId}`, explicitUrl)
+            }
           }
           return await handleSave('draft', false, explicitUrl)
         }}
         onSubmitToAdmin={async (explicitUrl) => {
           if (explicitUrl) {
-            handleSaveGoogleDocsUrl(explicitUrl)
+            setGoogleDocsUrl(explicitUrl)
+            if (workspaceReportId) {
+              localStorage.setItem(`dommunity_gdocs_${workspaceReportId}`, explicitUrl)
+            }
           }
           return await handleSave('submitted', false, explicitUrl)
         }}

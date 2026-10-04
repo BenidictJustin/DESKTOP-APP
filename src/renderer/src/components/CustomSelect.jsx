@@ -1,7 +1,15 @@
-import React, { useState, useRef, useEffect } from 'react'
+/* eslint-disable react/prop-types */
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'motion/react'
 import { ChevronDown, Check } from 'lucide-react'
 import { dropdownVariants, dropdownTransition } from './motion/motionConfig'
+
+const dropdownUpwardVariants = {
+  initial: { opacity: 0, y: 4, scale: 0.98 },
+  animate: { opacity: 1, y: 0, scale: 1 },
+  exit: { opacity: 0, y: 4, scale: 0.98 }
+}
 
 export default function CustomSelect({
   value,
@@ -12,11 +20,24 @@ export default function CustomSelect({
   style = {},
   disabled = false,
   id,
-  error = false
+  error = false,
+  usePortal = false,
+  menuMinWidth,
+  menuClassName = ''
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [openUpward, setOpenUpward] = useState(false)
+  const [portalCoords, setPortalCoords] = useState({
+    top: 0,
+    bottom: undefined,
+    left: 0,
+    width: 0,
+    maxHeight: 240,
+    openUpward: false
+  })
+
   const containerRef = useRef(null)
+  const menuRef = useRef(null)
 
   // Normalize options array to { value, label } format
   const normalizedOptions = options.map((opt) => {
@@ -31,30 +52,114 @@ export default function CustomSelect({
 
   const selectedOption = normalizedOptions.find((opt) => String(opt.value) === String(value))
 
-  // Close dropdown when clicking outside
+  const updatePosition = useCallback(() => {
+    if (!containerRef.current) return
+    const rect = containerRef.current.getBoundingClientRect()
+    const viewportHeight = window.innerHeight
+    const viewportWidth = window.innerWidth
+
+    // Estimated height needed for options (around 36px per item + padding, capped at 240px)
+    const estimatedHeight = Math.min(240, Math.max(48, normalizedOptions.length * 36 + 12))
+    const spaceBelow = viewportHeight - rect.bottom
+    const spaceAbove = rect.top
+
+    // Position upward if space below is insufficient (< estimatedHeight or < 200) AND space above has more room
+    const shouldOpenUpward = spaceBelow < Math.min(estimatedHeight, 200) && spaceAbove > spaceBelow
+
+    const calculatedWidth = Math.max(rect.width, menuMinWidth || 0)
+
+    // Clamp horizontal position so menu does not overflow viewport edges
+    let left = rect.left
+    if (left + calculatedWidth > viewportWidth - 12) {
+      left = Math.max(12, viewportWidth - calculatedWidth - 12)
+    }
+    if (left < 12) {
+      left = 12
+    }
+
+    setOpenUpward(shouldOpenUpward)
+    setPortalCoords({
+      left,
+      width: calculatedWidth,
+      openUpward: shouldOpenUpward,
+      top: shouldOpenUpward ? undefined : rect.bottom + 4,
+      bottom: shouldOpenUpward ? viewportHeight - rect.top + 4 : undefined,
+      maxHeight: shouldOpenUpward
+        ? Math.min(240, Math.max(80, spaceAbove - 16))
+        : Math.min(240, Math.max(80, spaceBelow - 16))
+    })
+  }, [normalizedOptions.length, menuMinWidth])
+
+  // Handle outside click, escape key, and scroll/resize
   useEffect(() => {
+    if (!isOpen) return
+
     const handleClickOutside = (e) => {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target) &&
+        (!menuRef.current || !menuRef.current.contains(e.target))
+      ) {
         setIsOpen(false)
       }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
 
-  // Auto-detect viewport boundaries
-  const handleToggle = () => {
-    if (disabled) return
-    if (!isOpen && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect()
-      const spaceBelow = window.innerHeight - rect.bottom
-      if (spaceBelow < 220 && rect.top > 220) {
-        setOpenUpward(true)
-      } else {
-        setOpenUpward(false)
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setIsOpen(false)
       }
     }
-    setIsOpen(!isOpen)
+
+    const handleScroll = (e) => {
+      // Allow scrolling inside the dropdown menu itself so users can browse long lists of options
+      if (menuRef.current && e && e.target && menuRef.current.contains(e.target)) {
+        return
+      }
+      // When scrolling anywhere outside the dropdown menu, close immediately to prevent overlap
+      setIsOpen(false)
+    }
+
+    const handleResize = () => {
+      setIsOpen(false)
+    }
+
+    updatePosition()
+
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleKeyDown)
+    if (usePortal) {
+      window.addEventListener('scroll', handleScroll, true)
+      window.addEventListener('resize', handleResize)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleKeyDown)
+      if (usePortal) {
+        window.removeEventListener('scroll', handleScroll, true)
+        window.removeEventListener('resize', handleResize)
+      }
+    }
+  }, [isOpen, usePortal, updatePosition])
+
+  const handleToggle = () => {
+    if (disabled) return
+    if (!isOpen) {
+      if (usePortal) {
+        updatePosition()
+      } else if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect()
+        const spaceBelow = window.innerHeight - rect.bottom
+        if (spaceBelow < 220 && rect.top > 220) {
+          setOpenUpward(true)
+        } else {
+          setOpenUpward(false)
+        }
+      }
+      setIsOpen(true)
+    } else {
+      setIsOpen(false)
+    }
   }
 
   const handleSelect = (val) => {
@@ -65,6 +170,73 @@ export default function CustomSelect({
       onChange({ target: { value: val, name: id } }, val)
     }
   }
+
+  const menuContent = (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          ref={menuRef}
+          className={`bg-white border border-gray-200 rounded-2xl shadow-xl overflow-y-auto overscroll-contain py-1 ${
+            usePortal
+              ? 'fixed'
+              : `absolute z-60 w-full ${openUpward ? 'bottom-full mb-1' : 'top-full mt-1'}`
+          } ${menuClassName}`}
+          style={
+            usePortal
+              ? {
+                  position: 'fixed',
+                  top: portalCoords.openUpward ? undefined : portalCoords.top,
+                  bottom: portalCoords.openUpward ? portalCoords.bottom : undefined,
+                  left: portalCoords.left,
+                  minWidth: portalCoords.width ? `${portalCoords.width}px` : undefined,
+                  width: 'max-content',
+                  maxWidth: `${Math.min(340, typeof window !== 'undefined' ? window.innerWidth - 24 : 340)}px`,
+                  maxHeight: `${portalCoords.maxHeight}px`,
+                  zIndex: 9999
+                }
+              : { zIndex: 9999 }
+          }
+          variants={
+            (usePortal ? portalCoords.openUpward : openUpward)
+              ? dropdownUpwardVariants
+              : dropdownVariants
+          }
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          transition={dropdownTransition}
+        >
+          {normalizedOptions.length === 0 ? (
+            <div className="p-3 text-xs text-gray-400 font-medium text-center">
+              No options available
+            </div>
+          ) : (
+            normalizedOptions.map((opt) => {
+              const isSelected = String(opt.value) === String(value)
+              return (
+                <div
+                  key={opt.value}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => handleSelect(opt.value)}
+                  className={`flex items-center justify-between p-2.5 text-xs cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left transition-colors duration-100 ${
+                    isSelected
+                      ? 'bg-navy-blue text-white hover:bg-navy-blue/95 font-bold'
+                      : 'text-navy-blue hover:bg-sig-green/10'
+                  }`}
+                  title={opt.label}
+                >
+                  <span className="truncate whitespace-nowrap mr-2" title={opt.label}>
+                    {opt.label}
+                  </span>
+                  {isSelected && <Check className="w-3.5 h-3.5 shrink-0 ml-auto text-sig-green" />}
+                </div>
+              )
+            })
+          )}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
 
   return (
     <div ref={containerRef} className={`relative w-full ${className}`} style={style}>
@@ -82,9 +254,10 @@ export default function CustomSelect({
               : 'border-gray-200 hover:border-gray-300'
         } ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-50' : ''}`}
         style={{ height: style.height || '40px' }}
+        title={selectedOption ? selectedOption.label : placeholder}
       >
         <span
-          className={`truncate text-left ${!selectedOption ? 'text-gray-400 font-normal' : ''}`}
+          className={`truncate text-left whitespace-nowrap ${!selectedOption ? 'text-gray-400 font-normal' : ''}`}
         >
           {selectedOption ? selectedOption.label : placeholder}
         </span>
@@ -96,46 +269,9 @@ export default function CustomSelect({
       </button>
 
       {/* Floating Options Menu */}
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            className={`absolute z-60 w-full bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto py-1 ${
-              openUpward ? 'bottom-full mb-1' : 'top-full mt-1'
-            }`}
-            style={{ zIndex: 9999 }}
-            variants={dropdownVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            transition={dropdownTransition}
-          >
-            {normalizedOptions.length === 0 ? (
-              <div className="p-3 text-xs text-gray-400 font-medium text-center">
-                No options available
-              </div>
-            ) : (
-              normalizedOptions.map((opt) => {
-                const isSelected = String(opt.value) === String(value)
-                return (
-                  <div
-                    key={opt.value}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => handleSelect(opt.value)}
-                    className={`flex items-center justify-between p-2.5 text-xs cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left transition-colors duration-100 ${
-                      isSelected
-                        ? 'bg-navy-blue text-white hover:bg-navy-blue/95 font-bold'
-                        : 'text-navy-blue hover:bg-sig-green/10'
-                    }`}
-                  >
-                    <span className="truncate">{opt.label}</span>
-                    {isSelected && <Check className="w-3.5 h-3.5 shrink-0 ml-2 text-sig-green" />}
-                  </div>
-                )
-              })
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {usePortal && typeof document !== 'undefined'
+        ? createPortal(menuContent, document.body)
+        : menuContent}
     </div>
   )
 }

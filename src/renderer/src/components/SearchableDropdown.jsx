@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react'
+/* eslint-disable react/prop-types, react-hooks/set-state-in-effect */
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { X, ChevronDown } from 'lucide-react'
 import { dropdownVariants, dropdownTransition } from './motion/motionConfig'
@@ -20,10 +21,10 @@ export default function SearchableDropdown({
   const [openUpward, setOpenUpward] = useState(false)
   const dropdownRef = useRef(null)
 
-  // Normalize options to objects: { id, name, abbreviation }
+  // Normalize options to objects: { id, name, abbreviation, original }
   const normalizedOptions = options.map((opt) => {
     if (typeof opt === 'string' || typeof opt === 'number') {
-      return { id: String(opt), name: String(opt) }
+      return { id: String(opt), name: String(opt), original: opt }
     }
     return {
       id: String(opt.id || opt.uid || opt.value || opt.abbreviation || ''),
@@ -39,7 +40,9 @@ export default function SearchableDropdown({
     ? selectedOption.abbreviation
       ? `${selectedOption.name} (${selectedOption.abbreviation})`
       : selectedOption.name
-    : (allowCustom && value ? String(value) : '')
+    : allowCustom && value
+      ? String(value)
+      : ''
 
   // Synchronize search text input with selection when closed
   useEffect(() => {
@@ -157,14 +160,23 @@ export default function SearchableDropdown({
                         e.stopPropagation()
                       }}
                       onClick={(e) => {
+                        e.preventDefault()
                         e.stopPropagation()
-                        onDelete(opt.original || opt)
+                        const optionValue =
+                          opt.original !== undefined ? opt.original : opt.name || opt.id
+                        onDelete(optionValue)
+                        if (
+                          String(value).toLowerCase().trim() === String(opt.id).toLowerCase().trim()
+                        ) {
+                          onChange('')
+                        }
                       }}
                       className={`p-1 rounded-md transition-colors duration-150 cursor-pointer ${
                         isSelected
                           ? 'text-white/60 hover:text-white hover:bg-white/10'
                           : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
                       }`}
+                      title={`Remove ${opt.name}`}
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>

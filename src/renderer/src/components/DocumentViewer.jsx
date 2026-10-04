@@ -170,13 +170,24 @@ export default function DocumentViewer({
     }
   }, [report])
 
-  // DOCX / PDF Direct View State
-  const isDocxSubmission = Boolean(report?.submissionType === 'docx_upload' || report?.originalDocxUrl)
+  // DOCX / PDF / Google Doc Direct View State
+  const isDocxSubmission = Boolean(
+    report?.submissionType === 'docx_upload' ||
+    report?.submissionType === 'gdoc_submission' ||
+    report?.originalDocxUrl ||
+    report?.googleDocsUrl
+  )
   const isPdfFile = Boolean(
     report?.fileType === 'pdf' ||
     report?.originalDocxName?.toLowerCase().endsWith('.pdf') ||
-    report?.originalDocxUrl?.startsWith('data:application/pdf')
+    report?.originalDocxUrl?.startsWith('data:application/pdf') ||
+    Boolean(report?.googleDocsUrl)
   )
+  const [isPdfDocument, setIsPdfDocument] = useState(isPdfFile)
+  useEffect(() => {
+    setIsPdfDocument(isPdfFile)
+  }, [isPdfFile])
+
   const [docxLoading, setDocxLoading] = useState(isDocxSubmission)
   const [docxError, setDocxError] = useState(null)
   const [docxPageCount, setDocxPageCount] = useState(1)
@@ -202,7 +213,8 @@ export default function DocumentViewer({
 
   // Load and render DOCX or PDF file directly
   useEffect(() => {
-    if (!isDocxSubmission || !report?.originalDocxUrl) return
+    if (!isDocxSubmission) return
+    if (!report?.originalDocxUrl && !report?.googleDocsUrl) return
 
     let isMounted = true
     setDocxLoading(true)
@@ -210,18 +222,89 @@ export default function DocumentViewer({
 
     const loadAndRenderDocument = async () => {
       try {
-        const rawBuffer = await getDocxArrayBuffer(report.originalDocxUrl)
-        if (!isBufferUsable(rawBuffer)) {
-          throw new Error('Unable to read submitted document data.')
+        let rawBuffer = null
+        let isPdfBuffer = Boolean(
+          report?.fileType === 'pdf' ||
+          report?.originalDocxName?.toLowerCase().endsWith('.pdf') ||
+          report?.originalDocxUrl?.startsWith('data:application/pdf')
+        )
+
+        // 1. If report has an uploaded DOCX URL or data URI
+        if (report?.originalDocxUrl) {
+          rawBuffer = await getDocxArrayBuffer(report.originalDocxUrl)
         }
+
+        // 2. If report is a Google Doc submission:
+        // Prioritize the snapshot for THIS specific report ID so reports sharing the same link never contaminate each other
+        if (report?.googleDocsUrl) {
+          const idPdfKey = report.id ? `dommunity_gdoc_pdf_${report.id}` : null
+          const cachedPdf = idPdfKey ? localStorage.getItem(idPdfKey) : null
+
+          if (cachedPdf) {
+            try {
+              const testBuf = await getDocxArrayBuffer(cachedPdf)
+              if (isBufferUsable(testBuf)) {
+                rawBuffer = testBuf
+                isPdfBuffer = true
+              }
+            } catch {}
+          }
+
+          // If no report-specific PDF snapshot exists, check report-specific DOCX snapshot
+          if (!isBufferUsable(rawBuffer) && report.id) {
+            const idDocxKey = `dommunity_gdoc_buffer_${report.id}`
+            const cachedDocx = localStorage.getItem(idDocxKey)
+            if (cachedDocx) {
+              try {
+                const testBuf = await getDocxArrayBuffer(cachedDocx)
+                if (isBufferUsable(testBuf)) {
+                  rawBuffer = testBuf
+                  isPdfBuffer = false
+                }
+              } catch {}
+            }
+          }
+
+          // If this report does not have a cached snapshot yet, fetch from Google Docs
+          if (!isBufferUsable(rawBuffer)) {
+            const gDocResult = await fetchGoogleDocData(report.googleDocsUrl)
+            if (gDocResult?.pdfBase64) {
+              rawBuffer = await getDocxArrayBuffer(gDocResult.pdfBase64)
+              isPdfBuffer = true
+              try {
+                if (gDocResult.pdfBase64.length < 4500000 && report.id) {
+                  localStorage.setItem(`dommunity_gdoc_pdf_${report.id}`, gDocResult.pdfBase64)
+                }
+              } catch {}
+            } else if (gDocResult?.docxBase64) {
+              rawBuffer = await getDocxArrayBuffer(gDocResult.docxBase64)
+              isPdfBuffer = false
+              try {
+                if (gDocResult.docxBase64.length < 3500000 && report.id) {
+                  localStorage.setItem(`dommunity_gdoc_buffer_${report.id}`, gDocResult.docxBase64)
+                }
+              } catch {}
+            }
+          }
+        }
+
+        if (!isBufferUsable(rawBuffer)) {
+          throw new Error('Unable to read submitted document data. Please verify the document link.')
+        }
+
+        setIsPdfDocument(isPdfBuffer)
 
         if (!docxContainerRef.current || !isMounted) return
         docxContainerRef.current.innerHTML = ''
 
-        const cacheKey = report.id || (typeof report.originalDocxUrl === 'string' ? report.originalDocxUrl.slice(0, 100) : 'docx-doc')
+        const cacheKey =
+          report.id ||
+          (typeof report.originalDocxUrl === 'string'
+            ? report.originalDocxUrl.slice(0, 100)
+            : report.googleDocsUrl || 'docx-doc')
         let pdfData = null
 
-        if (isPdfFile) {
+        if (isPdfBuffer) {
           pdfData = new Uint8Array(rawBuffer).slice()
         } else if (window.api?.convertDocxToPdfBuffer || window.electron?.ipcRenderer) {
           if (docxPdfPreviewCache.has(cacheKey)) {
@@ -305,6 +388,7 @@ export default function DocumentViewer({
             setDocxPageCount(numPages)
             setDocxLoading(false)
             renderedWithPdf = true
+            setIsPdfDocument(true)
           } catch (pdfErr) {
             console.warn('PDF.js rendering encountered an error, falling back to docx-preview:', pdfErr)
             docxPdfPreviewCache.delete(cacheKey)
@@ -350,10 +434,25 @@ export default function DocumentViewer({
             section.style.background = '#ffffff'
             section.style.boxSizing = 'border-box'
             section.style.position = 'relative'
+
+            // Enforce zero overlap for header and article in docx-preview
+            const headerEl = section.querySelector('header')
+            const articleEl = section.querySelector('article')
+            if (headerEl) {
+              headerEl.style.marginTop = '0px'
+              headerEl.style.minHeight = 'auto'
+              headerEl.style.marginBottom = '14px'
+              headerEl.style.position = 'relative'
+            }
+            if (articleEl) {
+              articleEl.style.marginTop = '0px'
+              articleEl.style.position = 'relative'
+            }
           })
 
           setDocxPageCount(pageSections.length || 1)
           setDocxLoading(false)
+          setIsPdfDocument(false)
         }
       } catch (err) {
         console.error('Failed to render document preview in DocumentViewer:', err)
@@ -369,7 +468,7 @@ export default function DocumentViewer({
     return () => {
       isMounted = false
     }
-  }, [isDocxSubmission, isPdfFile, report?.originalDocxUrl, report?.id])
+  }, [isDocxSubmission, isPdfFile, report?.originalDocxUrl, report?.googleDocsUrl, report?.id])
 
   // Keyboard shortcut listener for Escape key to close modal
   useEffect(() => {
@@ -426,7 +525,10 @@ export default function DocumentViewer({
   // Read-only Editor Instance
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        link: false,
+        underline: false
+      }),
       Underline,
       Color,
       TextStyle,
@@ -704,14 +806,27 @@ export default function DocumentViewer({
     }
   }
 
-  // Single download action: directly downloads file if uploaded submission, otherwise exports PDF
+  // Single download action: directly downloads file if uploaded submission or Google Doc, otherwise exports PDF
   const handleDownloadDocument = async () => {
-    if (isDocxSubmission && report?.originalDocxUrl) {
-      downloadFileFromUrl(
-        report.originalDocxUrl,
-        report.originalDocxName || `${report.activityTitle || 'Report'}.${isPdfFile ? 'pdf' : 'docx'}`
-      )
-      return
+    if (isDocxSubmission) {
+      if (report?.originalDocxUrl) {
+        downloadFileFromUrl(
+          report.originalDocxUrl,
+          report.originalDocxName || `${report.activityTitle || 'Report'}.${isPdfFile ? 'pdf' : 'docx'}`
+        )
+        return
+      }
+      if (report?.googleDocsUrl) {
+        const match = report.googleDocsUrl.match(/\/document\/d\/([a-zA-Z0-9-_]+)/)
+        if (match) {
+          const docId = match[1]
+          downloadFileFromUrl(
+            `https://docs.google.com/document/d/${docId}/export?format=docx`,
+            `${(report.activityTitle || 'Report').replace(/[^a-zA-Z0-9_-]+/g, '_')}.docx`
+          )
+          return
+        }
+      }
     }
     await handleDownloadPDF()
   }
@@ -1350,10 +1465,22 @@ export default function DocumentViewer({
             >
               <Printer className="w-4 h-4" />
             </button>
+            {report?.googleDocsUrl && (
+              <a
+                href={report.googleDocsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+                title="Open Linked Google Doc in Browser"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Google Doc</span>
+              </a>
+            )}
             <button
               onClick={handleDownloadDocument}
               className="p-2 bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 rounded-xl transition cursor-pointer flex items-center justify-center shadow-2xs hover:text-navy-blue"
-              title={isDocxSubmission ? (isPdfFile ? 'Download PDF Document' : 'Download Original DOCX File') : 'Download Document'}
+              title={isDocxSubmission ? (isPdfDocument ? 'Download PDF Document' : 'Download Original DOCX File') : 'Download Document'}
             >
               <Download className="w-4 h-4" />
             </button>
@@ -1386,7 +1513,7 @@ export default function DocumentViewer({
                 <div className="flex flex-col items-center justify-center p-6 text-gray-400 gap-2 text-center select-none">
                   <Loader2 className="w-5 h-5 animate-spin text-navy-blue" />
                   <span className="text-[10px] font-semibold text-navy-blue">
-                    Rendering {isPdfFile ? 'PDF' : 'DOCX'}...
+                    Rendering {isPdfDocument ? 'PDF' : 'DOCX'}...
                   </span>
                 </div>
               ) : (
@@ -1403,12 +1530,12 @@ export default function DocumentViewer({
                       }`}
                     >
                       <div className="flex-1 w-full flex flex-col items-center justify-center text-gray-400 select-none">
-                        <FileText className={`w-6 h-6 mb-1 ${isPdfFile ? 'text-red-500' : 'text-blue-500'}`} />
+                        <FileText className={`w-6 h-6 mb-1 ${isPdfDocument ? 'text-red-500' : 'text-blue-500'}`} />
                         <span className="text-[8px] font-bold text-navy-blue uppercase tracking-wider">
                           PAGE {pNum}
                         </span>
-                        <span className={`text-[7px] font-semibold ${isPdfFile ? 'text-red-600' : 'text-blue-600'}`}>
-                          {isPdfFile ? 'PDF Document' : 'Word Layout'}
+                        <span className={`text-[7px] font-semibold ${isPdfDocument ? 'text-red-600' : 'text-blue-600'}`}>
+                          {isPdfDocument ? 'PDF Document' : 'Word Layout'}
                         </span>
                       </div>
                       <span className="text-[9px] font-bold text-gray-500 self-center mt-1 select-none">
@@ -1630,6 +1757,37 @@ export default function DocumentViewer({
                 background: #ffffff !important;
                 margin: 0 auto 28px auto !important;
                 box-sizing: border-box !important;
+                position: relative !important;
+                display: flex !important;
+                flex-direction: column !important;
+              }
+              .docx-render-target section.docx > header {
+                position: relative !important;
+                top: auto !important;
+                left: auto !important;
+                right: auto !important;
+                margin-top: 0 !important;
+                min-height: auto !important;
+                margin-bottom: 14px !important;
+                width: 100% !important;
+                display: block !important;
+                box-sizing: border-box !important;
+                overflow: visible !important;
+              }
+              .docx-render-target section.docx > article {
+                position: relative !important;
+                margin-top: 0 !important;
+                width: 100% !important;
+                display: block !important;
+                box-sizing: border-box !important;
+              }
+              .docx-render-target section.docx > footer {
+                position: relative !important;
+                margin-top: auto !important;
+                margin-bottom: 0 !important;
+                width: 100% !important;
+                display: block !important;
+                box-sizing: border-box !important;
               }
               .docx-render-target section.pdf-page-section {
                 padding: 0 !important;
@@ -1663,20 +1821,20 @@ export default function DocumentViewer({
                 {docxError && !docxLoading && (
                   <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center max-w-md my-12 shadow-sm">
                     <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
-                    <h4 className="text-sm font-bold text-red-800">Failed to render {isPdfFile ? 'PDF' : 'DOCX'} content</h4>
+                    <h4 className="text-sm font-bold text-red-800">Failed to render {isPdfDocument ? 'PDF' : 'DOCX'} content</h4>
                     <p className="text-xs text-red-600 mt-1">{docxError}</p>
                     {report?.originalDocxUrl && (
                       <button
                         onClick={() =>
                           downloadFileFromUrl(
                             report.originalDocxUrl,
-                            report.originalDocxName || `${report.activityTitle || 'Report'}.${isPdfFile ? 'pdf' : 'docx'}`
+                            report.originalDocxName || `${report.activityTitle || 'Report'}.${isPdfDocument ? 'pdf' : 'docx'}`
                           )
                         }
-                        className={`mt-4 px-4 py-2 text-white rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer shadow-xs ${isPdfFile ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                        className={`mt-4 px-4 py-2 text-white rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer shadow-xs ${isPdfDocument ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
                       >
                         <Download className="w-3.5 h-3.5" />
-                        <span>Download Original (.{isPdfFile ? 'pdf' : 'docx'})</span>
+                        <span>Download Original (.{isPdfDocument ? 'pdf' : 'docx'})</span>
                       </button>
                     )}
                   </div>

@@ -33,6 +33,7 @@ import {
   isDemoMode,
   firebaseConfig
 } from '../firebase'
+import { compressHtmlImages, compressImage } from '../utils/imageCompressor'
 
 export function getLevenshteinDistance(str1, str2) {
   const s1 = (str1 || '').toLowerCase().trim()
@@ -761,6 +762,7 @@ export const getCurrentUser = () => {
 
 export const migrateLocalDataToFirebase = async () => {
   if (isDemoMode) return
+  if (!fauth.currentUser) return
 
   try {
     const migrationDocRef = doc(fdb, 'system', 'migration')
@@ -979,6 +981,10 @@ export const migrateLocalDataToFirebase = async () => {
     await setDoc(migrationDocRef, { completed: true, migratedAt: Timestamp.now() })
     console.log('Firebase migration completed successfully!')
   } catch (err) {
+    if (err?.code === 'permission-denied') {
+      // Ignore permission-denied gracefully (e.g. non-admin or restricted rules)
+      return
+    }
     console.error('Error during Firebase migration:', err)
   }
 }
@@ -1035,8 +1041,6 @@ export const listenToAuthChanges = (callback) => {
     }
   } else {
     try {
-      migrateLocalDataToFirebase().catch((err) => console.error('Migration error:', err))
-
       let unsubscribeUserSnapshot = null
 
       const unsubscribeAuth = onAuthStateChanged(fauth, (firebaseUser) => {
@@ -1046,6 +1050,9 @@ export const listenToAuthChanges = (callback) => {
         }
 
         if (firebaseUser) {
+          // Attempt background data migration safely once authenticated
+          migrateLocalDataToFirebase().catch(() => {})
+
           const userDocRef = doc(fdb, 'users', firebaseUser.uid)
           unsubscribeUserSnapshot = onSnapshot(
             userDocRef,
@@ -1295,7 +1302,10 @@ export const subscribeUsers = (callback) => {
         })
         callback(users)
       },
-      (err) => console.error('Users snapshot error:', err)
+      (err) => {
+        console.warn('Users snapshot listener restricted, falling back to local cache:', err?.message || err)
+        callback(getLocalData(LOCAL_STORAGE_KEYS.USERS) || [])
+      }
     )
   }
 }
@@ -1650,7 +1660,10 @@ export const subscribeOrganizations = (callback) => {
         const orgs = snapshot.docs.map((d) => ({ ...d.data(), id: d.id }))
         callback(orgs)
       },
-      (err) => console.error('Organizations snapshot error:', err)
+      (err) => {
+        console.warn('Organizations snapshot listener restricted, falling back to local cache:', err?.message || err)
+        callback(getLocalData(LOCAL_STORAGE_KEYS.ORGANIZATIONS) || [])
+      }
     )
   }
 }
@@ -1735,7 +1748,10 @@ export const subscribeInventory = (callback) => {
         })
         callback(sortInventory(items))
       },
-      (err) => console.error('Inventory snapshot error:', err)
+      (err) => {
+        console.warn('Inventory snapshot listener restricted, falling back to local cache:', err?.message || err)
+        callback(sortInventory(getLocalData(LOCAL_STORAGE_KEYS.INVENTORY) || []))
+      }
     )
   }
 }
@@ -1981,7 +1997,10 @@ export const subscribeDonors = (callback) => {
         const donors = snapshot.docs.map((d) => ({ ...d.data(), id: d.id }))
         callback(donors)
       },
-      (err) => console.error('Donors snapshot error:', err)
+      (err) => {
+        console.warn('Donors snapshot listener restricted, falling back to local cache:', err?.message || err)
+        callback(getLocalData(LOCAL_STORAGE_KEYS.DONORS) || [])
+      }
     )
   }
 }
@@ -2102,7 +2121,10 @@ export const subscribeDonations = (callback) => {
         })
         callback(donations)
       },
-      (err) => console.error('Donations snapshot error:', err)
+      (err) => {
+        console.warn('Donations snapshot listener restricted, falling back to local cache:', err?.message || err)
+        callback(getLocalData(LOCAL_STORAGE_KEYS.DONATIONS) || [])
+      }
     )
   }
 }
@@ -2322,7 +2344,10 @@ export const subscribeEvents = (callback) => {
         })
         callback(events)
       },
-      (err) => console.error('Events snapshot error:', err)
+      (err) => {
+        console.warn('Events snapshot listener restricted, falling back to local cache:', err?.message || err)
+        callback(getLocalData(LOCAL_STORAGE_KEYS.EVENTS) || [])
+      }
     )
   }
 }
@@ -2386,20 +2411,71 @@ export const deleteEvent = async (eventId) => {
 
 // --- NARRATIVE REPORT SERVICES ---
 
+export const syncPendingReportsToFirestore = async (pendingReports) => {
+  if (!pendingReports || pendingReports.length === 0 || isDemoMode) return
+  for (const rep of pendingReports) {
+    try {
+      if (rep.id && rep.id.startsWith('report-')) {
+        const { id, syncStatus, syncError, ...cleanData } = rep
+        const firestoreData = sanitizeForFirestore({
+          ...cleanData,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now()
+        })
+        const docRef = await addDoc(collection(fdb, 'narrative_reports'), firestoreData)
+        const cur = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
+        const idx = cur.findIndex((r) => r.id === rep.id)
+        if (idx !== -1) {
+          cur[idx] = { ...rep, id: docRef.id, syncStatus: 'synced', syncError: null }
+          saveLocalData(LOCAL_STORAGE_KEYS.REPORTS, cur)
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('dommunity_reports_updated'))
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[db.js] Failed to auto-sync pending report:', rep.id, err)
+    }
+  }
+}
+
 export const getReports = async () => {
   if (isDemoMode) {
     return getLocalData(LOCAL_STORAGE_KEYS.REPORTS)
   } else {
-    const qSnap = await getDocs(collection(fdb, 'narrative_reports'))
-    return qSnap.docs.map((d) => {
-      const data = d.data()
-      return {
-        ...data,
-        id: d.id,
-        createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
-        updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt
+    try {
+      const qSnap = await getDocs(collection(fdb, 'narrative_reports'))
+      const list = qSnap.docs.map((d) => {
+        const data = d.data()
+        return {
+          ...data,
+          id: d.id,
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+          updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt
+        }
+      })
+      // Sync snapshot to local cache while preserving any locally pending reports
+      const existingLocal = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
+      const pendingLocal = existingLocal.filter(
+        (localRep) =>
+          localRep.syncStatus === 'local_pending' &&
+          !list.some((remoteRep) => remoteRep.id === localRep.id)
+      )
+      const mergedList = [...list, ...pendingLocal]
+      saveLocalData(LOCAL_STORAGE_KEYS.REPORTS, mergedList)
+
+      // Background auto-sync of locally pending reports to Firestore
+      if (pendingLocal.length > 0) {
+        syncPendingReportsToFirestore(pendingLocal).catch((e) =>
+          console.warn('[db.js] Auto-sync of pending reports failed:', e)
+        )
       }
-    })
+
+      return mergedList
+    } catch (err) {
+      console.warn('Firestore getReports failed (permissions or offline), using local cache fallback:', err)
+      return getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
+    }
   }
 }
 
@@ -2439,18 +2515,60 @@ export const subscribeReports = (callback) => {
               : data.updatedAt
           }
         })
-        callback(reports)
+        const existingLocal = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
+        const pendingLocal = existingLocal.filter(
+          (localRep) =>
+            localRep.syncStatus === 'local_pending' &&
+            !reports.some((remoteRep) => remoteRep.id === localRep.id)
+        )
+        const merged = [...reports, ...pendingLocal]
+        saveLocalData(LOCAL_STORAGE_KEYS.REPORTS, merged)
+        callback(merged)
       },
       (err) => {
         console.error('Real-time reports snapshot listener error:', err)
+        // Fallback to local storage cache so reports list remains populated
+        const local = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
+        callback(local)
       }
     )
   }
 }
 
+/**
+ * Recursively removes undefined fields and strips giant docx base64 blobs to guarantee
+ * document writes never fail Firestore 1MB limits or "Unsupported field value: undefined" errors.
+ */
+export const sanitizeForFirestore = (obj) => {
+  if (!obj || typeof obj !== 'object') return obj
+  if (obj instanceof Timestamp || obj instanceof Date) return obj
+  if (Array.isArray(obj)) {
+    return obj
+      .filter((item) => item !== undefined)
+      .map((item) => sanitizeForFirestore(item))
+  }
+  const cleaned = {}
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === undefined) {
+      continue // remove undefined to prevent Firestore crashes
+    }
+    // Prevent oversized base64 DOCX URIs on originalDocxUrl
+    if (key === 'originalDocxUrl' && typeof value === 'string' && value.startsWith('data:') && value.length > 500000) {
+      console.warn(`[db.js] Dropped oversized base64 originalDocxUrl (${value.length} bytes) to protect Firestore document size limit.`)
+      continue
+    }
+    if (value !== null && typeof value === 'object' && !(value instanceof Timestamp) && !(value instanceof Date)) {
+      cleaned[key] = sanitizeForFirestore(value)
+    } else {
+      cleaned[key] = value
+    }
+  }
+  return cleaned
+}
+
 export const addReport = async (report, userId) => {
   if (isDemoMode) {
-    const reports = getLocalData(LOCAL_STORAGE_KEYS.REPORTS)
+    const reports = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
     const newReport = {
       ...report,
       id: 'report-' + Math.random().toString(36).substr(2, 9),
@@ -2481,34 +2599,138 @@ export const addReport = async (report, userId) => {
 
     return newReport
   } else {
-    const docRef = await addDoc(collection(fdb, 'narrative_reports'), {
-      ...report,
-      authorId: userId,
-      photos: report.photos || [],
-      adminFeedback: null,
-      history: [
-        {
-          status: report.status,
-          changedBy: userId,
-          timestamp: Timestamp.now(),
-          notes: 'Report initialized.'
+    try {
+      let sanitizedReport = { ...report }
+
+      // 1. Optimize HTML narrative: compress embedded base64 images to stay safely under Firestore 1MB limit
+      if (sanitizedReport.narrative && typeof sanitizedReport.narrative === 'string' && sanitizedReport.narrative.includes('data:image/')) {
+        try {
+          sanitizedReport.narrative = await compressHtmlImages(sanitizedReport.narrative)
+        } catch (compErr) {
+          console.warn('Narrative image pre-compression failed:', compErr)
         }
-      ],
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now()
-    })
+      }
 
-    if ((report.status === 'submitted' || report.status === 'approved') && report.eventId) {
-      await updateDoc(doc(fdb, 'events', report.eventId), { status: 'completed' })
+      // 2. If narrative is still near Firestore 1MB boundary (> 900KB), perform second-pass deeper compression
+      const approxSize = new Blob([sanitizedReport.narrative || '']).size
+      if (approxSize > 900000) {
+        console.warn(`[db.js] Narrative is large (${approxSize} bytes). Performing deep image compression for Firestore safety.`)
+        try {
+          sanitizedReport.narrative = await compressHtmlImages(sanitizedReport.narrative, {
+            maxWidth: 900,
+            maxHeight: 900,
+            quality: 0.6
+          })
+        } catch (e) {
+          console.warn('Deep compression failed:', e)
+        }
+      }
+
+      // 3. Compress photos array if any base64 images exist
+      if (Array.isArray(sanitizedReport.photos) && sanitizedReport.photos.length > 0) {
+        sanitizedReport.photos = await Promise.all(
+          sanitizedReport.photos.map(async (photo) => {
+            if (typeof photo === 'string' && photo.startsWith('data:image/') && photo.length > 50000) {
+              try {
+                return await compressImage(photo, { maxWidth: 1000, maxHeight: 1000, quality: 0.7 })
+              } catch {
+                return photo
+              }
+            }
+            return photo
+          })
+        )
+      }
+
+      // Ensure author details have valid fallback values
+      sanitizedReport.authorName = sanitizedReport.authorName || 'Coordinator'
+      sanitizedReport.authorEmail = sanitizedReport.authorEmail || ''
+
+      // Clean undefined keys and protect from oversized payloads
+      const firestorePayload = sanitizeForFirestore({
+        ...sanitizedReport,
+        authorId: userId,
+        photos: sanitizedReport.photos || [],
+        adminFeedback: null,
+        history: [
+          {
+            status: sanitizedReport.status,
+            changedBy: userId,
+            timestamp: Timestamp.now(),
+            notes: 'Report initialized.'
+          }
+        ],
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now()
+      })
+
+      const docRef = await addDoc(collection(fdb, 'narrative_reports'), firestorePayload)
+
+      if ((sanitizedReport.status === 'submitted' || sanitizedReport.status === 'approved') && sanitizedReport.eventId) {
+        try {
+          await updateDoc(doc(fdb, 'events', sanitizedReport.eventId), { status: 'completed' })
+        } catch (evErr) {
+          console.warn('Failed to update event status to completed:', evErr)
+        }
+      }
+
+      // Mirror to local cache so reading is instant
+      const localReports = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
+      const localObj = {
+        ...sanitizedReport,
+        id: docRef.id,
+        authorId: userId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+      const existingIdx = localReports.findIndex((r) => r.id === docRef.id)
+      if (existingIdx !== -1) {
+        localReports[existingIdx] = localObj
+      } else {
+        localReports.push(localObj)
+      }
+      saveLocalData(LOCAL_STORAGE_KEYS.REPORTS, localReports)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('dommunity_reports_updated'))
+      }
+
+      return { ...sanitizedReport, id: docRef.id }
+    } catch (firestoreError) {
+      console.warn('Firestore addDoc failed, using resilient local storage fallback:', firestoreError)
+      // Save locally so the coordinator NEVER loses their report!
+      const reports = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
+      const fallbackReport = {
+        ...report,
+        id: 'report-' + Math.random().toString(36).substr(2, 9),
+        authorId: userId,
+        photos: report.photos || [],
+        adminFeedback: null,
+        syncStatus: 'local_pending',
+        syncError: firestoreError.message || String(firestoreError),
+        history: [
+          {
+            status: report.status,
+            changedBy: userId,
+            timestamp: new Date().toISOString(),
+            notes: 'Report saved locally (Cloud sync pending).'
+          }
+        ],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+      reports.push(fallbackReport)
+      saveLocalData(LOCAL_STORAGE_KEYS.REPORTS, reports)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('dommunity_reports_updated'))
+      }
+      return fallbackReport
     }
-
-    return { ...report, id: docRef.id }
   }
 }
 
 export const updateReport = async (reportId, updates, userId) => {
   if (isDemoMode) {
-    const reports = getLocalData(LOCAL_STORAGE_KEYS.REPORTS)
+    const reports = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
     const idx = reports.findIndex((r) => r.id === reportId)
     if (idx !== -1) {
       const oldStatus = reports[idx].status
@@ -2548,27 +2770,112 @@ export const updateReport = async (reportId, updates, userId) => {
     }
     throw new Error('Report not found')
   } else {
-    const dbUpdates = { ...updates, updatedAt: Timestamp.now() }
-    const reportDoc = await getDoc(doc(fdb, 'narrative_reports', reportId))
-    const rep = reportDoc.exists() ? reportDoc.data() : null
+    try {
+      let sanitizedUpdates = { ...updates }
 
-    if (rep && updates.status && updates.status !== rep.status) {
-      const history = [...(rep.history || [])]
-      history.push({
-        status: updates.status,
-        changedBy: userId,
-        timestamp: Timestamp.now(),
-        notes: updates.adminFeedback
-          ? `Returned: ${updates.adminFeedback}`
-          : `Status changed to ${updates.status}`
-      })
-      dbUpdates.history = history
-    }
+      if (sanitizedUpdates.narrative && typeof sanitizedUpdates.narrative === 'string' && sanitizedUpdates.narrative.includes('data:image/')) {
+        try {
+          sanitizedUpdates.narrative = await compressHtmlImages(sanitizedUpdates.narrative)
+        } catch (compErr) {
+          console.warn('Narrative image pre-compression failed:', compErr)
+        }
+      }
 
-    await updateDoc(doc(fdb, 'narrative_reports', reportId), dbUpdates)
+      const approxSize = new Blob([sanitizedUpdates.narrative || '']).size
+      if (approxSize > 900000) {
+        console.warn(`[db.js] Narrative is large (${approxSize} bytes). Performing deep image compression for Firestore safety.`)
+        try {
+          sanitizedUpdates.narrative = await compressHtmlImages(sanitizedUpdates.narrative, {
+            maxWidth: 900,
+            maxHeight: 900,
+            quality: 0.6
+          })
+        } catch (e) {
+          console.warn('Deep compression failed:', e)
+        }
+      }
 
-    if (rep && (updates.status === 'submitted' || updates.status === 'approved') && rep.eventId) {
-      await updateDoc(doc(fdb, 'events', rep.eventId), { status: 'completed' })
+      if (Array.isArray(sanitizedUpdates.photos) && sanitizedUpdates.photos.length > 0) {
+        sanitizedUpdates.photos = await Promise.all(
+          sanitizedUpdates.photos.map(async (photo) => {
+            if (typeof photo === 'string' && photo.startsWith('data:image/') && photo.length > 50000) {
+              try {
+                return await compressImage(photo, { maxWidth: 1000, maxHeight: 1000, quality: 0.7 })
+              } catch {
+                return photo
+              }
+            }
+            return photo
+          })
+        )
+      }
+
+      const dbUpdates = sanitizeForFirestore({ ...sanitizedUpdates, updatedAt: Timestamp.now() })
+      let rep = null
+      try {
+        const reportDoc = await getDoc(doc(fdb, 'narrative_reports', reportId))
+        rep = reportDoc.exists() ? reportDoc.data() : null
+      } catch (getErr) {
+        console.warn('Failed to fetch existing report doc before update:', getErr)
+      }
+
+      if (rep && sanitizedUpdates.status && sanitizedUpdates.status !== rep.status) {
+        const history = [...(rep.history || [])]
+        history.push({
+          status: sanitizedUpdates.status,
+          changedBy: userId,
+          timestamp: Timestamp.now(),
+          notes: sanitizedUpdates.adminFeedback
+            ? `Returned: ${sanitizedUpdates.adminFeedback}`
+            : `Status changed to ${sanitizedUpdates.status}`
+        })
+        dbUpdates.history = history
+      }
+
+      await updateDoc(doc(fdb, 'narrative_reports', reportId), dbUpdates)
+
+      if (rep && (sanitizedUpdates.status === 'submitted' || sanitizedUpdates.status === 'approved') && rep.eventId) {
+        try {
+          await updateDoc(doc(fdb, 'events', rep.eventId), { status: 'completed' })
+        } catch (evErr) {
+          console.warn('Failed to update event status to completed:', evErr)
+        }
+      }
+
+      // Also mirror to local storage cache
+      const localReports = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
+      const idx = localReports.findIndex((r) => r.id === reportId)
+      if (idx !== -1) {
+        localReports[idx] = {
+          ...localReports[idx],
+          ...sanitizedUpdates,
+          updatedAt: new Date().toISOString()
+        }
+        saveLocalData(LOCAL_STORAGE_KEYS.REPORTS, localReports)
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('dommunity_reports_updated'))
+        }
+      }
+      return { id: reportId, ...sanitizedUpdates }
+    } catch (firestoreError) {
+      console.warn('Firestore updateDoc failed, updating local storage fallback:', firestoreError)
+      const reports = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
+      const idx = reports.findIndex((r) => r.id === reportId)
+      if (idx !== -1) {
+        reports[idx] = {
+          ...reports[idx],
+          ...updates,
+          syncStatus: 'local_pending',
+          syncError: firestoreError.message || String(firestoreError),
+          updatedAt: new Date().toISOString()
+        }
+        saveLocalData(LOCAL_STORAGE_KEYS.REPORTS, reports)
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('dommunity_reports_updated'))
+        }
+        return reports[idx]
+      }
+      throw firestoreError
     }
   }
 }
