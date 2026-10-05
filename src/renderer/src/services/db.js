@@ -1832,16 +1832,48 @@ export const addOrganization = async (org) => {
 
 export const getInventory = async () => {
   if (isDemoMode) {
-    const inventory = getLocalData(LOCAL_STORAGE_KEYS.INVENTORY)
+    const inventory = getLocalData(LOCAL_STORAGE_KEYS.INVENTORY) || []
     return sortInventory(inventory)
   } else {
     const qSnap = await getDocs(collection(fdb, 'inventory'))
-    const items = qSnap.docs.map((d) => ({
-      ...d.data(),
-      id: d.id,
-      expiryDate: d.data().expiryDate ? d.data().expiryDate.toDate().toISOString() : null,
-      receivedDate: d.data().receivedDate.toDate().toISOString()
-    }))
+    const items = qSnap.docs.map((d) => {
+      const data = d.data()
+      return {
+        ...data,
+        id: d.id,
+        expiryDate: data.expiryDate?.toDate
+          ? data.expiryDate.toDate().toISOString()
+          : data.expiryDate || null,
+        receivedDate: data.receivedDate?.toDate
+          ? data.receivedDate.toDate().toISOString()
+          : data.receivedDate || new Date().toISOString(),
+        batches: Array.isArray(data.batches)
+          ? data.batches.map((b) => ({
+              ...b,
+              quantity: Number(b.quantity) || 0,
+              expiryDate: b.expiryDate?.toDate
+                ? b.expiryDate.toDate().toISOString()
+                : b.expiryDate || null,
+              receivedDate: b.receivedDate?.toDate
+                ? b.receivedDate.toDate().toISOString()
+                : b.receivedDate || null
+            }))
+          : data.quantity > 0
+            ? [
+                {
+                  id: `batch-${d.id}-init`,
+                  quantity: Number(data.quantity) || 0,
+                  expiryDate: data.expiryDate?.toDate
+                    ? data.expiryDate.toDate().toISOString()
+                    : data.expiryDate || null,
+                  receivedDate: data.receivedDate?.toDate
+                    ? data.receivedDate.toDate().toISOString()
+                    : data.receivedDate || null
+                }
+              ]
+            : []
+      }
+    })
     return sortInventory(items)
   }
 }
@@ -1877,7 +1909,32 @@ export const subscribeInventory = (callback) => {
               : data.expiryDate || null,
             receivedDate: data.receivedDate?.toDate
               ? data.receivedDate.toDate().toISOString()
-              : data.receivedDate
+              : data.receivedDate,
+            batches: Array.isArray(data.batches)
+              ? data.batches.map((b) => ({
+                  ...b,
+                  quantity: Number(b.quantity) || 0,
+                  expiryDate: b.expiryDate?.toDate
+                    ? b.expiryDate.toDate().toISOString()
+                    : b.expiryDate || null,
+                  receivedDate: b.receivedDate?.toDate
+                    ? b.receivedDate.toDate().toISOString()
+                    : b.receivedDate || null
+                }))
+              : data.quantity > 0
+                ? [
+                    {
+                      id: `batch-${d.id}-init`,
+                      quantity: Number(data.quantity) || 0,
+                      expiryDate: data.expiryDate?.toDate
+                        ? data.expiryDate.toDate().toISOString()
+                        : data.expiryDate || null,
+                      receivedDate: data.receivedDate?.toDate
+                        ? data.receivedDate.toDate().toISOString()
+                        : data.receivedDate || null
+                    }
+                  ]
+                : []
           }
         })
         callback(sortInventory(items))
@@ -1903,11 +1960,22 @@ const computeInventoryStatus = (quantity, expiryDate) => {
 // 2. For non-consumables (no expiryDate), sort by FIFO (oldest receivedDate first).
 // 3. Exclude Out of Stock (quantity = 0) and Expired items to separate sections.
 const sortInventory = (items) => {
-  // Recompute status for all items (catches newly expired items)
-  const updatedItems = items.map((item) => ({
-    ...item,
-    status: computeInventoryStatus(item.quantity, item.expiryDate)
-  }))
+  // Recompute status and effective earliest expiryDate for all items (catches multi-batch & newly expired items)
+  const updatedItems = items.map((item) => {
+    let effectiveExpiry = item.expiryDate || null
+    if (Array.isArray(item.batches) && item.batches.length > 0) {
+      const activeBatches = item.batches.filter((b) => b.quantity > 0 && b.expiryDate)
+      if (activeBatches.length > 0) {
+        activeBatches.sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate))
+        effectiveExpiry = activeBatches[0].expiryDate
+      }
+    }
+    return {
+      ...item,
+      expiryDate: effectiveExpiry,
+      status: computeInventoryStatus(item.quantity, effectiveExpiry)
+    }
+  })
 
   const active = updatedItems.filter((i) => i.quantity > 0 && i.status !== 'expired')
   const expired = updatedItems.filter((i) => i.status === 'expired')
@@ -1956,7 +2024,7 @@ export const addInventoryItem = async (item, userId) => {
   const cleanUnit = (item.unit || '').toLowerCase().trim()
 
   if (isDemoMode) {
-    const inventory = getLocalData(LOCAL_STORAGE_KEYS.INVENTORY)
+    const inventory = getLocalData(LOCAL_STORAGE_KEYS.INVENTORY) || []
     const existing = inventory.find((i) => {
       const existingName = i.name.toLowerCase().trim()
       const existingCategory = (i.category || '').toLowerCase().trim()
@@ -1973,6 +2041,23 @@ export const addInventoryItem = async (item, userId) => {
     })
 
     if (existing) {
+      const existingBatches = Array.isArray(existing.batches) && existing.batches.length > 0
+        ? existing.batches
+        : (existing.quantity > 0
+            ? [{
+                id: `batch-${existing.id}-init`,
+                quantity: existing.quantity,
+                expiryDate: existing.expiryDate || null,
+                receivedDate: existing.receivedDate || existing.createdAt || new Date().toISOString()
+              }]
+            : [])
+      existingBatches.push({
+        id: 'batch-' + Math.random().toString(36).substr(2, 9),
+        quantity: item.quantity,
+        expiryDate: item.expiryDate ? new Date(item.expiryDate).toISOString() : null,
+        receivedDate: new Date().toISOString()
+      })
+      existing.batches = existingBatches
       existing.quantity += item.quantity
       existing.status = computeInventoryStatus(existing.quantity, existing.expiryDate)
       existing.lastUpdatedBy = userId
@@ -1982,9 +2067,17 @@ export const addInventoryItem = async (item, userId) => {
       return existing
     }
 
+    const initialBatches = item.batches || (item.quantity > 0 ? [{
+      id: 'batch-' + Math.random().toString(36).substr(2, 9),
+      quantity: item.quantity,
+      expiryDate: item.expiryDate ? new Date(item.expiryDate).toISOString() : null,
+      receivedDate: item.receivedDate || new Date().toISOString()
+    }] : [])
+
     const newItem = {
       ...item,
       id: 'inv-' + Math.random().toString(36).substr(2, 9),
+      batches: initialBatches,
       receivedDate: item.receivedDate || new Date().toISOString(),
       status: computeInventoryStatus(item.quantity, item.expiryDate),
       lastUpdatedBy: userId,
@@ -2017,10 +2110,27 @@ export const addInventoryItem = async (item, userId) => {
     })
 
     if (existingRef && existingData) {
+      const existingBatches = Array.isArray(existingData.batches) && existingData.batches.length > 0
+        ? existingData.batches
+        : (existingData.quantity > 0
+            ? [{
+                id: `batch-${existingData.id}-init`,
+                quantity: existingData.quantity,
+                expiryDate: existingData.expiryDate?.toDate ? existingData.expiryDate.toDate().toISOString() : (existingData.expiryDate || null),
+                receivedDate: existingData.receivedDate?.toDate ? existingData.receivedDate.toDate().toISOString() : (existingData.receivedDate || new Date().toISOString())
+              }]
+            : [])
+      existingBatches.push({
+        id: 'batch-' + Math.random().toString(36).substr(2, 9),
+        quantity: item.quantity,
+        expiryDate: item.expiryDate ? new Date(item.expiryDate).toISOString() : null,
+        receivedDate: new Date().toISOString()
+      })
       const newQty = existingData.quantity + item.quantity
       const newStatus = computeInventoryStatus(newQty, item.expiryDate)
       await updateDoc(existingRef, {
         quantity: newQty,
+        batches: existingBatches,
         status: newStatus,
         lastUpdatedBy: userId,
         hasBeenReleased: false,
@@ -2029,14 +2139,23 @@ export const addInventoryItem = async (item, userId) => {
       return {
         ...existingData,
         quantity: newQty,
+        batches: existingBatches,
         status: newStatus,
         hasBeenReleased: false,
         updatedAt: new Date().toISOString()
       }
     }
 
+    const initialBatches = item.batches || (item.quantity > 0 ? [{
+      id: 'batch-' + Math.random().toString(36).substr(2, 9),
+      quantity: item.quantity,
+      expiryDate: item.expiryDate ? new Date(item.expiryDate).toISOString() : null,
+      receivedDate: item.receivedDate ? new Date(item.receivedDate).toISOString() : new Date().toISOString()
+    }] : [])
+
     const newItemData = {
       ...item,
+      batches: initialBatches,
       receivedDate: item.receivedDate
         ? Timestamp.fromDate(new Date(item.receivedDate))
         : Timestamp.now(),
@@ -2048,11 +2167,26 @@ export const addInventoryItem = async (item, userId) => {
       updatedAt: Timestamp.now()
     }
     const docRef = await addDoc(collection(fdb, 'inventory'), newItemData)
-    return { ...item, id: docRef.id, hasBeenReleased: false }
+    return { ...item, id: docRef.id, batches: initialBatches, hasBeenReleased: false }
   }
 }
 
 export const updateInventoryItem = async (itemId, updates, userId) => {
+  // If batches are provided, calculate total quantity and earliest active expiryDate
+  if (Array.isArray(updates.batches)) {
+    const activeBatches = updates.batches.filter((b) => b.quantity > 0)
+    if (updates.quantity === undefined) {
+      updates.quantity = activeBatches.reduce((sum, b) => sum + (Number(b.quantity) || 0), 0)
+    }
+    const withExpiry = activeBatches.filter((b) => b.expiryDate)
+    if (withExpiry.length > 0) {
+      withExpiry.sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate))
+      updates.expiryDate = withExpiry[0].expiryDate
+    } else if (updates.batches.length > 0 && withExpiry.length === 0) {
+      updates.expiryDate = null
+    }
+  }
+
   if (updates.quantity !== undefined || updates.expiryDate !== undefined) {
     const qty = updates.quantity !== undefined ? updates.quantity : 0
     const exp = updates.expiryDate !== undefined ? updates.expiryDate : null
@@ -2060,7 +2194,7 @@ export const updateInventoryItem = async (itemId, updates, userId) => {
   }
 
   if (isDemoMode) {
-    const inventory = getLocalData(LOCAL_STORAGE_KEYS.INVENTORY)
+    const inventory = getLocalData(LOCAL_STORAGE_KEYS.INVENTORY) || []
     const idx = inventory.findIndex((i) => i.id === itemId)
     if (idx !== -1) {
       inventory[idx] = {
@@ -2082,6 +2216,22 @@ export const updateInventoryItem = async (itemId, updates, userId) => {
     }
     if (updates.receivedDate !== undefined) {
       dbUpdates.receivedDate = Timestamp.fromDate(new Date(updates.receivedDate))
+    }
+    if (updates.batches !== undefined) {
+      dbUpdates.batches = (updates.batches || []).map((b) => ({
+        id: b.id || 'batch-' + Math.random().toString(36).substr(2, 9),
+        quantity: Number(b.quantity) || 0,
+        expiryDate: b.expiryDate
+          ? b.expiryDate.toDate
+            ? b.expiryDate.toDate().toISOString()
+            : new Date(b.expiryDate).toISOString()
+          : null,
+        receivedDate: b.receivedDate
+          ? b.receivedDate.toDate
+            ? b.receivedDate.toDate().toISOString()
+            : new Date(b.receivedDate).toISOString()
+          : new Date().toISOString()
+      }))
     }
     await updateDoc(doc(fdb, 'inventory', itemId), dbUpdates)
   }

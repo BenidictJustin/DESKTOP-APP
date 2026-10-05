@@ -124,7 +124,10 @@ import {
   Home,
   Layers,
   CalendarDays,
-  Grid
+  Grid,
+  RotateCcw,
+  PlusCircle,
+  Filter
 } from 'lucide-react'
 import SearchableDropdown from '../../components/SearchableDropdown'
 import CustomSelect from '../../components/CustomSelect'
@@ -313,11 +316,28 @@ export default function AdminDashboard({ user, onLogout }) {
   const [itemQty, setItemQty] = useState('')
   const [itemExpiry, setItemExpiry] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
+  const [unitFilter, setUnitFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [expirationFilter, setExpirationFilter] = useState('all')
+  const [invSearchQuery, setInvSearchQuery] = useState('')
+  const [invCurrentPage, setInvCurrentPage] = useState(1)
+  const [invItemsPerPage] = useState(10)
+
+  // Add Stock Modal states
+  const [isAddStockModalOpen, setIsAddStockModalOpen] = useState(false)
+  const [addStockItemId, setAddStockItemId] = useState('')
+  const [addStockSearch, setAddStockSearch] = useState('')
+  const [showAddStockDropdown, setShowAddStockDropdown] = useState(false)
+  const [addStockQty, setAddStockQty] = useState('')
+  const [addStockQtyGroup, setAddStockQtyGroup] = useState('')
+  const [addStockQtyPieces, setAddStockQtyPieces] = useState('')
+  const [addStockExpiry, setAddStockExpiry] = useState('')
+  const [addStockErrors, setAddStockErrors] = useState({})
+
   const [releaseItemId, setReleaseItemId] = useState('')
   const [releaseQty, setReleaseQty] = useState('')
   const [releaseQtyGroup, setReleaseQtyGroup] = useState('')
   const [releaseQtyPieces, setReleaseQtyPieces] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
   const [releaseSearch, setReleaseSearch] = useState('')
   const [showReleaseDropdown, setShowReleaseDropdown] = useState(false)
   const [showAddCategoryDropdown, setShowAddCategoryDropdown] = useState(false)
@@ -389,6 +409,7 @@ export default function AdminDashboard({ user, onLogout }) {
   const isAnyModalOpen =
     Boolean(isAddUserModalOpen) ||
     Boolean(isAddModalOpen) ||
+    Boolean(isAddStockModalOpen) ||
     Boolean(isReleaseModalOpen) ||
     Boolean(isReviewModalOpen) ||
     Boolean(isEventModalOpen) ||
@@ -541,6 +562,32 @@ export default function AdminDashboard({ user, onLogout }) {
     const groupPart = `${grouped} ${grouped === 1 ? unitName : unitPlural}`
     const remainingPart = `${remaining} Remaining Piece${remaining === 1 ? '' : 's'}`
     return `${groupPart} + ${remainingPart}`
+  }
+
+  // 4-month expiration threshold indicator logic
+  // More than 4 months before expiration -> normal/default status color
+  // 4 months or less before expiration -> red expiration indicator
+  // Already expired -> red as well
+  const getExpirationInfo = (expiryDate) => {
+    if (!expiryDate) return { isExpired: false, isNearExpiry: false, status: 'none', label: '' }
+    const now = new Date()
+    const exp = new Date(expiryDate)
+    if (isNaN(exp.getTime())) return { isExpired: false, isNearExpiry: false, status: 'none', label: '' }
+
+    if (exp < now) {
+      return { isExpired: true, isNearExpiry: true, status: 'expired', label: 'Expired' }
+    }
+
+    // Threshold: exactly 4 calendar months from current date
+    const fourMonthsFromNow = new Date(now)
+    fourMonthsFromNow.setMonth(fourMonthsFromNow.getMonth() + 4)
+    fourMonthsFromNow.setHours(23, 59, 59, 999)
+
+    if (exp <= fourMonthsFromNow) {
+      return { isExpired: false, isNearExpiry: true, status: 'expiring_soon', label: 'Expiring Soon' }
+    }
+
+    return { isExpired: false, isNearExpiry: false, status: 'good', label: 'Good' }
   }
 
   const getReleaseFactor = (item, releaseUnitStr) => {
@@ -1110,6 +1157,21 @@ export default function AdminDashboard({ user, onLogout }) {
     setLoading(true)
     try {
       if (itemEditing) {
+        if (Array.isArray(itemEditing.batches) && itemEditing.batches.length > 0) {
+          if (payload.quantity === itemEditing.quantity) {
+            payload.batches = itemEditing.batches
+          } else if (itemEditing.batches.length === 1) {
+            payload.batches = [
+              {
+                ...itemEditing.batches[0],
+                quantity: payload.quantity,
+                expiryDate: payload.expiryDate
+              }
+            ]
+          } else {
+            payload.batches = itemEditing.batches
+          }
+        }
         await updateInventoryItem(itemEditing.id, { ...payload, hasBeenReleased: false }, user.uid)
         const qtyDiff = payload.quantity - itemEditing.quantity
         if (qtyDiff > 0) {
@@ -1222,6 +1284,153 @@ export default function AdminDashboard({ user, onLogout }) {
         }
       }
     })
+  }
+
+  // Add Stock to Existing Item (Adds additional stock without creating duplicate records)
+  const handleOpenAddStockModal = (item = null) => {
+    if (item) {
+      setAddStockItemId(item.id)
+      setAddStockSearch(
+        `${item.name} (${item.category}) - ${displayStock(item.quantity, item.unit, item.groupUnit, item.piecesPerUnit)} in stock`
+      )
+      setAddStockQty('')
+      setAddStockQtyGroup('')
+      setAddStockQtyPieces('')
+      setAddStockExpiry('')
+      setAddStockErrors({})
+      setIsAddStockModalOpen(true)
+    } else {
+      setAddStockItemId('')
+      setAddStockSearch('')
+      setAddStockQty('')
+      setAddStockQtyGroup('')
+      setAddStockQtyPieces('')
+      setAddStockExpiry('')
+      setAddStockErrors({})
+      setIsAddStockModalOpen(true)
+    }
+  }
+
+  const handleSaveAddStock = async (e) => {
+    e.preventDefault()
+    if (isOffline) {
+      triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+      return
+    }
+
+    const errors = {}
+    if (!addStockItemId) {
+      errors.itemId = 'Please select an existing inventory item.'
+    }
+
+    const targetItem = inventoryList.find((i) => i.id === addStockItemId)
+    if (!targetItem) {
+      errors.itemId = 'Selected inventory item was not found.'
+    }
+
+    let addedBaseQty = 0
+    if (targetItem) {
+      const hasGroup = targetItem.groupUnit && targetItem.groupUnit !== 'none' && targetItem.piecesPerUnit
+      const factor = parseInt(targetItem.piecesPerUnit, 10) || 12
+
+      if (hasGroup) {
+        const grp = parseInt(addStockQtyGroup, 10) || 0
+        const pcs = parseInt(addStockQtyPieces, 10) || 0
+        addedBaseQty = grp * factor + pcs
+      } else {
+        addedBaseQty = parseInt(addStockQty, 10) || 0
+      }
+
+      const isSupplies = isSuppliesCategory(targetItem.category)
+      if (!isSupplies) {
+        if (!addStockExpiry) {
+          errors.expiry = 'Please specify an expiration date for the new stock batch.'
+        } else if (isPastDate(addStockExpiry)) {
+          errors.expiry = DATE_ERROR_MESSAGES.EXPIRY_PAST
+        }
+      }
+    }
+
+    if (addedBaseQty <= 0) {
+      errors.qty = 'Please enter a valid quantity greater than 0.'
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setAddStockErrors(errors)
+      return
+    }
+
+    setLoading(true)
+    try {
+      // 1. Retrieve existing batches without modifying their expiration dates
+      const existingBatches = (Array.isArray(targetItem.batches) && targetItem.batches.length > 0)
+        ? targetItem.batches.filter((b) => b.quantity > 0)
+        : (targetItem.quantity > 0
+            ? [{
+                id: `batch-${targetItem.id}-initial`,
+                quantity: targetItem.quantity,
+                expiryDate: targetItem.expiryDate || null,
+                receivedDate: targetItem.receivedDate || targetItem.createdAt || new Date().toISOString()
+              }]
+            : [])
+
+      // 2. Create distinct new stock batch
+      const newBatch = {
+        id: 'batch-' + Math.random().toString(36).substr(2, 9),
+        quantity: addedBaseQty,
+        expiryDate: isSuppliesCategory(targetItem.category) || !addStockExpiry ? null : new Date(addStockExpiry).toISOString(),
+        receivedDate: new Date().toISOString()
+      }
+
+      // 3. Append new batch to existing batches (existing batch expiration dates are fully preserved)
+      const updatedBatches = [...existingBatches, newBatch]
+      const newQty = targetItem.quantity + addedBaseQty
+
+      // 4. Determine earliest active expiry date for FEFO release and status indicator
+      const activeWithExpiry = updatedBatches.filter((b) => b.quantity > 0 && b.expiryDate)
+      let earliestExpiry = null
+      if (activeWithExpiry.length > 0) {
+        activeWithExpiry.sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate))
+        earliestExpiry = activeWithExpiry[0].expiryDate
+      }
+
+      await updateInventoryItem(
+        targetItem.id,
+        {
+          quantity: newQty,
+          expiryDate: earliestExpiry,
+          batches: updatedBatches,
+          hasBeenReleased: false
+        },
+        user.uid
+      )
+
+      const expLog = addStockExpiry ? ` (Exp: ${new Date(addStockExpiry).toLocaleDateString()})` : ''
+      await logInventoryTransaction(
+        'added',
+        targetItem.name,
+        addedBaseQty,
+        targetItem.unit || 'pieces',
+        `Stock replenished via Add Stock [Batch: +${addedBaseQty} ${formatUnit(addedBaseQty, targetItem.unit || 'pieces')}${expLog}]`
+      )
+
+      triggerSuccess(
+        `Added ${addedBaseQty} ${formatUnit(addedBaseQty, targetItem.unit || 'pieces')} to "${targetItem.name}". New total: ${newQty} ${formatUnit(newQty, targetItem.unit || 'pieces')}.`
+      )
+      setIsAddStockModalOpen(false)
+      setAddStockItemId('')
+      setAddStockSearch('')
+      setAddStockQty('')
+      setAddStockQtyGroup('')
+      setAddStockQtyPieces('')
+      setAddStockExpiry('')
+      setAddStockErrors({})
+      loadData()
+    } catch (err) {
+      triggerError(err.message || 'Failed to add stock')
+    } finally {
+      setLoading(false)
+    }
   }
 
   // Inventory Item Release (Added to Pending List)
@@ -1400,9 +1609,66 @@ export default function AdminDashboard({ user, onLogout }) {
           )
         }
         const updatedQty = item.quantity - baseQtyToRelease
+
+        // FEFO Stock Release: Consume stock batch-by-batch starting with earliest expiry
+        const existingBatches = (Array.isArray(item.batches) && item.batches.length > 0)
+          ? item.batches.filter((b) => b.quantity > 0).map((b) => ({ ...b }))
+          : (item.quantity > 0
+              ? [{
+                  id: `batch-${item.id}-initial`,
+                  quantity: item.quantity,
+                  expiryDate: item.expiryDate || null,
+                  receivedDate: item.receivedDate || item.createdAt || new Date().toISOString()
+                }]
+              : [])
+
+        // Sort candidate batch indices by FEFO:
+        // 1. Earliest expiryDate first
+        // 2. Non-perishables by oldest receivedDate first (FIFO)
+        const sortedBatchIndices = existingBatches
+          .map((b, idx) => ({ ...b, originalIndex: idx }))
+          .sort((a, b) => {
+            if (a.expiryDate && b.expiryDate) {
+              return new Date(a.expiryDate) - new Date(b.expiryDate)
+            }
+            if (a.expiryDate) return -1
+            if (b.expiryDate) return 1
+            return new Date(a.receivedDate || 0) - new Date(b.receivedDate || 0)
+          })
+          .map((b) => b.originalIndex)
+
+        let remainingToDeduct = baseQtyToRelease
+        for (const idx of sortedBatchIndices) {
+          if (remainingToDeduct <= 0) break
+          const availableInBatch = existingBatches[idx].quantity
+          if (availableInBatch <= remainingToDeduct) {
+            existingBatches[idx].quantity = 0
+            remainingToDeduct -= availableInBatch
+          } else {
+            existingBatches[idx].quantity -= remainingToDeduct
+            remainingToDeduct = 0
+          }
+        }
+
+        // Keep active batches with quantity > 0
+        const remainingBatches = existingBatches.filter((b) => b.quantity > 0)
+
+        // Determine new earliest expiry date for the remaining stock
+        const remainingWithExpiry = remainingBatches.filter((b) => b.expiryDate)
+        let updatedEarliestExpiry = null
+        if (remainingWithExpiry.length > 0) {
+          remainingWithExpiry.sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate))
+          updatedEarliestExpiry = remainingWithExpiry[0].expiryDate
+        }
+
         await updateInventoryItem(
           item.id,
-          { quantity: updatedQty, hasBeenReleased: true },
+          {
+            quantity: updatedQty,
+            batches: remainingBatches,
+            expiryDate: updatedEarliestExpiry,
+            hasBeenReleased: true
+          },
           user.uid
         )
         await logInventoryTransaction(
@@ -2739,14 +3005,14 @@ export default function AdminDashboard({ user, onLogout }) {
                                   {displayedItems.map((item) => (
                                     <div
                                       key={item.id}
-                                      className="border border-sig-green/20 bg-sig-green/5 rounded-2xl p-4 flex flex-col justify-between hover:border-sig-green/45 transition"
+                                      className="border border-red-200 bg-red-50/40 rounded-2xl p-4 flex flex-col justify-between hover:border-red-300 transition"
                                     >
                                       <div>
                                         <div className="flex justify-between items-start gap-2">
                                           <h4 className="font-bold text-navy-blue text-sm leading-snug">
                                             {item.name}
                                           </h4>
-                                          <span className="text-xs bg-white border border-sig-green/35 text-navy-blue font-bold px-2.5 py-0.5 rounded-full capitalize shrink-0">
+                                          <span className="text-xs bg-white border border-red-200 text-red-700 font-bold px-2.5 py-0.5 rounded-full capitalize shrink-0">
                                             {item.category}
                                           </span>
                                         </div>
@@ -2762,7 +3028,13 @@ export default function AdminDashboard({ user, onLogout }) {
                                               )}
                                             </span>
                                           </div>
-                                          <div className="text-red-500 font-semibold flex items-center">
+                                          <div
+                                            className={`flex items-center ${
+                                              getExpirationInfo(item.expiryDate).isNearExpiry
+                                                ? 'text-red-500 font-semibold'
+                                                : 'text-gray-500 font-medium'
+                                            }`}
+                                          >
                                             <Clock className="w-3.5 h-3.5 mr-1 shrink-0" />
                                             Exp: {new Date(item.expiryDate).toLocaleDateString()}
                                           </div>
@@ -2803,188 +3075,579 @@ export default function AdminDashboard({ user, onLogout }) {
                         )
                       })()}
 
-                      {/* Full-width Stock Table Card */}
-                      <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between w-full">
-                        <div id="inventory-table-container">
-                          <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
-                            <h3 className="font-bold text-navy-blue text-base">
-                              Current Inventory Stock
-                            </h3>
-                            <button
-                              type="button"
-                              onClick={() => setIsAddModalOpen(true)}
-                              className="flex items-center space-x-1.5 bg-navy-blue text-white border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green font-semibold py-2 px-4 rounded-full text-xs cursor-pointer transition shadow-xs"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                              <span>Add Item</span>
-                            </button>
-                          </div>
+                      {/* Full-width Stock Table Card with Filtering & Pagination */}
+                      {(() => {
+                        const filteredInventory = inventoryList.filter((item) => {
+                          // 1. Search Query filter (item name, description, or category)
+                          if (invSearchQuery.trim()) {
+                            const q = invSearchQuery.toLowerCase().trim()
+                            const nameMatch = (item.name || '').toLowerCase().includes(q)
+                            const descMatch = (item.description || '').toLowerCase().includes(q)
+                            const catMatch = (item.category || '').toLowerCase().includes(q)
+                            if (!nameMatch && !descMatch && !catMatch) return false
+                          }
 
-                          <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
-                            <table className="w-full text-left border-collapse">
-                              <thead className="sticky top-0 z-10 bg-gray-50">
-                                <tr className="border-b border-gray-100 bg-gray-50 text-xs uppercase font-bold text-gray-500">
-                                  <th className="py-3 px-3">Item Details</th>
-                                  <th className="py-3 px-2 min-w-[170px]">
+                          // 2. Category Filter
+                          if (categoryFilter !== 'all') {
+                            const itemCat = (item.category || '').toLowerCase().trim()
+                            const filterCat = categoryFilter.toLowerCase().trim()
+                            if (itemCat !== filterCat) return false
+                          }
+
+                          // 3. Unit / Packaging Type Filter
+                          if (unitFilter !== 'all') {
+                            const targetUnit = unitFilter.toLowerCase().trim()
+                            const itemUnitLower = (item.unit || '').toLowerCase().trim()
+                            const itemGroupLower = (item.groupUnit || '').toLowerCase().trim()
+
+                            if (targetUnit === 'pieces') {
+                              const isPiece = itemUnitLower.includes('piece')
+                              if (!isPiece && itemGroupLower !== 'none' && itemGroupLower !== '') return false
+                            } else if (['pack', 'box', 'bundle'].includes(targetUnit)) {
+                              const matchUnit = itemUnitLower.includes(targetUnit) || itemGroupLower.includes(targetUnit)
+                              if (!matchUnit) return false
+                            } else {
+                              if (!itemUnitLower.includes(targetUnit) && !itemGroupLower.includes(targetUnit)) return false
+                            }
+                          }
+
+                          // 4. Stock Status Filter
+                          if (statusFilter !== 'all') {
+                            const itemStatus = (item.status || '').toLowerCase().trim()
+                            const filterStatus = statusFilter.toLowerCase().trim()
+                            if (itemStatus !== filterStatus) return false
+                          }
+
+                          // 5. Expiration Status Filter
+                          if (expirationFilter !== 'all') {
+                            const expInfo = getExpirationInfo(item.expiryDate)
+                            if (expirationFilter === 'non_expiring') {
+                              if (item.expiryDate) return false
+                            } else if (expirationFilter === 'expired') {
+                              if (!expInfo.isExpired) return false
+                            } else if (expirationFilter === 'expiring_soon') {
+                              if (expInfo.isExpired || !expInfo.isNearExpiry) return false
+                            } else if (expirationFilter === 'good') {
+                              if (!item.expiryDate || expInfo.isNearExpiry || expInfo.isExpired) return false
+                            }
+                          }
+
+                          return true
+                        })
+
+                        const totalPages = Math.max(1, Math.ceil(filteredInventory.length / invItemsPerPage))
+                        const safeCurrentPage = Math.min(Math.max(1, invCurrentPage), totalPages)
+                        const startIndex = (safeCurrentPage - 1) * invItemsPerPage
+                        const endIndex = Math.min(startIndex + invItemsPerPage, filteredInventory.length)
+                        const paginatedInventory = filteredInventory.slice(startIndex, endIndex)
+
+                        const hasActiveFilters =
+                          invSearchQuery.trim() !== '' ||
+                          categoryFilter !== 'all' ||
+                          unitFilter !== 'all' ||
+                          statusFilter !== 'all' ||
+                          expirationFilter !== 'all'
+
+                        return (
+                          <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex flex-col justify-between w-full">
+                            <div id="inventory-table-container">
+                              {/* Header with Title and Add Buttons */}
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-100 pb-3 mb-4 gap-3">
+                                <div>
+                                  <h3 className="font-bold text-navy-blue text-base">
+                                    Current Inventory Stock
+                                  </h3>
+                                  <p className="text-xs text-gray-400 mt-0.5">
+                                    Monitor stock levels, expirations, and replenish inventory
+                                  </p>
+                                </div>
+                                <div className="flex items-center space-x-2 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenAddStockModal()}
+                                    className="flex items-center space-x-1.5 bg-navy-blue text-white border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green font-semibold py-2 px-4 rounded-full text-xs cursor-pointer transition shadow-xs"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    <span>Add Stock</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setIsAddModalOpen(true)}
+                                    className="flex items-center space-x-1.5 bg-white text-navy-blue border border-navy-blue/30 hover:border-navy-blue hover:bg-navy-blue hover:text-white font-semibold py-2 px-4 rounded-full text-xs cursor-pointer transition shadow-xs"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    <span>Add Item</span>
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Filtering Controls Bar */}
+                              <div className="bg-gray-50/80 border border-gray-100 rounded-2xl p-3 mb-4 space-y-2.5">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+                                  {/* Search Input */}
+                                  <div className="relative">
+                                    <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                                    <input
+                                      type="text"
+                                      value={invSearchQuery}
+                                      onChange={(e) => {
+                                        setInvSearchQuery(e.target.value)
+                                        setInvCurrentPage(1)
+                                      }}
+                                      placeholder="Search by name, category..."
+                                      className="w-full pl-8 pr-7 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-navy-blue placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-navy-blue/15 transition"
+                                      style={{ height: '36px' }}
+                                    />
+                                    {invSearchQuery && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setInvSearchQuery('')
+                                          setInvCurrentPage(1)
+                                        }}
+                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-navy-blue p-0.5 rounded cursor-pointer"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  {/* Category Filter */}
+                                  <div>
                                     <CustomSelect
                                       value={categoryFilter}
-                                      onChange={(e) => setCategoryFilter(e.target.value)}
+                                      onChange={(e) => {
+                                        setCategoryFilter(e.target.value)
+                                        setInvCurrentPage(1)
+                                      }}
                                       options={[
-                                        { value: 'all', label: 'Category (All)' },
+                                        { value: 'all', label: 'All Categories' },
                                         ...allCategories.map((cat) => ({ value: cat, label: cat }))
                                       ]}
-                                      placeholder="Category (All)"
-                                      style={{ height: '36px', minWidth: '170px' }}
-                                      usePortal={true}
-                                      menuMinWidth={190}
-                                    />
-                                  </th>
-                                  <th className="py-3 px-2 min-w-[175px]">
-                                    <CustomSelect
-                                      value={statusFilter}
-                                      onChange={(e) => setStatusFilter(e.target.value)}
-                                      options={[
-                                        { value: 'all', label: 'Stock Level (All)' },
-                                        { value: 'available', label: 'Available' },
-                                        { value: 'low stock', label: 'Low Stock' },
-                                        { value: 'expired', label: 'Expired' }
-                                      ]}
-                                      placeholder="Stock Level (All)"
-                                      style={{ height: '36px', minWidth: '175px' }}
+                                      placeholder="All Categories"
+                                      style={{ height: '36px' }}
                                       usePortal={true}
                                       menuMinWidth={180}
                                     />
-                                  </th>
-                                  <th className="py-3 px-2">Status</th>
-                                  <th className="py-3 px-3 text-right">Actions</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-50 text-xs">
-                                {inventoryList
-                                  .filter(
-                                    (item) =>
-                                      categoryFilter === 'all' ||
-                                      item.category === categoryFilter ||
-                                      (item.category || '').toLowerCase().trim() ===
-                                        categoryFilter.toLowerCase().trim()
-                                  )
-                                  .filter(
-                                    (item) =>
-                                      statusFilter === 'all' ||
-                                      item.status === statusFilter ||
-                                      (item.status || '').toLowerCase().trim() ===
-                                        statusFilter.toLowerCase().trim()
-                                  )
-                                  .map((item) => (
-                                    <tr
-                                      key={item.id}
-                                      className={`hover:bg-gray-50/50 transition ${item.isRecommendedForRelease && item.expiryDate ? 'bg-sig-green/5 font-medium' : ''}`}
+                                  </div>
+
+                                  {/* Unit / Packaging Type Filter */}
+                                  <div>
+                                    <CustomSelect
+                                      value={unitFilter}
+                                      onChange={(e) => {
+                                        setUnitFilter(e.target.value)
+                                        setInvCurrentPage(1)
+                                      }}
+                                      options={[
+                                        { value: 'all', label: 'All Packaging Types' },
+                                        { value: 'pieces', label: 'Pieces (Individual)' },
+                                        { value: 'pack', label: 'Packs' },
+                                        { value: 'box', label: 'Boxes' },
+                                        { value: 'bundle', label: 'Bundles' },
+                                        { value: 'cans', label: 'Cans' },
+                                        { value: 'bottles', label: 'Bottles' },
+                                        { value: 'bars', label: 'Bars' }
+                                      ]}
+                                      placeholder="All Packaging Types"
+                                      style={{ height: '36px' }}
+                                      usePortal={true}
+                                      menuMinWidth={190}
+                                    />
+                                  </div>
+
+                                  {/* Stock Status Filter */}
+                                  <div>
+                                    <CustomSelect
+                                      value={statusFilter}
+                                      onChange={(e) => {
+                                        setStatusFilter(e.target.value)
+                                        setInvCurrentPage(1)
+                                      }}
+                                      options={[
+                                        { value: 'all', label: 'All Stock Levels' },
+                                        { value: 'available', label: 'Available' },
+                                        { value: 'low stock', label: 'Low Stock' },
+                                        { value: 'expired', label: 'Expired' },
+                                        { value: 'out of stock', label: 'Out of Stock' }
+                                      ]}
+                                      placeholder="All Stock Levels"
+                                      style={{ height: '36px' }}
+                                      usePortal={true}
+                                      menuMinWidth={170}
+                                    />
+                                  </div>
+
+                                  {/* Expiration Status Filter */}
+                                  <div>
+                                    <CustomSelect
+                                      value={expirationFilter}
+                                      onChange={(e) => {
+                                        setExpirationFilter(e.target.value)
+                                        setInvCurrentPage(1)
+                                      }}
+                                      options={[
+                                        { value: 'all', label: 'All Expiration' },
+                                        { value: 'good', label: 'Good (> 4 Months)' },
+                                        { value: 'expiring_soon', label: 'Expiring Soon (≤ 4 Mos)' },
+                                        { value: 'expired', label: 'Expired' },
+                                        { value: 'non_expiring', label: 'Non-perishable (No Exp)' }
+                                      ]}
+                                      placeholder="All Expiration"
+                                      style={{ height: '36px' }}
+                                      usePortal={true}
+                                      menuMinWidth={190}
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Active Filters and Clear Button */}
+                                {hasActiveFilters && (
+                                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-gray-200/60 text-xs">
+                                    <div className="flex items-center gap-1.5 text-gray-500">
+                                      <Filter className="w-3.5 h-3.5 text-navy-blue" />
+                                      <span>
+                                        Filtered: <strong className="text-navy-blue font-bold">{filteredInventory.length}</strong> of {inventoryList.length} total items
+                                      </span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setInvSearchQuery('')
+                                        setCategoryFilter('all')
+                                        setUnitFilter('all')
+                                        setStatusFilter('all')
+                                        setExpirationFilter('all')
+                                        setInvCurrentPage(1)
+                                      }}
+                                      className="flex items-center space-x-1 text-xs font-bold text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100/80 px-2.5 py-1 rounded-lg transition cursor-pointer"
                                     >
-                                      <td className="py-3 px-3">
-                                        <div className="font-bold text-navy-blue text-sm flex items-center space-x-1.5">
-                                          <span>{item.name}</span>
-                                          {item.isRecommendedForRelease && item.expiryDate && (
-                                            <span className="bg-sig-green text-navy-blue text-[10px] font-bold px-2 py-0.5 rounded-full border border-sig-green/35 flex items-center space-x-0.5">
-                                              <span>Recommended Release</span>
-                                            </span>
-                                          )}
-                                        </div>
-                                        {item.expiryDate && (
-                                          <div className="text-xs text-gray-400 mt-1">
-                                            <span className="text-red-500 font-semibold flex items-center">
-                                              <Clock className="w-3.5 h-3.5 shrink-0 mr-1" />
-                                              Exp: {new Date(item.expiryDate).toLocaleDateString()}
-                                            </span>
+                                      <RotateCcw className="w-3 h-3" />
+                                      <span>Clear Filters</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Table */}
+                              <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+                                <table className="w-full text-left border-collapse">
+                                  <thead className="sticky top-0 z-10 bg-gray-50">
+                                    <tr className="border-b border-gray-100 bg-gray-50 text-xs uppercase font-bold text-gray-500">
+                                      <th className="py-3 px-3">Item Details</th>
+                                      <th className="py-3 px-2">Category</th>
+                                      <th className="py-3 px-2">Stock Level</th>
+                                      <th className="py-3 px-2">Status</th>
+                                      <th className="py-3 px-3 text-right">Actions</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-50 text-xs">
+                                    {paginatedInventory.map((item) => (
+                                      <tr
+                                        key={item.id}
+                                        className={`hover:bg-gray-50/50 transition ${item.isRecommendedForRelease && item.expiryDate ? 'bg-red-50/30 font-medium' : ''}`}
+                                      >
+                                        <td className="py-3 px-3">
+                                          <div className="font-bold text-navy-blue text-sm flex items-center space-x-1.5 flex-wrap gap-y-1">
+                                            <span>{item.name}</span>
+                                            {item.isRecommendedForRelease && item.expiryDate && (
+                                              <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-200 flex items-center space-x-0.5">
+                                                <span>Recommended Release</span>
+                                              </span>
+                                            )}
                                           </div>
-                                        )}
-                                        {item.description && (
-                                          <p className="text-xs text-gray-400 mt-1 max-w-xs truncate">
-                                            {item.description}
-                                          </p>
-                                        )}
-                                      </td>
-                                      <td className="py-3 px-2 capitalize text-gray-600 font-medium text-xs">
-                                        {item.category}
-                                      </td>
-                                      <td className="py-3 px-2 font-bold text-navy-blue">
-                                        <span className="text-sm font-bold text-navy-blue">
-                                          {item.quantity} {formatUnit(item.quantity, item.unit || 'pieces')}
-                                        </span>
-                                        {item.groupUnit &&
-                                          item.groupUnit !== 'none' &&
-                                          item.piecesPerUnit && (
-                                            <div className="text-xs text-gray-500 font-medium mt-1">
+                                          {item.expiryDate && (
+                                            <div className="text-xs mt-1">
                                               {(() => {
-                                                const pPerUnit = parseInt(item.piecesPerUnit, 10) || 12
-                                                const packs = Math.floor(item.quantity / pPerUnit)
-                                                const remainder = item.quantity % pPerUnit
-                                                const packLabel = formatUnit(packs, item.groupUnit)
-                                                const perPieceLabel = formatUnit(pPerUnit, item.unit || 'pieces')
-                                                const perPackLabel = formatUnit(1, item.groupUnit)
-                                                const remainderLabel = remainder > 0 ? ` + ${remainder} ${formatUnit(remainder, item.unit || 'pieces')}` : ''
-                                                return `${packs} ${packLabel} | ${pPerUnit} ${perPieceLabel} per ${perPackLabel}${remainderLabel}`
+                                                const expInfo = getExpirationInfo(item.expiryDate)
+                                                return (
+                                                  <span
+                                                    className={`flex items-center font-medium ${
+                                                      expInfo.isNearExpiry
+                                                        ? 'text-red-500 font-semibold'
+                                                        : 'text-gray-500'
+                                                    }`}
+                                                  >
+                                                    <Clock className="w-3.5 h-3.5 shrink-0 mr-1" />
+                                                    <span>
+                                                      Exp: {new Date(item.expiryDate).toLocaleDateString()}
+                                                      {expInfo.isExpired && (
+                                                        <span className="ml-1 text-[10px] uppercase font-bold text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded">
+                                                          Expired
+                                                        </span>
+                                                      )}
+                                                      {!expInfo.isExpired && expInfo.isNearExpiry && (
+                                                        <span className="ml-1 text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded">
+                                                          ≤ 4 mos left
+                                                        </span>
+                                                      )}
+                                                    </span>
+                                                  </span>
+                                                )
                                               })()}
                                             </div>
                                           )}
-                                      </td>
-                                      <td className="py-3 px-2">
-                                        <span
-                                          className={`inline-block text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide ${item.status === 'available'
-                                            ? 'bg-green-50 text-green-700 border border-green-200'
-                                            : item.status === 'low stock'
-                                              ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                              : item.status === 'expired'
-                                                ? 'bg-red-50 text-red-700 border border-red-200'
-                                                : 'bg-red-50 text-red-700 border border-red-200'
-                                            }`}
-                                        >
-                                          {item.status}
-                                        </span>
-                                      </td>
-                                      <td className="py-3 px-3 text-right">
-                                        <div className="flex justify-end space-x-2">
+                                          {/* Multiple Batches Breakdown */}
+                                          {Array.isArray(item.batches) && item.batches.filter((b) => b.quantity > 0).length > 1 && (
+                                            <div className="mt-1.5 flex flex-wrap gap-1 items-center">
+                                              <span className="text-[10px] font-bold text-navy-blue bg-navy-blue/5 border border-navy-blue/15 px-1.5 py-0.5 rounded">
+                                                {item.batches.filter((b) => b.quantity > 0).length} Batches:
+                                              </span>
+                                              {item.batches.filter((b) => b.quantity > 0).map((batch, bIdx) => (
+                                                <span
+                                                  key={batch.id || bIdx}
+                                                  className="text-[10px] text-gray-600 bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded font-medium"
+                                                >
+                                                  B{bIdx + 1}: {batch.quantity} {formatUnit(batch.quantity, item.unit || 'pieces')}{' '}
+                                                  {batch.expiryDate ? `(Exp: ${new Date(batch.expiryDate).toLocaleDateString()})` : ''}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          )}
+                                          {item.description && (
+                                            <p className="text-xs text-gray-400 mt-1 max-w-xs truncate">
+                                              {item.description}
+                                            </p>
+                                          )}
+                                        </td>
+                                        <td className="py-3 px-2 capitalize text-gray-600 font-medium text-xs">
+                                          {item.category}
+                                        </td>
+                                        <td className="py-3 px-2 font-bold text-navy-blue">
+                                          <span className="text-sm font-bold text-navy-blue">
+                                            {item.quantity} {formatUnit(item.quantity, item.unit || 'pieces')}
+                                          </span>
+                                          {item.groupUnit &&
+                                            item.groupUnit !== 'none' &&
+                                            item.piecesPerUnit && (
+                                              <div className="text-xs text-gray-500 font-medium mt-1">
+                                                {(() => {
+                                                  const pPerUnit = parseInt(item.piecesPerUnit, 10) || 12
+                                                  const packs = Math.floor(item.quantity / pPerUnit)
+                                                  const remainder = item.quantity % pPerUnit
+                                                  const packLabel = formatUnit(packs, item.groupUnit)
+                                                  const perPieceLabel = formatUnit(pPerUnit, item.unit || 'pieces')
+                                                  const perPackLabel = formatUnit(1, item.groupUnit)
+                                                  const remainderLabel = remainder > 0 ? ` + ${remainder} ${formatUnit(remainder, item.unit || 'pieces')}` : ''
+                                                  return `${packs} ${packLabel} | ${pPerUnit} ${perPieceLabel} per ${perPackLabel}${remainderLabel}`
+                                                })()}
+                                              </div>
+                                            )}
+                                        </td>
+                                        <td className="py-3 px-2">
+                                          <span
+                                            className={`inline-block text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide ${item.status === 'available'
+                                              ? 'bg-green-50 text-green-700 border border-green-200'
+                                              : item.status === 'low stock'
+                                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                                : item.status === 'expired'
+                                                  ? 'bg-red-50 text-red-700 border border-red-200'
+                                                  : 'bg-red-50 text-red-700 border border-red-200'
+                                              }`}
+                                          >
+                                            {item.status}
+                                          </span>
+                                        </td>
+                                        <td className="py-3 px-3 text-right">
+                                          <div className="flex justify-end items-center space-x-1.5">
+                                            <button
+                                              type="button"
+                                              onClick={() => handleOpenAddStockModal(item)}
+                                              className="p-1.5 text-gray-400 hover:text-sig-green hover:bg-sig-green/10 rounded-lg transition-all duration-150 cursor-pointer"
+                                              title="Add Stock to this item"
+                                            >
+                                              <PlusCircle className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setItemEditing(item)
+                                                setItemName(item.name)
+                                                setItemCategory(item.category)
+                                                setItemUnit(item.unit)
+                                                setItemQty(item.quantity.toString())
+                                                setItemExpiry(item.expiryDate || '')
+                                                setItemPiecesPerUnit(
+                                                  item.piecesPerUnit
+                                                    ? item.piecesPerUnit.toString()
+                                                    : ''
+                                                )
+                                                setItemGroupUnit(item.groupUnit || 'none')
+                                                setItemErrors({})
+                                              }}
+                                              className="p-1.5 text-gray-400 hover:text-navy-blue hover:bg-navy-blue/10 rounded-lg transition-all duration-150 cursor-pointer"
+                                              title="Edit item"
+                                            >
+                                              <Edit2 className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleDeleteInventory(item.id)}
+                                              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all duration-150 cursor-pointer"
+                                              title="Delete item"
+                                            >
+                                              <Trash2 className="w-4 h-4" />
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                    {inventoryList.length === 0 && (
+                                      <tr>
+                                        <td colSpan="5" className="text-center py-8 text-gray-400 text-xs font-medium">
+                                          No inventory entries available.
+                                        </td>
+                                      </tr>
+                                    )}
+                                    {inventoryList.length > 0 && filteredInventory.length === 0 && (
+                                      <tr>
+                                        <td colSpan="5" className="text-center py-8 text-gray-400 text-xs font-medium">
+                                          <div>No items match the selected filter criteria.</div>
                                           <button
+                                            type="button"
                                             onClick={() => {
-                                              setItemEditing(item)
-                                              setItemName(item.name)
-                                              setItemCategory(item.category)
-                                              setItemUnit(item.unit)
-                                              setItemQty(item.quantity.toString())
-                                              setItemExpiry(item.expiryDate || '')
-                                              setItemPiecesPerUnit(
-                                                item.piecesPerUnit
-                                                  ? item.piecesPerUnit.toString()
-                                                  : ''
-                                              )
-                                              setItemGroupUnit(item.groupUnit || 'none')
-                                              setItemErrors({})
+                                              setInvSearchQuery('')
+                                              setCategoryFilter('all')
+                                              setUnitFilter('all')
+                                              setStatusFilter('all')
+                                              setExpirationFilter('all')
+                                              setInvCurrentPage(1)
                                             }}
-                                            className="p-1 text-gray-400 hover:text-navy-blue transition-all duration-150 cursor-pointer"
+                                            className="mt-2 text-xs font-bold text-navy-blue hover:underline cursor-pointer"
                                           >
-                                            <Edit2 className="w-4 h-4" />
+                                            Reset Filters
                                           </button>
-                                          <button
-                                            onClick={() => handleDeleteInventory(item.id)}
-                                            className="p-1 text-gray-400 hover:text-red-500 transition-all duration-150 cursor-pointer"
-                                          >
-                                            <Trash2 className="w-4 h-4" />
-                                          </button>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  ))}
-                                {inventoryList.length === 0 && (
-                                  <tr>
-                                    <td colSpan="5" className="text-center py-6 text-gray-400 text-xs font-medium">
-                                      No inventory entries available.
-                                    </td>
-                                  </tr>
-                                )}
-                              </tbody>
-                            </table>
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+
+                              {/* Pagination Controls */}
+                              {filteredInventory.length > 0 && (
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-gray-100 mt-2 text-xs">
+                                  <div className="text-gray-500 font-medium">
+                                    Showing <span className="font-bold text-navy-blue">{startIndex + 1}</span> to{' '}
+                                    <span className="font-bold text-navy-blue">{endIndex}</span> of{' '}
+                                    <span className="font-bold text-navy-blue">{filteredInventory.length}</span> records
+                                    {filteredInventory.length !== inventoryList.length && (
+                                      <span className="text-gray-400 ml-1">
+                                        (filtered from {inventoryList.length} total)
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {totalPages > 1 && (
+                                    <div className="flex items-center space-x-1 self-center sm:self-auto">
+                                      {/* Previous Button */}
+                                      <button
+                                        type="button"
+                                        disabled={safeCurrentPage <= 1}
+                                        onClick={() => setInvCurrentPage((p) => Math.max(1, p - 1))}
+                                        className={`flex items-center space-x-1 px-3 py-1.5 rounded-xl font-bold transition text-xs ${
+                                          safeCurrentPage <= 1
+                                            ? 'opacity-40 cursor-not-allowed text-gray-400 bg-gray-100'
+                                            : 'text-navy-blue hover:bg-gray-100 cursor-pointer border border-gray-200'
+                                        }`}
+                                      >
+                                        <ChevronLeft className="w-3.5 h-3.5" />
+                                        <span>Previous</span>
+                                      </button>
+
+                                      {/* Page Numbers */}
+                                      <div className="flex items-center space-x-1">
+                                        {(() => {
+                                          const pages = []
+                                          let startPage = Math.max(1, safeCurrentPage - 2)
+                                          let endPage = Math.min(totalPages, startPage + 4)
+                                          if (endPage - startPage < 4) {
+                                            startPage = Math.max(1, endPage - 4)
+                                          }
+
+                                          if (startPage > 1) {
+                                            pages.push(
+                                              <button
+                                                key={1}
+                                                type="button"
+                                                onClick={() => setInvCurrentPage(1)}
+                                                className="w-8 h-8 rounded-xl text-xs font-bold transition flex items-center justify-center cursor-pointer text-navy-blue hover:bg-gray-100 border border-gray-200"
+                                              >
+                                                1
+                                              </button>
+                                            )
+                                            if (startPage > 2) {
+                                              pages.push(
+                                                <span key="ellipsis-start" className="px-1 text-gray-400 font-bold">
+                                                  ...
+                                                </span>
+                                              )
+                                            }
+                                          }
+
+                                          for (let p = startPage; p <= endPage; p++) {
+                                            pages.push(
+                                              <button
+                                                key={p}
+                                                type="button"
+                                                onClick={() => setInvCurrentPage(p)}
+                                                className={`w-8 h-8 rounded-xl text-xs font-bold transition flex items-center justify-center cursor-pointer ${
+                                                  safeCurrentPage === p
+                                                    ? 'bg-navy-blue text-white shadow-2xs'
+                                                    : 'text-navy-blue hover:bg-gray-100 border border-gray-200'
+                                                }`}
+                                              >
+                                                {p}
+                                              </button>
+                                            )
+                                          }
+
+                                          if (endPage < totalPages) {
+                                            if (endPage < totalPages - 1) {
+                                              pages.push(
+                                                <span key="ellipsis-end" className="px-1 text-gray-400 font-bold">
+                                                  ...
+                                                </span>
+                                              )
+                                            }
+                                            pages.push(
+                                              <button
+                                                key={totalPages}
+                                                type="button"
+                                                onClick={() => setInvCurrentPage(totalPages)}
+                                                className="w-8 h-8 rounded-xl text-xs font-bold transition flex items-center justify-center cursor-pointer text-navy-blue hover:bg-gray-100 border border-gray-200"
+                                              >
+                                                {totalPages}
+                                              </button>
+                                            )
+                                          }
+
+                                          return pages
+                                        })()}
+                                      </div>
+
+                                      {/* Next Button */}
+                                      <button
+                                        type="button"
+                                        disabled={safeCurrentPage >= totalPages}
+                                        onClick={() => setInvCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                        className={`flex items-center space-x-1 px-3 py-1.5 rounded-xl font-bold transition text-xs ${
+                                          safeCurrentPage >= totalPages
+                                            ? 'opacity-40 cursor-not-allowed text-gray-400 bg-gray-100'
+                                            : 'text-navy-blue hover:bg-gray-100 cursor-pointer border border-gray-200'
+                                        }`}
+                                      >
+                                        <span>Next</span>
+                                        <ChevronRight className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </div>
+                        )
+                      })()}
 
                       {/* Modal Overlay for Add Catalog Item */}
                       {isAddModalOpen &&
@@ -3614,6 +4277,37 @@ export default function AdminDashboard({ user, onLogout }) {
                                   return null
                                 })()}
 
+                                {/* Inventory Batches Details */}
+                                {Array.isArray(itemEditing.batches) &&
+                                  itemEditing.batches.filter((b) => b.quantity > 0).length > 1 && (
+                                    <div className="bg-navy-blue/5 border border-navy-blue/10 rounded-xl p-3 text-xs space-y-2">
+                                      <div className="font-bold text-navy-blue flex items-center justify-between">
+                                        <span>Inventory Batches ({itemEditing.batches.filter((b) => b.quantity > 0).length}):</span>
+                                        <span className="text-[10px] text-gray-500 font-normal">FEFO Tracked</span>
+                                      </div>
+                                      <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                                        {itemEditing.batches
+                                          .filter((b) => b.quantity > 0)
+                                          .map((b, idx) => (
+                                            <div
+                                              key={b.id || idx}
+                                              className="flex justify-between items-center text-[11px] text-gray-600 bg-white px-2.5 py-1.5 rounded-lg border border-gray-100"
+                                            >
+                                              <span className="font-semibold text-navy-blue">
+                                                Batch {idx + 1}: {b.quantity} {formatUnit(b.quantity, itemEditing.unit || 'pieces')}
+                                              </span>
+                                              <span className={b.expiryDate && getExpirationInfo(b.expiryDate).isNearExpiry ? 'text-red-500 font-bold' : 'text-gray-500'}>
+                                                {b.expiryDate ? `Exp: ${new Date(b.expiryDate).toLocaleDateString()}` : 'No Expiry'}
+                                              </span>
+                                            </div>
+                                          ))}
+                                      </div>
+                                      <p className="text-[10px] text-gray-400">
+                                        Each stock replenishment maintains its distinct expiration date.
+                                      </p>
+                                    </div>
+                                  )}
+
                                 {/* Expiration Date */}
                                 <div>
                                   <label className="block text-gray-700 text-xs font-semibold mb-1">
@@ -3682,6 +4376,423 @@ export default function AdminDashboard({ user, onLogout }) {
                                     className="flex-1 bg-navy-blue text-white rounded-full text-xs font-semibold py-2 px-4 border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green transition flex items-center justify-center cursor-pointer"
                                   >
                                     {loading ? 'Saving...' : 'Update Item'}
+                                  </button>
+                                </div>
+                              </form>
+                            </div>
+                          </div>,
+                          document.body
+                        )}
+
+                      {/* Modal Overlay for Add Stock to Existing Item */}
+                      {isAddStockModalOpen &&
+                        createPortal(
+                          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-modal-overlay animate-fade-in">
+                            <div className="glass-modal rounded-2xl p-6 max-w-md w-full shadow-2xl border border-white/80 space-y-4 max-h-[90vh] overflow-y-auto">
+                              <div className="flex justify-between items-center border-b border-gray-100 pb-3">
+                                <div className="flex items-center space-x-2">
+                                  <div className="p-2 bg-navy-blue/5 rounded-xl text-navy-blue">
+                                    <Plus className="w-4 h-4" />
+                                  </div>
+                                  <div>
+                                    <h3 className="font-bold text-navy-blue text-sm">Add Stock to Existing Item</h3>
+                                    <p className="text-[11px] text-gray-400">Replenish stock without creating duplicate records</p>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsAddStockModalOpen(false)
+                                    setAddStockItemId('')
+                                    setAddStockSearch('')
+                                    setAddStockQty('')
+                                    setAddStockQtyGroup('')
+                                    setAddStockQtyPieces('')
+                                    setAddStockExpiry('')
+                                    setAddStockErrors({})
+                                  }}
+                                  className="text-gray-400 hover:text-navy-blue transition-all duration-150 cursor-pointer"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+
+                              <form onSubmit={handleSaveAddStock} className="space-y-4">
+                                {/* Select Item */}
+                                <div>
+                                  <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                    Select Inventory Item <span className="text-red-500">*</span>
+                                  </label>
+                                  <div className="relative">
+                                    <input
+                                      type="text"
+                                      value={addStockSearch}
+                                      onFocus={() => setShowAddStockDropdown(true)}
+                                      onBlur={() => setTimeout(() => setShowAddStockDropdown(false), 200)}
+                                      onChange={(e) => {
+                                        setAddStockSearch(e.target.value)
+                                        if (!e.target.value) {
+                                          setAddStockItemId('')
+                                        }
+                                      }}
+                                      placeholder="Type to search existing item..."
+                                      className={`w-full pl-2.5 pr-16 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${addStockErrors.itemId ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                      style={{ height: '40px' }}
+                                    />
+                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
+                                      {addStockSearch && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setAddStockSearch('')
+                                            setAddStockItemId('')
+                                          }}
+                                          className="text-gray-400 hover:text-red-500 transition p-0.5 rounded cursor-pointer"
+                                        >
+                                          <X className="w-3.5 h-3.5" />
+                                        </button>
+                                      )}
+                                      <div className="pointer-events-none text-gray-400">
+                                        <ChevronRight className="w-4 h-4 transform rotate-90" />
+                                      </div>
+                                    </div>
+
+                                    {showAddStockDropdown && (
+                                      <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-56 overflow-y-auto">
+                                        {inventoryList
+                                          .filter((item) =>
+                                            !addStockSearch ||
+                                            item.name.toLowerCase().includes(addStockSearch.toLowerCase()) ||
+                                            (item.category || '').toLowerCase().includes(addStockSearch.toLowerCase())
+                                          )
+                                          .map((item) => {
+                                            const optText = `${item.name} (${item.category}) - ${displayStock(item.quantity, item.unit, item.groupUnit, item.piecesPerUnit)} in stock`
+                                            return (
+                                              <div
+                                                key={item.id}
+                                                onMouseDown={(e) => e.preventDefault()}
+                                                onClick={() => {
+                                                  setAddStockItemId(item.id)
+                                                  setAddStockSearch(optText)
+                                                  setAddStockErrors((prev) => {
+                                                    const copy = { ...prev }
+                                                    delete copy.itemId
+                                                    return copy
+                                                  })
+                                                  setShowAddStockDropdown(false)
+                                                }}
+                                                className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
+                                              >
+                                                <div className="flex justify-between items-center">
+                                                  <span className="font-bold text-navy-blue">{item.name}</span>
+                                                  <span className="text-[10px] text-gray-400 font-normal capitalize">
+                                                    {item.category}
+                                                  </span>
+                                                </div>
+                                                <div className="text-[11px] text-gray-500 mt-0.5">
+                                                  Current Stock: <span className="font-bold text-navy-blue">{displayStock(item.quantity, item.unit, item.groupUnit, item.piecesPerUnit)}</span>
+                                                  {item.expiryDate && (
+                                                    <span className="ml-2 text-gray-400">
+                                                      (Exp: {new Date(item.expiryDate).toLocaleDateString()})
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            )
+                                          })}
+                                        {inventoryList.filter((item) =>
+                                          !addStockSearch ||
+                                          item.name.toLowerCase().includes(addStockSearch.toLowerCase()) ||
+                                          (item.category || '').toLowerCase().includes(addStockSearch.toLowerCase())
+                                        ).length === 0 && (
+                                          <div className="p-3 text-xs text-gray-400 text-center font-medium">
+                                            No matching inventory items
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                  {addStockErrors.itemId && (
+                                    <p className="text-red-500 text-[10px] mt-1 font-semibold">{addStockErrors.itemId}</p>
+                                  )}
+                                </div>
+
+                                {/* Selected Item Info & Inputs */}
+                                {(() => {
+                                  const selected = inventoryList.find((i) => i.id === addStockItemId)
+                                  if (!selected) return null
+
+                                  const hasGroup = selected.groupUnit && selected.groupUnit !== 'none' && selected.piecesPerUnit
+                                  const pPerUnit = parseInt(selected.piecesPerUnit, 10) || 12
+                                  const groupName = selected.groupUnit === 'box' ? 'Boxes' : selected.groupUnit === 'bundle' ? 'Bundles' : 'Packs'
+                                  const expInfo = getExpirationInfo(selected.expiryDate)
+
+                                  // Calculate preview of added stock
+                                  let addedTotal = 0
+                                  if (hasGroup) {
+                                    const grp = parseInt(addStockQtyGroup, 10) || 0
+                                    const pcs = parseInt(addStockQtyPieces, 10) || 0
+                                    addedTotal = grp * pPerUnit + pcs
+                                  } else {
+                                    addedTotal = parseInt(addStockQty, 10) || 0
+                                  }
+                                  const newTotalQty = selected.quantity + addedTotal
+
+                                  return (
+                                    <div className="space-y-4 animate-fade-in">
+                                      {/* Item Details Summary Card */}
+                                      <div className="bg-navy-blue/5 border border-navy-blue/10 rounded-xl p-3 text-xs space-y-2">
+                                        <div className="flex justify-between items-center">
+                                          <span className="font-bold text-navy-blue text-sm">{selected.name}</span>
+                                          <span className="text-[10px] font-bold uppercase bg-white border border-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
+                                            {selected.category}
+                                          </span>
+                                        </div>
+                                        <div className="text-gray-600">
+                                          Current Total Stock:{' '}
+                                          <strong className="text-navy-blue">
+                                            {displayStock(selected.quantity, selected.unit, selected.groupUnit, selected.piecesPerUnit)}
+                                          </strong>
+                                          {' '}({selected.quantity} total {selected.unit || 'pieces'})
+                                        </div>
+
+                                        {/* Existing Batches List */}
+                                        {(() => {
+                                          const activeBatches = (Array.isArray(selected.batches) && selected.batches.length > 0)
+                                            ? selected.batches.filter((b) => b.quantity > 0)
+                                            : (selected.quantity > 0
+                                                ? [{
+                                                    id: `batch-${selected.id}-init`,
+                                                    quantity: selected.quantity,
+                                                    expiryDate: selected.expiryDate || null
+                                                  }]
+                                                : [])
+
+                                          if (activeBatches.length === 0) return null
+
+                                          return (
+                                            <div className="bg-white/90 rounded-lg p-2 border border-navy-blue/10 space-y-1">
+                                              <div className="text-[11px] font-bold text-navy-blue flex items-center justify-between">
+                                                <span>Current Batches ({activeBatches.length}):</span>
+                                                <span className="text-[10px] text-gray-400 font-normal">FEFO Tracked</span>
+                                              </div>
+                                              <div className="space-y-1 max-h-24 overflow-y-auto pr-1">
+                                                {activeBatches.map((b, idx) => (
+                                                  <div key={b.id || idx} className="flex justify-between items-center text-[11px] text-gray-600 bg-gray-50/80 px-2 py-1 rounded">
+                                                    <span className="font-medium text-navy-blue">
+                                                      Batch {idx + 1}: {b.quantity} {formatUnit(b.quantity, selected.unit || 'pieces')}
+                                                    </span>
+                                                    <span className={b.expiryDate && getExpirationInfo(b.expiryDate).isNearExpiry ? 'text-red-500 font-bold' : 'text-gray-500'}>
+                                                      {b.expiryDate ? `Exp: ${new Date(b.expiryDate).toLocaleDateString()}` : 'No Expiry'}
+                                                    </span>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          )
+                                        })()}
+
+                                        {selected.expiryDate && (
+                                          <div className={`flex items-center text-[11px] ${expInfo.isNearExpiry ? 'text-red-500 font-semibold' : 'text-gray-500'}`}>
+                                            <Clock className="w-3 h-3 mr-1" />
+                                            Earliest Expiry: {new Date(selected.expiryDate).toLocaleDateString()}
+                                            {expInfo.isExpired && <span className="ml-1 text-[10px] font-bold text-red-600 bg-red-100 px-1 rounded">Expired</span>}
+                                            {!expInfo.isExpired && expInfo.isNearExpiry && <span className="ml-1 text-[10px] font-bold text-red-600 bg-red-100 px-1 rounded">≤ 4 mos remaining</span>}
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {/* Stock Addition Inputs */}
+                                      {hasGroup ? (
+                                        <div className="space-y-3">
+                                          <label className="block text-gray-700 text-xs font-semibold">
+                                            Stock to Add ({groupName} & Pieces)
+                                          </label>
+                                          <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                              <label className="block text-gray-500 text-[11px] font-medium mb-1">
+                                                Add in {groupName}
+                                              </label>
+                                              <input
+                                                type="text"
+                                                value={addStockQtyGroup}
+                                                onChange={(e) => {
+                                                  if (/^\d*$/.test(e.target.value)) {
+                                                    setAddStockQtyGroup(e.target.value)
+                                                    setAddStockErrors((prev) => {
+                                                      const c = { ...prev }
+                                                      delete c.qty
+                                                      return c
+                                                    })
+                                                  }
+                                                }}
+                                                placeholder="0"
+                                                className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                                                style={{ height: '40px' }}
+                                              />
+                                              <p className="text-[10px] text-gray-400 mt-0.5">({pPerUnit} pieces per {selected.groupUnit})</p>
+                                            </div>
+                                            <div>
+                                              <label className="block text-gray-500 text-[11px] font-medium mb-1">
+                                                Add in {selected.unit || 'Pieces'}
+                                              </label>
+                                              <input
+                                                type="text"
+                                                value={addStockQtyPieces}
+                                                onChange={(e) => {
+                                                  if (/^\d*$/.test(e.target.value)) {
+                                                    setAddStockQtyPieces(e.target.value)
+                                                    setAddStockErrors((prev) => {
+                                                      const c = { ...prev }
+                                                      delete c.qty
+                                                      return c
+                                                    })
+                                                  }
+                                                }}
+                                                placeholder="0"
+                                                className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                                                style={{ height: '40px' }}
+                                              />
+                                              <p className="text-[10px] text-gray-400 mt-0.5">Individual units</p>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <div>
+                                          <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                            Quantity to Add ({selected.unit || 'Pieces'}) <span className="text-red-500">*</span>
+                                          </label>
+                                          <input
+                                            type="text"
+                                            value={addStockQty}
+                                            onChange={(e) => {
+                                              if (/^\d*$/.test(e.target.value)) {
+                                                setAddStockQty(e.target.value)
+                                                setAddStockErrors((prev) => {
+                                                  const c = { ...prev }
+                                                  delete c.qty
+                                                  return c
+                                                })
+                                              }
+                                            }}
+                                            placeholder="e.g. 30"
+                                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${addStockErrors.qty ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                            style={{ height: '40px' }}
+                                          />
+                                        </div>
+                                      )}
+                                      {addStockErrors.qty && (
+                                        <p className="text-red-500 text-[10px] font-semibold">{addStockErrors.qty}</p>
+                                      )}
+
+                                      {/* Expiration Date for New Stock Batch */}
+                                      <div>
+                                        <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                          Expiration Date (New Stock Batch){' '}
+                                          {!isSuppliesCategory(selected.category) ? (
+                                            <span className="text-red-500">*</span>
+                                          ) : (
+                                            <span className="text-gray-400 font-normal">(Optional for supplies)</span>
+                                          )}
+                                        </label>
+                                        <div
+                                          className={
+                                            addStockErrors.expiry
+                                              ? 'border border-red-500 rounded-xl p-0.5 ring-2 ring-red-500/10'
+                                              : ''
+                                          }
+                                        >
+                                          <GlassDatePicker
+                                            value={addStockExpiry ? addStockExpiry.split('T')[0] : ''}
+                                            disabled={isSuppliesCategory(selected.category)}
+                                            disablePast={true}
+                                            onChange={(val) => {
+                                              setAddStockExpiry(val)
+                                              if (val && isPastDate(val)) {
+                                                setAddStockErrors((prev) => ({
+                                                  ...prev,
+                                                  expiry: DATE_ERROR_MESSAGES.EXPIRY_PAST
+                                                }))
+                                              } else {
+                                                setAddStockErrors((prev) => {
+                                                  const copy = { ...prev }
+                                                  delete copy.expiry
+                                                  return copy
+                                                })
+                                              }
+                                            }}
+                                            showTime={false}
+                                            placeholder={isSuppliesCategory(selected.category) ? 'Not applicable for supplies' : 'dd/mm/yyyy'}
+                                          />
+                                        </div>
+                                        {addStockErrors.expiry && (
+                                          <p className="text-red-500 text-[10px] mt-1 font-semibold">{addStockErrors.expiry}</p>
+                                        )}
+                                        <p className="text-[10px] text-gray-400 mt-1">
+                                          Applies exclusively to this new batch. Existing stock expiration dates are never changed.
+                                        </p>
+                                      </div>
+
+                                      {/* Live Stock Calculation Preview */}
+                                      {addedTotal > 0 && (
+                                        <div className="bg-sig-green/10 border border-sig-green/20 rounded-xl p-3 text-xs space-y-1.5 animate-fade-in">
+                                          <div className="flex justify-between text-gray-600">
+                                            <span>Existing Stock:</span>
+                                            <span className="font-semibold text-navy-blue">{selected.quantity} {selected.unit || 'pieces'}</span>
+                                          </div>
+                                          <div className="flex justify-between text-sig-green font-bold">
+                                            <span>+ New Stock Batch:</span>
+                                            <span>
+                                              +{addedTotal} {selected.unit || 'pieces'}
+                                              {addStockExpiry ? ` (Exp: ${new Date(addStockExpiry).toLocaleDateString()})` : ''}
+                                            </span>
+                                          </div>
+                                          <div className="border-t border-sig-green/20 pt-1.5 flex justify-between items-center text-navy-blue font-extrabold text-sm">
+                                            <span>Resulting Total Stock:</span>
+                                            <span>
+                                              {displayStock(newTotalQty, selected.unit, selected.groupUnit, selected.piecesPerUnit)}
+                                              <span className="text-xs font-normal text-gray-500 ml-1">({newTotalQty} {selected.unit || 'pieces'})</span>
+                                            </span>
+                                          </div>
+                                          <div className="text-[10px] text-gray-500 flex items-center pt-0.5">
+                                            <span className="font-semibold text-sig-green mr-1">✓ Multi-Batch FEFO:</span>
+                                            <span>Batch expiration dates are preserved separately under this item.</span>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )
+                                })()}
+
+                                {/* Action Buttons */}
+                                <div className="flex justify-end space-x-2 pt-2 border-t border-gray-100">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setIsAddStockModalOpen(false)
+                                      setAddStockItemId('')
+                                      setAddStockSearch('')
+                                      setAddStockQty('')
+                                      setAddStockQtyGroup('')
+                                      setAddStockQtyPieces('')
+                                      setAddStockExpiry('')
+                                      setAddStockErrors({})
+                                    }}
+                                    className="px-4 py-2 border border-gray-200 text-gray-600 rounded-xl text-xs font-semibold hover:bg-gray-50 transition cursor-pointer"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="submit"
+                                    disabled={loading || !addStockItemId}
+                                    className={`px-5 py-2 bg-navy-blue text-white rounded-xl text-xs font-bold transition flex items-center space-x-1.5 shadow-sm ${
+                                      loading || !addStockItemId
+                                        ? 'opacity-50 cursor-not-allowed'
+                                        : 'hover:bg-white hover:text-sig-green border border-navy-blue hover:border-sig-green cursor-pointer'
+                                    }`}
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    <span>Confirm & Add Stock</span>
                                   </button>
                                 </div>
                               </form>

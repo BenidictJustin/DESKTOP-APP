@@ -77,10 +77,15 @@ export default function UpcomingEventsSchedule({
     })
   }, [events, selectedYear, statusFilter, currentMonthIdx, currentYear])
 
+  // Filter only months that contain at least one event
+  const visibleMonths = useMemo(() => {
+    return groupedMonths.filter((m) => m.events.length > 0)
+  }, [groupedMonths])
+
   // Total count of scheduled events in the selected year
   const totalYearEvents = useMemo(() => {
-    return groupedMonths.reduce((acc, m) => acc + m.events.length, 0)
-  }, [groupedMonths])
+    return visibleMonths.reduce((acc, m) => acc + m.events.length, 0)
+  }, [visibleMonths])
 
   const handlePrevYear = () => setSelectedYear((prev) => prev - 1)
   const handleNextYear = () => setSelectedYear((prev) => prev + 1)
@@ -101,7 +106,7 @@ export default function UpcomingEventsSchedule({
                 {title}
               </h3>
               <span className="inline-flex items-center text-xs font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-sig-green/10 text-sig-green border border-sig-green/20 whitespace-nowrap">
-                January – December {selectedYear}
+                {selectedYear}
               </span>
             </div>
           </div>
@@ -175,53 +180,48 @@ export default function UpcomingEventsSchedule({
         </div>
       </div>
 
-      {/* ── Complete 12-Month Calendar Schedule Grid (January - December) ── */}
+      {/* ── Upcoming Events Calendar Schedule Grid ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-        {groupedMonths.map((m) => {
-          const hasOverflow = m.events.length > 3
+        {visibleMonths.length === 0 ? (
+          <div className="col-span-full py-12 text-center bg-slate-50/50 rounded-2xl border border-dashed border-gray-200">
+            <CalendarIcon className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+            <p className="text-xs text-gray-400 font-medium select-none">
+              No scheduled events found for {selectedYear}
+            </p>
+          </div>
+        ) : (
+          visibleMonths.map((m) => {
+            const hasOverflow = m.events.length > 3
 
-          return (
-            <div
-              key={m.name}
-              className={`h-[275px] rounded-2xl p-3.5 border transition-all duration-200 flex flex-col justify-between overflow-hidden ${
-                m.isCurrent
-                  ? 'bg-gradient-to-b from-white via-white to-sig-green/5 border-sig-green/40 shadow-xs ring-1 ring-sig-green/20'
-                  : 'bg-gradient-to-b from-slate-50/70 to-white border-gray-200/80 hover:border-navy-blue/25 hover:shadow-2xs'
-              }`}
-            >
-              {/* Month Card Title Header */}
-              <div className="border-b border-gray-100 pb-2 mb-2 flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-1.5">
-                  <h4 className="font-extrabold text-navy-blue text-xs uppercase tracking-widest">
-                    {m.name}
-                  </h4>
-                  {m.isCurrent && (
-                    <span className="bg-sig-green text-white text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded tracking-wider leading-none">
-                      This Month
-                    </span>
-                  )}
-                </div>
-                <span
-                  className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full leading-none ${
-                    m.events.length > 0
-                      ? 'bg-navy-blue text-sig-green'
-                      : 'bg-gray-100 text-gray-400'
-                  }`}
-                >
-                  {m.events.length} {m.events.length === 1 ? 'Event' : 'Events'}
-                </span>
-              </div>
-
-              {/* Scrollable Events List (consistent height, up to 3 visible without scroll) */}
-              <div className="flex-1 overflow-y-auto pr-1 space-y-1.5 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-300">
-                {m.events.length === 0 ? (
-                  <div className="h-full flex items-center justify-center py-6 text-center">
-                    <p className="text-xs text-gray-400 font-medium italic select-none">
-                      No scheduled events
-                    </p>
+            return (
+              <div
+                key={m.name}
+                className={`h-[275px] rounded-2xl p-3.5 border transition-all duration-200 flex flex-col justify-between overflow-hidden ${
+                  m.isCurrent
+                    ? 'bg-gradient-to-b from-white via-white to-sig-green/5 border-sig-green/40 shadow-xs ring-1 ring-sig-green/20'
+                    : 'bg-gradient-to-b from-slate-50/70 to-white border-gray-200/80 hover:border-navy-blue/25 hover:shadow-2xs'
+                }`}
+              >
+                {/* Month Card Title Header */}
+                <div className="border-b border-gray-100 pb-2 mb-2 flex items-center justify-between shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <h4 className="font-extrabold text-navy-blue text-xs uppercase tracking-widest">
+                      {m.name}
+                    </h4>
+                    {m.isCurrent && (
+                      <span className="bg-sig-green text-white text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded tracking-wider leading-none">
+                        This Month
+                      </span>
+                    )}
                   </div>
-                ) : (
-                  m.events.map((evt) => {
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full leading-none bg-navy-blue text-sig-green">
+                    {m.events.length} {m.events.length === 1 ? 'Event' : 'Events'}
+                  </span>
+                </div>
+
+                {/* Scrollable Events List (consistent height, up to 3 visible without scroll) */}
+                <div className="flex-1 overflow-y-auto pr-1 space-y-1.5 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-300">
+                  {m.events.map((evt) => {
                     const org = orgs.find((o) => o.id === evt.assignedOrganizationId)
                     const d = new Date(evt.scheduleDate)
                     const dayStr = !isNaN(d.getTime()) ? d.getDate() : ''
@@ -268,28 +268,26 @@ export default function UpcomingEventsSchedule({
                         </div>
                       </div>
                     )
-                  })
-                )}
-              </div>
+                  })}
+                </div>
 
-              {/* Month Footer Status / Scroll Hint */}
-              <div className="pt-1.5 border-t border-gray-100 flex items-center justify-between text-[9.5px] text-gray-400 font-semibold shrink-0">
-                <span>
-                  {hasOverflow ? (
-                    <span className="text-sig-green font-bold">
-                      +{m.events.length - 3} more (scroll)
-                    </span>
-                  ) : m.events.length > 0 ? (
-                    <span>All events shown</span>
-                  ) : (
-                    <span>—</span>
-                  )}
-                </span>
-                <span className="text-gray-300">{selectedYear}</span>
+                {/* Month Footer Status / Scroll Hint */}
+                <div className="pt-1.5 border-t border-gray-100 flex items-center justify-between text-[9.5px] text-gray-400 font-semibold shrink-0">
+                  <span>
+                    {hasOverflow ? (
+                      <span className="text-sig-green font-bold">
+                        +{m.events.length - 3} more (scroll)
+                      </span>
+                    ) : (
+                      <span>All events shown</span>
+                    )}
+                  </span>
+                  <span className="text-gray-300">{selectedYear}</span>
+                </div>
               </div>
-            </div>
-          )
-        })}
+            )
+          })
+        )}
       </div>
     </div>
   )
