@@ -293,7 +293,17 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     setWorkspaceIsReadOnly(isReadOnly)
     setWorkspaceFeedback(rep.status === 'returned' ? rep.adminFeedback : null)
     setLinkToEvent(!!rep.eventId)
-    if (rep.googleDocsUrl) {
+    const isBuiltInTemplateRep = Boolean(
+      rep.documentSource === 'built_in_template' ||
+      rep.submissionType === 'template' ||
+      (rep.isTemplateActive && !rep.googleDocsUrl && !rep.originalDocxUrl)
+    )
+    if (isBuiltInTemplateRep) {
+      try {
+        localStorage.removeItem('dommunity_saved_gdoc_url')
+        localStorage.removeItem(`dommunity_gdocs_${rep.id}`)
+      } catch {}
+    } else if (rep.googleDocsUrl) {
       localStorage.setItem(`dommunity_gdocs_${rep.id}`, rep.googleDocsUrl)
       localStorage.setItem('dommunity_saved_gdoc_url', rep.googleDocsUrl)
     }
@@ -316,6 +326,20 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     (rep) => {
       if (!rep) return
 
+      const isBuiltInTemplate = Boolean(
+        rep.documentSource === 'built_in_template' ||
+        rep.submissionType === 'template' ||
+        (rep.isTemplateActive && !rep.originalDocxUrl && rep.submissionType !== 'gdoc_submission')
+      )
+
+      // 1. Built-in Template:
+      // If the report was created using a built-in DommUnity template:
+      // Returned → Coordinator clicks Edit → Opens existing DommUnity Document Editor
+      if (isBuiltInTemplate) {
+        openReport(rep)
+        return
+      }
+
       const gdocUrl =
         rep.googleDocsUrl ||
         localStorage.getItem(`dommunity_gdocs_${rep.id}`) ||
@@ -326,7 +350,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       const isGoogleDocs = Boolean(rep.submissionType === 'gdoc_submission' || rep.googleDocsUrl)
       const isUploadedDoc = Boolean(rep.submissionType === 'docx_upload' || rep.originalDocxUrl)
 
-      // 3. Coordinator – Returned Google Docs Report
+      // 2. Coordinator – Returned Google Docs Report
       // If the Coordinator originally submitted the report using Google Docs / a saved Google Docs link:
       // Open the same saved Google Docs document directly.
       // Do not open the DommUnity Document Editor for this type of report.
@@ -341,7 +365,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         return
       }
 
-      // 4. Coordinator – Returned Uploaded Document
+      // 3. Coordinator – Returned Uploaded Document
       // If the original report was submitted through the Upload workflow:
       // Open Google Docs when the report is returned.
       // Do not redirect it to document editor.
@@ -355,9 +379,6 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         return
       }
 
-      // 5. Built-in Template – DO NOT CHANGE
-      // If the report was created using a built-in DommUnity template, do not change the existing behavior.
-      // Returned → Coordinator clicks Edit → Existing DommUnity Document Editor
       openReport(rep)
     },
     [openReport]
@@ -435,6 +456,25 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           )
         }
 
+        // ── Determine Document Source and Submission Type ──
+        // Built-in Template: Submits the actual DommUnity document/content created from the template.
+        // Google Docs: Submits the Google Docs link.
+        // Uploaded Document: Submits the uploaded file.
+        const isBuiltInTemplate = Boolean(
+          layoutOptions.documentSource === 'built_in_template' ||
+          layoutOptions.submissionType === 'template' ||
+          layoutOptions.isTemplateActive === true ||
+          (!layoutOptions.googleDocsUrl && !layoutOptions.originalDocxUrl)
+        )
+
+        const resolvedGDocUrl = isBuiltInTemplate
+          ? null
+          : (layoutOptions.googleDocsUrl !== undefined && layoutOptions.googleDocsUrl !== null)
+            ? layoutOptions.googleDocsUrl
+            : (workspaceReportId
+              ? localStorage.getItem(`dommunity_gdocs_${workspaceReportId}`)
+              : null)
+
         const payload = {
           academicYear: workspaceReportAY || '2026-2027',
           semester: workspaceReportSem || '1st Semester',
@@ -465,23 +505,35 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           paperKey: layoutOptions.paperKey || 'Letter',
           orientation: layoutOptions.orientation || 'portrait',
           marginKey: layoutOptions.marginKey || 'Normal',
-          isTemplateActive:
-            layoutOptions.isTemplateActive !== undefined ? layoutOptions.isTemplateActive : true,
-          googleDocsUrl:
-            layoutOptions.googleDocsUrl !== undefined && layoutOptions.googleDocsUrl !== null
-              ? layoutOptions.googleDocsUrl
-              : (workspaceReportId
-                ? localStorage.getItem(`dommunity_gdocs_${workspaceReportId}`)
-                : localStorage.getItem('dommunity_saved_gdoc_url')) || null
+          isTemplateActive: isBuiltInTemplate
+            ? true
+            : (layoutOptions.isTemplateActive !== undefined ? layoutOptions.isTemplateActive : false),
+          documentSource: isBuiltInTemplate
+            ? 'built_in_template'
+            : (resolvedGDocUrl ? 'google_docs' : (layoutOptions.originalDocxUrl ? 'uploaded_document' : 'built_in_template')),
+          googleDocsUrl: isBuiltInTemplate ? null : (resolvedGDocUrl || null)
         }
 
         if (effectiveStatus === 'submitted') {
           payload.submittedAt = new Date().toISOString()
         }
 
-        // Handle submission types: Google Doc submissions take precedence when googleDocsUrl is set
-        if (payload.googleDocsUrl) {
+        // Handle submission types:
+        if (isBuiltInTemplate) {
+          payload.submissionType = 'template'
+          payload.documentSource = 'built_in_template'
+          payload.googleDocsUrl = null
+          delete payload.originalDocxUrl
+          delete payload.originalDocxName
+          try {
+            localStorage.removeItem('dommunity_saved_gdoc_url')
+            if (workspaceReportId) {
+              localStorage.removeItem(`dommunity_gdocs_${workspaceReportId}`)
+            }
+          } catch {}
+        } else if (payload.googleDocsUrl) {
           payload.submissionType = 'gdoc_submission'
+          payload.documentSource = 'google_docs'
           // Google Doc submissions are synced via narrative HTML and linked via googleDocsUrl;
           // never store huge DOCX base64 blobs in Firestore to avoid 1MB document limit rejections.
           delete payload.originalDocxUrl
@@ -514,6 +566,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           payload.originalDocxUrl = layoutOptions.originalDocxUrl
           payload.originalDocxName = `${title.replace(/[^a-zA-Z0-9_-]+/g, '_')}.docx`
           payload.submissionType = 'docx_upload'
+          payload.documentSource = 'uploaded_document'
         }
 
         let actualId = workspaceReportId
@@ -526,8 +579,12 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
             delete payload.submittedBy
           }
           await updateReport(workspaceReportId, payload, user.uid)
-          if (payload.googleDocsUrl) {
+          if (!isBuiltInTemplate && payload.googleDocsUrl) {
             localStorage.setItem(`dommunity_gdocs_${workspaceReportId}`, payload.googleDocsUrl)
+          } else {
+            try {
+              localStorage.removeItem(`dommunity_gdocs_${workspaceReportId}`)
+            } catch {}
           }
         } else {
           payload.createdAt = new Date().toISOString()
@@ -535,7 +592,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           const newReportObj = await addReport(payload, user.uid)
           if (newReportObj) {
             actualId = newReportObj.id || newReportObj
-            if (payload.googleDocsUrl) {
+            if (!isBuiltInTemplate && payload.googleDocsUrl) {
               localStorage.setItem(`dommunity_gdocs_${actualId}`, payload.googleDocsUrl)
             }
           }
@@ -545,13 +602,13 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         if (actualId) {
           if (layoutOptions.pdfBase64) {
             try {
-              if (layoutOptions.pdfBase64.length < 4500000) {
+              if (layoutOptions.pdfBase64.length < 400000) {
                 localStorage.setItem(`dommunity_gdoc_pdf_${actualId}`, layoutOptions.pdfBase64)
               }
             } catch {}
           } else if (payload.googleDocsUrl) {
             const prePdf = localStorage.getItem(`dommunity_gdoc_pdf_${payload.googleDocsUrl}`)
-            if (prePdf) {
+            if (prePdf && prePdf.length < 400000) {
               try {
                 localStorage.setItem(`dommunity_gdoc_pdf_${actualId}`, prePdf)
               } catch {}
@@ -560,13 +617,13 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
           if (layoutOptions.docxBase64) {
             try {
-              if (layoutOptions.docxBase64.length < 3500000) {
+              if (layoutOptions.docxBase64.length < 400000) {
                 localStorage.setItem(`dommunity_gdoc_buffer_${actualId}`, layoutOptions.docxBase64)
               }
             } catch {}
           } else if (payload.googleDocsUrl) {
             const preDocx = localStorage.getItem(`dommunity_gdoc_buffer_${payload.googleDocsUrl}`)
-            if (preDocx) {
+            if (preDocx && preDocx.length < 400000) {
               try {
                 localStorage.setItem(`dommunity_gdoc_buffer_${actualId}`, preDocx)
               } catch {}
@@ -668,28 +725,47 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           adminFeedback: null
         }
 
-        const gdocUrl =
-          rep.googleDocsUrl ||
-          localStorage.getItem(`dommunity_gdocs_${rep.id}`) ||
-          (rep.submissionType === 'gdoc_submission'
-            ? localStorage.getItem('dommunity_saved_gdoc_url')
-            : null)
+        const isBuiltInTemplate = Boolean(
+          rep.documentSource === 'built_in_template' ||
+          rep.submissionType === 'template' ||
+          (rep.isTemplateActive && !rep.originalDocxUrl && rep.submissionType !== 'gdoc_submission')
+        )
 
-        if (gdocUrl) {
-          payload.googleDocsUrl = gdocUrl
-          payload.submissionType = 'gdoc_submission'
+        if (isBuiltInTemplate) {
+          payload.documentSource = 'built_in_template'
+          payload.submissionType = 'template'
+          payload.googleDocsUrl = null
           delete payload.originalDocxUrl
           delete payload.originalDocxName
           try {
-            const gDocResult = await fetchGoogleDocData(gdocUrl)
-            if (gDocResult?.html) {
-              payload.narrative = gDocResult.html
+            localStorage.removeItem(`dommunity_gdocs_${rep.id}`)
+            localStorage.removeItem('dommunity_saved_gdoc_url')
+          } catch {}
+        } else {
+          const gdocUrl =
+            rep.googleDocsUrl ||
+            localStorage.getItem(`dommunity_gdocs_${rep.id}`) ||
+            (rep.submissionType === 'gdoc_submission'
+              ? localStorage.getItem('dommunity_saved_gdoc_url')
+              : null)
+
+          if (gdocUrl) {
+            payload.documentSource = 'google_docs'
+            payload.googleDocsUrl = gdocUrl
+            payload.submissionType = 'gdoc_submission'
+            delete payload.originalDocxUrl
+            delete payload.originalDocxName
+            try {
+              const gDocResult = await fetchGoogleDocData(gdocUrl)
+              if (gDocResult?.html) {
+                payload.narrative = gDocResult.html
+              }
+              if (gDocResult?.title && (!rep.activityTitle || rep.activityTitle === 'Untitled Report')) {
+                payload.activityTitle = gDocResult.title
+              }
+            } catch (gdocErr) {
+              console.warn('Could not refresh Google Doc content during resubmit:', gdocErr)
             }
-            if (gDocResult?.title && (!rep.activityTitle || rep.activityTitle === 'Untitled Report')) {
-              payload.activityTitle = gDocResult.title
-            }
-          } catch (gdocErr) {
-            console.warn('Could not refresh Google Doc content during resubmit:', gdocErr)
           }
         }
 
@@ -737,6 +813,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       const isPdf = file.name.toLowerCase().endsWith('.pdf')
       const payload = {
         submissionType: 'docx_upload',
+        documentSource: 'uploaded_document',
         fileType: isPdf ? 'pdf' : 'docx',
         academicYear: workspaceReportAY || '2024-2025',
         semester: workspaceReportSem || '1st Semester',
@@ -783,7 +860,13 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   }
 
   const compileReportPDF = useCallback(async (report) => {
-    if (report?.submissionType === 'docx_upload' || report?.originalDocxUrl) {
+    const isBuiltInTemplate = Boolean(
+      report?.documentSource === 'built_in_template' ||
+      report?.submissionType === 'template' ||
+      (report?.isTemplateActive && !report?.originalDocxUrl && report?.submissionType !== 'gdoc_submission')
+    )
+
+    if (!isBuiltInTemplate && (report?.submissionType === 'docx_upload' || report?.originalDocxUrl)) {
       if (report.fileType === 'pdf' || report.originalDocxName?.toLowerCase().endsWith('.pdf')) {
         downloadFileFromUrl(
           report.originalDocxUrl,
@@ -806,7 +889,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       return
     }
 
-    if (report?.googleDocsUrl) {
+    if (!isBuiltInTemplate && report?.googleDocsUrl) {
       const match = report.googleDocsUrl.match(/\/document\/d\/([a-zA-Z0-9-_]+)/)
       if (match) {
         const docId = match[1]
@@ -822,7 +905,13 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   }, [])
 
   const compileReportDOCX = useCallback(async (report) => {
-    if (report?.submissionType === 'docx_upload' || report?.originalDocxUrl) {
+    const isBuiltInTemplate = Boolean(
+      report?.documentSource === 'built_in_template' ||
+      report?.submissionType === 'template' ||
+      (report?.isTemplateActive && !report?.originalDocxUrl && report?.submissionType !== 'gdoc_submission')
+    )
+
+    if (!isBuiltInTemplate && (report?.submissionType === 'docx_upload' || report?.originalDocxUrl)) {
       downloadFileFromUrl(
         report.originalDocxUrl,
         report.originalDocxName || `${report.activityTitle || 'Report'}.${report.fileType === 'pdf' ? 'pdf' : 'docx'}`
@@ -830,7 +919,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       return
     }
 
-    if (report?.googleDocsUrl) {
+    if (!isBuiltInTemplate && report?.googleDocsUrl) {
       const match = report.googleDocsUrl.match(/\/document\/d\/([a-zA-Z0-9-_]+)/)
       if (match) {
         const docId = match[1]
@@ -1699,11 +1788,13 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                           onClick={() => handleEditReturnedReport(rep)}
                                           className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-xs"
                                           title={
-                                            rep.googleDocsUrl || rep.submissionType === 'gdoc_submission'
-                                              ? 'Open saved Google Docs document'
-                                              : rep.submissionType === 'docx_upload' || rep.originalDocxUrl
-                                                ? 'Open Google Docs'
-                                                : 'Edit & Revise in DommUnity Document Editor'
+                                            (rep.documentSource === 'built_in_template' || rep.submissionType === 'template' || (rep.isTemplateActive && !rep.googleDocsUrl && !rep.originalDocxUrl))
+                                              ? 'Edit & Revise in DommUnity Document Editor'
+                                              : (rep.googleDocsUrl || rep.submissionType === 'gdoc_submission')
+                                                ? 'Open saved Google Docs document'
+                                                : rep.submissionType === 'docx_upload' || rep.originalDocxUrl
+                                                  ? 'Open Google Docs'
+                                                  : 'Edit & Revise in DommUnity Document Editor'
                                           }
                                         >
                                           <Edit3 className="w-3.5 h-3.5" />

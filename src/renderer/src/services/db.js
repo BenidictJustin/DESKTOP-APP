@@ -36,7 +36,7 @@ import {
   isDemoMode,
   firebaseConfig
 } from '../firebase'
-import { compressHtmlImages, compressImage } from '../utils/imageCompressor'
+import { compressHtmlImages, compressImage, ensureHtmlUnderFirestoreLimit } from '../utils/imageCompressor'
 
 export function getLevenshteinDistance(str1, str2) {
   const s1 = (str1 || '').toLowerCase().trim()
@@ -513,6 +513,64 @@ if (isDemoMode) {
   initLocalStorage()
 }
 
+/**
+ * Automatically purges transient/legacy large caches from localStorage
+ * (such as legacy multi-megabyte base64 PDF and DOCX blobs) to keep storage well within 5MB quota.
+ */
+export const purgeTransientLocalStorage = () => {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return
+  try {
+    const keysToRemove = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (
+        key &&
+        (key.startsWith('dommunity_gdoc_pdf_') ||
+          key.startsWith('dommunity_gdoc_buffer_') ||
+          key === 'dommunity_gdoc_dirty')
+      ) {
+        keysToRemove.push(key)
+      }
+    }
+    keysToRemove.forEach((k) => {
+      try {
+        localStorage.removeItem(k)
+      } catch {}
+    })
+  } catch (err) {
+    console.warn('[db.js] Failed during localStorage transient purge:', err)
+  }
+}
+
+// Run immediate startup purge to liberate storage space on app launch
+if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+  purgeTransientLocalStorage()
+  // Clean up any legacy oversized pending report in dommunity_reports
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_KEYS.REPORTS)
+    if (raw && (raw.includes('report-im3uyh93p') || raw.length > 2000000)) {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) {
+        let changed = false
+        const cleaned = parsed.map((r) => {
+          if (r && r.narrative && r.narrative.length > 900000) {
+            changed = true
+            // Strip large images from local storage copy to fit quota
+            return {
+              ...r,
+              narrative: r.narrative.replace(/data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]{1000,}/g, '[cached-image]')
+            }
+          }
+          return r
+        })
+        if (changed) {
+          localStorage.setItem(LOCAL_STORAGE_KEYS.REPORTS, JSON.stringify(cleaned))
+        }
+      }
+    }
+  } catch {}
+}
+
 const getLocalData = (key) => {
   try {
     const data = localStorage.getItem(key)
@@ -522,11 +580,85 @@ const getLocalData = (key) => {
     return null
   }
 }
+
+/**
+ * Prepares the reports list for safe local storage caching.
+ * Prevents QuotaExceededError by stripping oversized inline base64 images
+ * from already-synced reports in the global list cache.
+ */
+const prepareReportsForLocalStorage = (reports) => {
+  if (!Array.isArray(reports)) return reports
+  return reports.map((rep) => {
+    if (!rep || typeof rep !== 'object') return rep
+    const copy = { ...rep }
+    // For already synced reports, strip giant inline base64 images from the local reports list cache
+    if (copy.syncStatus !== 'local_pending' && typeof copy.narrative === 'string' && copy.narrative.includes('data:image/')) {
+      copy.narrative = copy.narrative.replace(
+        /data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]{1000,}/g,
+        '[cached-image]'
+      )
+    }
+    // Limit large photos in local storage list cache
+    if (Array.isArray(copy.photos) && copy.photos.length > 0 && copy.syncStatus !== 'local_pending') {
+      copy.photos = copy.photos.map((p) => {
+        if (typeof p === 'string' && p.startsWith('data:image/') && p.length > 30000) {
+          return '[cached-photo]'
+        }
+        return p
+      })
+    }
+    delete copy.pdfBase64
+    delete copy.docxBase64
+    return copy
+  })
+}
+
 const saveLocalData = (key, data) => {
   try {
-    localStorage.setItem(key, JSON.stringify(data))
+    let payload = data
+    if (key === LOCAL_STORAGE_KEYS.REPORTS) {
+      payload = prepareReportsForLocalStorage(data)
+    }
+    localStorage.setItem(key, JSON.stringify(payload))
   } catch (e) {
-    console.error(`Failed to save localStorage key "${key}":`, e)
+    // If quota exceeded, clean up transient caches and retry
+    if (e && (e.name === 'QuotaExceededError' || e.code === 22 || e.number === -2147024882)) {
+      console.warn(`[db.js] QuotaExceededError encountered for "${key}". Purging transient cache and retrying...`)
+      purgeTransientLocalStorage()
+      try {
+        let payload = data
+        if (key === LOCAL_STORAGE_KEYS.REPORTS) {
+          payload = prepareReportsForLocalStorage(data)
+        }
+        localStorage.setItem(key, JSON.stringify(payload))
+        return
+      } catch (retryErr) {
+        console.warn(`[db.js] Retry save failed for "${key}", compacting to minimal metadata:`, retryErr)
+        if (key === LOCAL_STORAGE_KEYS.REPORTS && Array.isArray(data)) {
+          try {
+            const minimalReports = data.map((r) => ({
+              id: r.id,
+              activityTitle: r.activityTitle,
+              activityDate: r.activityDate,
+              status: r.status,
+              type: r.type,
+              semester: r.semester,
+              academicYear: r.academicYear,
+              authorId: r.authorId,
+              authorName: r.authorName,
+              organizationId: r.organizationId,
+              eventId: r.eventId,
+              createdAt: r.createdAt,
+              updatedAt: r.updatedAt,
+              syncStatus: r.syncStatus
+            }))
+            localStorage.setItem(key, JSON.stringify(minimalReports))
+            return
+          } catch {}
+        }
+      }
+    }
+    console.warn(`[db.js] Handled non-fatal localStorage save error for "${key}":`, e)
   }
 }
 
@@ -1947,8 +2079,17 @@ export const subscribeInventory = (callback) => {
   }
 }
 
+// Helper: Determine earliest active expiration date among batches
+export const getEarliestBatchExpiry = (batches) => {
+  if (!Array.isArray(batches) || batches.length === 0) return null
+  const activeWithExpiry = batches.filter((b) => (Number(b.quantity) || 0) > 0 && b.expiryDate)
+  if (activeWithExpiry.length === 0) return null
+  activeWithExpiry.sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate))
+  return activeWithExpiry[0].expiryDate
+}
+
 // Helper: Determine inventory status including expired detection
-const computeInventoryStatus = (quantity, expiryDate) => {
+export const computeInventoryStatus = (quantity, expiryDate) => {
   if (quantity === 0) return 'out of stock'
   if (expiryDate && new Date(expiryDate) < new Date()) return 'expired'
   if (quantity <= 10) return 'low stock'
@@ -1959,7 +2100,7 @@ const computeInventoryStatus = (quantity, expiryDate) => {
 // 1. Prioritize consumables with expiryDates. Sort by nearest expiry first.
 // 2. For non-consumables (no expiryDate), sort by FIFO (oldest receivedDate first).
 // 3. Exclude Out of Stock (quantity = 0) and Expired items to separate sections.
-const sortInventory = (items) => {
+export const sortInventory = (items) => {
   // Recompute status and effective earliest expiryDate for all items (catches multi-batch & newly expired items)
   const updatedItems = items.map((item) => {
     let effectiveExpiry = item.expiryDate || null
@@ -2017,6 +2158,149 @@ const sortInventory = (items) => {
   return finalItems
 }
 
+// Group inventory items by unique name + category, aggregating stock batches
+export const groupInventoryItems = (items) => {
+  if (!Array.isArray(items) || items.length === 0) return []
+
+  const groups = new Map()
+
+  for (const item of items) {
+    const normName = (item.name || '').trim().toLowerCase()
+    const normCategory = (item.category || '').trim().toLowerCase()
+    const key = `${normName}:::${normCategory}`
+
+    // Extract individual batches
+    let docBatches = []
+    if (Array.isArray(item.batches) && item.batches.length > 0) {
+      docBatches = item.batches.map((b, idx) => ({
+        id: b.id || `batch-${item.id}-${idx}`,
+        parentDocId: item.id,
+        batchIndex: idx,
+        name: item.name,
+        category: item.category,
+        quantity: Number(b.quantity) || 0,
+        expiryDate: b.expiryDate || null,
+        receivedDate: b.receivedDate || item.receivedDate || item.createdAt || null,
+        unit: b.unit || item.unit || 'pieces',
+        groupUnit: b.groupUnit || item.groupUnit || 'none',
+        piecesPerUnit: b.piecesPerUnit || item.piecesPerUnit || null
+      }))
+    } else {
+      docBatches = [
+        {
+          id: `batch-${item.id}-root`,
+          parentDocId: item.id,
+          batchIndex: -1,
+          name: item.name,
+          category: item.category,
+          quantity: Number(item.quantity) || 0,
+          expiryDate: item.expiryDate || null,
+          receivedDate: item.receivedDate || item.createdAt || null,
+          unit: item.unit || 'pieces',
+          groupUnit: item.groupUnit || 'none',
+          piecesPerUnit: item.piecesPerUnit || null
+        }
+      ]
+    }
+
+    if (!groups.has(key)) {
+      groups.set(key, {
+        id: item.id,
+        primaryDocId: item.id,
+        allDocIds: [item.id],
+        key,
+        name: item.name,
+        category: item.category,
+        unit: item.unit || 'pieces',
+        groupUnit: item.groupUnit || 'none',
+        piecesPerUnit: item.piecesPerUnit || null,
+        description: item.description || '',
+        receivedDate: item.receivedDate || item.createdAt || null,
+        batches: [...docBatches],
+        rawDocs: [item]
+      })
+    } else {
+      const g = groups.get(key)
+      if (!g.allDocIds.includes(item.id)) {
+        g.allDocIds.push(item.id)
+        g.rawDocs.push(item)
+      }
+      g.batches.push(...docBatches)
+      if (!g.description && item.description) {
+        g.description = item.description
+      }
+    }
+  }
+
+  const groupedList = []
+  const now = new Date()
+
+  for (const g of groups.values()) {
+    // Sort batches by FEFO:
+    // 1. Earliest expiryDate first
+    // 2. Non-consumable by oldest receivedDate first
+    g.batches.sort((a, b) => {
+      if (a.expiryDate && b.expiryDate) {
+        return new Date(a.expiryDate) - new Date(b.expiryDate)
+      }
+      if (a.expiryDate) return -1
+      if (b.expiryDate) return 1
+      return new Date(a.receivedDate || 0) - new Date(b.receivedDate || 0)
+    })
+
+    const totalQty = g.batches.reduce((sum, b) => sum + (Number(b.quantity) || 0), 0)
+    g.quantity = totalQty
+
+    // Determine earliest active expiry among batches with quantity > 0
+    const activeWithExpiry = g.batches.filter((b) => (Number(b.quantity) || 0) > 0 && b.expiryDate)
+    let earliestExpiry = null
+    if (activeWithExpiry.length > 0) {
+      const sortedActiveExp = [...activeWithExpiry].sort(
+        (a, b) => new Date(a.expiryDate) - new Date(b.expiryDate)
+      )
+      earliestExpiry = sortedActiveExp[0].expiryDate
+    } else {
+      const anyWithExpiry = g.batches.filter((b) => b.expiryDate)
+      if (anyWithExpiry.length > 0) {
+        earliestExpiry = anyWithExpiry[0].expiryDate
+      }
+    }
+    g.expiryDate = earliestExpiry
+
+    // Status:
+    // 1. Total qty === 0 -> out of stock
+    // 2. All batches with quantity > 0 are expired -> expired
+    // 3. Otherwise usable quantity <= 10 -> low stock
+    // 4. Else -> available
+    const activeUsable = g.batches.filter((b) => {
+      const q = Number(b.quantity) || 0
+      if (q <= 0) return false
+      if (b.expiryDate && new Date(b.expiryDate) < now) return false
+      return true
+    })
+    const usableQty = activeUsable.reduce((sum, b) => sum + (Number(b.quantity) || 0), 0)
+
+    if (totalQty === 0) {
+      g.status = 'out of stock'
+    } else if (
+      usableQty === 0 &&
+      g.batches.some(
+        (b) => (Number(b.quantity) || 0) > 0 && b.expiryDate && new Date(b.expiryDate) < now
+      )
+    ) {
+      g.status = 'expired'
+    } else if (usableQty <= 10) {
+      g.status = 'low stock'
+    } else {
+      g.status = 'available'
+    }
+
+    groupedList.push(g)
+  }
+
+  return sortInventory(groupedList)
+}
+
 export const addInventoryItem = async (item, userId) => {
   const cleanExpiry = item.expiryDate ? new Date(item.expiryDate).toISOString().split('T')[0] : null
   const cleanName = item.name.toLowerCase().trim()
@@ -2028,15 +2312,9 @@ export const addInventoryItem = async (item, userId) => {
     const existing = inventory.find((i) => {
       const existingName = i.name.toLowerCase().trim()
       const existingCategory = (i.category || '').toLowerCase().trim()
-      const existingUnit = (i.unit || '').toLowerCase().trim()
-      const existingExpiry = i.expiryDate
-        ? new Date(i.expiryDate).toISOString().split('T')[0]
-        : null
       return (
         areNamesSimilar(existingName, cleanName) &&
-        existingCategory === cleanCategory &&
-        existingUnit === cleanUnit &&
-        existingExpiry === cleanExpiry
+        existingCategory === cleanCategory
       )
     })
 
@@ -2048,17 +2326,33 @@ export const addInventoryItem = async (item, userId) => {
                 id: `batch-${existing.id}-init`,
                 quantity: existing.quantity,
                 expiryDate: existing.expiryDate || null,
-                receivedDate: existing.receivedDate || existing.createdAt || new Date().toISOString()
+                receivedDate: existing.receivedDate || existing.createdAt || new Date().toISOString(),
+                unit: existing.unit || 'pieces',
+                groupUnit: existing.groupUnit || 'none',
+                piecesPerUnit: existing.piecesPerUnit || null
               }]
             : [])
       existingBatches.push({
         id: 'batch-' + Math.random().toString(36).substr(2, 9),
         quantity: item.quantity,
         expiryDate: item.expiryDate ? new Date(item.expiryDate).toISOString() : null,
-        receivedDate: new Date().toISOString()
+        receivedDate: new Date().toISOString(),
+        unit: item.unit || existing.unit || 'pieces',
+        groupUnit: item.groupUnit || 'none',
+        piecesPerUnit: item.piecesPerUnit || null
       })
       existing.batches = existingBatches
       existing.quantity += item.quantity
+
+      // Recalculate earliest active expiry for FEFO
+      const activeWithExp = existingBatches.filter((b) => b.quantity > 0 && b.expiryDate)
+      if (activeWithExp.length > 0) {
+        activeWithExp.sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate))
+        existing.expiryDate = activeWithExp[0].expiryDate
+      } else {
+        existing.expiryDate = null
+      }
+
       existing.status = computeInventoryStatus(existing.quantity, existing.expiryDate)
       existing.lastUpdatedBy = userId
       existing.hasBeenReleased = false
@@ -2071,7 +2365,10 @@ export const addInventoryItem = async (item, userId) => {
       id: 'batch-' + Math.random().toString(36).substr(2, 9),
       quantity: item.quantity,
       expiryDate: item.expiryDate ? new Date(item.expiryDate).toISOString() : null,
-      receivedDate: item.receivedDate || new Date().toISOString()
+      receivedDate: item.receivedDate || new Date().toISOString(),
+      unit: item.unit || 'pieces',
+      groupUnit: item.groupUnit || 'none',
+      piecesPerUnit: item.piecesPerUnit || null
     }] : [])
 
     const newItem = {
@@ -2096,13 +2393,9 @@ export const addInventoryItem = async (item, userId) => {
       const d = docSnap.data()
       const existingName = d.name.toLowerCase().trim()
       const existingCategory = (d.category || '').toLowerCase().trim()
-      const existingUnit = (d.unit || '').toLowerCase().trim()
-      const existingExpiry = d.expiryDate ? d.expiryDate.toDate().toISOString().split('T')[0] : null
       if (
         areNamesSimilar(existingName, cleanName) &&
-        existingCategory === cleanCategory &&
-        existingUnit === cleanUnit &&
-        existingExpiry === cleanExpiry
+        existingCategory === cleanCategory
       ) {
         existingRef = docSnap.ref
         existingData = { id: docSnap.id, ...d }
@@ -2117,20 +2410,36 @@ export const addInventoryItem = async (item, userId) => {
                 id: `batch-${existingData.id}-init`,
                 quantity: existingData.quantity,
                 expiryDate: existingData.expiryDate?.toDate ? existingData.expiryDate.toDate().toISOString() : (existingData.expiryDate || null),
-                receivedDate: existingData.receivedDate?.toDate ? existingData.receivedDate.toDate().toISOString() : (existingData.receivedDate || new Date().toISOString())
+                receivedDate: existingData.receivedDate?.toDate ? existingData.receivedDate.toDate().toISOString() : (existingData.receivedDate || new Date().toISOString()),
+                unit: existingData.unit || 'pieces',
+                groupUnit: existingData.groupUnit || 'none',
+                piecesPerUnit: existingData.piecesPerUnit || null
               }]
             : [])
       existingBatches.push({
         id: 'batch-' + Math.random().toString(36).substr(2, 9),
         quantity: item.quantity,
         expiryDate: item.expiryDate ? new Date(item.expiryDate).toISOString() : null,
-        receivedDate: new Date().toISOString()
+        receivedDate: new Date().toISOString(),
+        unit: item.unit || existingData.unit || 'pieces',
+        groupUnit: item.groupUnit || 'none',
+        piecesPerUnit: item.piecesPerUnit || null
       })
       const newQty = existingData.quantity + item.quantity
-      const newStatus = computeInventoryStatus(newQty, item.expiryDate)
+
+      // Recalculate earliest active expiry for FEFO
+      const activeWithExp = existingBatches.filter((b) => b.quantity > 0 && b.expiryDate)
+      let updatedExpiry = null
+      if (activeWithExp.length > 0) {
+        activeWithExp.sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate))
+        updatedExpiry = activeWithExp[0].expiryDate
+      }
+
+      const newStatus = computeInventoryStatus(newQty, updatedExpiry)
       await updateDoc(existingRef, {
         quantity: newQty,
         batches: existingBatches,
+        expiryDate: updatedExpiry ? Timestamp.fromDate(new Date(updatedExpiry)) : null,
         status: newStatus,
         lastUpdatedBy: userId,
         hasBeenReleased: false,
@@ -2140,6 +2449,7 @@ export const addInventoryItem = async (item, userId) => {
         ...existingData,
         quantity: newQty,
         batches: existingBatches,
+        expiryDate: updatedExpiry,
         status: newStatus,
         hasBeenReleased: false,
         updatedAt: new Date().toISOString()
@@ -2701,16 +3011,67 @@ export const syncPendingReportsToFirestore = async (pendingReports) => {
     try {
       if (rep.id && rep.id.startsWith('report-')) {
         const { id, syncStatus, syncError, ...cleanData } = rep
-        const firestoreData = sanitizeForFirestore({
-          ...cleanData,
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now()
-        })
-        const docRef = await addDoc(collection(fdb, 'narrative_reports'), firestoreData)
+
+        // Check if an equivalent report already exists in Firestore (e.g. from prior submission)
+        let docId = null
+        try {
+          if (cleanData.authorId) {
+            const qExisting = query(
+              collection(fdb, 'narrative_reports'),
+              where('authorId', '==', cleanData.authorId)
+            )
+            const snapExisting = await getDocs(qExisting)
+            if (!snapExisting.empty) {
+              const match = snapExisting.docs.find((d) => {
+                const dData = d.data()
+                return (
+                  dData.activityTitle === cleanData.activityTitle &&
+                  dData.eventId === cleanData.eventId &&
+                  (dData.status === cleanData.status || dData.status === 'submitted')
+                )
+              })
+              if (match) docId = match.id
+            }
+          }
+        } catch {}
+
+        if (!docId) {
+          // 1. Ensure HTML narrative is strictly under Firestore 1MB limit
+          if (cleanData.narrative && typeof cleanData.narrative === 'string') {
+            cleanData.narrative = await ensureHtmlUnderFirestoreLimit(cleanData.narrative, {
+              storage: fstorage
+            })
+          }
+
+          // 2. Compress photos array if present
+          if (Array.isArray(cleanData.photos) && cleanData.photos.length > 0) {
+            cleanData.photos = await Promise.all(
+              cleanData.photos.map(async (photo) => {
+                if (typeof photo === 'string' && photo.startsWith('data:image/') && photo.length > 50000) {
+                  try {
+                    return await compressImage(photo, { maxWidth: 1000, maxHeight: 1000, quality: 0.7 })
+                  } catch {
+                    return photo
+                  }
+                }
+                return photo
+              })
+            )
+          }
+
+          const firestoreData = sanitizeForFirestore({
+            ...cleanData,
+            createdAt: Timestamp.now(),
+            updatedAt: Timestamp.now()
+          })
+          const docRef = await addDoc(collection(fdb, 'narrative_reports'), firestoreData)
+          docId = docRef.id
+        }
+
         const cur = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
         const idx = cur.findIndex((r) => r.id === rep.id)
         if (idx !== -1) {
-          cur[idx] = { ...rep, id: docRef.id, syncStatus: 'synced', syncError: null }
+          cur[idx] = { ...rep, id: docId, syncStatus: 'synced', syncError: null }
           saveLocalData(LOCAL_STORAGE_KEYS.REPORTS, cur)
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new Event('dommunity_reports_updated'))
@@ -2718,7 +3079,13 @@ export const syncPendingReportsToFirestore = async (pendingReports) => {
         }
       }
     } catch (err) {
-      console.warn('[db.js] Failed to auto-sync pending report:', rep.id, err)
+      console.warn('[db.js] Handled pending report auto-sync failure:', rep.id, err?.message || err)
+      const cur = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
+      const idx = cur.findIndex((r) => r.id === rep.id)
+      if (idx !== -1) {
+        cur[idx] = { ...cur[idx], syncError: err?.message || String(err) }
+        saveLocalData(LOCAL_STORAGE_KEYS.REPORTS, cur)
+      }
     }
   }
 }
@@ -2841,6 +3208,12 @@ export const sanitizeForFirestore = (obj) => {
       console.warn(`[db.js] Dropped oversized base64 originalDocxUrl (${value.length} bytes) to protect Firestore document size limit.`)
       continue
     }
+    // Hard safety guard: ensure no single string property exceeds Firestore's 1MB field limit (1048487 bytes)
+    if (typeof value === 'string' && value.length > 1040000) {
+      console.warn(`[db.js] Property "${key}" exceeds Firestore limit (${value.length} bytes). Truncating safely to prevent FirebaseError.`)
+      cleaned[key] = value.slice(0, 1030000)
+      continue
+    }
     if (value !== null && typeof value === 'object' && !(value instanceof Timestamp) && !(value instanceof Date)) {
       cleaned[key] = sanitizeForFirestore(value)
     } else {
@@ -2886,27 +3259,14 @@ export const addReport = async (report, userId) => {
     try {
       let sanitizedReport = { ...report }
 
-      // 1. Optimize HTML narrative: compress embedded base64 images to stay safely under Firestore 1MB limit
-      if (sanitizedReport.narrative && typeof sanitizedReport.narrative === 'string' && sanitizedReport.narrative.includes('data:image/')) {
+      // 1. Optimize HTML narrative: ensure it strictly obeys Firestore 1MB document/field limits
+      if (sanitizedReport.narrative && typeof sanitizedReport.narrative === 'string') {
         try {
-          sanitizedReport.narrative = await compressHtmlImages(sanitizedReport.narrative)
+          sanitizedReport.narrative = await ensureHtmlUnderFirestoreLimit(sanitizedReport.narrative, {
+            storage: fstorage
+          })
         } catch (compErr) {
           console.warn('Narrative image pre-compression failed:', compErr)
-        }
-      }
-
-      // 2. If narrative is still near Firestore 1MB boundary (> 900KB), perform second-pass deeper compression
-      const approxSize = new Blob([sanitizedReport.narrative || '']).size
-      if (approxSize > 900000) {
-        console.warn(`[db.js] Narrative is large (${approxSize} bytes). Performing deep image compression for Firestore safety.`)
-        try {
-          sanitizedReport.narrative = await compressHtmlImages(sanitizedReport.narrative, {
-            maxWidth: 900,
-            maxHeight: 900,
-            quality: 0.6
-          })
-        } catch (e) {
-          console.warn('Deep compression failed:', e)
         }
       }
 
@@ -3057,25 +3417,13 @@ export const updateReport = async (reportId, updates, userId) => {
     try {
       let sanitizedUpdates = { ...updates }
 
-      if (sanitizedUpdates.narrative && typeof sanitizedUpdates.narrative === 'string' && sanitizedUpdates.narrative.includes('data:image/')) {
+      if (sanitizedUpdates.narrative && typeof sanitizedUpdates.narrative === 'string') {
         try {
-          sanitizedUpdates.narrative = await compressHtmlImages(sanitizedUpdates.narrative)
+          sanitizedUpdates.narrative = await ensureHtmlUnderFirestoreLimit(sanitizedUpdates.narrative, {
+            storage: fstorage
+          })
         } catch (compErr) {
           console.warn('Narrative image pre-compression failed:', compErr)
-        }
-      }
-
-      const approxSize = new Blob([sanitizedUpdates.narrative || '']).size
-      if (approxSize > 900000) {
-        console.warn(`[db.js] Narrative is large (${approxSize} bytes). Performing deep image compression for Firestore safety.`)
-        try {
-          sanitizedUpdates.narrative = await compressHtmlImages(sanitizedUpdates.narrative, {
-            maxWidth: 900,
-            maxHeight: 900,
-            quality: 0.6
-          })
-        } catch (e) {
-          console.warn('Deep compression failed:', e)
         }
       }
 

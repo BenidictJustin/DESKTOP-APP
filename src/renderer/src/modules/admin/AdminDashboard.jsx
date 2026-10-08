@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'motion/react'
 import AboutVersionCard from '../../components/AboutVersionCard'
@@ -39,6 +39,10 @@ import {
   addInventoryItem,
   updateInventoryItem,
   deleteInventoryItem,
+  computeInventoryStatus,
+  sortInventory,
+  getEarliestBatchExpiry,
+  groupInventoryItems,
   getDonors,
   subscribeDonors,
   addDonor,
@@ -127,7 +131,8 @@ import {
   Grid,
   RotateCcw,
   PlusCircle,
-  Filter
+  Filter,
+  MoreHorizontal
 } from 'lucide-react'
 import SearchableDropdown from '../../components/SearchableDropdown'
 import CustomSelect from '../../components/CustomSelect'
@@ -334,6 +339,32 @@ export default function AdminDashboard({ user, onLogout }) {
   const [addStockExpiry, setAddStockExpiry] = useState('')
   const [addStockErrors, setAddStockErrors] = useState({})
 
+  // Batch Details & Management States
+  const [batchDetailsItemKey, setBatchDetailsItemKey] = useState(null)
+  const [editingBatch, setEditingBatch] = useState(null)
+  const [batchEditQty, setBatchEditQty] = useState('')
+  const [batchEditQtyGroup, setBatchEditQtyGroup] = useState('')
+  const [batchEditQtyPieces, setBatchEditQtyPieces] = useState('')
+  const [batchEditExpiry, setBatchEditExpiry] = useState('')
+  const [batchEditGroupUnit, setBatchEditGroupUnit] = useState('none')
+  const [batchEditPiecesPerUnit, setBatchEditPiecesPerUnit] = useState('')
+  const [batchEditErrors, setBatchEditErrors] = useState({})
+
+  // Grouped inventory: one row per unique item (name + category), aggregating stock batches
+  const groupedInventory = useMemo(() => {
+    return groupInventoryItems(inventoryList)
+  }, [inventoryList])
+
+  // Active item for the centered batch details modal
+  const activeBatchItem = useMemo(() => {
+    if (!batchDetailsItemKey) return null
+    return (
+      groupedInventory.find(
+        (item) => item.key === batchDetailsItemKey || item.id === batchDetailsItemKey
+      ) || null
+    )
+  }, [groupedInventory, batchDetailsItemKey])
+
   const [releaseItemId, setReleaseItemId] = useState('')
   const [releaseQty, setReleaseQty] = useState('')
   const [releaseQtyGroup, setReleaseQtyGroup] = useState('')
@@ -422,7 +453,9 @@ export default function AdminDashboard({ user, onLogout }) {
     Boolean(editingUser) ||
     Boolean(confirmDialog) ||
     Boolean(selectedReport) ||
-    Boolean(completedActivitiesModal?.isOpen)
+    Boolean(completedActivitiesModal?.isOpen) ||
+    Boolean(batchDetailsItemKey) ||
+    Boolean(editingBatch)
 
   // Body scroll lock effect whenever any modal/popup is open
   useEffect(() => {
@@ -562,6 +595,29 @@ export default function AdminDashboard({ user, onLogout }) {
     const groupPart = `${grouped} ${grouped === 1 ? unitName : unitPlural}`
     const remainingPart = `${remaining} Remaining Piece${remaining === 1 ? '' : 's'}`
     return `${groupPart} + ${remainingPart}`
+  }
+
+  // Format packaging breakdown for an individual batch (e.g. 10 Boxes × 20 Pieces/Box or 2 Boxes × 20 Pieces/Box + 160 Pieces)
+  const formatBatchPackagingBreakdown = (quantity, unitStr, groupUnit, piecesPerUnit) => {
+    const qty = Number(quantity) || 0
+    const pPerUnit = piecesPerUnit ? parseInt(piecesPerUnit, 10) : 0
+    if (!groupUnit || groupUnit === 'none' || pPerUnit <= 0) {
+      return null
+    }
+    const boxes = Math.floor(qty / pPerUnit)
+    const remainder = qty % pPerUnit
+    const groupLabel = formatUnit(boxes, groupUnit)
+    const baseUnitLabel = formatUnit(pPerUnit, unitStr || 'pieces')
+    const singleGroupLabel = formatUnit(1, groupUnit)
+
+    if (boxes > 0 && remainder > 0) {
+      return `${boxes} ${groupLabel} × ${pPerUnit} ${baseUnitLabel} per ${singleGroupLabel} + ${remainder} ${formatUnit(remainder, unitStr || 'pieces')}`
+    } else if (boxes > 0) {
+      return `${boxes} ${groupLabel} × ${pPerUnit} ${baseUnitLabel} per ${singleGroupLabel}`
+    } else if (remainder > 0) {
+      return `${remainder} ${formatUnit(remainder, unitStr || 'pieces')}`
+    }
+    return null
   }
 
   // 4-month expiration threshold indicator logic
@@ -1252,35 +1308,273 @@ export default function AdminDashboard({ user, onLogout }) {
     }
   }
 
-  const handleDeleteInventory = async (itemId) => {
+  const handleDeleteInventory = async (target) => {
     if (isOffline) {
       triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
       return
     }
+
+    const itemObj =
+      typeof target === 'object' && target !== null
+        ? target
+        : inventoryList.find((i) => i.id === target)
+
+    const itemName = itemObj?.name || 'this item'
+    const docIds =
+      Array.isArray(itemObj?.allDocIds) && itemObj.allDocIds.length > 0
+        ? itemObj.allDocIds
+        : [itemObj?.id || target]
+
     setConfirmDialog({
       title: 'Delete Inventory Item',
-      message: 'Are you sure you want to delete this item? This action is permanent.',
+      message: `Are you sure you want to delete "${itemName}" and all of its batches? This action is permanent.`,
       onConfirm: async () => {
         if (isOffline) {
           triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
           return
         }
         try {
-          const item = inventoryList.find((i) => i.id === itemId)
-          await deleteInventoryItem(itemId)
-          if (item) {
+          for (const docId of docIds) {
+            await deleteInventoryItem(docId)
+          }
+          if (itemObj) {
             await logInventoryTransaction(
               'deleted',
-              item.name,
-              item.quantity,
-              item.unit,
+              itemObj.name,
+              itemObj.quantity,
+              itemObj.unit,
               'Removed from inventory catalog'
             )
+          }
+          if (
+            batchDetailsItemKey &&
+            (batchDetailsItemKey === itemObj?.key || batchDetailsItemKey === itemObj?.id)
+          ) {
+            setBatchDetailsItemKey(null)
           }
           triggerSuccess('Item deleted successfully')
           loadData()
         } catch (err) {
           triggerError(err.message)
+        }
+      }
+    })
+  }
+
+  // Open Edit Batch Modal
+  const handleOpenEditBatch = (batch, parentItem) => {
+    setEditingBatch({ ...batch, parentItem })
+    const hasGroup = batch.groupUnit && batch.groupUnit !== 'none' && batch.piecesPerUnit
+    const factor = parseInt(batch.piecesPerUnit, 10) || 12
+    if (hasGroup) {
+      setBatchEditQtyGroup(Math.floor(batch.quantity / factor).toString())
+      setBatchEditQtyPieces((batch.quantity % factor).toString())
+      setBatchEditQty(batch.quantity.toString())
+    } else {
+      setBatchEditQty(batch.quantity.toString())
+      setBatchEditQtyGroup('')
+      setBatchEditQtyPieces('')
+    }
+    setBatchEditExpiry(
+      batch.expiryDate ? new Date(batch.expiryDate).toISOString().split('T')[0] : ''
+    )
+    setBatchEditGroupUnit(batch.groupUnit || 'none')
+    setBatchEditPiecesPerUnit(batch.piecesPerUnit ? batch.piecesPerUnit.toString() : '')
+    setBatchEditErrors({})
+  }
+
+  // Save changes to an individual batch
+  const handleSaveEditBatch = async (e) => {
+    e.preventDefault()
+    if (isOffline) {
+      triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+      return
+    }
+    if (!editingBatch) return
+
+    const errors = {}
+    const hasGroup = batchEditGroupUnit && batchEditGroupUnit !== 'none' && batchEditPiecesPerUnit
+    const factor = parseInt(batchEditPiecesPerUnit, 10) || 12
+
+    let newBatchQty = 0
+    if (hasGroup) {
+      const grp = parseInt(batchEditQtyGroup, 10) || 0
+      const pcs = parseInt(batchEditQtyPieces, 10) || 0
+      newBatchQty = grp * factor + pcs
+    } else {
+      newBatchQty = parseInt(batchEditQty, 10) || 0
+    }
+
+    if (newBatchQty <= 0) {
+      errors.qty = 'Please enter a valid quantity greater than 0.'
+    }
+
+    const isSupplies = isSuppliesCategory(editingBatch.category)
+    if (!isSupplies) {
+      if (!batchEditExpiry) {
+        errors.expiry = 'Please specify an expiration date for this batch.'
+      } else if (isPastDate(batchEditExpiry)) {
+        errors.expiry = DATE_ERROR_MESSAGES.EXPIRY_PAST
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setBatchEditErrors(errors)
+      return
+    }
+
+    setLoading(true)
+    try {
+      const targetDoc = inventoryList.find((i) => i.id === editingBatch.parentDocId)
+      if (!targetDoc) {
+        throw new Error('Parent stock document not found.')
+      }
+
+      let existingBatches =
+        Array.isArray(targetDoc.batches) && targetDoc.batches.length > 0
+          ? [...targetDoc.batches]
+          : [
+              {
+                id: editingBatch.id || `batch-${targetDoc.id}-init`,
+                quantity: targetDoc.quantity,
+                expiryDate: targetDoc.expiryDate || null,
+                receivedDate:
+                  targetDoc.receivedDate || targetDoc.createdAt || new Date().toISOString(),
+                unit: targetDoc.unit || 'pieces',
+                groupUnit: targetDoc.groupUnit || 'none',
+                piecesPerUnit: targetDoc.piecesPerUnit || null
+              }
+            ]
+
+      let batchIdx = existingBatches.findIndex((b) => b.id === editingBatch.id)
+      if (
+        batchIdx === -1 &&
+        editingBatch.batchIndex >= 0 &&
+        editingBatch.batchIndex < existingBatches.length
+      ) {
+        batchIdx = editingBatch.batchIndex
+      }
+      if (batchIdx === -1) {
+        batchIdx = 0
+      }
+
+      existingBatches[batchIdx] = {
+        ...existingBatches[batchIdx],
+        quantity: newBatchQty,
+        expiryDate: isSupplies || !batchEditExpiry ? null : new Date(batchEditExpiry).toISOString(),
+        groupUnit: batchEditGroupUnit,
+        piecesPerUnit: batchEditPiecesPerUnit ? parseInt(batchEditPiecesPerUnit, 10) : null
+      }
+
+      const newTotalQty = existingBatches.reduce((s, b) => s + (Number(b.quantity) || 0), 0)
+      const earliestExpiry = getEarliestBatchExpiry(existingBatches)
+      const newStatus = computeInventoryStatus(newTotalQty, earliestExpiry)
+
+      await updateInventoryItem(
+        targetDoc.id,
+        {
+          quantity: newTotalQty,
+          batches: existingBatches,
+          expiryDate: earliestExpiry,
+          status: newStatus
+        },
+        user.uid
+      )
+
+      await logInventoryTransaction(
+        'updated',
+        editingBatch.name,
+        newBatchQty,
+        editingBatch.unit || targetDoc.unit || 'pieces',
+        `Updated batch: ${newBatchQty} ${editingBatch.unit || targetDoc.unit || 'pieces'}${batchEditExpiry ? ` (Exp: ${new Date(batchEditExpiry).toLocaleDateString()})` : ''}`
+      )
+
+      triggerSuccess(`Batch for "${editingBatch.name}" updated successfully.`)
+      setEditingBatch(null)
+      loadData()
+    } catch (err) {
+      triggerError(err.message || 'Failed to update batch')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Delete an individual batch
+  const handleDeleteBatch = (batch, parentItem) => {
+    if (isOffline) {
+      triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+      return
+    }
+
+    const totalBatchesForItem = parentItem?.batches?.length || 1
+
+    setConfirmDialog({
+      title: 'Delete Stock Batch',
+      message:
+        totalBatchesForItem <= 1
+          ? `This is the only remaining batch for "${batch.name}". Deleting it will remove the item from inventory. Are you sure you want to proceed?`
+          : `Are you sure you want to delete this batch of ${batch.quantity} ${formatUnit(batch.quantity, batch.unit || 'pieces')}${batch.expiryDate ? ` (Exp: ${new Date(batch.expiryDate).toLocaleDateString()})` : ''}? Other batches will remain intact.`,
+      onConfirm: async () => {
+        if (isOffline) {
+          triggerError('Cannot perform action: No internet connection. Please wait until connection is restored.')
+          return
+        }
+        setLoading(true)
+        try {
+          const targetDoc = inventoryList.find((i) => i.id === batch.parentDocId)
+          if (!targetDoc) {
+            throw new Error('Stock document not found.')
+          }
+
+          const existingBatches =
+            Array.isArray(targetDoc.batches) && targetDoc.batches.length > 0
+              ? targetDoc.batches
+              : [
+                  {
+                    id: batch.id,
+                    quantity: targetDoc.quantity,
+                    expiryDate: targetDoc.expiryDate || null
+                  }
+                ]
+
+          const remainingBatches = existingBatches.filter((b) => b.id !== batch.id)
+
+          if (remainingBatches.length === 0) {
+            await deleteInventoryItem(targetDoc.id)
+            if (totalBatchesForItem <= 1 && batchDetailsItemKey) {
+              setBatchDetailsItemKey(null)
+            }
+          } else {
+            const newTotalQty = remainingBatches.reduce((s, b) => s + (Number(b.quantity) || 0), 0)
+            const earliestExpiry = getEarliestBatchExpiry(remainingBatches)
+            const newStatus = computeInventoryStatus(newTotalQty, earliestExpiry)
+
+            await updateInventoryItem(
+              targetDoc.id,
+              {
+                quantity: newTotalQty,
+                batches: remainingBatches,
+                expiryDate: earliestExpiry,
+                status: newStatus
+              },
+              user.uid
+            )
+          }
+
+          await logInventoryTransaction(
+            'deleted',
+            batch.name,
+            batch.quantity,
+            batch.unit || targetDoc.unit || 'pieces',
+            `Deleted batch of ${batch.quantity} ${batch.unit || targetDoc.unit || 'pieces'}${batch.expiryDate ? ` (Exp: ${new Date(batch.expiryDate).toLocaleDateString()})` : ''}`
+          )
+
+          triggerSuccess(`Batch for "${batch.name}" deleted successfully.`)
+          loadData()
+        } catch (err) {
+          triggerError(err.message || 'Failed to delete batch')
+        } finally {
+          setLoading(false)
         }
       }
     })
@@ -1323,7 +1617,9 @@ export default function AdminDashboard({ user, onLogout }) {
       errors.itemId = 'Please select an existing inventory item.'
     }
 
-    const targetItem = inventoryList.find((i) => i.id === addStockItemId)
+    const targetItem =
+      groupedInventory.find((g) => g.id === addStockItemId || g.key === addStockItemId) ||
+      inventoryList.find((i) => i.id === addStockItemId)
     if (!targetItem) {
       errors.itemId = 'Selected inventory item was not found.'
     }
@@ -1362,44 +1658,64 @@ export default function AdminDashboard({ user, onLogout }) {
 
     setLoading(true)
     try {
+      const targetDoc =
+        inventoryList.find((i) => i.id === (targetItem.primaryDocId || targetItem.id)) ||
+        inventoryList.find(
+          (i) =>
+            areNamesSimilar(i.name, targetItem.name) &&
+            (i.category || '').toLowerCase().trim() ===
+              (targetItem.category || '').toLowerCase().trim()
+        ) ||
+        targetItem
+
       // 1. Retrieve existing batches without modifying their expiration dates
-      const existingBatches = (Array.isArray(targetItem.batches) && targetItem.batches.length > 0)
-        ? targetItem.batches.filter((b) => b.quantity > 0)
-        : (targetItem.quantity > 0
-            ? [{
-                id: `batch-${targetItem.id}-initial`,
-                quantity: targetItem.quantity,
-                expiryDate: targetItem.expiryDate || null,
-                receivedDate: targetItem.receivedDate || targetItem.createdAt || new Date().toISOString()
-              }]
-            : [])
+      const existingBatches =
+        Array.isArray(targetDoc.batches) && targetDoc.batches.length > 0
+          ? targetDoc.batches.filter((b) => b.quantity > 0)
+          : targetDoc.quantity > 0
+            ? [
+                {
+                  id: `batch-${targetDoc.id}-initial`,
+                  quantity: targetDoc.quantity,
+                  expiryDate: targetDoc.expiryDate || null,
+                  receivedDate:
+                    targetDoc.receivedDate || targetDoc.createdAt || new Date().toISOString(),
+                  unit: targetDoc.unit || targetItem.unit || 'pieces',
+                  groupUnit: targetDoc.groupUnit || targetItem.groupUnit || 'none',
+                  piecesPerUnit: targetDoc.piecesPerUnit || targetItem.piecesPerUnit || null
+                }
+              ]
+            : []
 
       // 2. Create distinct new stock batch
       const newBatch = {
         id: 'batch-' + Math.random().toString(36).substr(2, 9),
         quantity: addedBaseQty,
-        expiryDate: isSuppliesCategory(targetItem.category) || !addStockExpiry ? null : new Date(addStockExpiry).toISOString(),
-        receivedDate: new Date().toISOString()
+        expiryDate:
+          isSuppliesCategory(targetItem.category) || !addStockExpiry
+            ? null
+            : new Date(addStockExpiry).toISOString(),
+        receivedDate: new Date().toISOString(),
+        unit: targetItem.unit || targetDoc.unit || 'pieces',
+        groupUnit: targetItem.groupUnit || targetDoc.groupUnit || 'none',
+        piecesPerUnit: targetItem.piecesPerUnit || targetDoc.piecesPerUnit || null
       }
 
       // 3. Append new batch to existing batches (existing batch expiration dates are fully preserved)
       const updatedBatches = [...existingBatches, newBatch]
-      const newQty = targetItem.quantity + addedBaseQty
+      const newQty = targetDoc.quantity + addedBaseQty
 
       // 4. Determine earliest active expiry date for FEFO release and status indicator
-      const activeWithExpiry = updatedBatches.filter((b) => b.quantity > 0 && b.expiryDate)
-      let earliestExpiry = null
-      if (activeWithExpiry.length > 0) {
-        activeWithExpiry.sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate))
-        earliestExpiry = activeWithExpiry[0].expiryDate
-      }
+      const earliestExpiry = getEarliestBatchExpiry(updatedBatches)
+      const newStatus = computeInventoryStatus(newQty, earliestExpiry)
 
       await updateInventoryItem(
-        targetItem.id,
+        targetDoc.id,
         {
           quantity: newQty,
           expiryDate: earliestExpiry,
           batches: updatedBatches,
+          status: newStatus,
           hasBeenReleased: false
         },
         user.uid
@@ -1598,84 +1914,105 @@ export default function AdminDashboard({ user, onLogout }) {
     setLoading(true)
     try {
       for (const pending of pendingReleaseItems) {
-        const item = inventoryList.find((i) => i.id === pending.id)
-        if (!item) {
+        const targetGroupItem =
+          groupedInventory.find((g) => g.id === pending.id || g.key === pending.id) ||
+          inventoryList.find((i) => i.id === pending.id)
+        if (!targetGroupItem) {
           throw new Error(`Item "${pending.name}" not found in inventory.`)
         }
         const baseQtyToRelease = parseInt(pending.baseQty, 10)
-        if (baseQtyToRelease > item.quantity) {
+        if (baseQtyToRelease > targetGroupItem.quantity) {
           throw new Error(
-            `Insufficient stock for "${item.name}". Only ${displayStock(item.quantity, item.unit, item.groupUnit, item.piecesPerUnit)} available.`
+            `Insufficient stock for "${targetGroupItem.name}". Only ${displayStock(targetGroupItem.quantity, targetGroupItem.unit, targetGroupItem.groupUnit, targetGroupItem.piecesPerUnit)} available.`
           )
         }
-        const updatedQty = item.quantity - baseQtyToRelease
 
-        // FEFO Stock Release: Consume stock batch-by-batch starting with earliest expiry
-        const existingBatches = (Array.isArray(item.batches) && item.batches.length > 0)
-          ? item.batches.filter((b) => b.quantity > 0).map((b) => ({ ...b }))
-          : (item.quantity > 0
-              ? [{
-                  id: `batch-${item.id}-initial`,
-                  quantity: item.quantity,
-                  expiryDate: item.expiryDate || null,
-                  receivedDate: item.receivedDate || item.createdAt || new Date().toISOString()
-                }]
-              : [])
+        // Find all underlying documents matching this item
+        const targetDocs = inventoryList.filter(
+          (i) =>
+            i.id === targetGroupItem.id ||
+            (areNamesSimilar(i.name, targetGroupItem.name) &&
+              (i.category || '').toLowerCase().trim() ===
+                (targetGroupItem.category || '').toLowerCase().trim())
+        )
 
-        // Sort candidate batch indices by FEFO:
+        // Gather all batches across targetDocs
+        const allCandidateBatches = []
+        for (const doc of targetDocs) {
+          if (Array.isArray(doc.batches) && doc.batches.length > 0) {
+            doc.batches.forEach((b, bIdx) => {
+              if (Number(b.quantity) > 0) {
+                allCandidateBatches.push({
+                  ...b,
+                  parentDocId: doc.id,
+                  batchIdx: bIdx,
+                  receivedDate: b.receivedDate || doc.receivedDate || doc.createdAt || 0
+                })
+              }
+            })
+          } else if (Number(doc.quantity) > 0) {
+            allCandidateBatches.push({
+              id: `batch-${doc.id}-initial`,
+              parentDocId: doc.id,
+              batchIdx: -1,
+              quantity: Number(doc.quantity),
+              expiryDate: doc.expiryDate || null,
+              receivedDate: doc.receivedDate || doc.createdAt || 0
+            })
+          }
+        }
+
+        // Sort by FEFO:
         // 1. Earliest expiryDate first
         // 2. Non-perishables by oldest receivedDate first (FIFO)
-        const sortedBatchIndices = existingBatches
-          .map((b, idx) => ({ ...b, originalIndex: idx }))
-          .sort((a, b) => {
-            if (a.expiryDate && b.expiryDate) {
-              return new Date(a.expiryDate) - new Date(b.expiryDate)
-            }
-            if (a.expiryDate) return -1
-            if (b.expiryDate) return 1
-            return new Date(a.receivedDate || 0) - new Date(b.receivedDate || 0)
-          })
-          .map((b) => b.originalIndex)
+        allCandidateBatches.sort((a, b) => {
+          if (a.expiryDate && b.expiryDate) {
+            return new Date(a.expiryDate) - new Date(b.expiryDate)
+          }
+          if (a.expiryDate) return -1
+          if (b.expiryDate) return 1
+          return new Date(a.receivedDate) - new Date(b.receivedDate)
+        })
 
         let remainingToDeduct = baseQtyToRelease
-        for (const idx of sortedBatchIndices) {
+        for (const b of allCandidateBatches) {
           if (remainingToDeduct <= 0) break
-          const availableInBatch = existingBatches[idx].quantity
-          if (availableInBatch <= remainingToDeduct) {
-            existingBatches[idx].quantity = 0
-            remainingToDeduct -= availableInBatch
+          if (b.quantity <= remainingToDeduct) {
+            remainingToDeduct -= b.quantity
+            b.quantity = 0
           } else {
-            existingBatches[idx].quantity -= remainingToDeduct
+            b.quantity -= remainingToDeduct
             remainingToDeduct = 0
           }
         }
 
-        // Keep active batches with quantity > 0
-        const remainingBatches = existingBatches.filter((b) => b.quantity > 0)
+        // Apply changes back to each underlying document
+        for (const doc of targetDocs) {
+          const docRemainingBatches = allCandidateBatches
+            .filter((b) => b.parentDocId === doc.id && b.quantity > 0)
+            .map(({ parentDocId, batchIdx, ...rest }) => rest)
+          const newDocQty = docRemainingBatches.reduce((s, b) => s + b.quantity, 0)
+          const newEarliestExpiry = getEarliestBatchExpiry(docRemainingBatches)
+          const newStatus = computeInventoryStatus(newDocQty, newEarliestExpiry)
 
-        // Determine new earliest expiry date for the remaining stock
-        const remainingWithExpiry = remainingBatches.filter((b) => b.expiryDate)
-        let updatedEarliestExpiry = null
-        if (remainingWithExpiry.length > 0) {
-          remainingWithExpiry.sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate))
-          updatedEarliestExpiry = remainingWithExpiry[0].expiryDate
+          await updateInventoryItem(
+            doc.id,
+            {
+              quantity: newDocQty,
+              batches: docRemainingBatches,
+              expiryDate: newEarliestExpiry,
+              status: newStatus,
+              hasBeenReleased: true
+            },
+            user.uid
+          )
         }
 
-        await updateInventoryItem(
-          item.id,
-          {
-            quantity: updatedQty,
-            batches: remainingBatches,
-            expiryDate: updatedEarliestExpiry,
-            hasBeenReleased: true
-          },
-          user.uid
-        )
         await logInventoryTransaction(
           'released',
-          item.name,
+          targetGroupItem.name,
           baseQtyToRelease,
-          pending.baseUnit || item.unit || 'pieces',
+          pending.baseUnit || targetGroupItem.unit || 'pieces',
           'Released for outreach program'
         )
       }
@@ -2461,7 +2798,13 @@ export default function AdminDashboard({ user, onLogout }) {
 
   // Compile Approved Report to PDF (standard format) or directly convert/download uploaded file
   const compileReportPDF = async (report) => {
-    if (report?.submissionType === 'docx_upload' || report?.originalDocxUrl) {
+    const isBuiltInTemplate = Boolean(
+      report?.documentSource === 'built_in_template' ||
+      report?.submissionType === 'template' ||
+      (report?.isTemplateActive && !report?.originalDocxUrl && report?.submissionType !== 'gdoc_submission')
+    )
+
+    if (!isBuiltInTemplate && (report?.submissionType === 'docx_upload' || report?.originalDocxUrl)) {
       if (report.fileType === 'pdf' || report.originalDocxName?.toLowerCase().endsWith('.pdf')) {
         downloadFileFromUrl(
           report.originalDocxUrl,
@@ -2484,7 +2827,7 @@ export default function AdminDashboard({ user, onLogout }) {
       return
     }
 
-    if (report?.googleDocsUrl) {
+    if (!isBuiltInTemplate && report?.googleDocsUrl) {
       const match = report.googleDocsUrl.match(/\/document\/d\/([a-zA-Z0-9-_]+)/)
       if (match) {
         const docId = match[1]
@@ -2501,7 +2844,13 @@ export default function AdminDashboard({ user, onLogout }) {
 
   // Compile Approved Report to DOCX (standard format) or directly download uploaded file
   const compileReportDOCX = async (report) => {
-    if (report?.submissionType === 'docx_upload' || report?.originalDocxUrl) {
+    const isBuiltInTemplate = Boolean(
+      report?.documentSource === 'built_in_template' ||
+      report?.submissionType === 'template' ||
+      (report?.isTemplateActive && !report?.originalDocxUrl && report?.submissionType !== 'gdoc_submission')
+    )
+
+    if (!isBuiltInTemplate && (report?.submissionType === 'docx_upload' || report?.originalDocxUrl)) {
       downloadFileFromUrl(
         report.originalDocxUrl,
         report.originalDocxName || `${report.activityTitle || 'Report'}.${report.fileType === 'pdf' ? 'pdf' : 'docx'}`
@@ -2509,7 +2858,7 @@ export default function AdminDashboard({ user, onLogout }) {
       return
     }
 
-    if (report?.googleDocsUrl) {
+    if (!isBuiltInTemplate && report?.googleDocsUrl) {
       const match = report.googleDocsUrl.match(/\/document\/d\/([a-zA-Z0-9-_]+)/)
       if (match) {
         const docId = match[1]
@@ -3077,7 +3426,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
                       {/* Full-width Stock Table Card with Filtering & Pagination */}
                       {(() => {
-                        const filteredInventory = inventoryList.filter((item) => {
+                        const filteredInventory = groupedInventory.filter((item) => {
                           // 1. Search Query filter (item name, description, or category)
                           if (invSearchQuery.trim()) {
                             const q = invSearchQuery.toLowerCase().trim()
@@ -3099,15 +3448,29 @@ export default function AdminDashboard({ user, onLogout }) {
                             const targetUnit = unitFilter.toLowerCase().trim()
                             const itemUnitLower = (item.unit || '').toLowerCase().trim()
                             const itemGroupLower = (item.groupUnit || '').toLowerCase().trim()
+                            const batchesMatch = (item.batches || []).some((b) => {
+                              const bUnit = (b.unit || '').toLowerCase().trim()
+                              const bGroup = (b.groupUnit || '').toLowerCase().trim()
+                              return bUnit.includes(targetUnit) || bGroup.includes(targetUnit)
+                            })
 
                             if (targetUnit === 'pieces') {
                               const isPiece = itemUnitLower.includes('piece')
-                              if (!isPiece && itemGroupLower !== 'none' && itemGroupLower !== '') return false
+                              if (!isPiece && itemGroupLower !== 'none' && itemGroupLower !== '' && !batchesMatch)
+                                return false
                             } else if (['pack', 'box', 'bundle'].includes(targetUnit)) {
-                              const matchUnit = itemUnitLower.includes(targetUnit) || itemGroupLower.includes(targetUnit)
+                              const matchUnit =
+                                itemUnitLower.includes(targetUnit) ||
+                                itemGroupLower.includes(targetUnit) ||
+                                batchesMatch
                               if (!matchUnit) return false
                             } else {
-                              if (!itemUnitLower.includes(targetUnit) && !itemGroupLower.includes(targetUnit)) return false
+                              if (
+                                !itemUnitLower.includes(targetUnit) &&
+                                !itemGroupLower.includes(targetUnit) &&
+                                !batchesMatch
+                              )
+                                return false
                             }
                           }
 
@@ -3348,62 +3711,9 @@ export default function AdminDashboard({ user, onLogout }) {
                                         className={`hover:bg-gray-50/50 transition ${item.isRecommendedForRelease && item.expiryDate ? 'bg-red-50/30 font-medium' : ''}`}
                                       >
                                         <td className="py-3 px-3">
-                                          <div className="font-bold text-navy-blue text-sm flex items-center space-x-1.5 flex-wrap gap-y-1">
+                                          <div className="font-bold text-navy-blue text-sm">
                                             <span>{item.name}</span>
-                                            {item.isRecommendedForRelease && item.expiryDate && (
-                                              <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-200 flex items-center space-x-0.5">
-                                                <span>Recommended Release</span>
-                                              </span>
-                                            )}
                                           </div>
-                                          {item.expiryDate && (
-                                            <div className="text-xs mt-1">
-                                              {(() => {
-                                                const expInfo = getExpirationInfo(item.expiryDate)
-                                                return (
-                                                  <span
-                                                    className={`flex items-center font-medium ${
-                                                      expInfo.isNearExpiry
-                                                        ? 'text-red-500 font-semibold'
-                                                        : 'text-gray-500'
-                                                    }`}
-                                                  >
-                                                    <Clock className="w-3.5 h-3.5 shrink-0 mr-1" />
-                                                    <span>
-                                                      Exp: {new Date(item.expiryDate).toLocaleDateString()}
-                                                      {expInfo.isExpired && (
-                                                        <span className="ml-1 text-[10px] uppercase font-bold text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded">
-                                                          Expired
-                                                        </span>
-                                                      )}
-                                                      {!expInfo.isExpired && expInfo.isNearExpiry && (
-                                                        <span className="ml-1 text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded">
-                                                          ≤ 4 mos left
-                                                        </span>
-                                                      )}
-                                                    </span>
-                                                  </span>
-                                                )
-                                              })()}
-                                            </div>
-                                          )}
-                                          {/* Multiple Batches Breakdown */}
-                                          {Array.isArray(item.batches) && item.batches.filter((b) => b.quantity > 0).length > 1 && (
-                                            <div className="mt-1.5 flex flex-wrap gap-1 items-center">
-                                              <span className="text-[10px] font-bold text-navy-blue bg-navy-blue/5 border border-navy-blue/15 px-1.5 py-0.5 rounded">
-                                                {item.batches.filter((b) => b.quantity > 0).length} Batches:
-                                              </span>
-                                              {item.batches.filter((b) => b.quantity > 0).map((batch, bIdx) => (
-                                                <span
-                                                  key={batch.id || bIdx}
-                                                  className="text-[10px] text-gray-600 bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded font-medium"
-                                                >
-                                                  B{bIdx + 1}: {batch.quantity} {formatUnit(batch.quantity, item.unit || 'pieces')}{' '}
-                                                  {batch.expiryDate ? `(Exp: ${new Date(batch.expiryDate).toLocaleDateString()})` : ''}
-                                                </span>
-                                              ))}
-                                            </div>
-                                          )}
                                           {item.description && (
                                             <p className="text-xs text-gray-400 mt-1 max-w-xs truncate">
                                               {item.description}
@@ -3417,22 +3727,6 @@ export default function AdminDashboard({ user, onLogout }) {
                                           <span className="text-sm font-bold text-navy-blue">
                                             {item.quantity} {formatUnit(item.quantity, item.unit || 'pieces')}
                                           </span>
-                                          {item.groupUnit &&
-                                            item.groupUnit !== 'none' &&
-                                            item.piecesPerUnit && (
-                                              <div className="text-xs text-gray-500 font-medium mt-1">
-                                                {(() => {
-                                                  const pPerUnit = parseInt(item.piecesPerUnit, 10) || 12
-                                                  const packs = Math.floor(item.quantity / pPerUnit)
-                                                  const remainder = item.quantity % pPerUnit
-                                                  const packLabel = formatUnit(packs, item.groupUnit)
-                                                  const perPieceLabel = formatUnit(pPerUnit, item.unit || 'pieces')
-                                                  const perPackLabel = formatUnit(1, item.groupUnit)
-                                                  const remainderLabel = remainder > 0 ? ` + ${remainder} ${formatUnit(remainder, item.unit || 'pieces')}` : ''
-                                                  return `${packs} ${packLabel} | ${pPerUnit} ${perPieceLabel} per ${perPackLabel}${remainderLabel}`
-                                                })()}
-                                              </div>
-                                            )}
                                         </td>
                                         <td className="py-3 px-2">
                                           <span
@@ -3450,6 +3744,14 @@ export default function AdminDashboard({ user, onLogout }) {
                                         </td>
                                         <td className="py-3 px-3 text-right">
                                           <div className="flex justify-end items-center space-x-1.5">
+                                            <button
+                                              type="button"
+                                              onClick={() => setBatchDetailsItemKey(item.key || item.id)}
+                                              className="p-1.5 text-navy-blue hover:text-navy-blue/80 hover:bg-navy-blue/10 rounded-lg transition-all duration-150 cursor-pointer"
+                                              title="View Stock Batches & Expirations (...)"
+                                            >
+                                              <MoreHorizontal className="w-4 h-4" />
+                                            </button>
                                             <button
                                               type="button"
                                               onClick={() => handleOpenAddStockModal(item)}
@@ -3482,7 +3784,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                             </button>
                                             <button
                                               type="button"
-                                              onClick={() => handleDeleteInventory(item.id)}
+                                              onClick={() => handleDeleteInventory(item)}
                                               className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all duration-150 cursor-pointer"
                                               title="Delete item"
                                             >
@@ -3492,14 +3794,14 @@ export default function AdminDashboard({ user, onLogout }) {
                                         </td>
                                       </tr>
                                     ))}
-                                    {inventoryList.length === 0 && (
+                                    {groupedInventory.length === 0 && (
                                       <tr>
                                         <td colSpan="5" className="text-center py-8 text-gray-400 text-xs font-medium">
                                           No inventory entries available.
                                         </td>
                                       </tr>
                                     )}
-                                    {inventoryList.length > 0 && filteredInventory.length === 0 && (
+                                    {groupedInventory.length > 0 && filteredInventory.length === 0 && (
                                       <tr>
                                         <td colSpan="5" className="text-center py-8 text-gray-400 text-xs font-medium">
                                           <div>No items match the selected filter criteria.</div>
@@ -4459,7 +4761,7 @@ export default function AdminDashboard({ user, onLogout }) {
 
                                     {showAddStockDropdown && (
                                       <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-56 overflow-y-auto">
-                                        {inventoryList
+                                        {groupedInventory
                                           .filter((item) =>
                                             !addStockSearch ||
                                             item.name.toLowerCase().includes(addStockSearch.toLowerCase()) ||
@@ -4500,7 +4802,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                               </div>
                                             )
                                           })}
-                                        {inventoryList.filter((item) =>
+                                        {groupedInventory.filter((item) =>
                                           !addStockSearch ||
                                           item.name.toLowerCase().includes(addStockSearch.toLowerCase()) ||
                                           (item.category || '').toLowerCase().includes(addStockSearch.toLowerCase())
@@ -4519,7 +4821,10 @@ export default function AdminDashboard({ user, onLogout }) {
 
                                 {/* Selected Item Info & Inputs */}
                                 {(() => {
-                                  const selected = inventoryList.find((i) => i.id === addStockItemId)
+                                  const selected =
+                                    groupedInventory.find(
+                                      (i) => i.id === addStockItemId || i.key === addStockItemId
+                                    ) || inventoryList.find((i) => i.id === addStockItemId)
                                   if (!selected) return null
 
                                   const hasGroup = selected.groupUnit && selected.groupUnit !== 'none' && selected.piecesPerUnit
@@ -4842,14 +5147,13 @@ export default function AdminDashboard({ user, onLogout }) {
                                         setTimeout(() => {
                                           setShowReleaseDropdown(false)
                                           setReleaseSearch(() => {
-                                            if (releaseItemId) {
-                                              const item = inventoryList.find(
-                                                (i) => i.id === releaseItemId
-                                              )
+                                              const item =
+                                                groupedInventory.find(
+                                                  (i) => i.id === releaseItemId || i.key === releaseItemId
+                                                ) || inventoryList.find((i) => i.id === releaseItemId)
                                               if (item) {
                                                 return `${item.name} (${item.category}) - ${displayStock(item.quantity, item.unit, item.groupUnit, item.piecesPerUnit)} left ${item.expiryDate ? `(Exp: ${new Date(item.expiryDate).toLocaleDateString()})` : ''}`
                                               }
-                                            }
                                             return ''
                                           })
                                         }, 200)
@@ -4885,7 +5189,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                     </div>
                                     {showReleaseDropdown && (
                                       <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-                                        {inventoryList
+                                        {groupedInventory
                                           .filter((item) => item.quantity > 0)
                                           .filter(
                                             (item) =>
@@ -5148,6 +5452,438 @@ export default function AdminDashboard({ user, onLogout }) {
                                   </div>
                                 </>
                               )}
+                            </div>
+                          </div>,
+                          document.body
+                        )}
+
+                      {/* ==================================================== */}
+                      {/* BATCH DETAILS MODAL (THREE-DOT DETAILS) */}
+                      {/* ==================================================== */}
+                      {activeBatchItem &&
+                        createPortal(
+                          <div
+                            className="fixed inset-0 z-50 bg-navy-blue/40 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-fade-in"
+                            onClick={() => setBatchDetailsItemKey(null)}
+                          >
+                            <div
+                              className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full border border-gray-100 overflow-hidden flex flex-col max-h-[90vh] animate-scale-up"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {/* Modal Header */}
+                              <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-gray-50/80 to-white">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-2xl bg-navy-blue/5 border border-navy-blue/10 flex items-center justify-center text-navy-blue">
+                                    <Layers className="w-5 h-5 text-navy-blue" />
+                                  </div>
+                                  <div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <h2 className="text-lg font-bold text-navy-blue">
+                                        {activeBatchItem.name}
+                                      </h2>
+                                      <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-sig-green/10 text-sig-green border border-sig-green/20">
+                                        {activeBatchItem.category}
+                                      </span>
+                                      <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-navy-blue/5 text-navy-blue border border-navy-blue/10">
+                                        Total Stock: {displayStock(activeBatchItem.quantity, activeBatchItem.unit, activeBatchItem.groupUnit, activeBatchItem.piecesPerUnit)}
+                                      </span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-0.5">
+                                      Stock batches & expiration dates sorted by FEFO (First Expired, First Out)
+                                    </p>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setBatchDetailsItemKey(null)}
+                                  className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition cursor-pointer"
+                                  title="Close"
+                                >
+                                  <X className="w-5 h-5" />
+                                </button>
+                              </div>
+
+                              {/* Modal Table Content */}
+                              <div className="p-6 overflow-y-auto flex-1">
+                                <div className="overflow-x-auto rounded-2xl border border-gray-100">
+                                  <table className="w-full text-left text-xs border-collapse">
+                                    <thead>
+                                      <tr className="bg-gray-50/80 text-gray-500 font-semibold border-b border-gray-100 uppercase tracking-wider text-[11px]">
+                                        <th className="py-3 px-4">Item Details</th>
+                                        <th className="py-3 px-4">Category</th>
+                                        <th className="py-3 px-4">Stock Level</th>
+                                        <th className="py-3 px-4">Status</th>
+                                        <th className="py-3 px-4 text-right">Actions</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                      {activeBatchItem.batches && activeBatchItem.batches.length > 0 ? (
+                                        activeBatchItem.batches.map((batch, idx) => {
+                                          const expInfo = getExpirationInfo(batch.expiryDate)
+                                          const isSupplies = isSuppliesCategory(activeBatchItem.category)
+                                          const breakdown = formatBatchPackagingBreakdown(
+                                            batch.quantity,
+                                            batch.unit || activeBatchItem.unit,
+                                            batch.groupUnit || activeBatchItem.groupUnit,
+                                            batch.piecesPerUnit || activeBatchItem.piecesPerUnit
+                                          )
+                                          const batchStatus =
+                                            batch.quantity <= 0
+                                              ? 'out of stock'
+                                              : expInfo.isExpired
+                                                ? 'expired'
+                                                : batch.quantity <= 10
+                                                  ? 'low stock'
+                                                  : 'available'
+
+                                          return (
+                                            <React.Fragment key={batch.id || `batch-${idx}`}>
+                                              {/* 1. Corresponding Item Row */}
+                                              <tr className="hover:bg-gray-50/50 transition-colors">
+                                                {/* Item Details */}
+                                                <td className="pt-4 pb-1 px-4 font-bold text-navy-blue text-sm align-top">
+                                                  {activeBatchItem.name}
+                                                </td>
+
+                                                {/* Category */}
+                                                <td className="pt-4 pb-1 px-4 text-xs font-semibold text-gray-700 capitalize align-top">
+                                                  {activeBatchItem.category}
+                                                </td>
+
+                                                {/* Stock Level */}
+                                                <td className="pt-4 pb-1 px-4 font-bold text-navy-blue text-sm align-top">
+                                                  {batch.quantity} {formatUnit(batch.quantity, batch.unit || activeBatchItem.unit || 'pieces')}
+                                                </td>
+
+                                                {/* Status */}
+                                                <td className="pt-4 pb-1 px-4 align-top">
+                                                  <span
+                                                    className={`inline-block text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide ${
+                                                      batchStatus === 'available'
+                                                        ? expInfo.isNearExpiry
+                                                          ? 'bg-red-50 text-red-700 border border-red-200'
+                                                          : 'bg-sig-green/10 text-sig-green'
+                                                        : batchStatus === 'low stock'
+                                                          ? 'bg-amber-50 text-amber-600'
+                                                          : 'bg-red-50 text-red-700 border border-red-200'
+                                                    }`}
+                                                  >
+                                                    {batchStatus}
+                                                  </span>
+                                                </td>
+
+                                                {/* Actions */}
+                                                <td className="pt-4 pb-1 px-4 text-right align-top">
+                                                  <div className="flex items-center justify-end space-x-1.5">
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => handleOpenEditBatch(batch, activeBatchItem)}
+                                                      className="p-1.5 text-gray-400 hover:text-navy-blue hover:bg-navy-blue/10 rounded-lg transition-all duration-150 cursor-pointer"
+                                                      title="Edit batch"
+                                                    >
+                                                      <Edit2 className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => handleDeleteBatch(batch, activeBatchItem)}
+                                                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all duration-150 cursor-pointer"
+                                                      title="Delete batch"
+                                                    >
+                                                      <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                  </div>
+                                                </td>
+                                              </tr>
+
+                                              {/* 2. Expiration Date and Packaging Details directly below the corresponding item row */}
+                                              <tr className="border-b border-gray-100 last:border-b-0">
+                                                <td colSpan="5" className="pt-0.5 pb-4 px-4">
+                                                  <div className="space-y-1 text-xs text-gray-600 font-medium">
+                                                    {!isSupplies && batch.expiryDate && (
+                                                      <div className={`font-medium ${expInfo.isNearExpiry ? 'text-red-600 font-semibold' : 'text-gray-700'}`}>
+                                                        Exp: {new Date(batch.expiryDate).toLocaleDateString('en-US', {
+                                                          month: '2-digit',
+                                                          day: '2-digit',
+                                                          year: 'numeric'
+                                                        })}
+                                                      </div>
+                                                    )}
+                                                    {isSupplies && (
+                                                      <div className="text-gray-500">
+                                                        No Expiration (Supplies)
+                                                      </div>
+                                                    )}
+                                                    {breakdown && (
+                                                      <div className="text-gray-600">
+                                                        {breakdown}
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                </td>
+                                              </tr>
+                                            </React.Fragment>
+                                          )
+                                        })
+                                      ) : (
+                                        <tr>
+                                          <td colSpan="5" className="text-center py-8 text-gray-400 text-xs">
+                                            No batches available for this item.
+                                          </td>
+                                        </tr>
+                                      )}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+
+                              {/* Modal Footer */}
+                              <div className="p-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                                <div className="text-xs text-gray-500">
+                                  Showing {activeBatchItem.batches?.length || 0} batch{(activeBatchItem.batches?.length || 0) === 1 ? '' : 'es'}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const target = activeBatchItem
+                                      setBatchDetailsItemKey(null)
+                                      handleOpenAddStockModal(target)
+                                    }}
+                                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-navy-blue bg-white border border-gray-200 hover:bg-gray-100 transition cursor-pointer shadow-xs"
+                                  >
+                                    <Plus className="w-3.5 h-3.5 text-sig-green" />
+                                    <span>Add Stock Batch</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setBatchDetailsItemKey(null)}
+                                    className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-navy-blue hover:bg-navy-blue/90 transition cursor-pointer shadow-xs"
+                                  >
+                                    Close
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>,
+                          document.body
+                        )}
+
+                      {/* ==================================================== */}
+                      {/* EDIT BATCH MODAL */}
+                      {/* ==================================================== */}
+                      {editingBatch &&
+                        createPortal(
+                          <div
+                            className="fixed inset-0 z-60 bg-navy-blue/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-fade-in"
+                            onClick={() => setEditingBatch(null)}
+                          >
+                            <div
+                              className="bg-white rounded-3xl shadow-2xl max-w-lg w-full border border-gray-100 overflow-hidden animate-scale-up"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-gray-50/80 to-white">
+                                <div>
+                                  <h2 className="text-lg font-bold text-navy-blue">Edit Stock Batch</h2>
+                                  <p className="text-xs text-gray-500 mt-0.5">
+                                    {editingBatch.name} • {editingBatch.category}
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingBatch(null)}
+                                  className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition cursor-pointer"
+                                  title="Close"
+                                >
+                                  <X className="w-5 h-5" />
+                                </button>
+                              </div>
+
+                              <form onSubmit={handleSaveEditBatch} className="p-6 space-y-4">
+                                {/* Packaging Configuration */}
+                                <div>
+                                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                                    Packaging / Group Unit
+                                  </label>
+                                  <div className="grid grid-cols-4 gap-2">
+                                    {['none', 'box', 'pack', 'bundle'].map((u) => (
+                                      <button
+                                        key={u}
+                                        type="button"
+                                        onClick={() => {
+                                          setBatchEditGroupUnit(u)
+                                          if (u === 'none') {
+                                            setBatchEditPiecesPerUnit('')
+                                            setBatchEditQtyGroup('')
+                                            setBatchEditQtyPieces('')
+                                          } else if (!batchEditPiecesPerUnit) {
+                                            setBatchEditPiecesPerUnit('12')
+                                          }
+                                        }}
+                                        className={`py-2 px-3 rounded-xl text-xs font-semibold border transition cursor-pointer capitalize text-center ${
+                                          batchEditGroupUnit === u
+                                            ? 'bg-navy-blue text-white border-navy-blue shadow-xs'
+                                            : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                                        }`}
+                                      >
+                                        {u === 'none' ? 'None (Loose)' : u}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {/* Group Unit details if selected */}
+                                {batchEditGroupUnit !== 'none' ? (
+                                  <div className="space-y-3 bg-gray-50 p-4 rounded-2xl border border-gray-200/60">
+                                    <div>
+                                      <label className="block text-xs font-bold text-gray-700 mb-1">
+                                        Pieces per {formatUnit(1, batchEditGroupUnit)}
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={batchEditPiecesPerUnit}
+                                        onChange={(e) => {
+                                          if (/^\d*$/.test(e.target.value)) {
+                                            setBatchEditPiecesPerUnit(e.target.value)
+                                          }
+                                        }}
+                                        placeholder="e.g. 20"
+                                        className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs font-semibold focus:outline-hidden focus:border-navy-blue bg-white"
+                                      />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                      <div>
+                                        <label className="block text-xs font-bold text-gray-700 mb-1 capitalize">
+                                          {formatUnit(2, batchEditGroupUnit)}
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={batchEditQtyGroup}
+                                          onChange={(e) => {
+                                            if (/^\d*$/.test(e.target.value)) {
+                                              setBatchEditQtyGroup(e.target.value)
+                                            }
+                                          }}
+                                          placeholder="0"
+                                          className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs font-semibold focus:outline-hidden focus:border-navy-blue bg-white"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">
+                                          Loose Pieces
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={batchEditQtyPieces}
+                                          onChange={(e) => {
+                                            if (/^\d*$/.test(e.target.value)) {
+                                              setBatchEditQtyPieces(e.target.value)
+                                            }
+                                          }}
+                                          placeholder="0"
+                                          className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-xs font-semibold focus:outline-hidden focus:border-navy-blue bg-white"
+                                        />
+                                      </div>
+                                    </div>
+
+                                    {/* Total preview */}
+                                    <div className="text-xs text-navy-blue font-bold flex items-center justify-between pt-1 border-t border-gray-200">
+                                      <span>Total Quantity:</span>
+                                      <span>
+                                        {(() => {
+                                          const factor = parseInt(batchEditPiecesPerUnit, 10) || 12
+                                          const grp = parseInt(batchEditQtyGroup, 10) || 0
+                                          const pcs = parseInt(batchEditQtyPieces, 10) || 0
+                                          const total = grp * factor + pcs
+                                          return `${total} ${formatUnit(total, editingBatch.unit || 'pieces')}`
+                                        })()}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                                      Quantity ({formatUnit(2, editingBatch.unit || 'pieces')})
+                                    </label>
+                                    <input
+                                      type="text"
+                                      value={batchEditQty}
+                                      onChange={(e) => {
+                                        if (/^\d*$/.test(e.target.value)) {
+                                          setBatchEditQty(e.target.value)
+                                        }
+                                      }}
+                                      placeholder="0"
+                                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-semibold focus:outline-hidden focus:border-navy-blue"
+                                    />
+                                  </div>
+                                )}
+                                {batchEditErrors.qty && (
+                                  <p className="text-red-500 text-[11px] font-semibold">
+                                    {batchEditErrors.qty}
+                                  </p>
+                                )}
+
+                                {/* Expiration Date */}
+                                {!isSuppliesCategory(editingBatch.category) && (
+                                  <div>
+                                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                                      Expiration Date
+                                    </label>
+                                    <div
+                                      className={
+                                        batchEditErrors.expiry
+                                          ? 'border border-red-500 rounded-xl p-0.5 ring-2 ring-red-500/10'
+                                          : ''
+                                      }
+                                    >
+                                      <GlassDatePicker
+                                        value={batchEditExpiry ? batchEditExpiry.split('T')[0] : ''}
+                                        disablePast={true}
+                                        onChange={(val) => {
+                                          setBatchEditExpiry(val)
+                                          if (val && isPastDate(val)) {
+                                            setBatchEditErrors((prev) => ({
+                                              ...prev,
+                                              expiry: DATE_ERROR_MESSAGES.EXPIRY_PAST
+                                            }))
+                                          } else {
+                                            setBatchEditErrors((prev) => {
+                                              const copy = { ...prev }
+                                              delete copy.expiry
+                                              return copy
+                                            })
+                                          }
+                                        }}
+                                        showTime={false}
+                                        placeholder="dd/mm/yyyy"
+                                      />
+                                    </div>
+                                    {batchEditErrors.expiry && (
+                                      <p className="text-red-500 text-[11px] font-semibold mt-1">
+                                        {batchEditErrors.expiry}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+
+                                <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingBatch(null)}
+                                    className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition cursor-pointer"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="px-5 py-2 rounded-xl text-xs font-semibold text-white bg-navy-blue hover:bg-navy-blue/90 transition cursor-pointer shadow-xs disabled:opacity-50"
+                                  >
+                                    {loading ? 'Saving...' : 'Save Changes'}
+                                  </button>
+                                </div>
+                              </form>
                             </div>
                           </div>,
                           document.body

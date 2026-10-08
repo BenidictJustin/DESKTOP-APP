@@ -170,14 +170,21 @@ export default function DocumentViewer({
     }
   }, [report])
 
+  // Built-in Template Guard
+  const isBuiltInTemplate = Boolean(
+    report?.documentSource === 'built_in_template' ||
+    report?.submissionType === 'template' ||
+    (report?.isTemplateActive && !report?.originalDocxUrl && report?.submissionType !== 'gdoc_submission')
+  )
+
   // DOCX / PDF / Google Doc Direct View State
-  const isDocxSubmission = Boolean(
+  const isDocxSubmission = !isBuiltInTemplate && Boolean(
     report?.submissionType === 'docx_upload' ||
     report?.submissionType === 'gdoc_submission' ||
     report?.originalDocxUrl ||
     report?.googleDocsUrl
   )
-  const isPdfFile = Boolean(
+  const isPdfFile = !isBuiltInTemplate && Boolean(
     report?.fileType === 'pdf' ||
     report?.originalDocxName?.toLowerCase().endsWith('.pdf') ||
     report?.originalDocxUrl?.startsWith('data:application/pdf') ||
@@ -272,7 +279,7 @@ export default function DocumentViewer({
               rawBuffer = await getDocxArrayBuffer(gDocResult.pdfBase64)
               isPdfBuffer = true
               try {
-                if (gDocResult.pdfBase64.length < 4500000 && report.id) {
+                if (gDocResult.pdfBase64.length < 400000 && report.id) {
                   localStorage.setItem(`dommunity_gdoc_pdf_${report.id}`, gDocResult.pdfBase64)
                 }
               } catch {}
@@ -280,7 +287,7 @@ export default function DocumentViewer({
               rawBuffer = await getDocxArrayBuffer(gDocResult.docxBase64)
               isPdfBuffer = false
               try {
-                if (gDocResult.docxBase64.length < 3500000 && report.id) {
+                if (gDocResult.docxBase64.length < 400000 && report.id) {
                   localStorage.setItem(`dommunity_gdoc_buffer_${report.id}`, gDocResult.docxBase64)
                 }
               } catch {}
@@ -816,7 +823,7 @@ export default function DocumentViewer({
         )
         return
       }
-      if (report?.googleDocsUrl) {
+      if (!isBuiltInTemplate && report?.googleDocsUrl) {
         const match = report.googleDocsUrl.match(/\/document\/d\/([a-zA-Z0-9-_]+)/)
         if (match) {
           const docId = match[1]
@@ -1465,7 +1472,7 @@ export default function DocumentViewer({
             >
               <Printer className="w-4 h-4" />
             </button>
-            {report?.googleDocsUrl && (
+            {!isBuiltInTemplate && report?.googleDocsUrl && (
               <a
                 href={report.googleDocsUrl}
                 target="_blank"
@@ -2108,7 +2115,7 @@ export default function DocumentViewer({
                   </div>
                 </div>
 
-                {report.googleDocsUrl && (
+                {!isBuiltInTemplate && report.googleDocsUrl && (
                   <div className="flex items-start space-x-3 p-3 rounded-2xl bg-blue-50/60 border border-blue-100/70">
                     <GoogleDocsIcon className="w-4 h-4 shrink-0 mt-0.5" />
                     <div className="text-left min-w-0 flex-1">

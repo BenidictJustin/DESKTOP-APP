@@ -154,6 +154,7 @@ export default function TextEditor({
   const [zoom, setZoom] = useState(100)
   const [isTemplateActive, setIsTemplateActive] = useState(false)
   const [activeTemplateId, setActiveTemplateId] = useState(null)
+  const [documentSource, setDocumentSource] = useState(null) // 'built_in_template' | 'google_docs' | 'scratch'
   const [docxBuffer, setDocxBuffer] = useState(null)
   const [paperKey, setPaperKey] = useState('Letter')
   const [orientation, setOrientation] = useState('portrait')
@@ -167,21 +168,30 @@ export default function TextEditor({
   const googleDocsMenuRef = useRef(null)
   const [showGoogleDocsModal, setShowGoogleDocsModal] = useState(false)
   const [showGoogleDocsMenu, setShowGoogleDocsMenu] = useState(false)
-  const [googleDocsUrl, setGoogleDocsUrl] = useState(() => {
-    return (
-      (workspaceReportId && localStorage.getItem(`dommunity_gdocs_${workspaceReportId}`)) ||
-      ''
-    )
-  })
+  const [googleDocsUrl, setGoogleDocsUrl] = useState('')
 
   useEffect(() => {
     if (workspaceReportId) {
       const rep = reportsList?.find((r) => r.id === workspaceReportId)
-      const saved =
-        rep?.googleDocsUrl ||
-        localStorage.getItem(`dommunity_gdocs_${workspaceReportId}`) ||
-        ''
-      setGoogleDocsUrl(saved)
+      const isBuiltInTemplateRep = Boolean(
+        rep?.documentSource === 'built_in_template' ||
+        rep?.submissionType === 'template' ||
+        (rep?.isTemplateActive && !rep?.googleDocsUrl && !rep?.originalDocxUrl)
+      )
+      if (isBuiltInTemplateRep) {
+        setGoogleDocsUrl('')
+        setIsTemplateActive(true)
+        setDocumentSource('built_in_template')
+      } else {
+        const saved =
+          rep?.googleDocsUrl ||
+          localStorage.getItem(`dommunity_gdocs_${workspaceReportId}`) ||
+          ''
+        setGoogleDocsUrl(saved)
+        if (saved || rep?.submissionType === 'gdoc_submission') {
+          setDocumentSource('google_docs')
+        }
+      }
     } else {
       setGoogleDocsUrl('')
     }
@@ -192,6 +202,8 @@ export default function TextEditor({
       const cleanUrl = (url || '').trim()
       setGoogleDocsUrl(cleanUrl)
       if (cleanUrl) {
+        setDocumentSource('google_docs')
+        setIsTemplateActive(false)
         if (workspaceReportId) {
           localStorage.setItem(`dommunity_gdocs_${workspaceReportId}`, cleanUrl)
           try {
@@ -237,6 +249,9 @@ export default function TextEditor({
   // Auto-detect Google Docs URL from clipboard whenever user returns/focuses Dommunity
   useEffect(() => {
     const handleWindowFocus = async () => {
+      // Never auto-connect Google Docs if user is working on a built-in template
+      if (isTemplateActive || documentSource === 'built_in_template') return
+
       if (!googleDocsUrl && navigator.clipboard?.readText) {
         try {
           const text = await navigator.clipboard.readText()
@@ -255,7 +270,7 @@ export default function TextEditor({
 
     window.addEventListener('focus', handleWindowFocus)
     return () => window.removeEventListener('focus', handleWindowFocus)
-  }, [googleDocsUrl, handleSaveGoogleDocsUrl, extractGoogleDocUrl])
+  }, [googleDocsUrl, handleSaveGoogleDocsUrl, extractGoogleDocUrl, isTemplateActive, documentSource])
 
   const docxInputRef = useRef(null)
   const pdfInputRef = useRef(null)
@@ -588,6 +603,11 @@ export default function TextEditor({
       setMarginKey('Normal')
       setIsTemplateActive(false)
       setActiveTemplateId(null)
+      setDocumentSource(null)
+      setGoogleDocsUrl('')
+      try {
+        localStorage.removeItem('dommunity_saved_gdoc_url')
+      } catch {}
       setDocxBuffer(null)
       setActiveEditingArea('body')
       lastSavedContentRef.current = '<p></p>'
@@ -712,6 +732,9 @@ export default function TextEditor({
         const isSystem = !!(tpl.id && tpl.id.startsWith('system-'))
         setIsTemplateActive(isSystem)
         setActiveTemplateId(isSystem ? tpl.id : null)
+        if (isSystem) {
+          setDocumentSource('built_in_template')
+        }
 
         if (tpl.headerText !== undefined && tpl.headerText) {
           setHeaderText(tpl.headerText)
@@ -755,7 +778,15 @@ export default function TextEditor({
         if (setWorkspaceReportId) {
           setWorkspaceReportId(null)
         }
-        if (tpl.googleDocsUrl) {
+        if (isSystem || !tpl.googleDocsUrl) {
+          setGoogleDocsUrl('')
+          try {
+            localStorage.removeItem('dommunity_saved_gdoc_url')
+            if (workspaceReportId) {
+              localStorage.removeItem(`dommunity_gdocs_${workspaceReportId}`)
+            }
+          } catch {}
+        } else if (tpl.googleDocsUrl) {
           setGoogleDocsUrl(tpl.googleDocsUrl)
           localStorage.setItem('dommunity_saved_gdoc_url', tpl.googleDocsUrl)
         }
@@ -779,7 +810,8 @@ export default function TextEditor({
       setOrientation,
       setMarginKey,
       setIsTemplateActive,
-      setActiveTemplateId
+      setActiveTemplateId,
+      workspaceReportId
     ]
   )
 
@@ -820,8 +852,32 @@ export default function TextEditor({
           const paperKeyVal = rep.paperKey || 'Folio'
           const orientationVal = rep.orientation || 'portrait'
           const marginKeyVal = rep.marginKey || 'Narrative'
-          const isTemplateActiveVal =
-            rep.isTemplateActive !== undefined ? rep.isTemplateActive : true
+          const isBuiltInTemplateRep = Boolean(
+            rep.documentSource === 'built_in_template' ||
+            rep.submissionType === 'template' ||
+            (rep.isTemplateActive && !rep.googleDocsUrl && !rep.originalDocxUrl)
+          )
+          const isTemplateActiveVal = isBuiltInTemplateRep
+            ? true
+            : rep.isTemplateActive !== undefined
+              ? rep.isTemplateActive
+              : false
+
+          if (isBuiltInTemplateRep) {
+            setIsTemplateActive(true)
+            setDocumentSource('built_in_template')
+            setGoogleDocsUrl('')
+            try {
+              localStorage.removeItem('dommunity_saved_gdoc_url')
+              localStorage.removeItem(`dommunity_gdocs_${workspaceReportId}`)
+            } catch {}
+          } else if (rep.googleDocsUrl || rep.submissionType === 'gdoc_submission') {
+            setIsTemplateActive(false)
+            setDocumentSource('google_docs')
+            setGoogleDocsUrl(rep.googleDocsUrl || '')
+          } else {
+            setIsTemplateActive(isTemplateActiveVal)
+          }
 
           setHeaderText(resolvedHeader)
           loadInitialContentAndResetHistory(headerEditor, resolvedHeader || '<p></p>')
@@ -1195,8 +1251,16 @@ export default function TextEditor({
         return
       }
 
-      const resolvedGDocUrl =
-        explicitGDocUrl !== undefined && explicitGDocUrl !== null
+      // Determine document source: Built-in templates NEVER use Google Docs
+      const isBuiltInTemplateDoc = Boolean(
+        isTemplateActive ||
+        documentSource === 'built_in_template' ||
+        (activeTemplateId && activeTemplateId.startsWith('system-'))
+      )
+
+      const resolvedGDocUrl = isBuiltInTemplateDoc
+        ? null
+        : explicitGDocUrl !== undefined && explicitGDocUrl !== null
           ? explicitGDocUrl
           : googleDocsUrl ||
             (workspaceReportId ? localStorage.getItem(`dommunity_gdocs_${workspaceReportId}`) : '') ||
@@ -1207,7 +1271,7 @@ export default function TextEditor({
       let fetchedPdfBase64 = null
       let fetchedDocTitle = null
 
-      if (resolvedGDocUrl) {
+      if (!isBuiltInTemplateDoc && resolvedGDocUrl) {
         const match = resolvedGDocUrl.match(/\/document\/d\/([a-zA-Z0-9-_]+)/)
         if (!match) {
           if (!silent) {
@@ -1250,22 +1314,16 @@ export default function TextEditor({
         if (gDocResult.pdfBase64) {
           fetchedPdfBase64 = gDocResult.pdfBase64
           try {
-            if (gDocResult.pdfBase64.length < 4500000) {
-              if (workspaceReportId) {
-                localStorage.setItem(`dommunity_gdoc_pdf_${workspaceReportId}`, gDocResult.pdfBase64)
-              }
-              localStorage.setItem(`dommunity_gdoc_pdf_${resolvedGDocUrl}`, gDocResult.pdfBase64)
+            if (gDocResult.pdfBase64.length < 400000 && workspaceReportId) {
+              localStorage.setItem(`dommunity_gdoc_pdf_${workspaceReportId}`, gDocResult.pdfBase64)
             }
           } catch {}
         }
         if (gDocResult.docxBase64) {
           fetchedDocxBase64 = gDocResult.docxBase64
           try {
-            if (gDocResult.docxBase64.length < 3500000) {
-              if (workspaceReportId) {
-                localStorage.setItem(`dommunity_gdoc_buffer_${workspaceReportId}`, gDocResult.docxBase64)
-              }
-              localStorage.setItem(`dommunity_gdoc_buffer_${resolvedGDocUrl}`, gDocResult.docxBase64)
+            if (gDocResult.docxBase64.length < 400000 && workspaceReportId) {
+              localStorage.setItem(`dommunity_gdoc_buffer_${workspaceReportId}`, gDocResult.docxBase64)
             }
           } catch {}
         }
@@ -1288,12 +1346,22 @@ export default function TextEditor({
         paperKey,
         orientation,
         marginKey,
-        isTemplateActive,
-        googleDocsUrl: resolvedGDocUrl,
+        isTemplateActive: isBuiltInTemplateDoc,
+        documentSource: isBuiltInTemplateDoc
+          ? 'built_in_template'
+          : resolvedGDocUrl
+            ? 'google_docs'
+            : 'scratch',
+        submissionType: isBuiltInTemplateDoc
+          ? 'template'
+          : resolvedGDocUrl
+            ? 'gdoc_submission'
+            : 'template',
+        googleDocsUrl: isBuiltInTemplateDoc ? null : (resolvedGDocUrl || null),
         originalDocxUrl: null,
-        gdocTitle: fetchedDocTitle,
-        pdfBase64: fetchedPdfBase64,
-        docxBase64: fetchedDocxBase64
+        gdocTitle: isBuiltInTemplateDoc ? null : fetchedDocTitle,
+        pdfBase64: isBuiltInTemplateDoc ? null : fetchedPdfBase64,
+        docxBase64: isBuiltInTemplateDoc ? null : fetchedDocxBase64
       })
       lastSavedContentRef.current = finalHtml
       setHasUnsavedChanges(false)
@@ -1311,6 +1379,8 @@ export default function TextEditor({
       orientation,
       marginKey,
       isTemplateActive,
+      documentSource,
+      activeTemplateId,
       googleDocsUrl,
       workspaceReportId
     ]
