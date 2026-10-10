@@ -18,7 +18,8 @@ export default function DocxUploadModal({
   onClose,
   onSubmit,
   eventsList = [],
-  isSubmitting = false
+  isSubmitting = false,
+  initialEventId = ''
 }) {
   const [file, setFile] = useState(null)
   const [comment, setComment] = useState('')
@@ -33,11 +34,11 @@ export default function DocxUploadModal({
     if (isOpen) {
       setFile(null)
       setComment('')
-      setSelectedEventId('')
+      setSelectedEventId(initialEventId || '')
       setErrorMessage('')
       setDragActive(false)
     }
-  }, [isOpen])
+  }, [isOpen, initialEventId])
 
   const handleFileSelect = (selectedFile) => {
     setErrorMessage('')

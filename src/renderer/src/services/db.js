@@ -28,7 +28,7 @@ import {
   reauthenticateWithCredential,
   EmailAuthProvider
 } from 'firebase/auth'
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import {
   db as fdb,
   auth as fauth,
@@ -2957,6 +2957,11 @@ export const addEvent = async (event) => {
     }
     events.push(newEvent)
     saveLocalData(LOCAL_STORAGE_KEYS.EVENTS, events)
+    if (event.status && event.status.toLowerCase().trim() === 'completed') {
+      createPendingReportForCompletedEvent(newEvent).catch((err) =>
+        console.warn('[db.js] Failed to auto-create pending report for completed added event:', err)
+      )
+    }
     return newEvent
   } else {
     const docRef = await addDoc(collection(fdb, 'events'), {
@@ -2965,7 +2970,13 @@ export const addEvent = async (event) => {
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now()
     })
-    return { ...event, id: docRef.id }
+    const created = { ...event, id: docRef.id }
+    if (event.status && event.status.toLowerCase().trim() === 'completed') {
+      createPendingReportForCompletedEvent(created).catch((err) =>
+        console.warn('[db.js] Failed to auto-create pending report for completed added event:', err)
+      )
+    }
+    return created
   }
 }
 
@@ -2980,6 +2991,11 @@ export const updateEvent = async (eventId, updates) => {
         updatedAt: new Date().toISOString()
       }
       saveLocalData(LOCAL_STORAGE_KEYS.EVENTS, events)
+      if (updates.status && updates.status.toLowerCase().trim() === 'completed') {
+        createPendingReportForCompletedEvent(events[idx]).catch((err) =>
+          console.warn('[db.js] Failed to auto-create pending report for completed event:', err)
+        )
+      }
       return events[idx]
     }
     throw new Error('Event not found')
@@ -2989,6 +3005,23 @@ export const updateEvent = async (eventId, updates) => {
       dbUpdates.scheduleDate = Timestamp.fromDate(new Date(updates.scheduleDate))
     }
     await updateDoc(doc(fdb, 'events', eventId), dbUpdates)
+    if (updates.status && updates.status.toLowerCase().trim() === 'completed') {
+      try {
+        const evDoc = await getDoc(doc(fdb, 'events', eventId))
+        if (evDoc.exists()) {
+          const evData = {
+            ...evDoc.data(),
+            id: evDoc.id,
+            scheduleDate: evDoc.data().scheduleDate?.toDate
+              ? evDoc.data().scheduleDate.toDate().toISOString()
+              : evDoc.data().scheduleDate
+          }
+          await createPendingReportForCompletedEvent(evData)
+        }
+      } catch (err) {
+        console.warn('[db.js] Failed to auto-create pending report for completed event in Firestore:', err)
+      }
+    }
   }
 }
 
@@ -3001,6 +3034,226 @@ export const deleteEvent = async (eventId) => {
   } else {
     await deleteDoc(doc(fdb, 'events', eventId))
   }
+}
+
+// In-flight mutex set to prevent concurrent duplicate pending report creations for the same event
+const pendingReportCreations = new Set()
+
+const CLEARED_REPORT_EVENTS_KEY = 'dommunity_cleared_report_events'
+
+export const getClearedReportEventIds = () => {
+  try {
+    const raw = localStorage.getItem(CLEARED_REPORT_EVENTS_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+export const recordClearedReportEventId = (eventId) => {
+  if (!eventId) return
+  try {
+    const current = getClearedReportEventIds()
+    if (!current.includes(eventId)) {
+      const updated = [...current, eventId]
+      localStorage.setItem(CLEARED_REPORT_EVENTS_KEY, JSON.stringify(updated))
+    }
+  } catch {}
+}
+
+/**
+ * Automatically creates or registers a narrative report with status 'pending'
+ * for a completed event. Prevents duplicate reports for the same event.
+ */
+export const createPendingReportForCompletedEvent = async (event) => {
+  if (!event || !event.id) return null
+  const eventId = event.id
+  if (pendingReportCreations.has(eventId)) return null
+  if (event.reportCleared || event.narrativeReportCleared) return null
+  if (getClearedReportEventIds().includes(eventId)) return null
+  pendingReportCreations.add(eventId)
+
+  try {
+    // 1. Check local cache first to ensure no duplicate pending/draft/submitted/returned/approved report exists
+    const localReports = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
+    const existingLocal = localReports.find((r) => r.eventId === eventId)
+    if (existingLocal) {
+      return existingLocal
+    }
+
+    // 2. In cloud mode, check Firestore narrative_reports for existing report with this eventId
+    if (!isDemoMode) {
+      try {
+        const qSnap = await getDocs(
+          query(collection(fdb, 'narrative_reports'), where('eventId', '==', eventId))
+        )
+        if (!qSnap.empty) {
+          const docData = qSnap.docs[0].data()
+          const existingReport = {
+            ...docData,
+            id: qSnap.docs[0].id,
+            createdAt: docData.createdAt?.toDate ? docData.createdAt.toDate().toISOString() : docData.createdAt,
+            updatedAt: docData.updatedAt?.toDate ? docData.updatedAt.toDate().toISOString() : docData.updatedAt
+          }
+          // Mirror to local cache
+          const curReports = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
+          const existingIdx = curReports.findIndex((r) => r.id === existingReport.id)
+          if (existingIdx !== -1) {
+            curReports[existingIdx] = existingReport
+          } else {
+            curReports.push(existingReport)
+          }
+          saveLocalData(LOCAL_STORAGE_KEYS.REPORTS, curReports)
+          return existingReport
+        }
+      } catch (checkErr) {
+        console.warn('[db.js] Error checking existing pending report in Firestore:', checkErr)
+      }
+    }
+
+    // 3. Extract and format event details for pending narrative report
+    const eventName = event.name || 'Untitled Completed Event'
+    let eventDate = ''
+    if (event.scheduleDate) {
+      try {
+        const d = event.scheduleDate.toDate ? event.scheduleDate.toDate() : new Date(event.scheduleDate)
+        if (!isNaN(d.getTime())) {
+          eventDate = d.toISOString().split('T')[0]
+        }
+      } catch {}
+    }
+    const venue = event.location || event.venueLocation || event.venue || ''
+    const orgId = event.assignedOrganizationId || null
+    const orgName = event.organizationName || ''
+    const desc = event.description || ''
+
+    const newPendingReport = {
+      eventId: eventId,
+      activityTitle: eventName,
+      title: eventName,
+      activityDate: eventDate || new Date().toISOString().split('T')[0],
+      location: venue,
+      venue: venue,
+      organizationId: orgId,
+      assignedOrganizationId: orgId,
+      organizationName: orgName,
+      parentDepartmentId: event.parentDepartmentId || null,
+      eventType: event.eventType || 'department',
+      description: desc,
+      eventDescription: desc,
+      narrative: '',
+      photos: [],
+      academicYear: '2026-2027',
+      semester: '1st Semester',
+      type: event.eventType === 'department' ? 'outreach' : 'outreach',
+      status: 'pending',
+      adminFeedback: null,
+      authorId: null,
+      authorName: 'Coordinator',
+      authorEmail: '',
+      submittedBy: 'Coordinator',
+      history: [
+        {
+          status: 'pending',
+          changedBy: 'system',
+          timestamp: new Date().toISOString(),
+          notes: `Automatic pending narrative report generated for completed event "${eventName}".`
+        }
+      ],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+
+    if (isDemoMode) {
+      const reports = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
+      const localObj = {
+        ...newPendingReport,
+        id: 'report-evt-' + eventId
+      }
+      reports.push(localObj)
+      saveLocalData(LOCAL_STORAGE_KEYS.REPORTS, reports)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('dommunity_reports_updated'))
+      }
+      return localObj
+    } else {
+      try {
+        const firestorePayload = sanitizeForFirestore({
+          ...newPendingReport,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now()
+        })
+        const docRef = await addDoc(collection(fdb, 'narrative_reports'), firestorePayload)
+        const createdReport = {
+          ...newPendingReport,
+          id: docRef.id
+        }
+
+        // Mirror to local cache
+        const localReports = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
+        const existingIdx = localReports.findIndex((r) => r.id === docRef.id)
+        if (existingIdx !== -1) {
+          localReports[existingIdx] = createdReport
+        } else {
+          localReports.push(createdReport)
+        }
+        saveLocalData(LOCAL_STORAGE_KEYS.REPORTS, localReports)
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('dommunity_reports_updated'))
+        }
+        return createdReport
+      } catch (fsErr) {
+        console.warn('[db.js] Failed to save pending report to Firestore, using local fallback:', fsErr)
+        const reports = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
+        const fallbackObj = {
+          ...newPendingReport,
+          id: 'report-evt-' + eventId,
+          syncStatus: 'local_pending'
+        }
+        reports.push(fallbackObj)
+        saveLocalData(LOCAL_STORAGE_KEYS.REPORTS, reports)
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('dommunity_reports_updated'))
+        }
+        return fallbackObj
+      }
+    }
+  } finally {
+    pendingReportCreations.delete(eventId)
+  }
+}
+
+/**
+ * Inspects all completed events and ensures each has a registered narrative report.
+ * If any completed event lacks a report, automatically creates a 'pending' report entry.
+ */
+export const ensurePendingReportsForCompletedEvents = async (events, reports) => {
+  if (!Array.isArray(events) || events.length === 0) return []
+  const currentReports = Array.isArray(reports)
+    ? reports
+    : (getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || [])
+
+  const clearedEventIds = getClearedReportEventIds()
+
+  const completedEvents = events.filter((e) => {
+    if (!e || !e.id) return false
+    if (e.reportCleared || e.narrativeReportCleared || clearedEventIds.includes(e.id)) {
+      return false
+    }
+    const s = (e.status || '').toLowerCase().trim()
+    return s === 'completed' || s === 'successful' || s === 'done'
+  })
+
+  const createdReports = []
+  for (const evt of completedEvents) {
+    if (!evt || !evt.id) continue
+    const alreadyExists = currentReports.some((r) => r.eventId === evt.id)
+    if (!alreadyExists) {
+      const created = await createPendingReportForCompletedEvent(evt)
+      if (created) createdReports.push(created)
+    }
+  }
+  return createdReports
 }
 
 // --- NARRATIVE REPORT SERVICES ---
@@ -3510,6 +3763,200 @@ export const updateReport = async (reportId, updates, userId) => {
       throw firestoreError
     }
   }
+}
+
+/**
+ * Permanently deletes a narrative report from Firestore (or local cache in demo mode).
+ * Cleans up linked storage files and marks the event as cleared to prevent
+ * automatic resurrection of pending reports.
+ */
+export const deleteReport = async (reportId) => {
+  if (!reportId) return false
+
+  // 1. Identify associated report details before removing
+  let eventId = null
+  let photos = []
+  let docxUrl = null
+
+  const localReports = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
+  const found = localReports.find((r) => r.id === reportId)
+  if (found) {
+    if (found.eventId) eventId = found.eventId
+    if (Array.isArray(found.photos)) photos = found.photos
+    if (found.originalDocxUrl) docxUrl = found.originalDocxUrl
+  }
+
+  if (!isDemoMode) {
+    try {
+      const snap = await getDoc(doc(fdb, 'narrative_reports', reportId))
+      if (snap.exists()) {
+        const d = snap.data()
+        if (d) {
+          if (d.eventId) eventId = d.eventId
+          if (Array.isArray(d.photos) && d.photos.length > 0) photos = d.photos
+          if (d.originalDocxUrl) docxUrl = d.originalDocxUrl
+        }
+      }
+    } catch (fetchErr) {
+      console.warn('[db.js] Error fetching report doc before deletion:', fetchErr)
+    }
+  }
+
+  // 2. Mark event as cleared to suppress ensurePendingReports
+  if (eventId) {
+    recordClearedReportEventId(eventId)
+    try {
+      await updateEvent(eventId, { reportCleared: true, narrativeReportCleared: true })
+    } catch (e) {
+      console.warn('[db.js] Failed to update event reportCleared flag:', e)
+    }
+  }
+
+  // 3. Attempt to clean up storage files if any
+  if (!isDemoMode && fstorage) {
+    const cleanupUrls = [...photos, docxUrl].filter(
+      (u) => typeof u === 'string' && u.startsWith('https://firebasestorage.googleapis.com')
+    )
+    for (const url of cleanupUrls) {
+      try {
+        const storageItemRef = ref(fstorage, url)
+        await deleteObject(storageItemRef)
+      } catch {}
+    }
+  }
+
+  // 4. Remove document from Firestore if in cloud mode
+  if (!isDemoMode) {
+    try {
+      await deleteDoc(doc(fdb, 'narrative_reports', reportId))
+    } catch (delErr) {
+      console.warn('[db.js] Firestore deleteDoc failed:', delErr)
+      if (delErr.code === 'permission-denied') {
+        throw delErr
+      }
+    }
+  }
+
+  // 5. Clean local storage mirrors and helper keys
+  const updatedReports = (getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []).filter(
+    (r) => r.id !== reportId
+  )
+  saveLocalData(LOCAL_STORAGE_KEYS.REPORTS, updatedReports)
+
+  try {
+    localStorage.removeItem(`dommunity_gdocs_${reportId}`)
+    localStorage.removeItem(`dommunity_docx_${reportId}`)
+  } catch {}
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('dommunity_reports_updated'))
+  }
+
+  return true
+}
+
+/**
+ * Removes all approved reports from Firestore and local cache to reduce database size.
+ * Marks linked completed events as reportCleared to prevent re-generation.
+ */
+export const clearApprovedReports = async () => {
+  let clearedCount = 0
+
+  if (isDemoMode) {
+    const localReports = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
+    const approvedReports = localReports.filter((r) => r.status === 'approved')
+    for (const rep of approvedReports) {
+      if (rep.eventId) {
+        recordClearedReportEventId(rep.eventId)
+        try {
+          await updateEvent(rep.eventId, { reportCleared: true, narrativeReportCleared: true })
+        } catch {}
+      }
+      try {
+        localStorage.removeItem(`dommunity_gdocs_${rep.id}`)
+        localStorage.removeItem(`dommunity_docx_${rep.id}`)
+      } catch {}
+    }
+    const remaining = localReports.filter((r) => r.status !== 'approved')
+    saveLocalData(LOCAL_STORAGE_KEYS.REPORTS, remaining)
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('dommunity_reports_updated'))
+    }
+    return approvedReports.length
+  }
+
+  // Cloud Mode: Delete from Firestore narrative_reports collection
+  try {
+    const qSnap = await getDocs(
+      query(collection(fdb, 'narrative_reports'), where('status', '==', 'approved'))
+    )
+
+    for (const d of qSnap.docs) {
+      const data = d.data()
+      if (data && data.eventId) {
+        recordClearedReportEventId(data.eventId)
+        try {
+          await updateEvent(data.eventId, { reportCleared: true, narrativeReportCleared: true })
+        } catch {}
+      }
+
+      // Clean up storage files if present
+      if (fstorage) {
+        const fileUrls = [
+          ...(Array.isArray(data.photos) ? data.photos : []),
+          data.originalDocxUrl
+        ].filter(
+          (u) => typeof u === 'string' && u.startsWith('https://firebasestorage.googleapis.com')
+        )
+        for (const url of fileUrls) {
+          try {
+            await deleteObject(ref(fstorage, url))
+          } catch {}
+        }
+      }
+
+      try {
+        localStorage.removeItem(`dommunity_gdocs_${d.id}`)
+        localStorage.removeItem(`dommunity_docx_${d.id}`)
+      } catch {}
+
+      await deleteDoc(doc(fdb, 'narrative_reports', d.id))
+      clearedCount++
+    }
+  } catch (firestoreErr) {
+    console.warn('[db.js] Error querying/deleting approved reports from Firestore:', firestoreErr)
+    // Fallback: iterate over local approved reports to attempt deleteDoc on each
+    const localReports = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
+    const approved = localReports.filter((r) => r.status === 'approved')
+    for (const rep of approved) {
+      try {
+        if (!rep.id.startsWith('report-')) {
+          await deleteDoc(doc(fdb, 'narrative_reports', rep.id))
+        }
+        clearedCount++
+      } catch {}
+      if (rep.eventId) {
+        recordClearedReportEventId(rep.eventId)
+      }
+    }
+  }
+
+  // Clean local storage cache
+  const updatedReports = (getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []).filter(
+    (r) => r.status !== 'approved'
+  )
+  saveLocalData(LOCAL_STORAGE_KEYS.REPORTS, updatedReports)
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('dommunity_reports_updated'))
+  }
+
+  return clearedCount
+}
+
+if (typeof window !== 'undefined') {
+  window.dommunityClearApprovedReports = clearApprovedReports
+  window.dommunityDeleteReport = deleteReport
 }
 
 // Simulated Storage / File Upload

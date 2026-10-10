@@ -65,7 +65,10 @@ import {
   uploadPhoto,
   sendCoordinatorResetEmail,
   areNamesSimilar,
-  runInventoryDeduplicationMigration
+  runInventoryDeduplicationMigration,
+  ensurePendingReportsForCompletedEvents,
+  deleteReport,
+  clearApprovedReports
 } from '../../services/db'
 import logo from '../../assets/logo.png'
 import logo2Img from '../../assets/logo2.png'
@@ -232,7 +235,6 @@ export default function AdminDashboard({ user, onLogout }) {
   // PDF Export target reference
   const pdfExportRef = useRef(null)
   const [exportingReport, setExportingReport] = useState(null)
-  const [exportingDocxReport, setExportingDocxReport] = useState(null)
 
   const [deletedCategories, setDeletedCategories] = useState(() => {
     try {
@@ -484,11 +486,7 @@ export default function AdminDashboard({ user, onLogout }) {
     return c.includes('supply')
   }
 
-  useEffect(() => {
-    if (isSuppliesCategory(itemCategory)) {
-      setItemExpiry('')
-    }
-  }, [itemCategory])
+
 
   const formatUnit = (qty, unitStr) => {
     if (!unitStr) return ''
@@ -838,6 +836,12 @@ export default function AdminDashboard({ user, onLogout }) {
       const rep = await getReports()
       const reset = await getResetRequests()
 
+      try {
+        await ensurePendingReportsForCompletedEvents(ev, rep)
+      } catch (pendingErr) {
+        console.warn('Failed to ensure pending reports for completed events:', pendingErr)
+      }
+
       setUsersList(u)
       setOrgsList((o || []).map(normalizeOrg))
       setInventoryList(inv)
@@ -1172,9 +1176,7 @@ export default function AdminDashboard({ user, onLogout }) {
     if (!itemUnit.trim()) errors.itemUnit = 'Unit of measurement is required.'
     if (!itemQty) errors.itemQty = 'Quantity is required.'
 
-    if (!isSchoolSupplies && !itemExpiry) {
-      errors.itemExpiry = 'Expiration date is required.'
-    } else if (itemExpiry && isPastDate(itemExpiry)) {
+    if (itemExpiry && isPastDate(itemExpiry)) {
       errors.itemExpiry = DATE_ERROR_MESSAGES.EXPIRY_PAST
     }
     if (isAlreadyGrouped && !itemPiecesPerUnit)
@@ -1205,7 +1207,7 @@ export default function AdminDashboard({ user, onLogout }) {
       category: itemCategory,
       unit: finalUnit,
       quantity: finalQty,
-      expiryDate: isSchoolSupplies || !itemExpiry ? null : new Date(itemExpiry).toISOString(),
+      expiryDate: itemExpiry ? new Date(itemExpiry).toISOString() : null,
       piecesPerUnit: finalPiecesPerUnit,
       groupUnit: finalGroupUnit
     }
@@ -1409,13 +1411,8 @@ export default function AdminDashboard({ user, onLogout }) {
       errors.qty = 'Please enter a valid quantity greater than 0.'
     }
 
-    const isSupplies = isSuppliesCategory(editingBatch.category)
-    if (!isSupplies) {
-      if (!batchEditExpiry) {
-        errors.expiry = 'Please specify an expiration date for this batch.'
-      } else if (isPastDate(batchEditExpiry)) {
-        errors.expiry = DATE_ERROR_MESSAGES.EXPIRY_PAST
-      }
+    if (batchEditExpiry && isPastDate(batchEditExpiry)) {
+      errors.expiry = DATE_ERROR_MESSAGES.EXPIRY_PAST
     }
 
     if (Object.keys(errors).length > 0) {
@@ -1461,7 +1458,7 @@ export default function AdminDashboard({ user, onLogout }) {
       existingBatches[batchIdx] = {
         ...existingBatches[batchIdx],
         quantity: newBatchQty,
-        expiryDate: isSupplies || !batchEditExpiry ? null : new Date(batchEditExpiry).toISOString(),
+        expiryDate: batchEditExpiry ? new Date(batchEditExpiry).toISOString() : null,
         groupUnit: batchEditGroupUnit,
         piecesPerUnit: batchEditPiecesPerUnit ? parseInt(batchEditPiecesPerUnit, 10) : null
       }
@@ -1637,13 +1634,8 @@ export default function AdminDashboard({ user, onLogout }) {
         addedBaseQty = parseInt(addStockQty, 10) || 0
       }
 
-      const isSupplies = isSuppliesCategory(targetItem.category)
-      if (!isSupplies) {
-        if (!addStockExpiry) {
-          errors.expiry = 'Please specify an expiration date for the new stock batch.'
-        } else if (isPastDate(addStockExpiry)) {
-          errors.expiry = DATE_ERROR_MESSAGES.EXPIRY_PAST
-        }
+      if (addStockExpiry && isPastDate(addStockExpiry)) {
+        errors.expiry = DATE_ERROR_MESSAGES.EXPIRY_PAST
       }
     }
 
@@ -1691,10 +1683,7 @@ export default function AdminDashboard({ user, onLogout }) {
       const newBatch = {
         id: 'batch-' + Math.random().toString(36).substr(2, 9),
         quantity: addedBaseQty,
-        expiryDate:
-          isSuppliesCategory(targetItem.category) || !addStockExpiry
-            ? null
-            : new Date(addStockExpiry).toISOString(),
+        expiryDate: addStockExpiry ? new Date(addStockExpiry).toISOString() : null,
         receivedDate: new Date().toISOString(),
         unit: targetItem.unit || targetDoc.unit || 'pieces',
         groupUnit: targetItem.groupUnit || targetDoc.groupUnit || 'none',
@@ -2161,9 +2150,7 @@ export default function AdminDashboard({ user, onLogout }) {
       if (!item.name || !item.name.trim()) itemErr.name = 'Item name is required.'
       if (!item.quantity) itemErr.quantity = 'Quantity is required.'
       if (!item.unit) itemErr.unit = 'Unit is required.'
-      if (!isSchoolSupplies && !item.expiryDate) {
-        itemErr.expiryDate = 'Expiration date is required.'
-      } else if (item.expiryDate && isPastDate(item.expiryDate)) {
+      if (item.expiryDate && isPastDate(item.expiryDate)) {
         itemErr.expiryDate = DATE_ERROR_MESSAGES.EXPIRY_PAST
       }
       if (isAlreadyGrouped && !item.piecesPerUnit)
@@ -2229,8 +2216,7 @@ export default function AdminDashboard({ user, onLogout }) {
           name: i.name,
           unit: finalUnit,
           quantity: finalQty,
-          expiryDate:
-            isSchoolSupplies || !i.expiryDate ? null : new Date(i.expiryDate).toISOString(),
+          expiryDate: i.expiryDate ? new Date(i.expiryDate).toISOString() : null,
           piecesPerUnit: finalPiecesPerUnit,
           groupUnit: finalGroupUnit
         }
@@ -2842,36 +2828,6 @@ export default function AdminDashboard({ user, onLogout }) {
     setExportingReport(report)
   }
 
-  // Compile Approved Report to DOCX (standard format) or directly download uploaded file
-  const compileReportDOCX = async (report) => {
-    const isBuiltInTemplate = Boolean(
-      report?.documentSource === 'built_in_template' ||
-      report?.submissionType === 'template' ||
-      (report?.isTemplateActive && !report?.originalDocxUrl && report?.submissionType !== 'gdoc_submission')
-    )
-
-    if (!isBuiltInTemplate && (report?.submissionType === 'docx_upload' || report?.originalDocxUrl)) {
-      downloadFileFromUrl(
-        report.originalDocxUrl,
-        report.originalDocxName || `${report.activityTitle || 'Report'}.${report.fileType === 'pdf' ? 'pdf' : 'docx'}`
-      )
-      return
-    }
-
-    if (!isBuiltInTemplate && report?.googleDocsUrl) {
-      const match = report.googleDocsUrl.match(/\/document\/d\/([a-zA-Z0-9-_]+)/)
-      if (match) {
-        const docId = match[1]
-        downloadFileFromUrl(
-          `https://docs.google.com/document/d/${docId}/export?format=docx`,
-          `${(report.activityTitle || 'Report').replace(/[^a-zA-Z0-9_-]+/g, '_')}.docx`
-        )
-        return
-      }
-    }
-
-    setExportingDocxReport(report)
-  }
 
   // Helper to get consistent submission timestamp for pending queue chronological sorting (newest first)
   const getPendingReportTimestamp = (rep) => {
@@ -3226,30 +3182,14 @@ export default function AdminDashboard({ user, onLogout }) {
                                         <Eye className="w-3.5 h-3.5" />
                                         <span>Inspect Report</span>
                                       </button>
-                                      {Boolean(rep.submissionType === 'docx_upload' || rep.originalDocxUrl) ? (
-                                        <button
-                                          onClick={() =>
-                                            downloadFileFromUrl(
-                                              rep.originalDocxUrl,
-                                              rep.originalDocxName || `${rep.activityTitle || 'Report'}.${rep.fileType === 'pdf' || rep.originalDocxName?.toLowerCase().endsWith('.pdf') ? 'pdf' : 'docx'}`
-                                            )
-                                          }
-                                          className="bg-sig-green hover:bg-sig-green-600 text-navy-blue font-semibold py-1.5 px-2.5 rounded-lg text-xs flex items-center gap-1 shadow-xs transition-all cursor-pointer shrink-0"
-                                          title="Download Submitted Document"
-                                        >
-                                          <Download className="w-3.5 h-3.5" />
-                                          <span>{rep.fileType === 'pdf' || rep.originalDocxName?.toLowerCase().endsWith('.pdf') ? 'PDF' : 'Download'}</span>
-                                        </button>
-                                      ) : (
-                                        <button
-                                          onClick={() => compileReportPDF(rep)}
-                                          className="bg-sig-green hover:bg-sig-green-600 text-navy-blue font-semibold py-1.5 px-2.5 rounded-lg text-xs flex items-center gap-1 shadow-xs transition-all cursor-pointer shrink-0"
-                                          title="Export Report PDF"
-                                        >
-                                          <Download className="w-3.5 h-3.5" />
-                                          <span>Export</span>
-                                        </button>
-                                      )}
+                                      <button
+                                        onClick={() => compileReportPDF(rep)}
+                                        className="bg-sig-green hover:bg-sig-green-600 text-navy-blue font-semibold py-1.5 px-2.5 rounded-lg text-xs flex items-center gap-1 shadow-xs transition-all cursor-pointer shrink-0"
+                                        title="Export Report PDF"
+                                      >
+                                        <Download className="w-3.5 h-3.5" />
+                                        <span>Export PDF</span>
+                                      </button>
                                     </div>
                                   </div>
                                 )
@@ -4280,9 +4220,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                 <div>
                                   <label className="block text-gray-700 text-xs font-semibold mb-1">
                                     Expiration Date{' '}
-                                    {!isSuppliesCategory(itemCategory) && (
-                                      <span className="text-red-500">*</span>
-                                    )}
+                                    <span className="text-gray-400 font-normal">(Optional)</span>
                                   </label>
                                   <div
                                     className={
@@ -4293,7 +4231,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                   >
                                     <GlassDatePicker
                                       value={itemExpiry ? itemExpiry.split('T')[0] : ''}
-                                      disabled={isSuppliesCategory(itemCategory)}
+                                      disabled={false}
                                       disablePast={true}
                                       onChange={(val) => {
                                         setItemExpiry(val)
@@ -4614,9 +4552,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                 <div>
                                   <label className="block text-gray-700 text-xs font-semibold mb-1">
                                     Expiration Date{' '}
-                                    {!isSuppliesCategory(itemCategory) && (
-                                      <span className="text-red-500">*</span>
-                                    )}
+                                    <span className="text-gray-400 font-normal">(Optional)</span>
                                   </label>
                                   <div
                                     className={
@@ -4627,7 +4563,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                   >
                                     <GlassDatePicker
                                       value={itemExpiry ? itemExpiry.split('T')[0] : ''}
-                                      disabled={isSuppliesCategory(itemCategory)}
+                                      disabled={false}
                                       disablePast={true}
                                       onChange={(val) => {
                                         setItemExpiry(val)
@@ -4994,11 +4930,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                       <div>
                                         <label className="block text-gray-700 text-xs font-semibold mb-1">
                                           Expiration Date (New Stock Batch){' '}
-                                          {!isSuppliesCategory(selected.category) ? (
-                                            <span className="text-red-500">*</span>
-                                          ) : (
-                                            <span className="text-gray-400 font-normal">(Optional for supplies)</span>
-                                          )}
+                                          <span className="text-gray-400 font-normal">(Optional)</span>
                                         </label>
                                         <div
                                           className={
@@ -5009,7 +4941,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                         >
                                           <GlassDatePicker
                                             value={addStockExpiry ? addStockExpiry.split('T')[0] : ''}
-                                            disabled={isSuppliesCategory(selected.category)}
+                                            disabled={false}
                                             disablePast={true}
                                             onChange={(val) => {
                                               setAddStockExpiry(val)
@@ -5027,7 +4959,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                               }
                                             }}
                                             showTime={false}
-                                            placeholder={isSuppliesCategory(selected.category) ? 'Not applicable for supplies' : 'dd/mm/yyyy'}
+                                            placeholder="dd/mm/yyyy"
                                           />
                                         </div>
                                         {addStockErrors.expiry && (
@@ -5599,7 +5531,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                               <tr className="border-b border-gray-100 last:border-b-0">
                                                 <td colSpan="5" className="pt-0.5 pb-4 px-4">
                                                   <div className="space-y-1 text-xs text-gray-600 font-medium">
-                                                    {!isSupplies && batch.expiryDate && (
+                                                    {batch.expiryDate ? (
                                                       <div className={`font-medium ${expInfo.isNearExpiry ? 'text-red-600 font-semibold' : 'text-gray-700'}`}>
                                                         Exp: {new Date(batch.expiryDate).toLocaleDateString('en-US', {
                                                           month: '2-digit',
@@ -5607,10 +5539,9 @@ export default function AdminDashboard({ user, onLogout }) {
                                                           year: 'numeric'
                                                         })}
                                                       </div>
-                                                    )}
-                                                    {isSupplies && (
-                                                      <div className="text-gray-500">
-                                                        No Expiration (Supplies)
+                                                    ) : (
+                                                      <div className="text-gray-500 font-normal">
+                                                        No Expiration Date
                                                       </div>
                                                     )}
                                                     {breakdown && (
@@ -5825,11 +5756,10 @@ export default function AdminDashboard({ user, onLogout }) {
                                 )}
 
                                 {/* Expiration Date */}
-                                {!isSuppliesCategory(editingBatch.category) && (
-                                  <div>
-                                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                                      Expiration Date
-                                    </label>
+                                <div>
+                                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                                    Expiration Date <span className="text-gray-400 font-normal lowercase">(optional)</span>
+                                  </label>
                                     <div
                                       className={
                                         batchEditErrors.expiry
@@ -5865,7 +5795,6 @@ export default function AdminDashboard({ user, onLogout }) {
                                       </p>
                                     )}
                                   </div>
-                                )}
 
                                 <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
                                   <button
@@ -7790,51 +7719,14 @@ export default function AdminDashboard({ user, onLogout }) {
                                           <Eye className="w-3.5 h-3.5" />
                                           <span>Inspect Report</span>
                                         </button>
-                                        {Boolean(rep.submissionType === 'docx_upload' || rep.originalDocxUrl) ? (
-                                          <div className="flex items-center gap-1.5">
-                                            {Boolean(rep.fileType !== 'pdf' && !rep.originalDocxName?.toLowerCase().endsWith('.pdf')) && (
-                                              <button
-                                                onClick={() =>
-                                                  downloadFileFromUrl(
-                                                    rep.originalDocxUrl,
-                                                    rep.originalDocxName || `${rep.activityTitle || 'Report'}.docx`
-                                                  )
-                                                }
-                                                className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-1.5 px-3 rounded-full text-xs flex items-center space-x-1 cursor-pointer shadow-2xs"
-                                                title="Download Original DOCX Document"
-                                              >
-                                                <Download className="w-3.5 h-3.5" />
-                                                <span>DOCX</span>
-                                              </button>
-                                            )}
-                                            <button
-                                              onClick={() => compileReportPDF(rep)}
-                                              className="bg-sig-green text-navy-blue font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-2xs"
-                                              title="Export and Download as PDF"
-                                            >
-                                              <Download className="w-3.5 h-3.5" />
-                                              <span>Export PDF</span>
-                                            </button>
-                                          </div>
-                                        ) : (
-                                          <div className="flex items-center space-x-1.5">
-                                            <button
-                                              onClick={() => compileReportDOCX(rep)}
-                                              className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-1.5 px-3 rounded-full text-xs flex items-center space-x-1 cursor-pointer shadow-2xs"
-                                              title="Download DOCX Document"
-                                            >
-                                              <Download className="w-3.5 h-3.5" />
-                                              <span>DOCX</span>
-                                            </button>
-                                            <button
-                                              onClick={() => compileReportPDF(rep)}
-                                              className="bg-sig-green text-navy-blue font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-2xs"
-                                            >
-                                              <Download className="w-3.5 h-3.5" />
-                                              <span>Export PDF</span>
-                                            </button>
-                                          </div>
-                                        )}
+                                        <button
+                                          onClick={() => compileReportPDF(rep)}
+                                          className="bg-sig-green text-navy-blue font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-2xs"
+                                          title="Export Report PDF"
+                                        >
+                                          <Download className="w-3.5 h-3.5" />
+                                          <span>Export PDF</span>
+                                        </button>
                                       </div>
                                     </div>
                                   )
@@ -7948,51 +7840,14 @@ export default function AdminDashboard({ user, onLogout }) {
                                           <Eye className="w-3.5 h-3.5" />
                                           <span>Inspect Report</span>
                                         </button>
-                                        {Boolean(rep.submissionType === 'docx_upload' || rep.originalDocxUrl) ? (
-                                          <div className="flex items-center gap-1.5">
-                                            {Boolean(rep.fileType !== 'pdf' && !rep.originalDocxName?.toLowerCase().endsWith('.pdf')) && (
-                                              <button
-                                                onClick={() =>
-                                                  downloadFileFromUrl(
-                                                    rep.originalDocxUrl,
-                                                    rep.originalDocxName || `${rep.activityTitle || 'Report'}.docx`
-                                                  )
-                                                }
-                                                className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-1.5 px-3 rounded-full text-xs flex items-center space-x-1 cursor-pointer shadow-2xs"
-                                                title="Download Original DOCX Document"
-                                              >
-                                                <Download className="w-3.5 h-3.5" />
-                                                <span>DOCX</span>
-                                              </button>
-                                            )}
-                                            <button
-                                              onClick={() => compileReportPDF(rep)}
-                                              className="bg-sig-green text-navy-blue font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-2xs"
-                                              title="Export and Download as PDF"
-                                            >
-                                              <Download className="w-3.5 h-3.5" />
-                                              <span>Export PDF</span>
-                                            </button>
-                                          </div>
-                                        ) : (
-                                          <div className="flex items-center space-x-1.5">
-                                            <button
-                                              onClick={() => compileReportDOCX(rep)}
-                                              className="bg-white hover:bg-gray-50 text-navy-blue border border-gray-200 font-semibold py-1.5 px-3 rounded-full text-xs flex items-center space-x-1 cursor-pointer shadow-2xs"
-                                              title="Download DOCX Document"
-                                            >
-                                              <Download className="w-3.5 h-3.5" />
-                                              <span>DOCX</span>
-                                            </button>
-                                            <button
-                                              onClick={() => compileReportPDF(rep)}
-                                              className="bg-sig-green text-navy-blue font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-2xs"
-                                            >
-                                              <Download className="w-3.5 h-3.5" />
-                                              <span>Export PDF</span>
-                                            </button>
-                                          </div>
-                                        )}
+                                        <button
+                                          onClick={() => compileReportPDF(rep)}
+                                          className="bg-sig-green text-navy-blue font-semibold py-1.5 px-3.5 rounded-full text-xs flex items-center space-x-1.5 hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-2xs"
+                                          title="Export Report PDF"
+                                        >
+                                          <Download className="w-3.5 h-3.5" />
+                                          <span>Export PDF</span>
+                                        </button>
                                       </div>
                                     </div>
                                   )
@@ -8316,20 +8171,6 @@ export default function AdminDashboard({ user, onLogout }) {
           </div>
         )}
 
-        {exportingDocxReport && (
-          <div className="fixed top-0 left-0 w-[816px] h-screen pointer-events-none select-none opacity-0 z-[-9999] overflow-hidden">
-            <DocumentViewer
-              report={exportingDocxReport}
-              onClose={() => setExportingDocxReport(null)}
-              eventsList={eventsList}
-              orgsList={orgsList}
-              usersList={usersList}
-              isExportOnly={true}
-              exportFormat="docx"
-              onExportFinished={() => setExportingDocxReport(null)}
-            />
-          </div>
-        )}
 
         {/* ==================================================== */}
         {/* CHRONOLOGICAL REPORT HISTORY PREVIEW OVERLAY */}
@@ -9067,7 +8908,7 @@ export default function AdminDashboard({ user, onLogout }) {
                             <div>
                               <label className="block text-gray-700 text-xs font-semibold mb-1">
                                 Expiration Date{' '}
-                                {!isSchoolSupplies && <span className="text-red-500">*</span>}
+                                <span className="text-gray-400 font-normal">(Optional)</span>
                               </label>
                               <div
                                 className={
@@ -9078,7 +8919,7 @@ export default function AdminDashboard({ user, onLogout }) {
                               >
                                 <GlassDatePicker
                                   value={item.expiryDate ? item.expiryDate.split('T')[0] : ''}
-                                  disabled={isSchoolSupplies}
+                                  disabled={false}
                                   disablePast={true}
                                   onChange={(val) => {
                                     handleDonItemChange(idx, 'expiryDate', val)

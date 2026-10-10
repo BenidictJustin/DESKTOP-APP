@@ -787,49 +787,39 @@ export default function DocumentViewer({
       alert('Failed to download PDF: ' + (err.message || err))
     }
   }
-
-  const handleDownloadDOCX = async () => {
-    if (!viewportRef?.current) {
-      alert('Report viewport not available.')
-      return
-    }
-    try {
-      const reportName = (
-        report.originalDocxName?.replace(/\.(docx|pdf)$/i, '') ||
-        report.activityTitle ||
-        report.title ||
-        event?.name ||
-        `CES_Narrative_Report_${report.academicYear || 'AY'}`
-      ).replace(/[^a-zA-Z0-9_-]+/g, '_')
-
-      await exportElementToDOCX(
-        viewportRef.current,
-        reportName,
-        { isDocument: true, paperKey, orientation, marginKey, paperW: docW, paperH: docH }
-      )
-    } catch (err) {
-      console.error('DocumentViewer DOCX export failed:', err)
-      alert('Failed to download DOCX: ' + (err.message || err))
-    }
-  }
-
-  // Single download action: directly downloads file if uploaded submission or Google Doc, otherwise exports PDF
+  // Single download action: directly downloads file if uploaded PDF, or exports as PDF
   const handleDownloadDocument = async () => {
     if (isDocxSubmission) {
-      if (report?.originalDocxUrl) {
+      if (isPdfFile && report?.originalDocxUrl) {
         downloadFileFromUrl(
           report.originalDocxUrl,
-          report.originalDocxName || `${report.activityTitle || 'Report'}.${isPdfFile ? 'pdf' : 'docx'}`
+          report.originalDocxName || `${report.activityTitle || 'Report'}.pdf`
         )
         return
+      }
+      if (docxContainerRef.current) {
+        try {
+          const reportFileName = (
+            report.originalDocxName?.replace(/\.docx$/i, '') ||
+            report.activityTitle ||
+            'CES_Report'
+          ).replace(/[^a-zA-Z0-9_-]+/g, '_')
+
+          await exportElementToPDF(docxContainerRef.current, reportFileName, {
+            isDocument: true
+          })
+          return
+        } catch (err) {
+          console.error('Failed to export DOCX container to PDF:', err)
+        }
       }
       if (!isBuiltInTemplate && report?.googleDocsUrl) {
         const match = report.googleDocsUrl.match(/\/document\/d\/([a-zA-Z0-9-_]+)/)
         if (match) {
           const docId = match[1]
           downloadFileFromUrl(
-            `https://docs.google.com/document/d/${docId}/export?format=docx`,
-            `${(report.activityTitle || 'Report').replace(/[^a-zA-Z0-9_-]+/g, '_')}.docx`
+            `https://docs.google.com/document/d/${docId}/export?format=pdf`,
+            `${(report.activityTitle || 'Report').replace(/[^a-zA-Z0-9_-]+/g, '_')}.pdf`
           )
           return
         }
@@ -856,28 +846,17 @@ export default function DocumentViewer({
       if (!docxLoading && docxContainerRef.current) {
         const timer = setTimeout(async () => {
           try {
-            if (exportFormat === 'docx') {
-              downloadFileFromUrl(
-                report.originalDocxUrl,
-                report.originalDocxName || `${report.activityTitle || 'Report'}.docx`
-              )
-            } else {
-              const reportFileName = (
-                report.originalDocxName?.replace(/\.docx$/i, '') ||
-                report.activityTitle ||
-                'CES_Report'
-              ).replace(/[^a-zA-Z0-9_-]+/g, '_')
+            const reportFileName = (
+              report.originalDocxName?.replace(/\.docx$/i, '') ||
+              report.activityTitle ||
+              'CES_Report'
+            ).replace(/[^a-zA-Z0-9_-]+/g, '_')
 
-              await exportElementToPDF(docxContainerRef.current, reportFileName, {
-                isDocument: true
-              })
-            }
+            await exportElementToPDF(docxContainerRef.current, reportFileName, {
+              isDocument: true
+            })
           } catch (err) {
-            console.error('Failed to export DOCX, falling back to direct download:', err)
-            downloadFileFromUrl(
-              report.originalDocxUrl,
-              report.originalDocxName || `${report.activityTitle || 'Report'}.docx`
-            )
+            console.error('Failed to export DOCX as PDF:', err)
           } finally {
             if (typeof onExportFinished === 'function') {
               onExportFinished()
@@ -893,11 +872,7 @@ export default function DocumentViewer({
     if (editor && narrativeTotalPages > 0) {
       const timer = setTimeout(async () => {
         try {
-          if (exportFormat === 'docx') {
-            await handleDownloadDOCX()
-          } else {
-            await handleDownloadPDF()
-          }
+          await handleDownloadPDF()
         } finally {
           if (typeof onExportFinished === 'function') {
             onExportFinished()
@@ -1473,21 +1448,26 @@ export default function DocumentViewer({
               <Printer className="w-4 h-4" />
             </button>
             {!isBuiltInTemplate && report?.googleDocsUrl && (
-              <a
-                href={report.googleDocsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.electron?.shell?.openExternal) {
+                    window.electron.shell.openExternal(report.googleDocsUrl)
+                  } else {
+                    window.open(report.googleDocsUrl, '_blank', 'noopener,noreferrer')
+                  }
+                }}
                 className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
                 title="Open Linked Google Doc in Browser"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Google Doc</span>
-              </a>
+              </button>
             )}
             <button
               onClick={handleDownloadDocument}
               className="p-2 bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 rounded-xl transition cursor-pointer flex items-center justify-center shadow-2xs hover:text-navy-blue"
-              title={isDocxSubmission ? (isPdfDocument ? 'Download PDF Document' : 'Download Original DOCX File') : 'Download Document'}
+              title="Export and Download as PDF"
             >
               <Download className="w-4 h-4" />
             </button>
@@ -1830,18 +1810,18 @@ export default function DocumentViewer({
                     <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
                     <h4 className="text-sm font-bold text-red-800">Failed to render {isPdfDocument ? 'PDF' : 'DOCX'} content</h4>
                     <p className="text-xs text-red-600 mt-1">{docxError}</p>
-                    {report?.originalDocxUrl && (
+                    {Boolean(report?.originalDocxUrl && isPdfDocument) && (
                       <button
                         onClick={() =>
                           downloadFileFromUrl(
                             report.originalDocxUrl,
-                            report.originalDocxName || `${report.activityTitle || 'Report'}.${isPdfDocument ? 'pdf' : 'docx'}`
+                            report.originalDocxName || `${report.activityTitle || 'Report'}.pdf`
                           )
                         }
-                        className={`mt-4 px-4 py-2 text-white rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer shadow-xs ${isPdfDocument ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                        className="mt-4 px-4 py-2 text-white rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer shadow-xs bg-red-600 hover:bg-red-700"
                       >
                         <Download className="w-3.5 h-3.5" />
-                        <span>Download Original (.{isPdfDocument ? 'pdf' : 'docx'})</span>
+                        <span>Download Original (.pdf)</span>
                       </button>
                     )}
                   </div>

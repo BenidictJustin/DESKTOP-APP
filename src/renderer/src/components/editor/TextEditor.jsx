@@ -48,7 +48,10 @@ import {
   Copy,
   Link2,
   Globe,
-  FileCode2
+  FileCode2,
+  Calendar,
+  MapPin,
+  Clock
 } from 'lucide-react'
 
 import GoogleDocsModal, { GoogleDocsIcon } from './ui/GoogleDocsModal'
@@ -65,7 +68,6 @@ import { updateReport } from '../../services/db'
 import { compressImage } from '../../utils/imageCompressor'
 import {
   handleExportPDF,
-  handleExportDOCX,
   handleExportTXT,
   handlePrintNative,
   docxToHtml,
@@ -2138,6 +2140,57 @@ export default function TextEditor({
           </div>
         </div>
       )}
+
+      {/* ── Linked Event Context Banner ── */}
+      {workspaceReportEventId && (() => {
+        const linkedEvent = eventsList.find((e) => e.id === workspaceReportEventId)
+        const linkedOrg = orgsList.find((o) => o.id === (linkedEvent?.assignedOrganizationId || workspaceReportOrgId))
+        const evName = linkedEvent?.name || workspaceReportTitle || 'Scheduled Event'
+        const evDate = linkedEvent?.scheduleDate
+          ? new Date(linkedEvent.scheduleDate).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+          : workspaceReportDate
+        const evLoc = linkedEvent?.location || linkedEvent?.venueLocation || workspaceReportLocation
+        const evDesc = linkedEvent?.description
+
+        return (
+          <div className="bg-navy-blue/5 border-b border-navy-blue/10 px-3 sm:px-4 py-2 flex items-center justify-between gap-3 text-xs shrink-0 select-none print:hidden flex-wrap">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
+              <span className="inline-flex items-center gap-1 font-extrabold uppercase text-[9.5px] px-2.5 py-0.5 rounded-full bg-navy-blue text-white shadow-2xs">
+                <Calendar className="w-3 h-3 text-sig-green" />
+                <span>Event Report</span>
+              </span>
+              <span className="font-bold text-navy-blue text-xs sm:text-sm truncate max-w-xs sm:max-w-md">
+                {evName}
+              </span>
+              {evDate && (
+                <span className="text-gray-500 font-medium flex items-center gap-1 text-[11px]">
+                  <Clock className="w-3 h-3 text-gray-400" />
+                  <span>{evDate}</span>
+                </span>
+              )}
+              {evLoc && (
+                <span className="text-gray-500 font-medium flex items-center gap-1 text-[11px] truncate max-w-[200px]">
+                  <MapPin className="w-3 h-3 text-sig-green" />
+                  <span className="truncate">{evLoc}</span>
+                </span>
+              )}
+              {linkedOrg && (
+                <span className="text-[10px] font-bold text-navy-blue bg-white border border-gray-200 px-2 py-0.5 rounded-full">
+                  {linkedOrg.name} ({linkedOrg.abbreviation})
+                </span>
+              )}
+              <span className="text-[10px] font-mono text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
+                Ref: {workspaceReportEventId}
+              </span>
+            </div>
+            {evDesc && (
+              <div className="text-[11px] text-gray-500 italic truncate max-w-sm hidden xl:block" title={evDesc}>
+                &ldquo;{evDesc}&rdquo;
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* ── Document Workspace Area ── */}
       <div className="flex-1 overflow-hidden w-full relative">

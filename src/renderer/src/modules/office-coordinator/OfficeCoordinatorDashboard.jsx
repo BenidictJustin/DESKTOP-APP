@@ -18,7 +18,10 @@ import {
   subscribeEvents,
   getUsers,
   subscribeUsers,
-  uploadDocxReportFile
+  uploadDocxReportFile,
+  ensurePendingReportsForCompletedEvents,
+  deleteReport,
+  clearApprovedReports
 } from '../../services/db'
 import logo from '../../assets/logo.png'
 import logo2Img from '../../assets/logo2.png'
@@ -48,11 +51,13 @@ import {
   ChevronLeft,
   Search,
   Upload,
-  Send
+  Send,
+  Trash2
 } from 'lucide-react'
 import TextEditor from '../../components/editor/TextEditor'
 import DocumentViewer from '../../components/DocumentViewer'
 import DocxUploadModal from '../../components/DocxUploadModal'
+import GoogleDocsModal from '../../components/editor/ui/GoogleDocsModal'
 import AnimatedSidebar from '../../components/AnimatedSidebar'
 import AnimatedModal from '../../components/motion/AnimatedModal'
 import { compressHtmlImages, compressImage } from '../../utils/imageCompressor'
@@ -78,6 +83,7 @@ import {
 // ─── Status Badge helper ───────────────────────────────────────────────────────
 const StatusBadge = ({ status }) => {
   const map = {
+    pending: 'bg-amber-100 text-amber-800 border border-amber-200/80',
     draft: 'bg-gray-100 text-gray-600',
     submitted: 'bg-warning-100 text-warning-700',
     approved: 'bg-success-100 text-success-700',
@@ -121,14 +127,15 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   const [autoSave, setAutoSave] = useState(false)
   const [selectedViewerReport, setSelectedViewerReport] = useState(null)
   const [exportingReport, setExportingReport] = useState(null)
-  const [exportingDocxReport, setExportingDocxReport] = useState(null)
   const [selectedViewEvent, setSelectedViewEvent] = useState(null)
   const [isViewEventModalOpen, setIsViewEventModalOpen] = useState(false)
   const [showAllCompleted, setShowAllCompleted] = useState(false)
-  const [compiledReportsTab, setCompiledReportsTab] = useState('draft') // 'draft' | 'submitted' | 'returned' | 'approved'
+  const [compiledReportsTab, setCompiledReportsTab] = useState('pending') // 'pending' | 'draft' | 'submitted' | 'returned' | 'approved'
   const [approvedSearchQuery, setApprovedSearchQuery] = useState('')
   const [isDocxUploadModalOpen, setIsDocxUploadModalOpen] = useState(false)
+  const [docxUploadInitialEventId, setDocxUploadInitialEventId] = useState('')
   const [isDocxUploading, setIsDocxUploading] = useState(false)
+  const [pendingGDocModal, setPendingGDocModal] = useState(null)
   const [actionSuccess, setActionSuccess] = useState('')
   const [actionError, setActionError] = useState('')
   const actionSuccessCallbackRef = useRef(null)
@@ -187,6 +194,9 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       setOrgsList(orgs)
       setEventsList(events)
       setUsersList(users)
+
+      // Ensure every completed event has a registered narrative report (Pending if not yet started)
+      await ensurePendingReportsForCompletedEvents(events, reports)
     } catch (err) {
       console.error(err)
     }
@@ -199,7 +209,10 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     })
     const unsubReports = subscribeReports((reports) => setReportsList(reports))
     const unsubOrgs = subscribeOrganizations((orgs) => setOrgsList(orgs))
-    const unsubEvents = subscribeEvents((events) => setEventsList(events))
+    const unsubEvents = subscribeEvents((events) => {
+      setEventsList(events)
+      ensurePendingReportsForCompletedEvents(events, reportsList).catch(() => {})
+    })
     const unsubUsers = subscribeUsers((users) => setUsersList(users))
     return () => {
       if (typeof unsubReconnect === 'function') unsubReconnect()
@@ -208,11 +221,11 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       if (typeof unsubEvents === 'function') unsubEvents()
       if (typeof unsubUsers === 'function') unsubUsers()
     }
-  }, [loadData, registerReconnectHandler])
+  }, [loadData, registerReconnectHandler, reportsList])
 
   // Body scroll lock effect whenever any modal/dialog is open
   useEffect(() => {
-    if (selectedViewerReport || exportingReport || exportingDocxReport || isViewEventModalOpen) {
+    if (selectedViewerReport || exportingReport || isViewEventModalOpen || pendingGDocModal) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = ''
@@ -220,7 +233,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     return () => {
       document.body.style.overflow = ''
     }
-  }, [selectedViewerReport, exportingReport, exportingDocxReport, isViewEventModalOpen])
+  }, [selectedViewerReport, exportingReport, isViewEventModalOpen, pendingGDocModal])
 
   // ── Reset form (clear all fields + editor) ──
   const resetForm = useCallback((editor) => {
@@ -362,6 +375,11 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         } else {
           window.open(targetUrl, '_blank', 'noopener,noreferrer')
         }
+        setPendingGDocModal({
+          report: rep,
+          event: eventsList.find((e) => e.id === rep.eventId) || null,
+          existingUrl: gdocUrl || ''
+        })
         return
       }
 
@@ -382,6 +400,224 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       openReport(rep)
     },
     [openReport]
+  )
+
+  // ── Start Narrative Report for a Completed / Pending Event ──
+  // Opens Google Docs directly instead of the built-in DommUnity editor.
+  // If the pending report already has a saved googleDocsUrl, reopen that same doc.
+  // Otherwise, open a blank Google Docs page and show the Link Settings modal.
+  const handleStartPendingReport = useCallback(
+    (rep, ev) => {
+      if (!rep) return
+      const eventRecord = ev || eventsList.find((e) => e.id === rep.eventId)
+
+      // Resolve any existing Google Docs URL for this report
+      const existingGDocUrl =
+        rep.googleDocsUrl ||
+        localStorage.getItem(`dommunity_gdocs_${rep.id}`) ||
+        ''
+
+      // Open Google Docs in external browser
+      const targetUrl = existingGDocUrl || 'https://docs.google.com/document/u/0/'
+      if (window.electron?.shell?.openExternal) {
+        window.electron.shell.openExternal(targetUrl)
+      } else {
+        window.open(targetUrl, '_blank', 'noopener,noreferrer')
+      }
+
+      // Show the Google Docs Link Settings modal so the Coordinator can
+      // paste/save the URL and then Save Draft or Submit to Admin
+      setPendingGDocModal({
+        report: rep,
+        event: eventRecord || null,
+        existingUrl: existingGDocUrl
+      })
+    },
+    [eventsList]
+  )
+
+  // ── Save Draft from Pending Google Docs modal ──
+  const handlePendingGDocSaveDraft = useCallback(
+    async (googleDocsUrl) => {
+      if (!pendingGDocModal) return false
+      const { report, event } = pendingGDocModal
+      if (!googleDocsUrl || !googleDocsUrl.trim()) return false
+
+      setLoading(true)
+      try {
+        const title = event?.name || report.activityTitle || 'Google Doc Narrative Report'
+        const date = event?.scheduleDate
+          ? new Date(event.scheduleDate).toISOString().split('T')[0]
+          : (report.activityDate || new Date().toISOString().split('T')[0])
+        const location = event?.location || event?.venueLocation || event?.venue || report.location || ''
+        const effectiveStatus = report.status === 'returned' ? 'returned' : 'draft'
+
+        const payload = {
+          status: effectiveStatus,
+          activityTitle: title,
+          activityDate: date,
+          location,
+          eventId: report.eventId || event?.id || null,
+          organizationId: report.organizationId || event?.assignedOrganizationId || null,
+          googleDocsUrl: googleDocsUrl.trim(),
+          documentSource: 'google_docs',
+          submissionType: 'gdoc_submission',
+          isTemplateActive: false,
+          updatedAt: new Date().toISOString()
+        }
+
+        // Preserve author identity & metadata
+        if (report.authorId) {
+          payload.authorId = report.authorId
+          payload.authorName = report.authorName || report.submittedBy || 'Coordinator'
+          payload.authorEmail = report.authorEmail || ''
+          payload.submittedBy = report.submittedBy || 'Coordinator'
+        } else {
+          payload.authorId = user.uid
+          payload.authorName = user.name || user.username || 'Coordinator'
+          payload.authorEmail = user.email || ''
+          payload.submittedBy = user.name || user.username || 'Coordinator'
+        }
+        if (report.academicYear) payload.academicYear = report.academicYear
+        if (report.semester) payload.semester = report.semester
+        if (report.type) payload.type = report.type
+
+        // Try pre-fetching document content and snapshots for instant DocumentViewer rendering
+        try {
+          const gDocResult = await fetchGoogleDocData(googleDocsUrl.trim())
+          if (gDocResult?.html) {
+            payload.narrative = gDocResult.html
+          }
+          if (gDocResult?.title && (!title || title === 'Google Doc Narrative Report')) {
+            payload.activityTitle = gDocResult.title
+          }
+          if (gDocResult?.pdfBase64 && gDocResult.pdfBase64.length < 400000 && report.id) {
+            localStorage.setItem(`dommunity_gdoc_pdf_${report.id}`, gDocResult.pdfBase64)
+          }
+          if (gDocResult?.docxBase64 && gDocResult.docxBase64.length < 400000 && report.id) {
+            localStorage.setItem(`dommunity_gdoc_buffer_${report.id}`, gDocResult.docxBase64)
+          }
+        } catch (gdocErr) {
+          console.warn('Could not fetch Google Doc data during draft save:', gdocErr)
+        }
+
+        // Persist to localStorage
+        localStorage.setItem(`dommunity_gdocs_${report.id}`, googleDocsUrl.trim())
+        localStorage.setItem('dommunity_saved_gdoc_url', googleDocsUrl.trim())
+
+        await updateReport(report.id, payload, user.uid)
+        setPendingGDocModal(null)
+        setCompiledReportsTab(effectiveStatus)
+        setActiveTab('reports')
+        triggerSuccess(
+          effectiveStatus === 'returned'
+            ? 'Changes saved to returned report successfully!'
+            : 'Report saved as draft with Google Docs link!',
+          () => {
+            setCompiledReportsTab(effectiveStatus)
+            setActiveTab('reports')
+          }
+        )
+        await loadData()
+        return true
+      } catch (err) {
+        console.error('Failed to save pending report as draft:', err)
+        triggerError('Failed to save draft. Please try again.')
+        return false
+      } finally {
+        setLoading(false)
+      }
+    },
+    [pendingGDocModal, user, updateReport, loadData, triggerSuccess, triggerError]
+  )
+
+  // ── Submit to Admin from Pending Google Docs modal ──
+  const handlePendingGDocSubmit = useCallback(
+    async (googleDocsUrl) => {
+      if (!pendingGDocModal) return false
+      const { report, event } = pendingGDocModal
+      if (!googleDocsUrl || !googleDocsUrl.trim()) return false
+
+      setLoading(true)
+      try {
+        const title = event?.name || report.activityTitle || 'Google Doc Narrative Report'
+        const date = event?.scheduleDate
+          ? new Date(event.scheduleDate).toISOString().split('T')[0]
+          : (report.activityDate || new Date().toISOString().split('T')[0])
+        const location = event?.location || event?.venueLocation || event?.venue || report.location || ''
+
+        const payload = {
+          status: 'submitted',
+          activityTitle: title,
+          activityDate: date,
+          location,
+          eventId: report.eventId || event?.id || null,
+          organizationId: report.organizationId || event?.assignedOrganizationId || null,
+          googleDocsUrl: googleDocsUrl.trim(),
+          documentSource: 'google_docs',
+          submissionType: 'gdoc_submission',
+          isTemplateActive: false,
+          submittedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          adminFeedback: null,
+          authorId: report.authorId || user.uid,
+          authorName: report.authorName || user.name || user.username || 'Coordinator',
+          authorEmail: report.authorEmail || user.email || '',
+          submittedBy: report.submittedBy || user.name || user.username || 'Coordinator'
+        }
+
+        if (report.academicYear) payload.academicYear = report.academicYear
+        if (report.semester) payload.semester = report.semester
+        if (report.type) payload.type = report.type
+        if (Array.isArray(report.history)) {
+          payload.history = [
+            ...report.history,
+            { status: 'submitted', timestamp: new Date().toISOString(), by: user.name || 'Coordinator' }
+          ]
+        }
+
+        // Try fetching Google Doc content for narrative preview & snapshots
+        try {
+          const gDocResult = await fetchGoogleDocData(googleDocsUrl.trim())
+          if (gDocResult?.html) {
+            payload.narrative = gDocResult.html
+          }
+          if (gDocResult?.title && (!title || title === 'Google Doc Narrative Report')) {
+            payload.activityTitle = gDocResult.title
+          }
+          if (gDocResult?.pdfBase64 && gDocResult.pdfBase64.length < 400000 && report.id) {
+            localStorage.setItem(`dommunity_gdoc_pdf_${report.id}`, gDocResult.pdfBase64)
+          }
+          if (gDocResult?.docxBase64 && gDocResult.docxBase64.length < 400000 && report.id) {
+            localStorage.setItem(`dommunity_gdoc_buffer_${report.id}`, gDocResult.docxBase64)
+          }
+        } catch (gdocErr) {
+          console.warn('Could not fetch Google Doc content during submit:', gdocErr)
+        }
+
+        // Persist to localStorage
+        localStorage.setItem(`dommunity_gdocs_${report.id}`, googleDocsUrl.trim())
+        localStorage.setItem('dommunity_saved_gdoc_url', googleDocsUrl.trim())
+
+        await updateReport(report.id, payload, user.uid)
+        setPendingGDocModal(null)
+        setCompiledReportsTab('submitted')
+        setActiveTab('reports')
+        triggerSuccess('Report submitted to Admin successfully!', () => {
+          setCompiledReportsTab('submitted')
+          setActiveTab('reports')
+        })
+        await loadData()
+        return true
+      } catch (err) {
+        console.error('Failed to submit pending report:', err)
+        triggerError('Failed to submit report. Please try again.')
+        return false
+      } finally {
+        setLoading(false)
+      }
+    },
+    [pendingGDocModal, user, updateReport, loadData, triggerSuccess, triggerError]
   )
 
   // ── Save/Submit handler ──
@@ -570,20 +806,31 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         }
 
         let actualId = workspaceReportId
-        if (workspaceReportId) {
-          const existingRep = reportsList.find((r) => r.id === workspaceReportId)
+        // If workspaceReportId is not set, but report is linked to an event,
+        // check if a pending report for this event already exists to prevent duplicate report records
+        if (!actualId && linkToEvent && workspaceReportEventId) {
+          const pendingRep = reportsList.find(
+            (r) => r.eventId === workspaceReportEventId && r.status === 'pending'
+          )
+          if (pendingRep) {
+            actualId = pendingRep.id
+            setWorkspaceReportId(pendingRep.id)
+          }
+        }
+        if (actualId) {
+          const existingRep = reportsList.find((r) => r.id === actualId)
           if (existingRep?.authorId) {
             delete payload.authorId
             delete payload.authorName
             delete payload.authorEmail
             delete payload.submittedBy
           }
-          await updateReport(workspaceReportId, payload, user.uid)
+          await updateReport(actualId, payload, user.uid)
           if (!isBuiltInTemplate && payload.googleDocsUrl) {
-            localStorage.setItem(`dommunity_gdocs_${workspaceReportId}`, payload.googleDocsUrl)
+            localStorage.setItem(`dommunity_gdocs_${actualId}`, payload.googleDocsUrl)
           } else {
             try {
-              localStorage.removeItem(`dommunity_gdocs_${workspaceReportId}`)
+              localStorage.removeItem(`dommunity_gdocs_${actualId}`)
             } catch {}
           }
         } else {
@@ -839,8 +1086,20 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         updatedAt: new Date().toISOString()
       }
 
-      await addReport(payload, user.uid)
+      // Prevent duplicate pending/draft reports for the exact same event
+      const existingMatch = eventId
+        ? reportsList.find(
+            (r) => r.eventId === eventId && (r.status === 'pending' || r.status === 'draft')
+          )
+        : null
+
+      if (existingMatch) {
+        await updateReport(existingMatch.id, payload, user.uid)
+      } else {
+        await addReport(payload, user.uid)
+      }
       setIsDocxUploadModalOpen(false)
+      setDocxUploadInitialEventId('')
       setCompiledReportsTab('submitted')
       setActiveTab('reports')
       triggerSuccess(
@@ -904,36 +1163,6 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     setExportingReport(report)
   }, [])
 
-  const compileReportDOCX = useCallback(async (report) => {
-    const isBuiltInTemplate = Boolean(
-      report?.documentSource === 'built_in_template' ||
-      report?.submissionType === 'template' ||
-      (report?.isTemplateActive && !report?.originalDocxUrl && report?.submissionType !== 'gdoc_submission')
-    )
-
-    if (!isBuiltInTemplate && (report?.submissionType === 'docx_upload' || report?.originalDocxUrl)) {
-      downloadFileFromUrl(
-        report.originalDocxUrl,
-        report.originalDocxName || `${report.activityTitle || 'Report'}.${report.fileType === 'pdf' ? 'pdf' : 'docx'}`
-      )
-      return
-    }
-
-    if (!isBuiltInTemplate && report?.googleDocsUrl) {
-      const match = report.googleDocsUrl.match(/\/document\/d\/([a-zA-Z0-9-_]+)/)
-      if (match) {
-        const docId = match[1]
-        downloadFileFromUrl(
-          `https://docs.google.com/document/d/${docId}/export?format=docx`,
-          `${(report.activityTitle || 'Report').replace(/[^a-zA-Z0-9_-]+/g, '_')}.docx`
-        )
-        return
-      }
-    }
-
-    setExportingDocxReport(report)
-  }, [])
-
   // Helper to extract timestamp for chronological sorting
   const getReportTimestamp = (rep, targetStatus) => {
     if (!rep) return 0
@@ -955,6 +1184,20 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       }
       if (rep.createdAt) {
         const t = new Date(rep.createdAt).getTime()
+        if (!isNaN(t)) return t
+      }
+    }
+    if (targetStatus === 'pending') {
+      if (rep.createdAt) {
+        const t = new Date(rep.createdAt).getTime()
+        if (!isNaN(t)) return t
+      }
+      if (rep.updatedAt) {
+        const t = new Date(rep.updatedAt).getTime()
+        if (!isNaN(t)) return t
+      }
+      if (rep.activityDate) {
+        const t = new Date(rep.activityDate).getTime()
         if (!isNaN(t)) return t
       }
     }
@@ -1063,11 +1306,18 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   // Drafts remain personal to the logged-in coordinator (or unassigned).
   const myReports = reportsList.filter((r) => {
     if (user?.role === 'admin') return true
-    if (r.status === 'submitted' || r.status === 'returned' || r.status === 'approved') return true
+    if (
+      r.status === 'pending' ||
+      r.status === 'submitted' ||
+      r.status === 'returned' ||
+      r.status === 'approved'
+    )
+      return true
     return r.authorId === user?.uid || !r.authorId
   })
   const stats = {
     total: myReports.length,
+    pending: myReports.filter((r) => r.status === 'pending').length,
     drafts: myReports.filter((r) => r.status === 'draft').length,
     submitted: myReports.filter((r) => r.status === 'submitted').length,
     approved: myReports.filter((r) => r.status === 'approved').length,
@@ -1159,7 +1409,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                   <div className="max-w-5xl mx-auto space-y-6">
                     {/* Stats row */}
                     <motion.div
-                      className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4"
+                      className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 sm:gap-4"
                       variants={staggerContainer}
                       initial="initial"
                       animate="animate"
@@ -1169,31 +1419,43 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                           label: 'Total Reports',
                           value: stats.total,
                           iconBg: 'bg-blue-50 text-blue-500',
-                          icon: FileText
+                          icon: FileText,
+                          subTab: 'draft'
+                        },
+                        {
+                          label: 'Pending',
+                          value: stats.pending,
+                          iconBg: 'bg-amber-50 text-amber-500',
+                          icon: Clock,
+                          subTab: 'pending'
                         },
                         {
                           label: 'Drafts',
                           value: stats.drafts,
                           iconBg: 'bg-gray-100 text-gray-500',
-                          icon: Edit3
+                          icon: Edit3,
+                          subTab: 'draft'
                         },
                         {
                           label: 'Submitted',
                           value: stats.submitted,
                           iconBg: 'bg-amber-50 text-amber-500',
-                          icon: Layers
+                          icon: Layers,
+                          subTab: 'submitted'
                         },
                         {
                           label: 'Approved',
                           value: stats.approved,
                           iconBg: 'bg-green-50 text-green-500',
-                          icon: Check
+                          icon: Check,
+                          subTab: 'approved'
                         },
                         {
                           label: 'Returned',
                           value: stats.returned,
                           iconBg: 'bg-red-50 text-red-500',
-                          icon: AlertTriangle
+                          icon: AlertTriangle,
+                          subTab: 'returned'
                         }
                       ].map((s) => {
                         const StatIcon = s.icon
@@ -1201,7 +1463,11 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                           <motion.div
                             key={s.label}
                             variants={staggerItem}
-                            className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3 hover:shadow-md hover:border-sig-green/30 transition-all duration-200"
+                            onClick={() => {
+                              if (s.subTab) setCompiledReportsTab(s.subTab)
+                              setActiveTab('reports')
+                            }}
+                            className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3 hover:shadow-md hover:border-sig-green/30 transition-all duration-200 cursor-pointer"
                           >
                             <div className={`p-2.5 ${s.iconBg} rounded-xl shrink-0`}>
                               <StatIcon className="w-4.5 h-4.5" />
@@ -1326,6 +1592,28 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                       <div className="flex items-center gap-3 sm:gap-4 flex-wrap sm:flex-nowrap">
                         {/* Segmented Status Navigation Control */}
                         <div className="bg-gray-100/90 p-1 rounded-full flex items-center gap-1 border border-gray-200/80 shadow-2xs">
+                          {/* Pending Tab */}
+                          <button
+                            type="button"
+                            onClick={() => setCompiledReportsTab('pending')}
+                            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-150 cursor-pointer flex items-center gap-2 select-none ${compiledReportsTab === 'pending'
+                                ? 'bg-navy-blue text-white shadow-sm'
+                                : 'text-gray-600 hover:text-navy-blue hover:bg-white/50'
+                              }`}
+                          >
+                            <span>Pending</span>
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center leading-none inline-flex items-center justify-center ${stats.pending > 0
+                                  ? 'bg-amber-500 text-white shadow-xs'
+                                  : compiledReportsTab === 'pending'
+                                    ? 'bg-white/20 text-white'
+                                    : 'bg-gray-200 text-gray-700'
+                                }`}
+                            >
+                              {stats.pending}
+                            </span>
+                          </button>
+
                           {/* Draft Tab */}
                           <button
                             type="button"
@@ -1443,6 +1731,161 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
                     {/* View Modes with Motion Transition */}
                     <AnimatePresence mode="wait">
+                      {compiledReportsTab === 'pending' && (
+                        <motion.div
+                          key="coordinator-pending-tab"
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 10 }}
+                          transition={{ duration: 0.2, ease: 'easeInOut' }}
+                          className="space-y-4"
+                        >
+                          {(() => {
+                            const pendingReports = myReports
+                              .filter((r) => r.status === 'pending')
+                              .sort(
+                                (a, b) =>
+                                  getReportTimestamp(b, 'pending') - getReportTimestamp(a, 'pending')
+                              )
+
+                            if (pendingReports.length === 0) {
+                              return (
+                                <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200 text-gray-400 text-xs">
+                                  No completed events waiting for narrative reports.
+                                </div>
+                              )
+                            }
+
+                            return (
+                              <div className="space-y-3">
+                                {pendingReports.map((rep) => {
+                                  const ev = eventsList.find((e) => e.id === rep.eventId)
+                                  const org = orgsList.find(
+                                    (o) => o.id === (rep.organizationId || ev?.assignedOrganizationId)
+                                  )
+                                  const eventName =
+                                    ev?.name || rep.activityTitle || 'Untitled Completed Event'
+                                  const rawDate = ev?.scheduleDate || rep.activityDate
+                                  const formattedDate = rawDate
+                                    ? new Date(rawDate).toLocaleDateString(undefined, {
+                                        year: 'numeric',
+                                        month: 'short',
+                                        day: 'numeric'
+                                      })
+                                    : 'Date not specified'
+                                  const venue =
+                                    ev?.location ||
+                                    ev?.venueLocation ||
+                                    ev?.venue ||
+                                    rep.location ||
+                                    'Venue not specified'
+                                  const description =
+                                    ev?.description || rep.description || rep.eventDescription
+
+                                  return (
+                                    <div
+                                      key={rep.id}
+                                      className="bg-white rounded-2xl border border-gray-100 hover:border-sig-green/40 p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between transition-all duration-200 group shadow-xs gap-4"
+                                    >
+                                      <div className="space-y-1.5 min-w-0 flex-1">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <StatusBadge status="pending" />
+                                          {org ? (
+                                            <span className="text-[10px] text-navy-blue font-bold bg-navy-blue/5 border border-navy-blue/10 px-2.5 py-0.5 rounded-full">
+                                              {org.name} ({org.abbreviation})
+                                            </span>
+                                          ) : (
+                                            <span className="text-[10px] text-gray-500 font-bold bg-gray-100 px-2.5 py-0.5 rounded-full">
+                                              CES Office
+                                            </span>
+                                          )}
+                                          <span className="text-[10px] font-mono text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-full">
+                                            Ref: {rep.eventId || ev?.id || rep.id}
+                                          </span>
+                                        </div>
+
+                                        <h4 className="text-sm sm:text-base font-bold text-navy-blue group-hover:text-sig-green transition-colors">
+                                          {eventName}
+                                        </h4>
+
+                                        <div className="flex items-center gap-3 sm:gap-4 text-xs text-gray-500 flex-wrap">
+                                          <span className="flex items-center gap-1.5">
+                                            <Calendar className="w-3.5 h-3.5 text-navy-blue" />
+                                            <span>{formattedDate}</span>
+                                          </span>
+                                          <span className="flex items-center gap-1.5">
+                                            <MapPin className="w-3.5 h-3.5 text-sig-green" />
+                                            <span>{venue}</span>
+                                          </span>
+                                        </div>
+
+                                        {description && (
+                                          <p className="text-xs text-gray-650 bg-amber-50/50 border border-amber-100/70 rounded-xl px-3 py-2 leading-relaxed">
+                                            <span className="font-bold text-navy-blue mr-1.5">
+                                              Event Description:
+                                            </span>
+                                            {description}
+                                          </p>
+                                        )}
+                                      </div>
+
+                                      <div className="flex items-center gap-2 shrink-0 flex-wrap md:flex-nowrap">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const eventToView = ev || {
+                                              id: rep.eventId,
+                                              name: eventName,
+                                              scheduleDate: rawDate,
+                                              location: venue,
+                                              assignedOrganizationId: rep.organizationId,
+                                              organizationName: rep.organizationName,
+                                              eventType: rep.eventType || 'department',
+                                              description: description,
+                                              status: 'completed'
+                                            }
+                                            setSelectedViewEvent(eventToView)
+                                            setIsViewEventModalOpen(true)
+                                          }}
+                                          className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-3.5 py-2 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
+                                          title="View Event Details"
+                                        >
+                                          <Info className="w-3.5 h-3.5" />
+                                          <span>Details</span>
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setDocxUploadInitialEventId(rep.eventId || ev?.id || '')
+                                            setIsDocxUploadModalOpen(true)
+                                          }}
+                                          className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-3.5 py-2 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
+                                          title="Upload Completed Report Document (.docx, .pdf)"
+                                        >
+                                          <Upload className="w-3.5 h-3.5" />
+                                          <span>Upload</span>
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => handleStartPendingReport(rep, ev)}
+                                          className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-bold px-4 py-2 rounded-full border-b-2 border-sig-green hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-sm"
+                                          title="Open Google Docs to create narrative report"
+                                        >
+                                          <Edit3 className="w-3.5 h-3.5 text-sig-green" />
+                                          <span>{rep.googleDocsUrl ? 'Open Google Docs' : 'Create Report'}</span>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )
+                          })()}
+                        </motion.div>
+                      )}
+
                       {compiledReportsTab === 'draft' && (
                         <motion.div
                           key="coordinator-drafts-tab"
@@ -1504,14 +1947,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                           <Eye className="w-3.5 h-3.5" />
                                           <span>View</span>
                                         </button>
-                                        <button
-                                          onClick={() => compileReportDOCX(rep)}
-                                          className="flex items-center gap-1 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
-                                          title="Export Draft to DOCX"
-                                        >
-                                          <Download className="w-3.5 h-3.5" />
-                                          <span>DOCX</span>
-                                        </button>
+
                                         <button
                                           onClick={() => compileReportPDF(rep)}
                                           className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
@@ -1521,11 +1957,30 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                           <span>Export PDF</span>
                                         </button>
                                         <button
-                                          onClick={() => openReport(rep)}
+                                          onClick={() => {
+                                            if (rep.googleDocsUrl || rep.submissionType === 'gdoc_submission') {
+                                              handleStartPendingReport(rep)
+                                            } else {
+                                              openReport(rep)
+                                            }
+                                          }}
                                           className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-xs"
+                                          title={
+                                            rep.googleDocsUrl || rep.submissionType === 'gdoc_submission'
+                                              ? 'Open saved Google Docs document'
+                                              : 'Edit in Document Editor'
+                                          }
                                         >
                                           <Edit3 className="w-3.5 h-3.5" />
                                           <span>Edit</span>
+                                        </button>
+                                        <button
+                                          onClick={() => handleDirectSubmitDraft(rep)}
+                                          className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
+                                          title="Submit report to Admin for review"
+                                        >
+                                          <Send className="w-3.5 h-3.5" />
+                                          <span>Submit</span>
                                         </button>
                                       </div>
                                     </div>
@@ -1610,52 +2065,14 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                           <Eye className="w-3.5 h-3.5" />
                                           <span>View</span>
                                         </button>
-                                        {Boolean(isDocxUpload && rep.originalDocxUrl) ? (
-                                          <div className="flex items-center gap-1.5">
-                                            {Boolean(rep.fileType !== 'pdf' && !rep.originalDocxName?.toLowerCase().endsWith('.pdf')) && (
-                                              <button
-                                                onClick={() =>
-                                                  downloadFileFromUrl(
-                                                    rep.originalDocxUrl,
-                                                    rep.originalDocxName || `${rep.activityTitle || 'Report'}.docx`
-                                                  )
-                                                }
-                                                className="flex items-center gap-1 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
-                                                title="Download Original DOCX Document"
-                                              >
-                                                <Download className="w-3.5 h-3.5" />
-                                                <span>DOCX</span>
-                                              </button>
-                                            )}
-                                            <button
-                                              onClick={() => compileReportPDF(rep)}
-                                              className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
-                                              title="Export and Download as PDF"
-                                            >
-                                              <Download className="w-3.5 h-3.5" />
-                                              <span>Export PDF</span>
-                                            </button>
-                                          </div>
-                                        ) : (
-                                          <div className="flex items-center gap-1.5">
-                                            <button
-                                              onClick={() => compileReportDOCX(rep)}
-                                              className="flex items-center gap-1 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
-                                              title="Download DOCX Document"
-                                            >
-                                              <Download className="w-3.5 h-3.5" />
-                                              <span>DOCX</span>
-                                            </button>
-                                            <button
-                                              onClick={() => compileReportPDF(rep)}
-                                              className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
-                                              title="Export Report PDF"
-                                            >
-                                              <Download className="w-3.5 h-3.5" />
-                                              <span>Export PDF</span>
-                                            </button>
-                                          </div>
-                                        )}
+                                        <button
+                                          onClick={() => compileReportPDF(rep)}
+                                          className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
+                                          title="Export Report PDF"
+                                        >
+                                          <Download className="w-3.5 h-3.5" />
+                                          <span>Export PDF</span>
+                                        </button>
                                       </div>
                                     </div>
                                   )
@@ -1738,52 +2155,14 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                           <Eye className="w-3.5 h-3.5" />
                                           <span>View</span>
                                         </button>
-                                        {Boolean(rep.submissionType === 'docx_upload' || rep.originalDocxUrl) ? (
-                                          <div className="flex items-center gap-1.5">
-                                            {Boolean(rep.fileType !== 'pdf' && !rep.originalDocxName?.toLowerCase().endsWith('.pdf')) && (
-                                              <button
-                                                onClick={() =>
-                                                  downloadFileFromUrl(
-                                                    rep.originalDocxUrl,
-                                                    rep.originalDocxName || `${rep.activityTitle || 'Report'}.docx`
-                                                  )
-                                                }
-                                                className="flex items-center gap-1 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
-                                                title="Download Original DOCX Document"
-                                              >
-                                                <Download className="w-3.5 h-3.5" />
-                                                <span>DOCX</span>
-                                              </button>
-                                            )}
-                                            <button
-                                              onClick={() => compileReportPDF(rep)}
-                                              className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
-                                              title="Export and Download as PDF"
-                                            >
-                                              <Download className="w-3.5 h-3.5" />
-                                              <span>Export PDF</span>
-                                            </button>
-                                          </div>
-                                        ) : (
-                                          <div className="flex items-center gap-1.5">
-                                            <button
-                                              onClick={() => compileReportDOCX(rep)}
-                                              className="flex items-center gap-1 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
-                                              title="Download DOCX Document"
-                                            >
-                                              <Download className="w-3.5 h-3.5" />
-                                              <span>DOCX</span>
-                                            </button>
-                                            <button
-                                              onClick={() => compileReportPDF(rep)}
-                                              className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
-                                              title="Export Report PDF"
-                                            >
-                                              <Download className="w-3.5 h-3.5" />
-                                              <span>Export PDF</span>
-                                            </button>
-                                          </div>
-                                        )}
+                                        <button
+                                          onClick={() => compileReportPDF(rep)}
+                                          className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
+                                          title="Export Report PDF"
+                                        >
+                                          <Download className="w-3.5 h-3.5" />
+                                          <span>Export PDF</span>
+                                        </button>
                                         <button
                                           onClick={() => handleEditReturnedReport(rep)}
                                           className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-xs"
@@ -1914,51 +2293,14 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                           <Eye className="w-3.5 h-3.5" />
                                           <span>View</span>
                                         </button>
-                                        {Boolean(rep.submissionType === 'docx_upload' || rep.originalDocxUrl) ? (
-                                          <div className="flex items-center gap-1.5">
-                                            {Boolean(rep.fileType !== 'pdf' && !rep.originalDocxName?.toLowerCase().endsWith('.pdf')) && (
-                                              <button
-                                                onClick={() =>
-                                                  downloadFileFromUrl(
-                                                    rep.originalDocxUrl,
-                                                    rep.originalDocxName || `${rep.activityTitle || 'Report'}.docx`
-                                                  )
-                                                }
-                                                className="flex items-center gap-1 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
-                                                title="Download Original DOCX Document"
-                                              >
-                                                <Download className="w-3.5 h-3.5" />
-                                                <span>DOCX</span>
-                                              </button>
-                                            )}
-                                            <button
-                                              onClick={() => compileReportPDF(rep)}
-                                              className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
-                                              title="Export and Download as PDF"
-                                            >
-                                              <Download className="w-3.5 h-3.5" />
-                                              <span>Export PDF</span>
-                                            </button>
-                                          </div>
-                                        ) : (
-                                          <div className="flex items-center gap-1.5">
-                                            <button
-                                              onClick={() => compileReportDOCX(rep)}
-                                              className="flex items-center gap-1 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
-                                              title="Download DOCX Document"
-                                            >
-                                              <Download className="w-3.5 h-3.5" />
-                                              <span>DOCX</span>
-                                            </button>
-                                            <button
-                                              onClick={() => compileReportPDF(rep)}
-                                              className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
-                                            >
-                                              <Download className="w-3.5 h-3.5" />
-                                              <span>Export PDF</span>
-                                            </button>
-                                          </div>
-                                        )}
+                                        <button
+                                          onClick={() => compileReportPDF(rep)}
+                                          className="flex items-center gap-1.5 bg-sig-green text-navy-blue text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-sig-green-600 transition-all duration-150 cursor-pointer shadow-xs"
+                                          title="Export Report PDF"
+                                        >
+                                          <Download className="w-3.5 h-3.5" />
+                                          <span>Export PDF</span>
+                                        </button>
                                       </div>
                                     </div>
                                   )
@@ -2112,20 +2454,6 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         </div>
       )}
 
-      {exportingDocxReport && (
-        <div className="fixed top-0 left-0 w-[816px] h-screen pointer-events-none select-none opacity-0 z-[-9999] overflow-hidden">
-          <DocumentViewer
-            report={exportingDocxReport}
-            onClose={() => setExportingDocxReport(null)}
-            eventsList={eventsList}
-            orgsList={orgsList}
-            usersList={usersList}
-            isExportOnly={true}
-            exportFormat="docx"
-            onExportFinished={() => setExportingDocxReport(null)}
-          />
-        </div>
-      )}
 
       {/* Event Details View Modal */}
       <AnimatedModal
@@ -2250,7 +2578,35 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                 </div>
 
                 {/* Footer */}
-                <div className="flex justify-end border-t border-gray-100 pt-3 shrink-0">
+                <div className="flex justify-end items-center space-x-2 border-t border-gray-100 pt-3 shrink-0">
+                  {(selectedViewEvent.status === 'completed' || selectedViewEvent.status === 'successful') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetEvt = selectedViewEvent
+                        setIsViewEventModalOpen(false)
+                        setSelectedViewEvent(null)
+                        const matchingReport = reportsList.find(
+                          (r) => r.eventId === targetEvt.id && (r.status === 'pending' || r.status === 'draft' || r.status === 'returned')
+                        )
+                        if (matchingReport) {
+                          handleStartPendingReport(matchingReport, targetEvt)
+                        } else {
+                          // No report exists yet — open Google Docs directly
+                          const targetUrl = 'https://docs.google.com/document/u/0/'
+                          if (window.electron?.shell?.openExternal) {
+                            window.electron.shell.openExternal(targetUrl)
+                          } else {
+                            window.open(targetUrl, '_blank', 'noopener,noreferrer')
+                          }
+                        }
+                      }}
+                      className="bg-sig-green hover:bg-sig-green/90 text-navy-blue font-bold rounded-xl text-xs py-2 px-4 shadow-sm transition-all duration-150 cursor-pointer flex items-center space-x-1.5"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>Create Narrative Report</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -2270,10 +2626,33 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       {/* ── DOCX DIRECT UPLOAD MODAL ── */}
       <DocxUploadModal
         isOpen={isDocxUploadModalOpen}
-        onClose={() => setIsDocxUploadModalOpen(false)}
+        onClose={() => {
+          setIsDocxUploadModalOpen(false)
+          setDocxUploadInitialEventId('')
+        }}
         onSubmit={handleDocxUploadSubmit}
         eventsList={eventsList}
+        initialEventId={docxUploadInitialEventId}
         isSubmitting={isDocxUploading}
+      />
+
+      {/* ── PENDING REPORT GOOGLE DOCS LINK SETTINGS MODAL ── */}
+      <GoogleDocsModal
+        isOpen={!!pendingGDocModal}
+        onClose={() => setPendingGDocModal(null)}
+        editor={null}
+        docTitle={pendingGDocModal?.event?.name || pendingGDocModal?.report?.activityTitle || ''}
+        workspaceReportId={pendingGDocModal?.report?.id || null}
+        googleDocsUrl={pendingGDocModal?.existingUrl || ''}
+        onSaveGoogleDocsUrl={(url) => {
+          if (pendingGDocModal?.report?.id && url) {
+            localStorage.setItem(`dommunity_gdocs_${pendingGDocModal.report.id}`, url)
+            localStorage.setItem('dommunity_saved_gdoc_url', url)
+          }
+        }}
+        onSaveDraft={handlePendingGDocSaveDraft}
+        onSubmitToAdmin={handlePendingGDocSubmit}
+        user={user}
       />
 
       {/* ── GLOBAL CENTERED POP-UP SUCCESS DIALOG ── */}
