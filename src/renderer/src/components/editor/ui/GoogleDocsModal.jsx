@@ -6,9 +6,12 @@ import {
   X,
   Send,
   Loader2,
-  Save
+  Save,
+  AlertCircle,
+  ExternalLink
 } from 'lucide-react'
 import AnimatedModal from '../../motion/AnimatedModal'
+import { getGoogleDocId } from '../utils/editorHelpers'
 
 // Professional Google Docs Brand Icon SVG
 export const GoogleDocsIcon = ({ className = 'w-4 h-4' }) => (
@@ -36,6 +39,7 @@ export default function GoogleDocsModal({
   docTitle,
   workspaceReportId,
   googleDocsUrl,
+  reportsList = [],
   onSaveGoogleDocsUrl,
   onSaveDraft,
   onSubmitToAdmin,
@@ -47,7 +51,7 @@ export default function GoogleDocsModal({
       const perReport = localStorage.getItem(`dommunity_gdocs_${workspaceReportId}`)
       if (perReport) return perReport
     }
-    return localStorage.getItem('dommunity_saved_gdoc_url') || ''
+    return ''
   }, [googleDocsUrl, workspaceReportId])
 
   const [inputUrl, setInputUrl] = useState(() => getPersistedDocUrl())
@@ -57,20 +61,7 @@ export default function GoogleDocsModal({
 
   useEffect(() => {
     const url = getPersistedDocUrl()
-    if (url) {
-      setInputUrl(url)
-    } else if (isOpen && navigator.clipboard?.readText) {
-      navigator.clipboard
-        .readText()
-        .then((text) => {
-          const match = text && text.trim().match(/https:\/\/docs\.google\.com\/document\/d\/([a-zA-Z0-9-_]+)/)
-          if (match) {
-            const detected = `https://docs.google.com/document/d/${match[1]}/edit`
-            setInputUrl(detected)
-          }
-        })
-        .catch(() => {})
-    }
+    setInputUrl(url || '')
   }, [googleDocsUrl, workspaceReportId, isOpen, getPersistedDocUrl])
 
   // Save the connected Google Doc URL permanently
@@ -88,12 +79,10 @@ export default function GoogleDocsModal({
       await onSaveGoogleDocsUrl(trimmed)
     }
     if (trimmed) {
-      localStorage.setItem('dommunity_saved_gdoc_url', trimmed)
       if (workspaceReportId) {
         localStorage.setItem(`dommunity_gdocs_${workspaceReportId}`, trimmed)
       }
     } else {
-      localStorage.removeItem('dommunity_saved_gdoc_url')
       if (workspaceReportId) {
         localStorage.removeItem(`dommunity_gdocs_${workspaceReportId}`)
       }
@@ -123,7 +112,6 @@ export default function GoogleDocsModal({
   // Clear linked Google Doc URL
   const handleClearLink = () => {
     setInputUrl('')
-    localStorage.removeItem('dommunity_saved_gdoc_url')
     if (workspaceReportId) {
       localStorage.removeItem(`dommunity_gdocs_${workspaceReportId}`)
     }
@@ -176,9 +164,25 @@ export default function GoogleDocsModal({
               <Link2 className="w-4 h-4 text-navy-blue shrink-0" />
               <span>Link Existing Google Doc to this Report</span>
             </h4>
+            <button
+              type="button"
+              onClick={() => {
+                const url = 'https://docs.google.com/document/create'
+                if (window.electron?.shell?.openExternal) {
+                  window.electron.shell.openExternal(url)
+                } else {
+                  window.open(url, '_blank', 'noopener,noreferrer')
+                }
+              }}
+              className="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200/60 px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
+              title="Open Google Docs to create a brand new empty document"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Create New Google Doc</span>
+            </button>
           </div>
           <p className="text-gray-500 text-xs leading-relaxed">
-            Paste the URL of your Google Doc (e.g. from your browser address bar) to associate it with this Dommunity report:
+            Connect your Google Docs document URL below. When submitted, an independent snapshot of this report is preserved permanently.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-2">
@@ -187,7 +191,7 @@ export default function GoogleDocsModal({
               value={inputUrl}
               onChange={(e) => setInputUrl(e.target.value)}
               placeholder="https://docs.google.com/document/d/YOUR_DOC_ID/edit"
-              className="flex-1 min-w-0 bg-white border border-gray-250 rounded-xl px-3.5 py-2.5 text-xs text-navy-blue font-mono placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-navy-blue/20 focus:border-navy-blue transition-all"
+              className="flex-1 min-w-0 bg-white border border-gray-250 focus:ring-2 focus:ring-navy-blue/20 focus:border-navy-blue rounded-xl px-3.5 py-2.5 text-xs text-navy-blue font-mono placeholder:text-gray-400 focus:outline-none transition-all"
             />
             <div className="flex items-center gap-2 shrink-0">
               <button
@@ -197,12 +201,12 @@ export default function GoogleDocsModal({
                 title="Paste Google Docs URL from clipboard"
               >
                 <Copy className="w-3.5 h-3.5" />
-                <span>Paste Clipboard</span>
+                <span>Paste</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleSaveUrl()}
-                className="flex-1 sm:flex-initial px-4 py-2.5 bg-navy-blue hover:bg-navy-blue/90 text-white font-bold text-xs rounded-xl border-b-2 border-sig-green shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0"
+                className="flex-1 sm:flex-initial px-4 py-2.5 font-bold text-xs rounded-xl border-b-2 shadow-xs transition-all flex items-center justify-center gap-1.5 shrink-0 bg-navy-blue hover:bg-navy-blue/90 text-white border-sig-green cursor-pointer"
               >
                 {savedUrlSuccess ? (
                   <>
@@ -268,7 +272,7 @@ export default function GoogleDocsModal({
                 setIsSavingDraft(false)
               }
             }}
-            className="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+            className="px-4 py-2.5 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 cursor-pointer disabled:opacity-50"
             title="Save this report as draft in Compiled Reports"
           >
             {isSavingDraft ? (

@@ -10,6 +10,14 @@ import { exec } from 'child_process'
 import electronUpdater from 'electron-updater'
 const { autoUpdater } = electronUpdater
 
+import {
+  uploadReportFileToCloudinary,
+  getDocumentAccessUrl,
+  downloadCloudinaryDocumentBuffer,
+  deleteCloudinaryFile,
+  testCloudinaryConnection
+} from './services/cloudinaryService'
+
 // Configure autoUpdater log and settings
 autoUpdater.logger = console
 autoUpdater.autoDownload = true
@@ -496,8 +504,10 @@ function createWindow() {
     const lvl = event?.level ?? 0
     const lineNum = event?.lineNumber ?? 0
     const src = event?.sourceId || ''
-    if (lvl >= 2 || (typeof msg === 'string' && (msg.includes('Error') || msg.includes('Exception')))) {
+    if (lvl >= 3) {
       console.error(`[Renderer Console Error] (${src}:${lineNum}): ${msg}`)
+    } else if (lvl === 2) {
+      console.warn(`[Renderer Console Warn] (${src}:${lineNum}): ${msg}`)
     }
   })
 
@@ -550,6 +560,27 @@ ipcMain.handle('check-for-updates', async () => {
 
 ipcMain.handle('restart-and-install', () => {
   autoUpdater.quitAndInstall()
+})
+
+// Cloudinary Report Document IPC Handlers (Secure Main-Process Backend)
+ipcMain.handle('cloudinary:upload-document', async (event, data) => {
+  return await uploadReportFileToCloudinary(data)
+})
+
+ipcMain.handle('cloudinary:get-document-url', async (event, data) => {
+  return await getDocumentAccessUrl(data)
+})
+
+ipcMain.handle('cloudinary:download-document', async (event, data) => {
+  return await downloadCloudinaryDocumentBuffer(data)
+})
+
+ipcMain.handle('cloudinary:delete-document', async (event, data) => {
+  return await deleteCloudinaryFile(data)
+})
+
+ipcMain.handle('cloudinary:test-connection', async () => {
+  return await testCloudinaryConnection()
 })
 
 // This method will be called when Electron has finished

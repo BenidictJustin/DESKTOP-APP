@@ -63,11 +63,11 @@ if (typeof Math !== 'undefined' && typeof Math.sumPrecise === 'undefined') {
   }
 }
 
-import * as pdfjsLib from 'pdfjs-dist'
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
 
-// Configure PDF.js worker
+// Configure PDF.js worker (use legacy build with Math.sumPrecise polyfill)
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
+  'pdfjs-dist/legacy/build/pdf.worker.min.mjs',
   import.meta.url
 ).toString()
 
@@ -87,6 +87,7 @@ import {
   cleanGoogleDocHtml,
   fetchGoogleDocData
 } from './editor/utils/editorHelpers'
+import { downloadCloudinaryDocumentBuffer } from '../services/cloudinary'
 import { GoogleDocsIcon } from './editor/ui/GoogleDocsModal'
 
 import { useEditor, EditorContent } from '@tiptap/react'
@@ -174,20 +175,25 @@ export default function DocumentViewer({
   const isBuiltInTemplate = Boolean(
     report?.documentSource === 'built_in_template' ||
     report?.submissionType === 'template' ||
-    (report?.isTemplateActive && !report?.originalDocxUrl && report?.submissionType !== 'gdoc_submission')
+    (report?.isTemplateActive && !report?.originalDocxUrl && !report?.cloudinaryUrl && report?.submissionType !== 'gdoc_submission')
   )
 
-  // DOCX / PDF / Google Doc Direct View State
+  // DOCX / PDF / Google Doc Direct View State (Cloudinary & Local)
   const isDocxSubmission = !isBuiltInTemplate && Boolean(
     report?.submissionType === 'docx_upload' ||
     report?.submissionType === 'gdoc_submission' ||
+    report?.cloudinaryUrl ||
     report?.originalDocxUrl ||
     report?.googleDocsUrl
   )
+  const effectiveFileUrl = report?.cloudinaryUrl || report?.originalDocxUrl || ''
   const isPdfFile = !isBuiltInTemplate && Boolean(
     report?.fileType === 'pdf' ||
     report?.originalDocxName?.toLowerCase().endsWith('.pdf') ||
-    report?.originalDocxUrl?.startsWith('data:application/pdf') ||
+    (typeof effectiveFileUrl === 'string' && (
+      effectiveFileUrl.startsWith('data:application/pdf') ||
+      effectiveFileUrl.toLowerCase().includes('.pdf')
+    )) ||
     Boolean(report?.googleDocsUrl)
   )
   const [isPdfDocument, setIsPdfDocument] = useState(isPdfFile)
@@ -221,7 +227,7 @@ export default function DocumentViewer({
   // Load and render DOCX or PDF file directly
   useEffect(() => {
     if (!isDocxSubmission) return
-    if (!report?.originalDocxUrl && !report?.googleDocsUrl) return
+    if (!report?.cloudinaryUrl && !report?.originalDocxUrl && !report?.googleDocsUrl) return
 
     let isMounted = true
     setDocxLoading(true)
@@ -230,15 +236,39 @@ export default function DocumentViewer({
     const loadAndRenderDocument = async () => {
       try {
         let rawBuffer = null
+        const currentFileUrl = report?.cloudinaryUrl || report?.submittedSnapshotUrl || report?.originalDocxUrl || ''
         let isPdfBuffer = Boolean(
           report?.fileType === 'pdf' ||
           report?.originalDocxName?.toLowerCase().endsWith('.pdf') ||
-          report?.originalDocxUrl?.startsWith('data:application/pdf')
+          (typeof currentFileUrl === 'string' && (
+            currentFileUrl.startsWith('data:application/pdf') ||
+            currentFileUrl.toLowerCase().includes('.pdf')
+          ))
         )
 
-        // 1. If report has an uploaded DOCX URL or data URI
-        if (report?.originalDocxUrl) {
-          rawBuffer = await getDocxArrayBuffer(report.originalDocxUrl)
+        // 1. If report has a Cloudinary or uploaded DOCX/PDF URL or data URI
+        if (currentFileUrl) {
+          // If Cloudinary asset, attempt main-process buffer download for 100% CORS & auth bypass
+          if (report?.cloudinaryPublicId || (typeof currentFileUrl === 'string' && currentFileUrl.includes('cloudinary'))) {
+            try {
+              const cloudBuf = await downloadCloudinaryDocumentBuffer({
+                url: currentFileUrl,
+                publicId: report?.cloudinaryPublicId,
+                format: report?.cloudinaryFormat,
+                resourceType: report?.cloudinaryResourceType || 'raw',
+                deliveryType: report?.cloudinaryDeliveryType || 'upload'
+              })
+              if (isBufferUsable(cloudBuf)) {
+                rawBuffer = cloudBuf
+              }
+            } catch (cloudErr) {
+              console.warn('[DocumentViewer] Cloudinary direct buffer download notice:', cloudErr)
+            }
+          }
+
+          if (!isBufferUsable(rawBuffer)) {
+            rawBuffer = await getDocxArrayBuffer(currentFileUrl)
+          }
         }
 
         // 2. If report is a Google Doc submission:
@@ -272,30 +302,37 @@ export default function DocumentViewer({
             }
           }
 
-          // If this report does not have a cached snapshot yet, fetch from Google Docs
+          // If this report does not have a cached snapshot yet, fetch from Google Docs (only for draft/returned reports)
           if (!isBufferUsable(rawBuffer)) {
-            const gDocResult = await fetchGoogleDocData(report.googleDocsUrl)
-            if (gDocResult?.pdfBase64) {
-              rawBuffer = await getDocxArrayBuffer(gDocResult.pdfBase64)
-              isPdfBuffer = true
-              try {
-                if (gDocResult.pdfBase64.length < 400000 && report.id) {
-                  localStorage.setItem(`dommunity_gdoc_pdf_${report.id}`, gDocResult.pdfBase64)
-                }
-              } catch {}
-            } else if (gDocResult?.docxBase64) {
-              rawBuffer = await getDocxArrayBuffer(gDocResult.docxBase64)
-              isPdfBuffer = false
-              try {
-                if (gDocResult.docxBase64.length < 400000 && report.id) {
-                  localStorage.setItem(`dommunity_gdoc_buffer_${report.id}`, gDocResult.docxBase64)
-                }
-              } catch {}
+            const isImmutableStatus = report.status === 'submitted' || report.status === 'approved'
+            if (!isImmutableStatus) {
+              const gDocResult = await fetchGoogleDocData(report.googleDocsUrl)
+              if (gDocResult?.pdfBase64) {
+                rawBuffer = await getDocxArrayBuffer(gDocResult.pdfBase64)
+                isPdfBuffer = true
+                try {
+                  if (gDocResult.pdfBase64.length < 400000 && report.id) {
+                    localStorage.setItem(`dommunity_gdoc_pdf_${report.id}`, gDocResult.pdfBase64)
+                  }
+                } catch {}
+              } else if (gDocResult?.docxBase64) {
+                rawBuffer = await getDocxArrayBuffer(gDocResult.docxBase64)
+                isPdfBuffer = false
+                try {
+                  if (gDocResult.docxBase64.length < 400000 && report.id) {
+                    localStorage.setItem(`dommunity_gdoc_buffer_${report.id}`, gDocResult.docxBase64)
+                  }
+                } catch {}
+              }
             }
           }
         }
 
         if (!isBufferUsable(rawBuffer)) {
+          if (report?.submittedNarrative || report?.narrative) {
+            setDocxLoading(false)
+            return
+          }
           throw new Error('Unable to read submitted document data. Please verify the document link.')
         }
 
@@ -475,7 +512,7 @@ export default function DocumentViewer({
     return () => {
       isMounted = false
     }
-  }, [isDocxSubmission, isPdfFile, report?.originalDocxUrl, report?.googleDocsUrl, report?.id])
+  }, [isDocxSubmission, isPdfFile, report?.cloudinaryUrl, report?.originalDocxUrl, report?.googleDocsUrl, report?.id])
 
   // Keyboard shortcut listener for Escape key to close modal
   useEffect(() => {
@@ -592,12 +629,15 @@ export default function DocumentViewer({
   ])
 
   useEffect(() => {
-    if (editor && report?.narrative) {
-      editor.commands.setContent(report.narrative)
+    const effectiveNarrative = report?.submittedNarrative || report?.narrative
+    if (editor && effectiveNarrative) {
+      editor.commands.setContent(effectiveNarrative)
     } else if (
       editor &&
-      (!report?.narrative || report.narrative === '<p></p>') &&
-      report?.googleDocsUrl
+      (!effectiveNarrative || effectiveNarrative === '<p></p>') &&
+      report?.googleDocsUrl &&
+      report?.status !== 'submitted' &&
+      report?.status !== 'approved'
     ) {
       fetchGoogleDocData(report.googleDocsUrl)
         .then((res) => {
@@ -610,7 +650,7 @@ export default function DocumentViewer({
         })
         .catch((e) => console.warn('DocumentViewer Google Docs fallback load failed:', e))
     }
-  }, [editor, report?.narrative, report?.googleDocsUrl])
+  }, [editor, report?.narrative, report?.submittedNarrative, report?.googleDocsUrl, report?.status])
 
   // Pre-generate pages for indexing and sidebar
   const pages = []
@@ -789,10 +829,11 @@ export default function DocumentViewer({
   }
   // Single download action: directly downloads file if uploaded PDF, or exports as PDF
   const handleDownloadDocument = async () => {
+    const activeDocUrl = report?.cloudinaryUrl || report?.originalDocxUrl
     if (isDocxSubmission) {
-      if (isPdfFile && report?.originalDocxUrl) {
+      if (isPdfFile && activeDocUrl) {
         downloadFileFromUrl(
-          report.originalDocxUrl,
+          activeDocUrl,
           report.originalDocxName || `${report.activityTitle || 'Report'}.pdf`
         )
         return
@@ -833,10 +874,11 @@ export default function DocumentViewer({
     if (!isExportOnly) return
 
     // Uploaded DOCX / PDF Submission Export
-    if (isDocxSubmission && report?.originalDocxUrl) {
+    const activeDocUrl = report?.cloudinaryUrl || report?.originalDocxUrl
+    if (isDocxSubmission && activeDocUrl) {
       if (isPdfFile) {
         downloadFileFromUrl(
-          report.originalDocxUrl,
+          activeDocUrl,
           report.originalDocxName || `${report.activityTitle || 'Report'}.pdf`
         )
         if (typeof onExportFinished === 'function') onExportFinished()

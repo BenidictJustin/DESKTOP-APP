@@ -69,7 +69,9 @@ import {
   parseNarrativePages,
   downloadFileFromUrl,
   exportDocxToPDF,
-  fetchGoogleDocData
+  fetchGoogleDocData,
+  getGoogleDocId,
+  base64PdfToFile
 } from '../../components/editor/utils/editorHelpers'
 import { PAPER, MARGINS } from '../../components/editor/constants'
 import { useNetworkStatus } from '../../context/NetworkContext'
@@ -134,6 +136,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   const [approvedSearchQuery, setApprovedSearchQuery] = useState('')
   const [isDocxUploadModalOpen, setIsDocxUploadModalOpen] = useState(false)
   const [docxUploadInitialEventId, setDocxUploadInitialEventId] = useState('')
+  const [docxUploadTargetReport, setDocxUploadTargetReport] = useState(null)
   const [isDocxUploading, setIsDocxUploading] = useState(false)
   const [pendingGDocModal, setPendingGDocModal] = useState(null)
   const [actionSuccess, setActionSuccess] = useState('')
@@ -190,15 +193,19 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         getEvents(),
         getUsers()
       ])
-      setReportsList(reports)
-      setOrgsList(orgs)
-      setEventsList(events)
-      setUsersList(users)
+      setReportsList(reports || [])
+      setOrgsList(orgs || [])
+      setEventsList(events || [])
+      setUsersList(users || [])
 
       // Ensure every completed event has a registered narrative report (Pending if not yet started)
-      await ensurePendingReportsForCompletedEvents(events, reports)
+      try {
+        await ensurePendingReportsForCompletedEvents(events || [], reports || [])
+      } catch (ensureErr) {
+        console.warn('ensurePendingReportsForCompletedEvents notice:', ensureErr?.message || ensureErr)
+      }
     } catch (err) {
-      console.error(err)
+      console.warn('Dashboard loadData fallback to local cache:', err?.message || err)
     }
   }, [])
 
@@ -313,12 +320,10 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     )
     if (isBuiltInTemplateRep) {
       try {
-        localStorage.removeItem('dommunity_saved_gdoc_url')
         localStorage.removeItem(`dommunity_gdocs_${rep.id}`)
       } catch {}
     } else if (rep.googleDocsUrl) {
       localStorage.setItem(`dommunity_gdocs_${rep.id}`, rep.googleDocsUrl)
-      localStorage.setItem('dommunity_saved_gdoc_url', rep.googleDocsUrl)
     }
     // Load content into editor
     const ed = editor || window.__dommunityEditor
@@ -356,9 +361,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       const gdocUrl =
         rep.googleDocsUrl ||
         localStorage.getItem(`dommunity_gdocs_${rep.id}`) ||
-        (rep.submissionType === 'gdoc_submission'
-          ? localStorage.getItem('dommunity_saved_gdoc_url')
-          : null)
+        null
 
       const isGoogleDocs = Boolean(rep.submissionType === 'gdoc_submission' || rep.googleDocsUrl)
       const isUploadedDoc = Boolean(rep.submissionType === 'docx_upload' || rep.originalDocxUrl)
@@ -385,15 +388,11 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
       // 3. Coordinator – Returned Uploaded Document
       // If the original report was submitted through the Upload workflow:
-      // Open Google Docs when the report is returned.
-      // Do not redirect it to document editor.
+      // Allow uploading a revised document to Cloudinary while preserving the existing report record and history
       if (isUploadedDoc) {
-        const targetUrl = gdocUrl || 'https://docs.google.com/document/u/0/'
-        if (window.electron?.shell?.openExternal) {
-          window.electron.shell.openExternal(targetUrl)
-        } else {
-          window.open(targetUrl, '_blank', 'noopener,noreferrer')
-        }
+        setDocxUploadTargetReport(rep)
+        setDocxUploadInitialEventId(rep.eventId || '')
+        setIsDocxUploadModalOpen(true)
         return
       }
 
@@ -417,8 +416,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         localStorage.getItem(`dommunity_gdocs_${rep.id}`) ||
         ''
 
-      // Open Google Docs in external browser
-      const targetUrl = existingGDocUrl || 'https://docs.google.com/document/u/0/'
+      // Open Google Docs in external browser: if new, open docs create to ensure a brand new blank document
+      const targetUrl = existingGDocUrl || 'https://docs.google.com/document/create'
       if (window.electron?.shell?.openExternal) {
         window.electron.shell.openExternal(targetUrl)
       } else {
@@ -443,6 +442,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       const { report, event } = pendingGDocModal
       if (!googleDocsUrl || !googleDocsUrl.trim()) return false
 
+      const cleanGDocUrl = googleDocsUrl.trim()
       setLoading(true)
       try {
         const title = event?.name || report.activityTitle || 'Google Doc Narrative Report'
@@ -459,7 +459,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           location,
           eventId: report.eventId || event?.id || null,
           organizationId: report.organizationId || event?.assignedOrganizationId || null,
-          googleDocsUrl: googleDocsUrl.trim(),
+          googleDocsUrl: cleanGDocUrl,
           documentSource: 'google_docs',
           submissionType: 'gdoc_submission',
           isTemplateActive: false,
@@ -484,7 +484,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
         // Try pre-fetching document content and snapshots for instant DocumentViewer rendering
         try {
-          const gDocResult = await fetchGoogleDocData(googleDocsUrl.trim())
+          const gDocResult = await fetchGoogleDocData(cleanGDocUrl)
           if (gDocResult?.html) {
             payload.narrative = gDocResult.html
           }
@@ -501,9 +501,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           console.warn('Could not fetch Google Doc data during draft save:', gdocErr)
         }
 
-        // Persist to localStorage
-        localStorage.setItem(`dommunity_gdocs_${report.id}`, googleDocsUrl.trim())
-        localStorage.setItem('dommunity_saved_gdoc_url', googleDocsUrl.trim())
+        // Persist report-specific Google Doc URL
+        localStorage.setItem(`dommunity_gdocs_${report.id}`, cleanGDocUrl)
 
         await updateReport(report.id, payload, user.uid)
         setPendingGDocModal(null)
@@ -528,7 +527,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         setLoading(false)
       }
     },
-    [pendingGDocModal, user, updateReport, loadData, triggerSuccess, triggerError]
+    [pendingGDocModal, user, updateReport, loadData, reportsList, triggerSuccess, triggerError]
   )
 
   // ── Submit to Admin from Pending Google Docs modal ──
@@ -538,6 +537,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
       const { report, event } = pendingGDocModal
       if (!googleDocsUrl || !googleDocsUrl.trim()) return false
 
+      const cleanGDocUrl = googleDocsUrl.trim()
       setLoading(true)
       try {
         const title = event?.name || report.activityTitle || 'Google Doc Narrative Report'
@@ -553,7 +553,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           location,
           eventId: report.eventId || event?.id || null,
           organizationId: report.organizationId || event?.assignedOrganizationId || null,
-          googleDocsUrl: googleDocsUrl.trim(),
+          googleDocsUrl: cleanGDocUrl,
           documentSource: 'google_docs',
           submissionType: 'gdoc_submission',
           isTemplateActive: false,
@@ -576,11 +576,12 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           ]
         }
 
-        // Try fetching Google Doc content for narrative preview & snapshots
+        // Fetch Google Doc content for narrative preview & freeze exact document in Cloudinary
         try {
-          const gDocResult = await fetchGoogleDocData(googleDocsUrl.trim())
+          const gDocResult = await fetchGoogleDocData(cleanGDocUrl)
           if (gDocResult?.html) {
             payload.narrative = gDocResult.html
+            payload.submittedNarrative = gDocResult.html
           }
           if (gDocResult?.title && (!title || title === 'Google Doc Narrative Report')) {
             payload.activityTitle = gDocResult.title
@@ -591,13 +592,54 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           if (gDocResult?.docxBase64 && gDocResult.docxBase64.length < 400000 && report.id) {
             localStorage.setItem(`dommunity_gdoc_buffer_${report.id}`, gDocResult.docxBase64)
           }
+
+          // Upload frozen PDF snapshot to Cloudinary so submitted report is permanent and immutable
+          if (gDocResult?.pdfBase64) {
+            try {
+              const safeDocName = `${(title || 'Narrative_Report').replace(/[^a-zA-Z0-9_-]+/g, '_')}_${report.id || Date.now()}_submitted.pdf`
+              const pdfFile = base64PdfToFile(gDocResult.pdfBase64, safeDocName)
+              if (pdfFile) {
+                const uploadRes = await uploadDocxReportFile(
+                  report.academicYear || workspaceReportAY || '2026-2027',
+                  payload.eventId || 'general',
+                  pdfFile,
+                  { userRole: user?.role || 'office_coordinator' }
+                )
+                const storageUrl = uploadRes?.url || uploadRes
+                if (storageUrl && typeof storageUrl === 'string' && storageUrl.startsWith('http')) {
+                  if (report.status === 'returned' && (report.cloudinaryUrl || report.submittedSnapshotUrl || report.submittedNarrative)) {
+                    payload.revisions = [
+                      ...(report.revisions || []),
+                      {
+                        version: (report.revisions?.length || 0) + 1,
+                        cloudinaryUrl: report.cloudinaryUrl || report.submittedSnapshotUrl || null,
+                        submittedSnapshotUrl: report.submittedSnapshotUrl || report.cloudinaryUrl || null,
+                        submittedNarrative: report.submittedNarrative || report.narrative || null,
+                        submittedAt: report.submittedAt || report.updatedAt,
+                        returnedAt: report.returnedAt || null,
+                        feedback: report.adminFeedback || null
+                      }
+                    ]
+                  }
+                  payload.originalDocxUrl = storageUrl
+                  payload.cloudinaryUrl = uploadRes?.cloudinaryUrl || (storageUrl.includes('cloudinary') ? storageUrl : null)
+                  payload.cloudinaryPublicId = uploadRes?.cloudinaryPublicId || null
+                  payload.cloudinaryAssetId = uploadRes?.cloudinaryAssetId || null
+                  payload.originalDocxName = safeDocName
+                  payload.fileType = 'pdf'
+                  payload.submittedSnapshotUrl = payload.cloudinaryUrl || storageUrl
+                }
+              }
+            } catch (cloudErr) {
+              console.warn('Submitted Google Doc Cloudinary upload notice:', cloudErr)
+            }
+          }
         } catch (gdocErr) {
           console.warn('Could not fetch Google Doc content during submit:', gdocErr)
         }
 
-        // Persist to localStorage
-        localStorage.setItem(`dommunity_gdocs_${report.id}`, googleDocsUrl.trim())
-        localStorage.setItem('dommunity_saved_gdoc_url', googleDocsUrl.trim())
+        // Persist report-specific Google Doc URL
+        localStorage.setItem(`dommunity_gdocs_${report.id}`, cleanGDocUrl)
 
         await updateReport(report.id, payload, user.uid)
         setPendingGDocModal(null)
@@ -617,7 +659,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         setLoading(false)
       }
     },
-    [pendingGDocModal, user, updateReport, loadData, triggerSuccess, triggerError]
+    [pendingGDocModal, user, updateReport, loadData, reportsList, workspaceReportAY, triggerSuccess, triggerError]
   )
 
   // ── Save/Submit handler ──
@@ -752,6 +794,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
         if (effectiveStatus === 'submitted') {
           payload.submittedAt = new Date().toISOString()
+          payload.submittedNarrative = optimizedHtml
         }
 
         // Handle submission types:
@@ -762,7 +805,6 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           delete payload.originalDocxUrl
           delete payload.originalDocxName
           try {
-            localStorage.removeItem('dommunity_saved_gdoc_url')
             if (workspaceReportId) {
               localStorage.removeItem(`dommunity_gdocs_${workspaceReportId}`)
             }
@@ -770,32 +812,45 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         } else if (payload.googleDocsUrl) {
           payload.submissionType = 'gdoc_submission'
           payload.documentSource = 'google_docs'
-          // Google Doc submissions are synced via narrative HTML and linked via googleDocsUrl;
-          // never store huge DOCX base64 blobs in Firestore to avoid 1MB document limit rejections.
           delete payload.originalDocxUrl
           delete payload.originalDocxName
 
-          // If a PDF snapshot was retrieved during submission, attempt cloud storage upload
-          // so any device/admin can view the exact frozen submission without relying on live link
-          if (layoutOptions.pdfBase64) {
-            try {
-              const base64Data = layoutOptions.pdfBase64.split(',')[1] || layoutOptions.pdfBase64
-              const byteCharacters = atob(base64Data)
-              const byteNumbers = new Uint8Array(byteCharacters.length)
-              for (let i = 0; i < byteCharacters.length; i++) {
-                byteNumbers[i] = byteCharacters.charCodeAt(i)
+          // When submitting, upload frozen PDF snapshot to Cloudinary so document is locked and immutable
+          if (effectiveStatus === 'submitted') {
+            let candidatePdf = layoutOptions.pdfBase64
+            if (!candidatePdf) {
+              try {
+                const gDocSnap = await fetchGoogleDocData(payload.googleDocsUrl)
+                if (gDocSnap?.pdfBase64) {
+                  candidatePdf = gDocSnap.pdfBase64
+                }
+              } catch (snapErr) {
+                console.warn('Could not fetch snapshot during handleSave:', snapErr)
               }
-              const blob = new Blob([byteNumbers], { type: 'application/pdf' })
-              const safeFileName = `${title.replace(/[^a-zA-Z0-9_-]+/g, '_')}_${Date.now()}.pdf`
-              const fileObj = new File([blob], safeFileName, { type: 'application/pdf' })
-              const storageUrl = await uploadDocxReportFile(workspaceReportAY || '2026-2027', payload.eventId, fileObj)
-              if (storageUrl && typeof storageUrl === 'string' && storageUrl.startsWith('http')) {
-                payload.originalDocxUrl = storageUrl
-                payload.originalDocxName = safeFileName
-                payload.fileType = 'pdf'
+            }
+
+            if (candidatePdf) {
+              try {
+                const safeFileName = `${title.replace(/[^a-zA-Z0-9_-]+/g, '_')}_${Date.now()}_submitted.pdf`
+                const fileObj = base64PdfToFile(candidatePdf, safeFileName)
+                if (fileObj) {
+                  const uploadRes = await uploadDocxReportFile(workspaceReportAY || '2026-2027', payload.eventId || 'general', fileObj, {
+                    userRole: user?.role || 'office_coordinator'
+                  })
+                  const storageUrl = uploadRes?.url || uploadRes
+                  if (storageUrl && typeof storageUrl === 'string' && storageUrl.startsWith('http')) {
+                    payload.originalDocxUrl = storageUrl
+                    payload.cloudinaryUrl = uploadRes?.cloudinaryUrl || (storageUrl.includes('cloudinary') ? storageUrl : null)
+                    payload.cloudinaryPublicId = uploadRes?.cloudinaryPublicId || null
+                    payload.cloudinaryAssetId = uploadRes?.cloudinaryAssetId || null
+                    payload.originalDocxName = safeFileName
+                    payload.fileType = 'pdf'
+                    payload.submittedSnapshotUrl = payload.cloudinaryUrl || storageUrl
+                  }
+                }
+              } catch (storageErr) {
+                console.warn('Could not upload submitted PDF to Cloudinary in handleSave:', storageErr)
               }
-            } catch (storageErr) {
-              console.warn('Could not upload submitted PDF to Firebase Storage (will use local cache):', storageErr)
             }
           }
         } else if (layoutOptions.originalDocxUrl) {
@@ -807,14 +862,14 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
         let actualId = workspaceReportId
         // If workspaceReportId is not set, but report is linked to an event,
-        // check if a pending report for this event already exists to prevent duplicate report records
+        // check if a pending, draft, or returned report for this event already exists to prevent duplicate report records
         if (!actualId && linkToEvent && workspaceReportEventId) {
-          const pendingRep = reportsList.find(
-            (r) => r.eventId === workspaceReportEventId && r.status === 'pending'
+          const matchingRep = reportsList.find(
+            (r) => r.eventId === workspaceReportEventId && (r.status === 'pending' || r.status === 'draft' || r.status === 'returned')
           )
-          if (pendingRep) {
-            actualId = pendingRep.id
-            setWorkspaceReportId(pendingRep.id)
+          if (matchingRep) {
+            actualId = matchingRep.id
+            setWorkspaceReportId(matchingRep.id)
           }
         }
         if (actualId) {
@@ -824,6 +879,24 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
             delete payload.authorName
             delete payload.authorEmail
             delete payload.submittedBy
+          }
+          if (
+            effectiveStatus === 'submitted' &&
+            (existingRep?.status === 'returned' || workspaceReportStatus === 'returned') &&
+            (existingRep?.cloudinaryUrl || existingRep?.submittedSnapshotUrl || existingRep?.submittedNarrative)
+          ) {
+            payload.revisions = [
+              ...(existingRep.revisions || []),
+              {
+                version: (existingRep.revisions?.length || 0) + 1,
+                cloudinaryUrl: existingRep.cloudinaryUrl || existingRep.submittedSnapshotUrl || null,
+                submittedSnapshotUrl: existingRep.submittedSnapshotUrl || existingRep.cloudinaryUrl || null,
+                submittedNarrative: existingRep.submittedNarrative || existingRep.narrative || null,
+                submittedAt: existingRep.submittedAt || existingRep.updatedAt,
+                returnedAt: existingRep.returnedAt || null,
+                feedback: existingRep.adminFeedback || workspaceFeedback || null
+              }
+            ]
           }
           await updateReport(actualId, payload, user.uid)
           if (!isBuiltInTemplate && payload.googleDocsUrl) {
@@ -986,15 +1059,12 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           delete payload.originalDocxName
           try {
             localStorage.removeItem(`dommunity_gdocs_${rep.id}`)
-            localStorage.removeItem('dommunity_saved_gdoc_url')
           } catch {}
         } else {
           const gdocUrl =
             rep.googleDocsUrl ||
             localStorage.getItem(`dommunity_gdocs_${rep.id}`) ||
-            (rep.submissionType === 'gdoc_submission'
-              ? localStorage.getItem('dommunity_saved_gdoc_url')
-              : null)
+            null
 
           if (gdocUrl) {
             payload.documentSource = 'google_docs'
@@ -1006,9 +1076,51 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
               const gDocResult = await fetchGoogleDocData(gdocUrl)
               if (gDocResult?.html) {
                 payload.narrative = gDocResult.html
+                payload.submittedNarrative = gDocResult.html
               }
               if (gDocResult?.title && (!rep.activityTitle || rep.activityTitle === 'Untitled Report')) {
                 payload.activityTitle = gDocResult.title
+              }
+              // Upload frozen PDF snapshot to Cloudinary to preserve immutable submission
+              if (gDocResult?.pdfBase64) {
+                try {
+                  const safeDocName = `${(rep.activityTitle || 'Narrative_Report').replace(/[^a-zA-Z0-9_-]+/g, '_')}_${rep.id}_submitted.pdf`
+                  const pdfFile = base64PdfToFile(gDocResult.pdfBase64, safeDocName)
+                  if (pdfFile) {
+                    const uploadRes = await uploadDocxReportFile(
+                      rep.academicYear || '2026-2027',
+                      rep.eventId || 'general',
+                      pdfFile,
+                      { userRole: user?.role || 'office_coordinator' }
+                    )
+                    const storageUrl = uploadRes?.url || uploadRes
+                    if (storageUrl && typeof storageUrl === 'string' && storageUrl.startsWith('http')) {
+                      if (rep.status === 'returned' && (rep.cloudinaryUrl || rep.submittedSnapshotUrl || rep.submittedNarrative)) {
+                        payload.revisions = [
+                          ...(rep.revisions || []),
+                          {
+                            version: (rep.revisions?.length || 0) + 1,
+                            cloudinaryUrl: rep.cloudinaryUrl || rep.submittedSnapshotUrl || null,
+                            submittedSnapshotUrl: rep.submittedSnapshotUrl || rep.cloudinaryUrl || null,
+                            submittedNarrative: rep.submittedNarrative || rep.narrative || null,
+                            submittedAt: rep.submittedAt || rep.updatedAt,
+                            returnedAt: rep.returnedAt || null,
+                            feedback: rep.adminFeedback || null
+                          }
+                        ]
+                      }
+                      payload.originalDocxUrl = storageUrl
+                      payload.cloudinaryUrl = uploadRes?.cloudinaryUrl || (storageUrl.includes('cloudinary') ? storageUrl : null)
+                      payload.cloudinaryPublicId = uploadRes?.cloudinaryPublicId || null
+                      payload.cloudinaryAssetId = uploadRes?.cloudinaryAssetId || null
+                      payload.originalDocxName = safeDocName
+                      payload.fileType = 'pdf'
+                      payload.submittedSnapshotUrl = payload.cloudinaryUrl || storageUrl
+                    }
+                  }
+                } catch (cloudErr) {
+                  console.warn('Cloudinary upload during direct draft submit notice:', cloudErr)
+                }
               }
             } catch (gdocErr) {
               console.warn('Could not refresh Google Doc content during resubmit:', gdocErr)
@@ -1029,19 +1141,22 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         setLoading(false)
       }
     },
-    [isOffline, user.uid, triggerError, triggerSuccess, loadData]
+    [isOffline, user.uid, triggerError, triggerSuccess, loadData, reportsList]
   )
 
-  // ── Direct DOCX Upload & Submit Handler (Bypasses Tiptap to preserve 100% formatting) ──
-  const handleDocxUploadSubmit = async ({ file, comment, eventId }) => {
+  // ── Direct DOCX/PDF Upload & Submit Handler (Cloudinary storage & duplicate prevention) ──
+  const handleDocxUploadSubmit = async ({ file, comment, eventId, reportId }) => {
     if (isOffline) {
       triggerError('Cannot submit report: Internet connection is offline. Please reconnect to sync.')
       return
     }
     setIsDocxUploading(true)
     try {
-      // 1. Upload raw DOCX file without conversion to preserve formatting
-      const downloadUrl = await uploadDocxReportFile(workspaceReportAY || '2024-2025', eventId, file)
+      // 1. Upload raw document to Cloudinary (preserves 100% binary formatting)
+      const uploadRes = await uploadDocxReportFile(workspaceReportAY || '2026-2027', eventId, file, {
+        userRole: user?.role || 'office_coordinator'
+      })
+      const downloadUrl = uploadRes?.url || uploadRes
 
       let title = file.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' ')
       let date = new Date().toISOString().split('T')[0]
@@ -1062,9 +1177,9 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         submissionType: 'docx_upload',
         documentSource: 'uploaded_document',
         fileType: isPdf ? 'pdf' : 'docx',
-        academicYear: workspaceReportAY || '2024-2025',
+        academicYear: workspaceReportAY || '2026-2027',
         semester: workspaceReportSem || '1st Semester',
-        type: workspaceReportType || 'Narrative',
+        type: workspaceReportType || 'outreach',
         eventId: eventId || null,
         activityTitle: title,
         activityDate: date,
@@ -1075,6 +1190,13 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         originalDocxName: file.name,
         originalDocxSize: file.size,
         originalDocxUrl: downloadUrl,
+        cloudinaryUrl: uploadRes?.cloudinaryUrl || (typeof downloadUrl === 'string' && downloadUrl.includes('cloudinary') ? downloadUrl : null),
+        cloudinaryPublicId: uploadRes?.cloudinaryPublicId || null,
+        cloudinaryAssetId: uploadRes?.cloudinaryAssetId || null,
+        cloudinaryFormat: uploadRes?.cloudinaryFormat || (isPdf ? 'pdf' : 'docx'),
+        cloudinaryBytes: uploadRes?.cloudinaryBytes || file.size,
+        cloudinaryResourceType: uploadRes?.cloudinaryResourceType || 'raw',
+        cloudinaryDeliveryType: uploadRes?.cloudinaryDeliveryType || 'upload',
         comment: comment || '',
         photos: [],
         status: 'submitted',
@@ -1082,28 +1204,70 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         authorName: user.name || user.username || 'Coordinator',
         authorEmail: user.email || '',
         submittedBy: user.name || user.username || 'Coordinator',
-        createdAt: new Date().toISOString(),
+        submittedAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }
 
-      // Prevent duplicate pending/draft reports for the exact same event
-      const existingMatch = eventId
-        ? reportsList.find(
-            (r) => r.eventId === eventId && (r.status === 'pending' || r.status === 'draft')
-          )
-        : null
+      // 3. Locate existing report record to update (preserving same report ID and history across workflow)
+      let existingMatch = null
+      if (reportId) {
+        existingMatch = reportsList.find((r) => r.id === reportId)
+      }
+      if (!existingMatch && eventId) {
+        existingMatch = reportsList.find(
+          (r) => r.eventId === eventId && (r.status === 'returned' || r.status === 'pending' || r.status === 'draft')
+        )
+      }
 
       if (existingMatch) {
-        await updateReport(existingMatch.id, payload, user.uid)
+        const existingHistory = Array.isArray(existingMatch.history) ? existingMatch.history : []
+        const isRevision = existingMatch.status === 'returned'
+        const historyNotes = isRevision
+          ? `Revised document "${file.name}" uploaded to Cloudinary for resubmission.${comment ? ' Notes: ' + comment : ''}`
+          : `Document "${file.name}" uploaded to Cloudinary.${comment ? ' Comments: ' + comment : ''}`
+
+        const updatePayload = {
+          ...payload,
+          adminFeedback: null, // Clear return feedback upon resubmission
+          history: [
+            ...existingHistory,
+            {
+              status: 'submitted',
+              changedBy: user.uid,
+              timestamp: new Date().toISOString(),
+              notes: historyNotes
+            }
+          ]
+        }
+
+        if (existingMatch.authorId) {
+          delete updatePayload.authorId
+          delete updatePayload.authorName
+          delete updatePayload.authorEmail
+          delete updatePayload.submittedBy
+        }
+
+        await updateReport(existingMatch.id, updatePayload, user.uid)
       } else {
+        payload.createdAt = new Date().toISOString()
+        payload.history = [
+          {
+            status: 'submitted',
+            changedBy: user.uid,
+            timestamp: new Date().toISOString(),
+            notes: `Document "${file.name}" uploaded to Cloudinary and submitted.`
+          }
+        ]
         await addReport(payload, user.uid)
       }
+
       setIsDocxUploadModalOpen(false)
+      setDocxUploadTargetReport(null)
       setDocxUploadInitialEventId('')
       setCompiledReportsTab('submitted')
       setActiveTab('reports')
       triggerSuccess(
-        `Original ${isPdf ? 'PDF' : 'Word'} document submitted directly to Admin successfully! Formatting is 100% preserved.`,
+        `Document uploaded to Cloudinary and submitted to Admin successfully! Formatting is 100% preserved.`,
         () => {
           setCompiledReportsTab('submitted')
           setActiveTab('reports')
@@ -1122,26 +1286,32 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     const isBuiltInTemplate = Boolean(
       report?.documentSource === 'built_in_template' ||
       report?.submissionType === 'template' ||
-      (report?.isTemplateActive && !report?.originalDocxUrl && report?.submissionType !== 'gdoc_submission')
+      (report?.isTemplateActive && !report?.originalDocxUrl && !report?.cloudinaryUrl && report?.submissionType !== 'gdoc_submission')
     )
 
-    if (!isBuiltInTemplate && (report?.submissionType === 'docx_upload' || report?.originalDocxUrl)) {
-      if (report.fileType === 'pdf' || report.originalDocxName?.toLowerCase().endsWith('.pdf')) {
+    const docUrl = report?.cloudinaryUrl || report?.submittedSnapshotUrl || report?.originalDocxUrl
+
+    if (!isBuiltInTemplate && (report?.submissionType === 'docx_upload' || docUrl)) {
+      if (
+        report.fileType === 'pdf' ||
+        report.originalDocxName?.toLowerCase().endsWith('.pdf') ||
+        (typeof docUrl === 'string' && docUrl.toLowerCase().includes('.pdf'))
+      ) {
         downloadFileFromUrl(
-          report.originalDocxUrl,
+          docUrl,
           report.originalDocxName || `${report.activityTitle || 'Report'}.pdf`
         )
         return
       }
       try {
         await exportDocxToPDF(
-          report.originalDocxUrl,
+          docUrl,
           report.originalDocxName || report.activityTitle || 'Report'
         )
       } catch (err) {
         console.error('Failed to export DOCX as PDF, falling back to original DOCX download:', err)
         downloadFileFromUrl(
-          report.originalDocxUrl,
+          docUrl,
           report.originalDocxName || `${report.activityTitle || 'Report'}.docx`
         )
       }
@@ -1149,6 +1319,21 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
     }
 
     if (!isBuiltInTemplate && report?.googleDocsUrl) {
+      const cachedPdf = report?.id ? localStorage.getItem(`dommunity_gdoc_pdf_${report.id}`) : null
+      if (cachedPdf) {
+        downloadFileFromUrl(
+          cachedPdf,
+          `${(report.activityTitle || 'Report').replace(/[^a-zA-Z0-9_-]+/g, '_')}.pdf`
+        )
+        return
+      }
+
+      // For submitted and approved reports, never export live Google Doc to avoid downloading another report's edits
+      if (report?.status === 'submitted' || report?.status === 'approved') {
+        setExportingReport(report)
+        return
+      }
+
       const match = report.googleDocsUrl.match(/\/document\/d\/([a-zA-Z0-9-_]+)/)
       if (match) {
         const docId = match[1]
@@ -1718,9 +1903,13 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
                           <button
                             type="button"
-                            onClick={() => setIsDocxUploadModalOpen(true)}
+                            onClick={() => {
+                              setDocxUploadTargetReport(null)
+                              setDocxUploadInitialEventId('')
+                              setIsDocxUploadModalOpen(true)
+                            }}
                             className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-bold px-3.5 py-2 rounded-full border-b-2 border-sig-green hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-sm shrink-0"
-                            title="Upload report document (.docx, .pdf)"
+                            title="Upload report document to Cloudinary (.docx, .pdf)"
                           >
                             <Upload className="w-3.5 h-3.5 stroke-[2.5]" />
                             <span>Upload</span>
@@ -1857,11 +2046,12 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                         <button
                                           type="button"
                                           onClick={() => {
+                                            setDocxUploadTargetReport(rep)
                                             setDocxUploadInitialEventId(rep.eventId || ev?.id || '')
                                             setIsDocxUploadModalOpen(true)
                                           }}
                                           className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-3.5 py-2 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
-                                          title="Upload Completed Report Document (.docx, .pdf)"
+                                          title="Upload Completed Report Document (.docx, .pdf) to Cloudinary"
                                         >
                                           <Upload className="w-3.5 h-3.5" />
                                           <span>Upload</span>
@@ -2164,6 +2354,18 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                           <span>Export PDF</span>
                                         </button>
                                         <button
+                                          onClick={() => {
+                                            setDocxUploadTargetReport(rep)
+                                            setDocxUploadInitialEventId(rep.eventId || '')
+                                            setIsDocxUploadModalOpen(true)
+                                          }}
+                                          className="flex items-center gap-1.5 bg-white text-navy-blue border border-gray-250 text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-gray-50 transition-all duration-150 cursor-pointer shadow-2xs"
+                                          title="Upload revised document to Cloudinary"
+                                        >
+                                          <Upload className="w-3.5 h-3.5" />
+                                          <span>Revise Document</span>
+                                        </button>
+                                        <button
                                           onClick={() => handleEditReturnedReport(rep)}
                                           className="flex items-center gap-1.5 bg-navy-blue text-white text-xs font-semibold px-4 py-1.5 rounded-full hover:bg-navy-blue/90 transition-all duration-150 cursor-pointer shadow-xs"
                                           title={
@@ -2171,9 +2373,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                                               ? 'Edit & Revise in DommUnity Document Editor'
                                               : (rep.googleDocsUrl || rep.submissionType === 'gdoc_submission')
                                                 ? 'Open saved Google Docs document'
-                                                : rep.submissionType === 'docx_upload' || rep.originalDocxUrl
-                                                  ? 'Open Google Docs'
-                                                  : 'Edit & Revise in DommUnity Document Editor'
+                                                : 'Upload revised document to Cloudinary'
                                           }
                                         >
                                           <Edit3 className="w-3.5 h-3.5" />
@@ -2411,8 +2611,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                       </div>
                     </div>
 
-                    {/* ── 4. Organizational Chart ─────── */}
-                    <OrganizationalChart />
+                    {/* ── 4. Organizational Chart (Read-Only) ─────── */}
+                    <OrganizationalChart canEdit={false} />
 
                     {/* ── 5. Developers ─────── */}
                     <DevelopersChart />
@@ -2592,8 +2792,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
                         if (matchingReport) {
                           handleStartPendingReport(matchingReport, targetEvt)
                         } else {
-                          // No report exists yet — open Google Docs directly
-                          const targetUrl = 'https://docs.google.com/document/u/0/'
+                          // No report exists yet — open blank new Google Doc directly
+                          const targetUrl = 'https://docs.google.com/document/create'
                           if (window.electron?.shell?.openExternal) {
                             window.electron.shell.openExternal(targetUrl)
                           } else {
@@ -2623,16 +2823,18 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           })()}
       </AnimatedModal>
 
-      {/* ── DOCX DIRECT UPLOAD MODAL ── */}
+      {/* ── DOCX/PDF DIRECT UPLOAD MODAL ── */}
       <DocxUploadModal
         isOpen={isDocxUploadModalOpen}
         onClose={() => {
           setIsDocxUploadModalOpen(false)
+          setDocxUploadTargetReport(null)
           setDocxUploadInitialEventId('')
         }}
         onSubmit={handleDocxUploadSubmit}
         eventsList={eventsList}
         initialEventId={docxUploadInitialEventId}
+        targetReport={docxUploadTargetReport}
         isSubmitting={isDocxUploading}
       />
 
@@ -2644,10 +2846,10 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         docTitle={pendingGDocModal?.event?.name || pendingGDocModal?.report?.activityTitle || ''}
         workspaceReportId={pendingGDocModal?.report?.id || null}
         googleDocsUrl={pendingGDocModal?.existingUrl || ''}
+        reportsList={reportsList}
         onSaveGoogleDocsUrl={(url) => {
           if (pendingGDocModal?.report?.id && url) {
             localStorage.setItem(`dommunity_gdocs_${pendingGDocModal.report.id}`, url)
-            localStorage.setItem('dommunity_saved_gdoc_url', url)
           }
         }}
         onSaveDraft={handlePendingGDocSaveDraft}

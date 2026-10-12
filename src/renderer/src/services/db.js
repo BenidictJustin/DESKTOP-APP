@@ -37,6 +37,11 @@ import {
   firebaseConfig
 } from '../firebase'
 import { compressHtmlImages, compressImage, ensureHtmlUnderFirestoreLimit } from '../utils/imageCompressor'
+import {
+  uploadDocumentToCloudinary,
+  deleteDocumentFromCloudinary,
+  isCloudinaryAvailable
+} from './cloudinary'
 
 export function getLevenshteinDistance(str1, str2) {
   const s1 = (str1 || '').toLowerCase().trim()
@@ -106,8 +111,48 @@ const LOCAL_STORAGE_KEYS = {
   REPORTS: 'dommunity_reports',
   LOGGED_IN_USER: 'dommunity_current_user',
   RESET_REQUESTS: 'dommunity_reset_requests',
-  SESSION_ID: 'dommunity_session_id'
+  SESSION_ID: 'dommunity_session_id',
+  ORG_CHART: 'dommunity_org_chart'
 }
+
+export const DEFAULT_ORG_CHART = [
+  {
+    id: 'org-admin',
+    name: 'SR. LORNA I. ABLOG, O.P.',
+    role: 'SCHOOL ADMINISTRATOR',
+    initials: 'LA',
+    badge: 'Executive',
+    badgeColor: 'bg-navy-blue text-sig-green',
+    imageUrl: ''
+  },
+  {
+    id: 'org-vpaa',
+    name: 'DR. AUGUSTO R. DELA CRUZ',
+    role: 'VICE PRESIDENT OF ACADEMIC AFFAIRS',
+    initials: 'AD',
+    badge: 'Academic Affairs',
+    badgeColor: 'bg-navy-blue/10 text-navy-blue',
+    imageUrl: ''
+  },
+  {
+    id: 'org-ces-head',
+    name: 'MRS. FAITHFUL ANNE F. ARUGAY',
+    role: 'HEAD, CES',
+    initials: 'FA',
+    badge: 'CES Leadership',
+    badgeColor: 'bg-sig-green/15 text-sig-green',
+    imageUrl: ''
+  },
+  {
+    id: 'org-ces-coord',
+    name: 'MR. JONNEL B. MANIO',
+    role: 'COORDINATOR, CES',
+    initials: 'JM',
+    badge: 'CES Operations',
+    badgeColor: 'bg-navy-blue/5 text-navy-blue',
+    imageUrl: ''
+  }
+]
 
 // Initial Seed Data for Demo Mode
 const SEED_DATA = {
@@ -447,7 +492,8 @@ const SEED_DATA = {
       updatedAt: new Date(2026, 6, 14).toISOString()
     }
   ],
-  RESET_REQUESTS: []
+  RESET_REQUESTS: [],
+  ORG_CHART: DEFAULT_ORG_CHART
 }
 
 // Initialize Local Storage helper
@@ -506,11 +552,24 @@ const initLocalStorage = () => {
       LOCAL_STORAGE_KEYS.RESET_REQUESTS,
       JSON.stringify(SEED_DATA.RESET_REQUESTS)
     )
+    localStorage.setItem(
+      LOCAL_STORAGE_KEYS.ORG_CHART,
+      JSON.stringify(DEFAULT_ORG_CHART)
+    )
   }
 }
 
 if (isDemoMode) {
   initLocalStorage()
+}
+
+// Immediate org chart cache verification on startup
+if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+  if (!localStorage.getItem(LOCAL_STORAGE_KEYS.ORG_CHART)) {
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEYS.ORG_CHART, JSON.stringify(DEFAULT_ORG_CHART))
+    } catch {}
+  }
 }
 
 /**
@@ -1397,15 +1456,28 @@ export const updateCoordinatorStatus = async (uid, status) => {
 
 export const getUsers = async () => {
   if (isDemoMode) {
-    return getLocalData(LOCAL_STORAGE_KEYS.USERS)
+    return getLocalData(LOCAL_STORAGE_KEYS.USERS) || []
   } else {
-    const qSnap = await getDocs(collection(fdb, 'users'))
-    const users = qSnap.docs.map((d) => ({ ...d.data(), uid: d.id }))
-    saveLocalData(LOCAL_STORAGE_KEYS.USERS, users)
-    users.forEach((u) => {
-      if (u.email && u.role) registerAccountRole(u.email, u.role)
-    })
-    return users
+    try {
+      if (typeof fauth?.authStateReady === 'function') {
+        await fauth.authStateReady()
+      }
+      if (!fauth.currentUser) {
+        return getLocalData(LOCAL_STORAGE_KEYS.USERS) || []
+      }
+      const qSnap = await getDocs(collection(fdb, 'users'))
+      const users = qSnap.docs.map((d) => ({ ...d.data(), uid: d.id }))
+      saveLocalData(LOCAL_STORAGE_KEYS.USERS, users)
+      users.forEach((u) => {
+        if (u.email && u.role) registerAccountRole(u.email, u.role)
+      })
+      return users
+    } catch (err) {
+      if (err?.code !== 'permission-denied') {
+        console.warn('Firestore getUsers failed (permissions or offline), using local cache fallback:', err?.message || err)
+      }
+      return getLocalData(LOCAL_STORAGE_KEYS.USERS) || []
+    }
   }
 }
 
@@ -1898,10 +1970,25 @@ export const handleResetRequest = async (reqId, action) => {
 
 export const getOrganizations = async () => {
   if (isDemoMode) {
-    return getLocalData(LOCAL_STORAGE_KEYS.ORGANIZATIONS)
+    return getLocalData(LOCAL_STORAGE_KEYS.ORGANIZATIONS) || []
   } else {
-    const qSnap = await getDocs(collection(fdb, 'organizations'))
-    return qSnap.docs.map((d) => ({ ...d.data(), id: d.id }))
+    try {
+      if (typeof fauth?.authStateReady === 'function') {
+        await fauth.authStateReady()
+      }
+      if (!fauth.currentUser) {
+        return getLocalData(LOCAL_STORAGE_KEYS.ORGANIZATIONS) || []
+      }
+      const qSnap = await getDocs(collection(fdb, 'organizations'))
+      const list = qSnap.docs.map((d) => ({ ...d.data(), id: d.id }))
+      saveLocalData(LOCAL_STORAGE_KEYS.ORGANIZATIONS, list)
+      return list
+    } catch (err) {
+      if (err?.code !== 'permission-denied') {
+        console.warn('Firestore getOrganizations failed (permissions or offline), using local cache fallback:', err?.message || err)
+      }
+      return getLocalData(LOCAL_STORAGE_KEYS.ORGANIZATIONS) || []
+    }
   }
 }
 
@@ -1960,6 +2047,213 @@ export const addOrganization = async (org) => {
   }
 }
 
+// --- ORGANIZATIONAL CHART SERVICES (Admin & Coordinator Synchronized) ---
+
+export const getOrgChart = async () => {
+  if (isDemoMode) {
+    const local = getLocalData(LOCAL_STORAGE_KEYS.ORG_CHART)
+    return Array.isArray(local) && local.length > 0 ? local : DEFAULT_ORG_CHART
+  } else {
+    try {
+      const docRef = doc(fdb, 'settings', 'org_chart')
+      const snap = await getDoc(docRef)
+      if (snap.exists() && Array.isArray(snap.data()?.members) && snap.data().members.length > 0) {
+        const members = snap.data().members
+        saveLocalData(LOCAL_STORAGE_KEYS.ORG_CHART, members)
+        return members
+      } else {
+        const local = getLocalData(LOCAL_STORAGE_KEYS.ORG_CHART) || DEFAULT_ORG_CHART
+        try {
+          await setDoc(docRef, { members: local, updatedAt: Timestamp.now() }, { merge: true })
+        } catch {}
+        return local
+      }
+    } catch (err) {
+      console.warn('Firestore getOrgChart failed, falling back to local cache:', err?.message || err)
+      const local = getLocalData(LOCAL_STORAGE_KEYS.ORG_CHART)
+      return Array.isArray(local) && local.length > 0 ? local : DEFAULT_ORG_CHART
+    }
+  }
+}
+
+export const subscribeOrgChart = (callback) => {
+  const fetchLocalAndCallback = () => {
+    const data = getLocalData(LOCAL_STORAGE_KEYS.ORG_CHART)
+    callback(Array.isArray(data) && data.length > 0 ? data : DEFAULT_ORG_CHART)
+  }
+
+  fetchLocalAndCallback()
+
+  const handleStorageOrEvent = (e) => {
+    if (!e || e.key === LOCAL_STORAGE_KEYS.ORG_CHART || e.type === 'dommunity_orgchart_updated') {
+      fetchLocalAndCallback()
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('storage', handleStorageOrEvent)
+    window.addEventListener('dommunity_orgchart_updated', handleStorageOrEvent)
+  }
+
+  let unsubscribeFirestore = null
+
+  if (!isDemoMode) {
+    try {
+      const docRef = doc(fdb, 'settings', 'org_chart')
+      unsubscribeFirestore = onSnapshot(
+        docRef,
+        (snap) => {
+          if (snap.exists() && Array.isArray(snap.data()?.members) && snap.data().members.length > 0) {
+            const members = snap.data().members
+            saveLocalData(LOCAL_STORAGE_KEYS.ORG_CHART, members)
+            callback(members)
+          } else {
+            fetchLocalAndCallback()
+          }
+        },
+        (err) => {
+          console.warn('Org chart snapshot listener restricted or offline, using local cache:', err?.message || err)
+          fetchLocalAndCallback()
+        }
+      )
+    } catch (e) {
+      console.warn('Failed to subscribe to org chart Firestore snapshot:', e)
+    }
+  }
+
+  return () => {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('storage', handleStorageOrEvent)
+      window.removeEventListener('dommunity_orgchart_updated', handleStorageOrEvent)
+    }
+    if (typeof unsubscribeFirestore === 'function') {
+      unsubscribeFirestore()
+    }
+  }
+}
+
+export const updateOrgChartMember = async (id, updatedFields = {}) => {
+  const currentMembers = getLocalData(LOCAL_STORAGE_KEYS.ORG_CHART) || DEFAULT_ORG_CHART
+  const updatedMembers = currentMembers.map((member) => {
+    if (member.id === id || member.role === id) {
+      const updated = { ...member }
+      if (typeof updatedFields.name === 'string') {
+        updated.name = updatedFields.name.trim()
+        const words = updated.name.replace(/[^a-zA-Z\s]/g, '').trim().split(/\s+/).filter(Boolean)
+        if (words.length >= 2) {
+          updated.initials = (words[0][0] + words[words.length - 1][0]).toUpperCase()
+        } else if (words.length === 1) {
+          updated.initials = words[0].slice(0, 2).toUpperCase()
+        }
+      }
+      if (updatedFields.imageUrl !== undefined) {
+        updated.imageUrl = updatedFields.imageUrl || ''
+      }
+      return updated
+    }
+    return member
+  })
+
+  // 1. Save immediately to local storage cache for instant reactive responsiveness
+  saveLocalData(LOCAL_STORAGE_KEYS.ORG_CHART, updatedMembers)
+
+  // 2. Dispatch cross-component and cross-window local update event
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('dommunity_orgchart_updated'))
+  }
+
+  // 3. Persist to Firestore if not demo mode
+  if (!isDemoMode) {
+    try {
+      const docRef = doc(fdb, 'settings', 'org_chart')
+      await setDoc(
+        docRef,
+        {
+          members: updatedMembers,
+          updatedAt: Timestamp.now()
+        },
+        { merge: true }
+      )
+    } catch (fsErr) {
+      console.warn('[db.js] Error updating org chart in Firestore, saved locally:', fsErr)
+    }
+  }
+
+  return updatedMembers
+}
+
+export const uploadOrgChartPhoto = async (file) => {
+  if (!file) {
+    throw new Error('No file was selected.')
+  }
+
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+  const fileName = (file.name || 'photo.png').toLowerCase()
+  const hasValidExt = ['.png', '.jpg', '.jpeg', '.webp'].some((ext) => fileName.endsWith(ext))
+  const isImage = (file.type && allowedTypes.includes(file.type.toLowerCase())) || hasValidExt
+
+  if (!isImage) {
+    throw new Error('Invalid image format. Please select a PNG, JPG, JPEG, or WEBP image.')
+  }
+
+  const MAX_SIZE = 15 * 1024 * 1024
+  if (file.size && file.size > MAX_SIZE) {
+    throw new Error('Image size exceeds 15MB limit. Please choose a smaller photo.')
+  }
+
+  // 1. Primary: Cloudinary integration via Electron IPC
+  if (isCloudinaryAvailable()) {
+    try {
+      const res = await uploadDocumentToCloudinary(file, {
+        fileName: file.name || `org_chart_${Date.now()}.png`,
+        academicYear: 'org_chart',
+        eventId: 'profile',
+        userRole: 'admin',
+        accessMode: 'upload',
+        isImage: true
+      })
+      if (res && res.success && (res.secureUrl || res.url)) {
+        return res.secureUrl || res.url
+      }
+      if (res && res.error) {
+        console.warn('[db.js] Cloudinary returned error, attempting fallback:', res.error)
+      }
+    } catch (cloudErr) {
+      console.warn('[db.js] Cloudinary upload notice (will use fallback):', cloudErr?.message || cloudErr)
+    }
+  }
+
+  // 2. Secondary fallback: Firebase Storage
+  if (!isDemoMode && fstorage) {
+    try {
+      const cleanFileName = `org_chart_${Date.now()}_${(file.name || 'photo.png').replace(/\s+/g, '_')}`
+      const storageRef = ref(fstorage, `org_chart/${cleanFileName}`)
+      const uploadPromise = uploadBytes(storageRef, file).then(() => getDownloadURL(storageRef))
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Storage timeout')), 4000)
+      )
+      return await Promise.race([uploadPromise, timeoutPromise])
+    } catch (fbErr) {
+      console.warn('[db.js] Firebase Storage fallback failed, using local base64:', fbErr)
+    }
+  }
+
+  // 3. Fallback: Compressed Base64 Data URL
+  try {
+    const compressed = await compressImage(file, { maxWidth: 500, maxHeight: 500, quality: 0.85 })
+    if (compressed) return compressed
+  } catch (compErr) {
+    console.warn('[db.js] Image compression failed, falling back to raw FileReader:', compErr)
+  }
+
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = () => reject(new Error('Failed reading image file.'))
+    reader.readAsDataURL(file)
+  })
+}
+
 // --- INVENTORY SERVICES (FIFO & Expiration prioritized release algorithm) ---
 
 export const getInventory = async () => {
@@ -1967,46 +2261,54 @@ export const getInventory = async () => {
     const inventory = getLocalData(LOCAL_STORAGE_KEYS.INVENTORY) || []
     return sortInventory(inventory)
   } else {
-    const qSnap = await getDocs(collection(fdb, 'inventory'))
-    const items = qSnap.docs.map((d) => {
-      const data = d.data()
-      return {
-        ...data,
-        id: d.id,
-        expiryDate: data.expiryDate?.toDate
-          ? data.expiryDate.toDate().toISOString()
-          : data.expiryDate || null,
-        receivedDate: data.receivedDate?.toDate
-          ? data.receivedDate.toDate().toISOString()
-          : data.receivedDate || new Date().toISOString(),
-        batches: Array.isArray(data.batches)
-          ? data.batches.map((b) => ({
-              ...b,
-              quantity: Number(b.quantity) || 0,
-              expiryDate: b.expiryDate?.toDate
-                ? b.expiryDate.toDate().toISOString()
-                : b.expiryDate || null,
-              receivedDate: b.receivedDate?.toDate
-                ? b.receivedDate.toDate().toISOString()
-                : b.receivedDate || null
-            }))
-          : data.quantity > 0
-            ? [
-                {
-                  id: `batch-${d.id}-init`,
-                  quantity: Number(data.quantity) || 0,
-                  expiryDate: data.expiryDate?.toDate
-                    ? data.expiryDate.toDate().toISOString()
-                    : data.expiryDate || null,
-                  receivedDate: data.receivedDate?.toDate
-                    ? data.receivedDate.toDate().toISOString()
-                    : data.receivedDate || null
-                }
-              ]
-            : []
-      }
-    })
-    return sortInventory(items)
+    try {
+      const qSnap = await getDocs(collection(fdb, 'inventory'))
+      const items = qSnap.docs.map((d) => {
+        const data = d.data()
+        return {
+          ...data,
+          id: d.id,
+          expiryDate: data.expiryDate?.toDate
+            ? data.expiryDate.toDate().toISOString()
+            : data.expiryDate || null,
+          receivedDate: data.receivedDate?.toDate
+            ? data.receivedDate.toDate().toISOString()
+            : data.receivedDate || new Date().toISOString(),
+          batches: Array.isArray(data.batches)
+            ? data.batches.map((b) => ({
+                ...b,
+                quantity: Number(b.quantity) || 0,
+                expiryDate: b.expiryDate?.toDate
+                  ? b.expiryDate.toDate().toISOString()
+                  : b.expiryDate || null,
+                receivedDate: b.receivedDate?.toDate
+                  ? b.receivedDate.toDate().toISOString()
+                  : b.receivedDate || null
+              }))
+            : data.quantity > 0
+              ? [
+                  {
+                    id: `batch-${d.id}-init`,
+                    quantity: Number(data.quantity) || 0,
+                    expiryDate: data.expiryDate?.toDate
+                      ? data.expiryDate.toDate().toISOString()
+                      : data.expiryDate || null,
+                    receivedDate: data.receivedDate?.toDate
+                      ? data.receivedDate.toDate().toISOString()
+                      : data.receivedDate || null
+                  }
+                ]
+              : []
+        }
+      })
+      const sorted = sortInventory(items)
+      saveLocalData(LOCAL_STORAGE_KEYS.INVENTORY, sorted)
+      return sorted
+    } catch (err) {
+      console.warn('Firestore getInventory failed (permissions or offline), using local cache fallback:', err?.message || err)
+      const cached = getLocalData(LOCAL_STORAGE_KEYS.INVENTORY) || []
+      return sortInventory(cached)
+    }
   }
 }
 
@@ -2563,10 +2865,17 @@ export const deleteInventoryItem = async (itemId) => {
 
 export const getDonors = async () => {
   if (isDemoMode) {
-    return getLocalData(LOCAL_STORAGE_KEYS.DONORS)
+    return getLocalData(LOCAL_STORAGE_KEYS.DONORS) || []
   } else {
-    const qSnap = await getDocs(collection(fdb, 'donors'))
-    return qSnap.docs.map((d) => ({ ...d.data(), id: d.id }))
+    try {
+      const qSnap = await getDocs(collection(fdb, 'donors'))
+      const list = qSnap.docs.map((d) => ({ ...d.data(), id: d.id }))
+      saveLocalData(LOCAL_STORAGE_KEYS.DONORS, list)
+      return list
+    } catch (err) {
+      console.warn('Firestore getDonors failed (permissions or offline), using local cache fallback:', err?.message || err)
+      return getLocalData(LOCAL_STORAGE_KEYS.DONORS) || []
+    }
   }
 }
 
@@ -2657,25 +2966,32 @@ export const deleteDonor = async (donorId) => {
 
 export const getDonations = async () => {
   if (isDemoMode) {
-    return getLocalData(LOCAL_STORAGE_KEYS.DONATIONS)
+    return getLocalData(LOCAL_STORAGE_KEYS.DONATIONS) || []
   } else {
-    const qSnap = await getDocs(collection(fdb, 'donations'))
-    return qSnap.docs.map((d) => {
-      const data = d.data()
-      return {
-        ...data,
-        id: d.id,
-        dateOfDonation: data.dateOfDonation?.toDate
-          ? data.dateOfDonation.toDate().toISOString()
-          : data.dateOfDonation,
-        items: (data.items || []).map((item) => ({
-          ...item,
-          expiryDate: item.expiryDate?.toDate
-            ? item.expiryDate.toDate().toISOString()
-            : item.expiryDate || null
-        }))
-      }
-    })
+    try {
+      const qSnap = await getDocs(collection(fdb, 'donations'))
+      const list = qSnap.docs.map((d) => {
+        const data = d.data()
+        return {
+          ...data,
+          id: d.id,
+          dateOfDonation: data.dateOfDonation?.toDate
+            ? data.dateOfDonation.toDate().toISOString()
+            : data.dateOfDonation,
+          items: (data.items || []).map((item) => ({
+            ...item,
+            expiryDate: item.expiryDate?.toDate
+              ? item.expiryDate.toDate().toISOString()
+              : item.expiryDate || null
+          }))
+        }
+      })
+      saveLocalData(LOCAL_STORAGE_KEYS.DONATIONS, list)
+      return list
+    } catch (err) {
+      console.warn('Firestore getDonations failed (permissions or offline), using local cache fallback:', err?.message || err)
+      return getLocalData(LOCAL_STORAGE_KEYS.DONATIONS) || []
+    }
   }
 }
 
@@ -2895,16 +3211,31 @@ const inferCategory = (itemName) => {
 
 export const getEvents = async () => {
   if (isDemoMode) {
-    return getLocalData(LOCAL_STORAGE_KEYS.EVENTS)
+    return getLocalData(LOCAL_STORAGE_KEYS.EVENTS) || []
   } else {
-    const qSnap = await getDocs(collection(fdb, 'events'))
-    return qSnap.docs.map((d) => ({
-      ...d.data(),
-      id: d.id,
-      scheduleDate: d.data().scheduleDate?.toDate
-        ? d.data().scheduleDate.toDate().toISOString()
-        : d.data().scheduleDate
-    }))
+    try {
+      if (typeof fauth?.authStateReady === 'function') {
+        await fauth.authStateReady()
+      }
+      if (!fauth.currentUser) {
+        return getLocalData(LOCAL_STORAGE_KEYS.EVENTS) || []
+      }
+      const qSnap = await getDocs(collection(fdb, 'events'))
+      const list = qSnap.docs.map((d) => ({
+        ...d.data(),
+        id: d.id,
+        scheduleDate: d.data().scheduleDate?.toDate
+          ? d.data().scheduleDate.toDate().toISOString()
+          : d.data().scheduleDate
+      }))
+      saveLocalData(LOCAL_STORAGE_KEYS.EVENTS, list)
+      return list
+    } catch (err) {
+      if (err?.code !== 'permission-denied') {
+        console.warn('Firestore getEvents failed (permissions or offline), using local cache fallback:', err?.message || err)
+      }
+      return getLocalData(LOCAL_STORAGE_KEYS.EVENTS) || []
+    }
   }
 }
 
@@ -3348,6 +3679,12 @@ export const getReports = async () => {
     return getLocalData(LOCAL_STORAGE_KEYS.REPORTS)
   } else {
     try {
+      if (typeof fauth?.authStateReady === 'function') {
+        await fauth.authStateReady()
+      }
+      if (!fauth.currentUser) {
+        return getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
+      }
       const qSnap = await getDocs(collection(fdb, 'narrative_reports'))
       const list = qSnap.docs.map((d) => {
         const data = d.data()
@@ -3377,7 +3714,9 @@ export const getReports = async () => {
 
       return mergedList
     } catch (err) {
-      console.warn('Firestore getReports failed (permissions or offline), using local cache fallback:', err)
+      if (err?.code !== 'permission-denied') {
+        console.warn('[db.js] Firestore getReports notice:', err?.message || err)
+      }
       return getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
     }
   }
@@ -3402,40 +3741,78 @@ export const subscribeReports = (callback) => {
       window.removeEventListener('dommunity_reports_updated', handleStorage)
     }
   } else {
-    const q = collection(fdb, 'narrative_reports')
-    return onSnapshot(
-      q,
-      (snapshot) => {
-        const reports = snapshot.docs.map((d) => {
-          const data = d.data()
-          return {
-            ...data,
-            id: d.id,
-            createdAt: data.createdAt?.toDate
-              ? data.createdAt.toDate().toISOString()
-              : data.createdAt,
-            updatedAt: data.updatedAt?.toDate
-              ? data.updatedAt.toDate().toISOString()
-              : data.updatedAt
-          }
-        })
-        const existingLocal = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
-        const pendingLocal = existingLocal.filter(
-          (localRep) =>
-            localRep.syncStatus === 'local_pending' &&
-            !reports.some((remoteRep) => remoteRep.id === localRep.id)
-        )
-        const merged = [...reports, ...pendingLocal]
-        saveLocalData(LOCAL_STORAGE_KEYS.REPORTS, merged)
-        callback(merged)
-      },
-      (err) => {
-        console.error('Real-time reports snapshot listener error:', err)
-        // Fallback to local storage cache so reports list remains populated
-        const local = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
-        callback(local)
+    // Deliver local cache immediately so UI is populated without delay
+    const initialLocal = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
+    callback(initialLocal)
+
+    let unsubscribeSnapshot = null
+
+    const attachListener = () => {
+      if (unsubscribeSnapshot) {
+        unsubscribeSnapshot()
+        unsubscribeSnapshot = null
       }
-    )
+      if (!fauth.currentUser) return
+
+      const q = collection(fdb, 'narrative_reports')
+      unsubscribeSnapshot = onSnapshot(
+        q,
+        (snapshot) => {
+          const reports = snapshot.docs.map((d) => {
+            const data = d.data()
+            return {
+              ...data,
+              id: d.id,
+              createdAt: data.createdAt?.toDate
+                ? data.createdAt.toDate().toISOString()
+                : data.createdAt,
+              updatedAt: data.updatedAt?.toDate
+                ? data.updatedAt.toDate().toISOString()
+                : data.updatedAt
+            }
+          })
+          const existingLocal = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
+          const pendingLocal = existingLocal.filter(
+            (localRep) =>
+              localRep.syncStatus === 'local_pending' &&
+              !reports.some((remoteRep) => remoteRep.id === localRep.id)
+          )
+          const merged = [...reports, ...pendingLocal]
+          saveLocalData(LOCAL_STORAGE_KEYS.REPORTS, merged)
+          callback(merged)
+        },
+        (err) => {
+          // Fallback to local storage cache quietly so reports list remains populated
+          const local = getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || []
+          callback(local)
+        }
+      )
+    }
+
+    if (fauth.currentUser) {
+      attachListener()
+    } else if (typeof fauth.authStateReady === 'function') {
+      fauth.authStateReady().then(() => {
+        if (fauth.currentUser) attachListener()
+      })
+    }
+
+    const unsubscribeAuth = onAuthStateChanged(fauth, (user) => {
+      if (user) {
+        attachListener()
+      } else {
+        if (unsubscribeSnapshot) {
+          unsubscribeSnapshot()
+          unsubscribeSnapshot = null
+        }
+        callback(getLocalData(LOCAL_STORAGE_KEYS.REPORTS) || [])
+      }
+    })
+
+    return () => {
+      if (unsubscribeSnapshot) unsubscribeSnapshot()
+      if (unsubscribeAuth) unsubscribeAuth()
+    }
   }
 }
 
@@ -3812,7 +4189,17 @@ export const deleteReport = async (reportId) => {
     }
   }
 
-  // 3. Attempt to clean up storage files if any
+  // 3. Attempt to clean up storage files if any (Cloudinary & legacy Firebase Storage)
+  if (found?.cloudinaryPublicId) {
+    try {
+      await deleteDocumentFromCloudinary({
+        publicId: found.cloudinaryPublicId,
+        resourceType: found.cloudinaryResourceType || 'raw',
+        deliveryType: found.cloudinaryDeliveryType || 'upload'
+      })
+    } catch {}
+  }
+
   if (!isDemoMode && fstorage) {
     const cleanupUrls = [...photos, docxUrl].filter(
       (u) => typeof u === 'string' && u.startsWith('https://firebasestorage.googleapis.com')
@@ -3900,7 +4287,18 @@ export const clearApprovedReports = async () => {
         } catch {}
       }
 
-      // Clean up storage files if present
+      // Clean up Cloudinary asset if present
+      if (data?.cloudinaryPublicId) {
+        try {
+          await deleteDocumentFromCloudinary({
+            publicId: data.cloudinaryPublicId,
+            resourceType: data.cloudinaryResourceType || 'raw',
+            deliveryType: data.cloudinaryDeliveryType || 'upload'
+          })
+        } catch {}
+      }
+
+      // Clean up legacy Firebase storage files if present
       if (fstorage) {
         const fileUrls = [
           ...(Array.isArray(data.photos) ? data.photos : []),
@@ -3989,42 +4387,92 @@ export const uploadPhoto = async (academicYear, eventId, file) => {
   }
 }
 
-// Upload raw DOCX report file without conversion (preserves binary format)
-// Uses Firebase Storage if available, with immediate Base64 fallback if bucket is unprovisioned or offline
-export const uploadDocxReportFile = async (academicYear, eventId, file) => {
+// Upload Narrative Report document (.docx or .pdf) to Cloudinary
+// Stores file in Cloudinary and returns URL + metadata. Falls back seamlessly if offline or unconfigured.
+export const uploadDocxReportFile = async (academicYear, eventId, file, options = {}) => {
   const readAsBase64 = () =>
     new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.readAsDataURL(file)
-      reader.onload = () => resolve(reader.result) // Base64 data URL
+      reader.onload = () => resolve(reader.result)
       reader.onerror = (error) => reject(error)
     })
 
-  if (isDemoMode || !fstorage) {
-    return await readAsBase64()
+  const fileName = file?.name || 'narrative_report.docx'
+  const lowerName = fileName.toLowerCase()
+  const isPdf = lowerName.endsWith('.pdf')
+  const isDocx = lowerName.endsWith('.docx') || lowerName.endsWith('.doc')
+  const fileType = isPdf ? 'pdf' : (isDocx ? 'docx' : 'raw')
+
+  // 1. Primary: Cloudinary Storage via Electron Main Process
+  if (isCloudinaryAvailable()) {
+    try {
+      const cloudRes = await uploadDocumentToCloudinary(file, {
+        fileName,
+        academicYear: academicYear || '2026-2027',
+        eventId: eventId || 'general',
+        accessMode: options.accessMode,
+        userRole: options.userRole || 'office_coordinator',
+        isImage: options.isImage || false
+      })
+
+      if (cloudRes && cloudRes.success && (cloudRes.secureUrl || cloudRes.url)) {
+        const cloudUrl = cloudRes.secureUrl || cloudRes.url
+        return {
+          url: cloudUrl,
+          cloudinaryUrl: cloudUrl,
+          cloudinaryPublicId: cloudRes.publicId,
+          cloudinaryAssetId: cloudRes.assetId,
+          cloudinaryFormat: cloudRes.format || (isPdf ? 'pdf' : 'docx'),
+          cloudinaryBytes: cloudRes.bytes || file?.size,
+          cloudinaryResourceType: cloudRes.resourceType || 'raw',
+          cloudinaryDeliveryType: cloudRes.deliveryType || 'upload',
+          originalDocxUrl: cloudUrl,
+          originalDocxName: fileName,
+          originalDocxSize: file?.size || cloudRes.bytes,
+          fileType
+        }
+      }
+    } catch (cloudErr) {
+      console.warn('[db.js] Cloudinary upload notice (will use fallback):', cloudErr?.message || cloudErr)
+    }
   }
 
-  try {
-    const cleanFileName = `docx_${Date.now()}_${file.name.replace(/\s+/g, '_')}`
-    const ay = (academicYear || 'General').toString().replace('/', '_')
-    const ev = (eventId || 'unassigned').toString()
-    const storagePath = `narratives/AY_${ay}/event_${ev}/${cleanFileName}`
-    const storageRef = ref(fstorage, storagePath)
+  // 2. Secondary fallback: Firebase Storage (if configured)
+  if (!isDemoMode && fstorage) {
+    try {
+      const cleanFileName = `docx_${Date.now()}_${fileName.replace(/\s+/g, '_')}`
+      const ay = (academicYear || 'General').toString().replace('/', '_')
+      const ev = (eventId || 'unassigned').toString()
+      const storagePath = `narratives/AY_${ay}/event_${ev}/${cleanFileName}`
+      const storageRef = ref(fstorage, storagePath)
 
-    // Set 4-second timeout to avoid 2-minute freeze if Firebase Storage is not provisioned
-    const uploadPromise = uploadBytes(storageRef, file).then(() => getDownloadURL(storageRef))
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Firebase Storage unavailable or timeout')), 4000)
-    )
+      const uploadPromise = uploadBytes(storageRef, file).then(() => getDownloadURL(storageRef))
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Firebase Storage unavailable or timeout')), 4000)
+      )
 
-    return await Promise.race([uploadPromise, timeoutPromise])
-  } catch (err) {
-    console.warn(
-      'Firebase Storage failed (bucket unprovisioned or rules reject). Falling back to Base64 data URL:',
-      err
-    )
-    // Seamless fallback to Base64 data URL: preserves exact file binary without breaking submission
-    return await readAsBase64()
+      const fbUrl = await Promise.race([uploadPromise, timeoutPromise])
+      return {
+        url: fbUrl,
+        originalDocxUrl: fbUrl,
+        originalDocxName: fileName,
+        originalDocxSize: file?.size,
+        fileType
+      }
+    } catch (fbErr) {
+      console.warn('[db.js] Firebase storage fallback notice:', fbErr?.message || fbErr)
+    }
+  }
+
+  // 3. Resilient fallback: Base64 data URL
+  const b64 = await readAsBase64()
+  return {
+    url: b64,
+    originalDocxUrl: b64,
+    originalDocxName: fileName,
+    originalDocxSize: file?.size,
+    fileType
   }
 }
 

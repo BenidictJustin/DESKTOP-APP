@@ -37,6 +37,13 @@ const api = {
     const handler = (_, err) => callback(err)
     ipcRenderer.on('update-error', handler)
     return () => ipcRenderer.removeListener('update-error', handler)
+  },
+  cloudinary: {
+    uploadDocument: (data) => ipcRenderer.invoke('cloudinary:upload-document', data),
+    getDocumentUrl: (data) => ipcRenderer.invoke('cloudinary:get-document-url', data),
+    downloadDocument: (data) => ipcRenderer.invoke('cloudinary:download-document', data),
+    deleteDocument: (data) => ipcRenderer.invoke('cloudinary:delete-document', data),
+    testConnection: () => ipcRenderer.invoke('cloudinary:test-connection')
   }
 }
 

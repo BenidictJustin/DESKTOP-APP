@@ -2787,26 +2787,32 @@ export default function AdminDashboard({ user, onLogout }) {
     const isBuiltInTemplate = Boolean(
       report?.documentSource === 'built_in_template' ||
       report?.submissionType === 'template' ||
-      (report?.isTemplateActive && !report?.originalDocxUrl && report?.submissionType !== 'gdoc_submission')
+      (report?.isTemplateActive && !report?.originalDocxUrl && !report?.cloudinaryUrl && report?.submissionType !== 'gdoc_submission')
     )
 
-    if (!isBuiltInTemplate && (report?.submissionType === 'docx_upload' || report?.originalDocxUrl)) {
-      if (report.fileType === 'pdf' || report.originalDocxName?.toLowerCase().endsWith('.pdf')) {
+    const docUrl = report?.cloudinaryUrl || report?.submittedSnapshotUrl || report?.originalDocxUrl
+
+    if (!isBuiltInTemplate && (report?.submissionType === 'docx_upload' || docUrl)) {
+      if (
+        report.fileType === 'pdf' ||
+        report.originalDocxName?.toLowerCase().endsWith('.pdf') ||
+        (typeof docUrl === 'string' && docUrl.toLowerCase().includes('.pdf'))
+      ) {
         downloadFileFromUrl(
-          report.originalDocxUrl,
+          docUrl,
           report.originalDocxName || `${report.activityTitle || 'Report'}.pdf`
         )
         return
       }
       try {
         await exportDocxToPDF(
-          report.originalDocxUrl,
+          docUrl,
           report.originalDocxName || report.activityTitle || 'Report'
         )
       } catch (err) {
         console.error('Failed to export DOCX as PDF, falling back to original DOCX download:', err)
         downloadFileFromUrl(
-          report.originalDocxUrl,
+          docUrl,
           report.originalDocxName || `${report.activityTitle || 'Report'}.docx`
         )
       }
@@ -2814,6 +2820,21 @@ export default function AdminDashboard({ user, onLogout }) {
     }
 
     if (!isBuiltInTemplate && report?.googleDocsUrl) {
+      const cachedPdf = report?.id ? localStorage.getItem(`dommunity_gdoc_pdf_${report.id}`) : null
+      if (cachedPdf) {
+        downloadFileFromUrl(
+          cachedPdf,
+          `${(report.activityTitle || 'Report').replace(/[^a-zA-Z0-9_-]+/g, '_')}.pdf`
+        )
+        return
+      }
+
+      // For submitted and approved reports, never export live Google Doc to avoid downloading another report's edits
+      if (report?.status === 'submitted' || report?.status === 'approved') {
+        setExportingReport(report)
+        return
+      }
+
       const match = report.googleDocsUrl.match(/\/document\/d\/([a-zA-Z0-9-_]+)/)
       if (match) {
         const docId = match[1]
@@ -8141,7 +8162,7 @@ export default function AdminDashboard({ user, onLogout }) {
                       </div>
 
                       {/* ── 4. Organizational Chart ─────── */}
-                      <OrganizationalChart />
+                      <OrganizationalChart canEdit={true} />
 
                       {/* ── 5. Developers ─────── */}
                       <DevelopersChart />

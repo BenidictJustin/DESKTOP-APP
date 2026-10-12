@@ -1,7 +1,7 @@
 import JSZip from 'jszip'
 import { EditorState } from 'prosemirror-state'
 import { createDocument } from '@tiptap/core'
-import { useEditorStore } from '../store/useEditorStore'
+import { useEditorStore } from '../store/useEditorStore.js'
 
 /**
  * Loads baseline content into a Tiptap editor and resets the ProseMirror undo/redo history state to 0 steps.
@@ -157,7 +157,7 @@ export function handleLink(editor) {
   editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
 }
 
-import { compressImage } from '../../../utils/imageCompressor'
+import { compressImage } from '../../../utils/imageCompressor.js'
 
 /** Insert an image from a file input event with automatic downscaling. */
 export async function handleInsertImage(editor, e) {
@@ -2018,5 +2018,53 @@ export async function fetchGoogleDocData(url) {
       success: false,
       error: `Failed to fetch Google Doc: ${err.message || 'Check your internet connection.'}`
     }
+  }
+}
+
+/**
+ * Extracts normalized Google Docs document ID from any valid Google Docs URL.
+ */
+export function getGoogleDocId(url) {
+  if (!url || typeof url !== 'string') return null
+  const match = url.trim().match(/\/document\/d\/([a-zA-Z0-9-_]+)/)
+  return match && match[1] ? match[1] : null
+}
+
+/**
+ * Validates that a Google Docs URL is NOT already linked to another narrative report.
+ * Returns the conflicting report object if a collision is detected, or null if unique.
+ */
+export function findConflictingReportForGoogleDoc(url, currentReportId, reportsList = []) {
+  const targetDocId = getGoogleDocId(url)
+  if (!targetDocId || !Array.isArray(reportsList)) return null
+
+  return (
+    reportsList.find((rep) => {
+      if (!rep) return false
+      // Skip the report currently being created or edited
+      if (currentReportId && String(rep.id) === String(currentReportId)) return false
+      const repDocId = getGoogleDocId(rep.googleDocsUrl)
+      return repDocId && repDocId.toLowerCase() === targetDocId.toLowerCase()
+    }) || null
+  )
+}
+
+/**
+ * Converts a base64 PDF data URI into a File object suitable for Cloudinary / uploadDocxReportFile.
+ */
+export function base64PdfToFile(pdfBase64, fileName = 'narrative_report.pdf') {
+  if (!pdfBase64 || typeof pdfBase64 !== 'string') return null
+  try {
+    const base64Data = pdfBase64.includes(',') ? pdfBase64.split(',')[1] : pdfBase64
+    const byteCharacters = atob(base64Data)
+    const byteNumbers = new Uint8Array(byteCharacters.length)
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i)
+    }
+    const blob = new Blob([byteNumbers], { type: 'application/pdf' })
+    return new File([blob], fileName, { type: 'application/pdf' })
+  } catch (err) {
+    console.warn('base64PdfToFile conversion failed:', err)
+    return null
   }
 }

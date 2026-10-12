@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { X, FileText, UploadCloud, CheckCircle2, AlertCircle, Loader2, Calendar, Upload } from 'lucide-react'
+import { X, FileText, UploadCloud, CheckCircle2, AlertCircle, Loader2, Calendar, Upload, AlertTriangle } from 'lucide-react'
 import AnimatedModal from './motion/AnimatedModal'
 
 /**
@@ -12,6 +12,7 @@ import AnimatedModal from './motion/AnimatedModal'
  * - Modern dashed drag-and-drop zone with animated feedback
  * - Associated event selector and comments textarea
  * - Brand-consistent action buttons (Navy-blue primary with sig-green border, Gray secondary)
+ * - Seamless report revision mode preserving existing report ID and history
  */
 export default function DocxUploadModal({
   isOpen,
@@ -19,7 +20,8 @@ export default function DocxUploadModal({
   onSubmit,
   eventsList = [],
   isSubmitting = false,
-  initialEventId = ''
+  initialEventId = '',
+  targetReport = null
 }) {
   const [file, setFile] = useState(null)
   const [comment, setComment] = useState('')
@@ -34,11 +36,11 @@ export default function DocxUploadModal({
     if (isOpen) {
       setFile(null)
       setComment('')
-      setSelectedEventId(initialEventId || '')
+      setSelectedEventId(targetReport?.eventId || initialEventId || '')
       setErrorMessage('')
       setDragActive(false)
     }
-  }, [isOpen, initialEventId])
+  }, [isOpen, initialEventId, targetReport])
 
   const handleFileSelect = (selectedFile) => {
     setErrorMessage('')
@@ -96,7 +98,8 @@ export default function DocxUploadModal({
     onSubmit({
       file,
       comment: comment.trim(),
-      eventId: selectedEventId || null
+      eventId: selectedEventId || targetReport?.eventId || null,
+      reportId: targetReport?.id || null
     })
   }
 
@@ -126,7 +129,14 @@ export default function DocxUploadModal({
             <UploadCloud className="w-5 h-5 text-navy-blue" />
           </div>
           <div>
-            <h3 className="font-extrabold text-navy-blue text-lg tracking-tight">Upload Report</h3>
+            <h3 className="font-extrabold text-navy-blue text-lg tracking-tight">
+              {targetReport ? 'Upload Revised Report Document' : 'Upload Report Document'}
+            </h3>
+            {targetReport && (
+              <p className="text-[11px] font-semibold text-navy-blue/70">
+                Updating: {targetReport.activityTitle || targetReport.title || 'Existing Report'}
+              </p>
+            )}
           </div>
         </div>
         <button
@@ -139,6 +149,19 @@ export default function DocxUploadModal({
           <X className="w-5 h-5" />
         </button>
       </div>
+
+      {/* Admin Revision Feedback Notice if Revising */}
+      {targetReport?.adminFeedback && (
+        <div className="bg-red-50/80 border border-red-200 rounded-2xl p-3 text-xs text-red-700 flex items-start gap-2.5">
+          <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <span className="font-bold block text-[10px] uppercase tracking-wider text-red-800">
+              Admin Feedback To Address:
+            </span>
+            <p className="font-medium text-red-700 leading-relaxed">{targetReport.adminFeedback}</p>
+          </div>
+        </div>
+      )}
 
       {/* Modal Form */}
       <form onSubmit={handleSubmit} className="space-y-4 text-left">

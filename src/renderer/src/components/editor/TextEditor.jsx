@@ -16,11 +16,11 @@ import { FontFamily } from '@tiptap/extension-font-family'
 import { TextStyle } from '@tiptap/extension-text-style'
 import ImageResize from 'tiptap-extension-resize-image'
 import mammoth from 'mammoth'
-import * as pdfjsLib from 'pdfjs-dist'
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
 
-// Configure PDFJS worker
+// Configure PDFJS worker (use legacy build with Math.sumPrecise polyfill)
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
+  'pdfjs-dist/legacy/build/pdf.worker.min.mjs',
   import.meta.url
 ).toString()
 
@@ -75,7 +75,8 @@ import {
   loadInitialContentAndResetHistory,
   resolveHeaderHtml,
   cleanGoogleDocHtml,
-  fetchGoogleDocData
+  fetchGoogleDocData,
+  getGoogleDocId
 } from './utils/editorHelpers'
 import { PAPER } from './constants'
 import DocumentCanvas from './ui/DocumentCanvas'
@@ -215,7 +216,6 @@ export default function TextEditor({
           }
         }
       } else {
-        localStorage.removeItem('dommunity_saved_gdoc_url')
         if (workspaceReportId) {
           localStorage.removeItem(`dommunity_gdocs_${workspaceReportId}`)
           try {
@@ -225,8 +225,9 @@ export default function TextEditor({
           }
         }
       }
+      return true
     },
-    [workspaceReportId, user?.uid]
+    [workspaceReportId, user?.uid, reportsList]
   )
 
   const [hasLaunchedGoogleDocs, setHasLaunchedGoogleDocs] = useState(() => {
@@ -929,7 +930,6 @@ export default function TextEditor({
     const currentDocUrl =
       googleDocsUrl ||
       (workspaceReportId && localStorage.getItem(`dommunity_gdocs_${workspaceReportId}`)) ||
-      localStorage.getItem('dommunity_saved_gdoc_url') ||
       ''
 
     const newTpl = {
@@ -1461,7 +1461,6 @@ export default function TextEditor({
     async (targetUrl) => {
       const persisted =
         (workspaceReportId && localStorage.getItem(`dommunity_gdocs_${workspaceReportId}`)) ||
-        localStorage.getItem('dommunity_saved_gdoc_url') ||
         ''
       const currentUrl = targetUrl || googleDocsUrl || persisted
 
@@ -1490,32 +1489,17 @@ export default function TextEditor({
         } catch (e) {}
       }
 
-      // 3. If this is the FIRST time clicking Google Docs (session not yet launched):
-      if (!hasLaunchedGoogleDocs) {
-        setHasLaunchedGoogleDocs(true)
-        if (workspaceReportId) {
-          localStorage.setItem(`dommunity_gdocs_launched_${workspaceReportId}`, 'true')
-        } else {
-          localStorage.setItem('dommunity_gdocs_launched_active', 'true')
-        }
-        setShowGDocFloatingBar(true)
-
-        // Open docs.new the first time so the user can start editing in Google Docs
-        if (typeof window !== 'undefined') {
-          window.open('https://docs.new', '_blank', 'noopener,noreferrer')
-        }
-        return
+      // 3. If no document is connected yet, open docs create to ensure a brand new blank document
+      setHasLaunchedGoogleDocs(true)
+      if (workspaceReportId) {
+        localStorage.setItem(`dommunity_gdocs_launched_${workspaceReportId}`, 'true')
+      } else {
+        localStorage.setItem('dommunity_gdocs_launched_active', 'true')
       }
-
-      // 4. If this is the SECOND time clicking Google Docs, and we don't have the exact /d/ URL:
-      // DO NOT OPEN docs.new (which would create another blank page)!
-      // Instead, open Google Docs Home where their recently edited document is right at the top,
-      // and keep the quick connect bar active so they can link it:
       setShowGDocFloatingBar(true)
-      setGDocNotification('Opening your Google Docs Home where your edited doc is at the top. Copy its link to keep it connected!')
-      setTimeout(() => setGDocNotification(''), 6000)
+
       if (typeof window !== 'undefined') {
-        window.open('https://docs.google.com/document/u/0/', '_blank', 'noopener,noreferrer')
+        window.open('https://docs.google.com/document/create', '_blank', 'noopener,noreferrer')
       }
     },
     [
@@ -1523,7 +1507,8 @@ export default function TextEditor({
       workspaceReportId,
       hasLaunchedGoogleDocs,
       extractGoogleDocUrl,
-      handleSaveGoogleDocsUrl
+      handleSaveGoogleDocsUrl,
+      reportsList
     ]
   )
 
