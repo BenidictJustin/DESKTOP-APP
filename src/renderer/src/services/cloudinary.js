@@ -149,8 +149,17 @@ export async function downloadCloudinaryDocumentBuffer({
 
     if (res?.success && res.buffer) {
       // In Electron IPC, Buffer arrives as Uint8Array or ArrayBuffer
-      const buf = res.buffer.buffer ? res.buffer.buffer : res.buffer
-      return buf
+      if (res.buffer instanceof ArrayBuffer) return res.buffer
+      if (ArrayBuffer.isView(res.buffer)) {
+        return res.buffer.buffer.slice(res.buffer.byteOffset, res.buffer.byteOffset + res.buffer.byteLength)
+      }
+      if (res.buffer?.data && Array.isArray(res.buffer.data)) {
+        return new Uint8Array(res.buffer.data).buffer
+      }
+      if (res.buffer?.buffer instanceof ArrayBuffer) {
+        return res.buffer.buffer
+      }
+      return res.buffer
     }
     return null
   } catch (err) {

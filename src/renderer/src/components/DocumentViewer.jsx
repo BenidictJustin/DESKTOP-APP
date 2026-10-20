@@ -204,6 +204,8 @@ export default function DocumentViewer({
   const [docxLoading, setDocxLoading] = useState(isDocxSubmission)
   const [docxError, setDocxError] = useState(null)
   const [docxPageCount, setDocxPageCount] = useState(1)
+  // When DOCX/PDF buffer load fails but submittedNarrative exists, fall back to TipTap narrative view
+  const [docxFallbackToNarrative, setDocxFallbackToNarrative] = useState(false)
   const docxContainerRef = useRef(null)
 
   // Panning State
@@ -232,6 +234,7 @@ export default function DocumentViewer({
     let isMounted = true
     setDocxLoading(true)
     setDocxError(null)
+    setDocxFallbackToNarrative(false)
 
     const loadAndRenderDocument = async () => {
       try {
@@ -248,26 +251,28 @@ export default function DocumentViewer({
 
         // 1. If report has a Cloudinary or uploaded DOCX/PDF URL or data URI
         if (currentFileUrl) {
-          // If Cloudinary asset, attempt main-process buffer download for 100% CORS & auth bypass
-          if (report?.cloudinaryPublicId || (typeof currentFileUrl === 'string' && currentFileUrl.includes('cloudinary'))) {
-            try {
-              const cloudBuf = await downloadCloudinaryDocumentBuffer({
-                url: currentFileUrl,
-                publicId: report?.cloudinaryPublicId,
-                format: report?.cloudinaryFormat,
-                resourceType: report?.cloudinaryResourceType || 'raw',
-                deliveryType: report?.cloudinaryDeliveryType || 'upload'
-              })
-              if (isBufferUsable(cloudBuf)) {
-                rawBuffer = cloudBuf
-              }
-            } catch (cloudErr) {
-              console.warn('[DocumentViewer] Cloudinary direct buffer download notice:', cloudErr)
+          // Attempt main-process buffer download for 100% CORS & auth bypass (Cloudinary & remote URLs)
+          try {
+            const cloudBuf = await downloadCloudinaryDocumentBuffer({
+              url: currentFileUrl,
+              publicId: report?.cloudinaryPublicId,
+              format: report?.cloudinaryFormat,
+              resourceType: report?.cloudinaryResourceType || 'raw',
+              deliveryType: report?.cloudinaryDeliveryType || 'upload'
+            })
+            if (isBufferUsable(cloudBuf)) {
+              rawBuffer = cloudBuf
             }
+          } catch (cloudErr) {
+            console.warn('[DocumentViewer] Main process buffer download notice:', cloudErr)
           }
 
           if (!isBufferUsable(rawBuffer)) {
-            rawBuffer = await getDocxArrayBuffer(currentFileUrl)
+            try {
+              rawBuffer = await getDocxArrayBuffer(currentFileUrl)
+            } catch (fetchErr) {
+              console.warn('[DocumentViewer] Direct array buffer fetch notice:', fetchErr?.message || fetchErr)
+            }
           }
         }
 
@@ -302,10 +307,12 @@ export default function DocumentViewer({
             }
           }
 
-          // If this report does not have a cached snapshot yet, fetch from Google Docs (only for draft/returned reports)
+          // If no cached snapshot: fetch live from Google Docs.
+          // For draft/returned: always allowed.
+          // For submitted/approved: allowed as last resort when Cloudinary failed — submittedNarrative is
+          // still the canonical version; this only provides a renderable buffer for the viewer.
           if (!isBufferUsable(rawBuffer)) {
-            const isImmutableStatus = report.status === 'submitted' || report.status === 'approved'
-            if (!isImmutableStatus) {
+            try {
               const gDocResult = await fetchGoogleDocData(report.googleDocsUrl)
               if (gDocResult?.pdfBase64) {
                 rawBuffer = await getDocxArrayBuffer(gDocResult.pdfBase64)
@@ -324,12 +331,17 @@ export default function DocumentViewer({
                   }
                 } catch {}
               }
+            } catch (liveErr) {
+              console.warn('[DocumentViewer] Live Google Docs fallback fetch failed:', liveErr)
             }
           }
         }
 
         if (!isBufferUsable(rawBuffer)) {
+          // Buffer unavailable — if we have a saved narrative, switch to TipTap narrative rendering.
+          // This prevents a blank screen when Cloudinary is down and localStorage is empty.
           if (report?.submittedNarrative || report?.narrative) {
+            setDocxFallbackToNarrative(true)
             setDocxLoading(false)
             return
           }
@@ -1836,7 +1848,7 @@ export default function DocumentViewer({
             `}</style>
 
             {/* 1. Narrative Content (Tiptap Canvas layout or Direct DOCX Live View) */}
-            {isDocxSubmission ? (
+            {isDocxSubmission && !docxFallbackToNarrative ? (
               <div className="w-full flex flex-col items-center justify-start min-h-full py-8 px-4">
                 {docxLoading && (
                   <div className="flex flex-col items-center justify-center py-28 gap-3 select-none">
@@ -1864,6 +1876,15 @@ export default function DocumentViewer({
                       >
                         <Download className="w-3.5 h-3.5" />
                         <span>Download Original (.pdf)</span>
+                      </button>
+                    )}
+                    {Boolean(report?.submittedNarrative || report?.narrative) && (
+                      <button
+                        onClick={() => setDocxFallbackToNarrative(true)}
+                        className="mt-3 px-4 py-2 text-navy-blue bg-white border border-gray-300 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer shadow-xs hover:bg-gray-50"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>View Saved Narrative Content</span>
                       </button>
                     )}
                   </div>

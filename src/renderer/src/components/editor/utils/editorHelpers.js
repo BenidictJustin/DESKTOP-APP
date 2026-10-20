@@ -1914,10 +1914,22 @@ export function cleanGoogleDocHtml(fullHtml) {
     }
   })
 
-  // 3. Remove script tags and style tags inside body
+  // 3. Remove script and style tags inside body
   content = content.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+  content = content.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
 
-  // 4. Strip empty paragraphs or dummy spans that Google Docs injects
+  // 4. Strip verbose Google Docs internal tracking attributes and classes
+  content = content.replace(/id="docs-internal-guid-[^"]*"/gi, '')
+  content = content.replace(/class="c\d+[^"]*"/gi, '')
+
+  // 5. Replace massive inline base64 image strings (>15KB) with lightweight indicators
+  // Full-fidelity original document with all photos is safely preserved in the Cloudinary PDF snapshot
+  content = content.replace(
+    /data:image\/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]{15000,}/g,
+    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="30"><text y="20" font-family="sans-serif" font-size="12" fill="%23666">[Image in Document]</text></svg>'
+  )
+
+  // 6. Strip empty paragraphs or dummy spans that Google Docs injects
   content = content.replace(/<span[^>]*>\s*<\/span>/gi, '')
 
   return content.trim()
@@ -1926,7 +1938,7 @@ export function cleanGoogleDocHtml(fullHtml) {
 /**
  * Fetches Google Docs content and optional DOCX buffer via Electron IPC (no CORS) or fetch fallback.
  */
-export async function fetchGoogleDocData(url) {
+export async function fetchGoogleDocData(url, options = {}) {
   if (!url || typeof url !== 'string') {
     return { success: false, error: 'Please provide a valid Google Docs URL.' }
   }
@@ -1941,7 +1953,7 @@ export async function fetchGoogleDocData(url) {
   // Use Electron IPC if available (bypasses browser CORS completely)
   if (window.api?.fetchGoogleDoc) {
     try {
-      const res = await window.api.fetchGoogleDoc(url.trim())
+      const res = await window.api.fetchGoogleDoc(url.trim(), options)
       return res
     } catch (err) {
       console.warn('window.api.fetchGoogleDoc IPC failed, attempting renderer fallback:', err)

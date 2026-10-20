@@ -1271,6 +1271,7 @@ export default function TextEditor({
       let finalHtml = editor.getHTML()
       let fetchedDocxBase64 = null
       let fetchedPdfBase64 = null
+      let fetchedPdfBuffer = null
       let fetchedDocTitle = null
 
       if (!isBuiltInTemplateDoc && resolvedGDocUrl) {
@@ -1286,7 +1287,7 @@ export default function TextEditor({
         setLoading(true)
         let gDocResult
         try {
-          gDocResult = await fetchGoogleDocData(resolvedGDocUrl)
+          gDocResult = await fetchGoogleDocData(resolvedGDocUrl, { includeDocx: false })
         } catch (fetchErr) {
           gDocResult = { success: false, error: fetchErr.message }
         } finally {
@@ -1312,6 +1313,9 @@ export default function TextEditor({
           } catch (edErr) {
             console.warn('Failed to load Google Doc HTML into TipTap editor:', edErr)
           }
+        }
+        if (gDocResult.pdfBuffer) {
+          fetchedPdfBuffer = gDocResult.pdfBuffer
         }
         if (gDocResult.pdfBase64) {
           fetchedPdfBase64 = gDocResult.pdfBase64
@@ -1362,6 +1366,7 @@ export default function TextEditor({
         googleDocsUrl: isBuiltInTemplateDoc ? null : (resolvedGDocUrl || null),
         originalDocxUrl: null,
         gdocTitle: isBuiltInTemplateDoc ? null : fetchedDocTitle,
+        pdfBuffer: isBuiltInTemplateDoc ? null : fetchedPdfBuffer,
         pdfBase64: isBuiltInTemplateDoc ? null : fetchedPdfBase64,
         docxBase64: isBuiltInTemplateDoc ? null : fetchedDocxBase64
       })

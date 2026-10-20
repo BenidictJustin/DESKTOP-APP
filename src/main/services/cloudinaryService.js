@@ -144,9 +144,26 @@ export async function uploadReportFileToCloudinary({
       .replace(/\.[^/.]+$/, '')
       .replace(/[^a-zA-Z0-9_-]/g, '_')
     const ext = fileName.includes('.') ? fileName.slice(fileName.lastIndexOf('.')) : (isPdf ? '.pdf' : '.docx')
-    const publicId = `${cleanBaseName}_${Date.now()}${ext}`
+    const publicId = isImage
+      ? `${cleanBaseName}_${Date.now()}`
+      : `${cleanBaseName}_${Date.now()}${ext}`
 
-    return await new Promise((resolve, reject) => {
+    return await new Promise((resolve) => {
+      let isSettled = false
+      const timeoutId = setTimeout(() => {
+        if (!isSettled) {
+          isSettled = true
+          try {
+            if (stream && typeof stream.destroy === 'function') stream.destroy()
+          } catch {}
+          console.warn('[CloudinaryService] Upload timed out after 12s')
+          resolve({
+            success: false,
+            error: 'Cloudinary upload timed out after 12 seconds. Please check your internet connection and try again.'
+          })
+        }
+      }, 12000)
+
       const uploadOptions = {
         folder: targetFolder,
         public_id: publicId,
@@ -156,6 +173,10 @@ export async function uploadReportFileToCloudinary({
       }
 
       const stream = c.uploader.upload_stream(uploadOptions, (error, result) => {
+        if (isSettled) return
+        isSettled = true
+        clearTimeout(timeoutId)
+
         if (error) {
           console.error('[CloudinaryService] Upload error:', error)
           return resolve({ success: false, error: error.message || String(error) })
@@ -225,6 +246,18 @@ export async function getDocumentAccessUrl({
 }
 
 /**
+ * Extracts normalized Cloudinary public_id from a Cloudinary URL if present.
+ */
+function extractCloudinaryPublicId(u) {
+  if (!u || typeof u !== 'string') return null
+  const rawMatch = u.match(/\/raw\/(?:upload|authenticated)\/(?:v\d+\/)?(.+)$/)
+  if (rawMatch) return decodeURIComponent(rawMatch[1])
+  const imgMatch = u.match(/\/image\/(?:upload|authenticated)\/(?:v\d+\/)?(.+)$/)
+  if (imgMatch) return decodeURIComponent(imgMatch[1])
+  return null
+}
+
+/**
  * Downloads a document from Cloudinary as a Node Buffer/Uint8Array.
  * Allows Electron renderer to access both public and authenticated documents
  * without CORS or cross-origin restrictions.
@@ -242,11 +275,40 @@ export async function downloadCloudinaryDocumentBuffer({
   }
 
   try {
+    const effectivePublicId = publicId || extractCloudinaryPublicId(url)
+
+    // 1. If Cloudinary asset with publicId: use signed download URL from Cloudinary API.
+    // Cloudinary raw delivery requires signed download API to avoid HTTP 401 on raw assets.
+    if (isCloudinaryConfigured() && effectivePublicId) {
+      try {
+        const c = configureCloudinary()
+        const expiresAt = Math.floor(Date.now() / 1000) + 3600 // 1 hour
+        const signedDownloadUrl = c.utils.private_download_url(effectivePublicId, format || '', {
+          resource_type: resourceType || 'raw',
+          type: deliveryType || 'upload',
+          expires_at: expiresAt
+        })
+        if (signedDownloadUrl) {
+          const signRes = await fetch(signedDownloadUrl, {
+            headers: { 'User-Agent': 'DommUnity-App/1.0' }
+          })
+          if (signRes.ok) {
+            const arrayBuf = await signRes.arrayBuffer()
+            if (arrayBuf && arrayBuf.byteLength > 0) {
+              return { success: true, buffer: Buffer.from(arrayBuf) }
+            }
+          }
+        }
+      } catch (signErr) {
+        console.warn('[CloudinaryService] Signed download attempt notice:', signErr?.message || signErr)
+      }
+    }
+
+    // 2. Fallback: Direct fetch of targetUrl (works for public URLs or non-Cloudinary storage)
     let targetUrl = url
-    if (!targetUrl && publicId) {
-      const accessRes = await getDocumentAccessUrl({ publicId, format, resourceType, deliveryType })
-      if (!accessRes.success) return accessRes
-      targetUrl = accessRes.url
+    if (!targetUrl && effectivePublicId) {
+      const accessRes = await getDocumentAccessUrl({ publicId: effectivePublicId, format, resourceType, deliveryType })
+      if (accessRes.success) targetUrl = accessRes.url
     }
 
     if (!targetUrl) {

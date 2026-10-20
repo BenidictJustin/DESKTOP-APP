@@ -113,7 +113,7 @@ ipcMain.handle('check-internet', async () => {
 try {
   ipcMain.removeHandler('fetch-google-doc')
 } catch {}
-ipcMain.handle('fetch-google-doc', async (event, { url }) => {
+ipcMain.handle('fetch-google-doc', async (event, { url, includeDocx = false }) => {
   if (!url || typeof url !== 'string') {
     return { success: false, error: 'Please provide a valid Google Docs URL.' }
   }
@@ -127,16 +127,50 @@ ipcMain.handle('fetch-google-doc', async (event, { url }) => {
   const docId = match[1]
 
   try {
-    // 1. Fetch HTML export with redirect tracking
+    const commonHeaders = {
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+
+    // Fetch HTML and PDF concurrently in parallel with an 8-second timeout. DOCX is only fetched if explicitly requested.
     const exportHtmlUrl = `https://docs.google.com/document/d/${docId}/export?format=html`
-    const htmlRes = await fetch(exportHtmlUrl, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-      },
-      redirect: 'follow'
-    })
+    const exportPdfUrl = `https://docs.google.com/document/d/${docId}/export?format=pdf`
+    const exportDocxUrl = `https://docs.google.com/document/d/${docId}/export?format=docx`
+
+    const fetchPromises = [
+      fetch(exportHtmlUrl, {
+        headers: {
+          ...commonHeaders,
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+        },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(8000)
+      }),
+      fetch(exportPdfUrl, {
+        headers: commonHeaders,
+        redirect: 'follow',
+        signal: AbortSignal.timeout(8000)
+      })
+    ]
+    if (includeDocx) {
+      fetchPromises.push(
+        fetch(exportDocxUrl, {
+          headers: commonHeaders,
+          redirect: 'follow',
+          signal: AbortSignal.timeout(8000)
+        })
+      )
+    }
+
+    const settled = await Promise.allSettled(fetchPromises)
+    const htmlSettled = settled[0]
+    const pdfSettled = settled[1]
+    const docxSettled = includeDocx ? settled[2] : null
+
+    if (htmlSettled.status !== 'fulfilled') {
+      throw htmlSettled.reason || new Error('Failed to connect to Google Docs.')
+    }
+    const htmlRes = htmlSettled.value
 
     // Check if Google redirected to login page (means private / permission denied)
     if (htmlRes.url && htmlRes.url.includes('accounts.google.com')) {
@@ -193,50 +227,42 @@ ipcMain.handle('fetch-google-doc', async (event, { url }) => {
       docTitle = titleMatch[1].replace(/ - Google Docs$/i, '').trim()
     }
 
-    // 2. Fetch native PDF export for exact vector layout and zero-overlap preview in DocumentViewer
+    // 2. Process native PDF export
     let pdfBase64 = null
-    try {
-      const exportPdfUrl = `https://docs.google.com/document/d/${docId}/export?format=pdf`
-      const pdfRes = await fetch(exportPdfUrl, {
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        },
-        redirect: 'follow'
-      })
-      if (pdfRes.ok && (!pdfRes.url || !pdfRes.url.includes('accounts.google.com'))) {
-        const arrayBuf = await pdfRes.arrayBuffer()
-        if (arrayBuf && arrayBuf.byteLength > 0) {
-          const buf = Buffer.from(arrayBuf)
-          pdfBase64 = 'data:application/pdf;base64,' + buf.toString('base64')
+    let pdfBuffer = null
+    if (pdfSettled.status === 'fulfilled') {
+      try {
+        const pdfRes = pdfSettled.value
+        if (pdfRes.ok && (!pdfRes.url || !pdfRes.url.includes('accounts.google.com'))) {
+          const arrayBuf = await pdfRes.arrayBuffer()
+          if (arrayBuf && arrayBuf.byteLength > 0) {
+            pdfBuffer = arrayBuf
+            const buf = Buffer.from(arrayBuf)
+            pdfBase64 = 'data:application/pdf;base64,' + buf.toString('base64')
+          }
         }
+      } catch (pdfErr) {
+        console.warn('PDF export from Google Docs failed:', pdfErr)
       }
-    } catch (pdfErr) {
-      console.warn('PDF export from Google Docs failed:', pdfErr)
     }
 
-    // 3. Fetch DOCX export as fallback and for DOCX downloading
+    // 3. Process DOCX export
     let docxBase64 = null
-    try {
-      const exportDocxUrl = `https://docs.google.com/document/d/${docId}/export?format=docx`
-      const docxRes = await fetch(exportDocxUrl, {
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        },
-        redirect: 'follow'
-      })
-      if (docxRes.ok && (!docxRes.url || !docxRes.url.includes('accounts.google.com'))) {
-        const arrayBuf = await docxRes.arrayBuffer()
-        if (arrayBuf && arrayBuf.byteLength > 0) {
-          const buf = Buffer.from(arrayBuf)
-          docxBase64 =
-            'data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,' +
-            buf.toString('base64')
+    if (docxSettled && docxSettled.status === 'fulfilled') {
+      try {
+        const docxRes = docxSettled.value
+        if (docxRes.ok && (!docxRes.url || !docxRes.url.includes('accounts.google.com'))) {
+          const arrayBuf = await docxRes.arrayBuffer()
+          if (arrayBuf && arrayBuf.byteLength > 0) {
+            const buf = Buffer.from(arrayBuf)
+            docxBase64 =
+              'data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,' +
+              buf.toString('base64')
+          }
         }
+      } catch (docxErr) {
+        console.warn('DOCX export from Google Docs failed, will rely on HTML:', docxErr)
       }
-    } catch (docxErr) {
-      console.warn('DOCX export from Google Docs failed, will rely on HTML:', docxErr)
     }
 
     return {
@@ -245,7 +271,8 @@ ipcMain.handle('fetch-google-doc', async (event, { url }) => {
       title: docTitle,
       html: htmlText,
       docxBase64,
-      pdfBase64
+      pdfBase64,
+      pdfBuffer
     }
   } catch (netErr) {
     console.error('Failed to fetch Google Doc in main process:', netErr)

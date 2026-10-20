@@ -70,6 +70,7 @@ import {
   downloadFileFromUrl,
   exportDocxToPDF,
   fetchGoogleDocData,
+  cleanGoogleDocHtml,
   getGoogleDocId,
   base64PdfToFile
 } from '../../components/editor/utils/editorHelpers'
@@ -143,6 +144,8 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   const [actionError, setActionError] = useState('')
   const actionSuccessCallbackRef = useRef(null)
   const successTimeoutRef = useRef(null)
+  // Prevent duplicate submissions when the user clicks Submit multiple times in quick succession
+  const isSubmittingRef = useRef(false)
 
   const handleCloseSuccess = useCallback(() => {
     if (successTimeoutRef.current) {
@@ -439,8 +442,13 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   const handlePendingGDocSaveDraft = useCallback(
     async (googleDocsUrl) => {
       if (!pendingGDocModal) return false
+      if (isSubmittingRef.current) return false
+      isSubmittingRef.current = true
       const { report, event } = pendingGDocModal
-      if (!googleDocsUrl || !googleDocsUrl.trim()) return false
+      if (!googleDocsUrl || !googleDocsUrl.trim()) {
+        isSubmittingRef.current = false
+        return false
+      }
 
       const cleanGDocUrl = googleDocsUrl.trim()
       setLoading(true)
@@ -484,9 +492,9 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
         // Try pre-fetching document content and snapshots for instant DocumentViewer rendering
         try {
-          const gDocResult = await fetchGoogleDocData(cleanGDocUrl)
+          const gDocResult = await fetchGoogleDocData(cleanGDocUrl, { includeDocx: false })
           if (gDocResult?.html) {
-            payload.narrative = gDocResult.html
+            payload.narrative = cleanGoogleDocHtml(gDocResult.html)
           }
           if (gDocResult?.title && (!title || title === 'Google Doc Narrative Report')) {
             payload.activityTitle = gDocResult.title
@@ -517,7 +525,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
             setActiveTab('reports')
           }
         )
-        await loadData()
+        loadData().catch((err) => console.warn('Background loadData notice:', err?.message || err))
         return true
       } catch (err) {
         console.error('Failed to save pending report as draft:', err)
@@ -525,6 +533,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         return false
       } finally {
         setLoading(false)
+        isSubmittingRef.current = false
       }
     },
     [pendingGDocModal, user, updateReport, loadData, reportsList, triggerSuccess, triggerError]
@@ -534,8 +543,13 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   const handlePendingGDocSubmit = useCallback(
     async (googleDocsUrl) => {
       if (!pendingGDocModal) return false
+      if (isSubmittingRef.current) return false
+      isSubmittingRef.current = true
       const { report, event } = pendingGDocModal
-      if (!googleDocsUrl || !googleDocsUrl.trim()) return false
+      if (!googleDocsUrl || !googleDocsUrl.trim()) {
+        isSubmittingRef.current = false
+        return false
+      }
 
       const cleanGDocUrl = googleDocsUrl.trim()
       setLoading(true)
@@ -569,41 +583,40 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         if (report.academicYear) payload.academicYear = report.academicYear
         if (report.semester) payload.semester = report.semester
         if (report.type) payload.type = report.type
-        if (Array.isArray(report.history)) {
-          payload.history = [
-            ...report.history,
-            { status: 'submitted', timestamp: new Date().toISOString(), by: user.name || 'Coordinator' }
-          ]
-        }
+        const existingHistory = Array.isArray(report.history) ? report.history : []
+        payload.history = [
+          ...existingHistory,
+          { status: 'submitted', timestamp: new Date().toISOString(), by: user.name || user.username || 'Coordinator' }
+        ]
 
         // Fetch Google Doc content for narrative preview & freeze exact document in Cloudinary
         try {
-          const gDocResult = await fetchGoogleDocData(cleanGDocUrl)
+          const gDocResult = await fetchGoogleDocData(cleanGDocUrl, { includeDocx: false })
           if (gDocResult?.html) {
-            payload.narrative = gDocResult.html
-            payload.submittedNarrative = gDocResult.html
+            const cleanHtml = cleanGoogleDocHtml(gDocResult.html)
+            payload.narrative = cleanHtml
+            payload.submittedNarrative = cleanHtml
           }
           if (gDocResult?.title && (!title || title === 'Google Doc Narrative Report')) {
             payload.activityTitle = gDocResult.title
           }
           if (gDocResult?.pdfBase64 && gDocResult.pdfBase64.length < 400000 && report.id) {
-            localStorage.setItem(`dommunity_gdoc_pdf_${report.id}`, gDocResult.pdfBase64)
-          }
-          if (gDocResult?.docxBase64 && gDocResult.docxBase64.length < 400000 && report.id) {
-            localStorage.setItem(`dommunity_gdoc_buffer_${report.id}`, gDocResult.docxBase64)
+            try {
+              localStorage.setItem(`dommunity_gdoc_pdf_${report.id}`, gDocResult.pdfBase64)
+            } catch {}
           }
 
           // Upload frozen PDF snapshot to Cloudinary so submitted report is permanent and immutable
-          if (gDocResult?.pdfBase64) {
+          if (gDocResult?.pdfBuffer || gDocResult?.pdfBase64) {
             try {
               const safeDocName = `${(title || 'Narrative_Report').replace(/[^a-zA-Z0-9_-]+/g, '_')}_${report.id || Date.now()}_submitted.pdf`
-              const pdfFile = base64PdfToFile(gDocResult.pdfBase64, safeDocName)
+              const pdfFile = gDocResult.pdfBuffer || base64PdfToFile(gDocResult.pdfBase64, safeDocName)
               if (pdfFile) {
                 const uploadRes = await uploadDocxReportFile(
                   report.academicYear || workspaceReportAY || '2026-2027',
                   payload.eventId || 'general',
                   pdfFile,
-                  { userRole: user?.role || 'office_coordinator' }
+                  { userRole: user?.role || 'office_coordinator', fileName: safeDocName }
                 )
                 const storageUrl = uploadRes?.url || uploadRes
                 if (storageUrl && typeof storageUrl === 'string' && storageUrl.startsWith('http')) {
@@ -649,7 +662,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           setCompiledReportsTab('submitted')
           setActiveTab('reports')
         })
-        await loadData()
+        loadData().catch((err) => console.warn('Background loadData notice:', err?.message || err))
         return true
       } catch (err) {
         console.error('Failed to submit pending report:', err)
@@ -657,6 +670,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         return false
       } finally {
         setLoading(false)
+        isSubmittingRef.current = false
       }
     },
     [pendingGDocModal, user, updateReport, loadData, reportsList, workspaceReportAY, triggerSuccess, triggerError]
@@ -665,6 +679,11 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
   // ── Save/Submit handler ──
   const handleSave = useCallback(
     async (status, html, silent = false, layoutOptions = {}) => {
+      // Prevent duplicate concurrent submissions (e.g., double-click on Submit button)
+      if (status === 'submitted' && isSubmittingRef.current) {
+        console.warn('[handleSave] Duplicate submission blocked — previous submission still in progress.')
+        return
+      }
       if (isOffline) {
         if (!silent) {
           triggerError('Cannot save or submit report: Internet connection is offline. Your draft remains safe in the editor. Please reconnect to sync.')
@@ -699,6 +718,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
 
       setSaveStatus('saving')
       setLoading(true)
+      if (status === 'submitted') isSubmittingRef.current = true
       try {
         let effectiveStatus = status
         // If the report is currently in 'returned' status and user saves progress (Save & Leave or Save Draft),
@@ -815,14 +835,16 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
           delete payload.originalDocxUrl
           delete payload.originalDocxName
 
-          // When submitting, upload frozen PDF snapshot to Cloudinary so document is locked and immutable
+          // When submitting, upload frozen PDF snapshot to Cloudinary so document is locked and immutable.
+          // Skip re-fetching Google Docs if pdfBase64 was already provided by TextEditor's handleSave.
           if (effectiveStatus === 'submitted') {
-            let candidatePdf = layoutOptions.pdfBase64
+            let candidatePdf = layoutOptions.pdfBuffer || layoutOptions.pdfBase64 || null
             if (!candidatePdf) {
+              // Only fetch from Google Docs if TextEditor did not already supply pdfBase64
               try {
-                const gDocSnap = await fetchGoogleDocData(payload.googleDocsUrl)
-                if (gDocSnap?.pdfBase64) {
-                  candidatePdf = gDocSnap.pdfBase64
+                const gDocSnap = await fetchGoogleDocData(payload.googleDocsUrl, { includeDocx: false })
+                if (gDocSnap?.pdfBuffer || gDocSnap?.pdfBase64) {
+                  candidatePdf = gDocSnap.pdfBuffer || gDocSnap.pdfBase64
                 }
               } catch (snapErr) {
                 console.warn('Could not fetch snapshot during handleSave:', snapErr)
@@ -832,10 +854,14 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
             if (candidatePdf) {
               try {
                 const safeFileName = `${title.replace(/[^a-zA-Z0-9_-]+/g, '_')}_${Date.now()}_submitted.pdf`
-                const fileObj = base64PdfToFile(candidatePdf, safeFileName)
+                const fileObj =
+                  candidatePdf instanceof ArrayBuffer
+                    ? candidatePdf
+                    : base64PdfToFile(candidatePdf, safeFileName)
                 if (fileObj) {
                   const uploadRes = await uploadDocxReportFile(workspaceReportAY || '2026-2027', payload.eventId || 'general', fileObj, {
-                    userRole: user?.role || 'office_coordinator'
+                    userRole: user?.role || 'office_coordinator',
+                    fileName: safeFileName
                   })
                   const storageUrl = uploadRes?.url || uploadRes
                   if (storageUrl && typeof storageUrl === 'string' && storageUrl.startsWith('http')) {
@@ -952,7 +978,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         }
 
         setSaveStatus('saved')
-        await loadData()
+        loadData().catch((err) => console.warn('Background loadData notice:', err?.message || err))
 
         if (effectiveStatus === 'submitted') {
           // Once a report is submitted to Admin, it is final/locked pending review.
@@ -996,13 +1022,13 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
             }
           })
         }
-        loadData()
       } catch (err) {
         console.error('Save failed:', err)
         setSaveStatus('error')
         if (!silent) triggerError('Save failed. Please try again.')
       } finally {
         setLoading(false)
+        isSubmittingRef.current = false
         setTimeout(() => setSaveStatus(''), 3000)
       }
     },
@@ -1036,6 +1062,12 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         triggerError('Cannot submit report: Internet connection is offline.')
         return
       }
+      // Block duplicate submissions for the same report in quick succession
+      if (isSubmittingRef.current) {
+        console.warn('[handleDirectSubmitDraft] Duplicate submission blocked.')
+        return
+      }
+      isSubmittingRef.current = true
       setLoading(true)
       try {
         const payload = {
@@ -1139,6 +1171,7 @@ export default function OfficeCoordinatorDashboard({ user, onLogout }) {
         triggerError('Failed to submit report. Please try again.')
       } finally {
         setLoading(false)
+        isSubmittingRef.current = false
       }
     },
     [isOffline, user.uid, triggerError, triggerSuccess, loadData, reportsList]

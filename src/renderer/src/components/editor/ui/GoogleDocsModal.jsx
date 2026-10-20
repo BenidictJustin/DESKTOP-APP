@@ -118,10 +118,17 @@ export default function GoogleDocsModal({
     if (onSaveGoogleDocsUrl) onSaveGoogleDocsUrl('')
   }
 
+  const handleSafeClose = () => {
+    if (isSubmitting || isSavingDraft) {
+      return // Block closing while submission/save is actively running
+    }
+    if (onClose) onClose()
+  }
+
   return (
     <AnimatedModal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleSafeClose}
       overlayClassName="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 md:p-6 glass-modal-overlay select-none font-poppins"
       contentClassName="glass-modal bg-white rounded-3xl w-full max-w-2xl shadow-2xl border border-white/80 flex flex-col max-h-[92vh] sm:max-h-[90vh] overflow-hidden text-left"
     >
@@ -147,8 +154,9 @@ export default function GoogleDocsModal({
         </div>
         <button
           type="button"
-          onClick={onClose}
-          className="p-2 rounded-xl text-gray-400 hover:text-navy-blue hover:bg-gray-100 transition-all cursor-pointer shrink-0 ml-2"
+          onClick={handleSafeClose}
+          disabled={isSubmitting || isSavingDraft}
+          className="p-2 rounded-xl text-gray-400 hover:text-navy-blue hover:bg-gray-100 transition-all cursor-pointer shrink-0 ml-2 disabled:opacity-30 disabled:cursor-not-allowed"
           title="Close"
         >
           <X className="w-5 h-5" />
@@ -232,14 +240,29 @@ export default function GoogleDocsModal({
             </div>
           )}
         </div>
+
+        {/* Active Submission / Save Progress Banner */}
+        {isSubmitting && (
+          <div className="flex items-center gap-2.5 bg-navy-blue/5 border border-navy-blue/15 px-4 py-3 rounded-2xl text-xs text-navy-blue font-medium animate-pulse">
+            <Loader2 className="w-4 h-4 animate-spin text-navy-blue shrink-0" />
+            <span>Submitting report to Admin... Please wait while document snapshot is processed.</span>
+          </div>
+        )}
+        {isSavingDraft && (
+          <div className="flex items-center gap-2.5 bg-gray-50 border border-gray-200 px-4 py-3 rounded-2xl text-xs text-gray-700 font-medium animate-pulse">
+            <Loader2 className="w-4 h-4 animate-spin text-gray-600 shrink-0" />
+            <span>Saving draft... Please do not close.</span>
+          </div>
+        )}
       </div>
 
       {/* ── Modal Footer ── */}
       <div className="px-5 sm:px-6 py-3.5 sm:py-4 bg-gray-50/90 border-t border-gray-150 flex items-center justify-end gap-2.5 shrink-0 rounded-b-3xl">
         <button
           type="button"
-          onClick={onClose}
-          className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+          onClick={handleSafeClose}
+          disabled={isSubmitting || isSavingDraft}
+          className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Close
         </button>
@@ -260,15 +283,26 @@ export default function GoogleDocsModal({
                 return
               }
               setIsSavingDraft(true)
+              const draftWatchdog = setTimeout(() => {
+                setIsSavingDraft(false)
+                alert('Saving draft took longer than expected (15s). Please check your internet connection.')
+              }, 15000)
+
               try {
                 if (workspaceReportId) {
                   localStorage.setItem(`dommunity_gdocs_${workspaceReportId}`, trimmed)
                 }
                 const draftOk = await onSaveDraft(trimmed)
+                clearTimeout(draftWatchdog)
                 if (draftOk !== false) {
                   onClose()
                 }
+              } catch (err) {
+                clearTimeout(draftWatchdog)
+                console.error('Draft save error:', err)
+                alert('Failed to save draft: ' + (err.message || 'Please try again.'))
               } finally {
+                clearTimeout(draftWatchdog)
                 setIsSavingDraft(false)
               }
             }}
@@ -305,15 +339,26 @@ export default function GoogleDocsModal({
                 return
               }
               setIsSubmitting(true)
+              const submitWatchdog = setTimeout(() => {
+                setIsSubmitting(false)
+                alert('Submission request took longer than expected (15s). Please check your internet connection or Google Docs link and try again.')
+              }, 15000)
+
               try {
                 if (workspaceReportId) {
                   localStorage.setItem(`dommunity_gdocs_${workspaceReportId}`, trimmed)
                 }
                 const submitOk = await onSubmitToAdmin(trimmed)
+                clearTimeout(submitWatchdog)
                 if (submitOk !== false) {
                   onClose()
                 }
+              } catch (err) {
+                clearTimeout(submitWatchdog)
+                console.error('Modal submission error:', err)
+                alert('Submission error: ' + (err.message || 'Please try again.'))
               } finally {
+                clearTimeout(submitWatchdog)
                 setIsSubmitting(false)
               }
             }}

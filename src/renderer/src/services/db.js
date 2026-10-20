@@ -2223,27 +2223,12 @@ export const uploadOrgChartPhoto = async (file) => {
     }
   }
 
-  // 2. Secondary fallback: Firebase Storage
-  if (!isDemoMode && fstorage) {
-    try {
-      const cleanFileName = `org_chart_${Date.now()}_${(file.name || 'photo.png').replace(/\s+/g, '_')}`
-      const storageRef = ref(fstorage, `org_chart/${cleanFileName}`)
-      const uploadPromise = uploadBytes(storageRef, file).then(() => getDownloadURL(storageRef))
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Storage timeout')), 4000)
-      )
-      return await Promise.race([uploadPromise, timeoutPromise])
-    } catch (fbErr) {
-      console.warn('[db.js] Firebase Storage fallback failed, using local base64:', fbErr)
-    }
-  }
-
-  // 3. Fallback: Compressed Base64 Data URL
+  // 2. Secondary fallback: Compressed Base64 Data URL
   try {
     const compressed = await compressImage(file, { maxWidth: 500, maxHeight: 500, quality: 0.85 })
     if (compressed) return compressed
   } catch (compErr) {
-    console.warn('[db.js] Image compression failed, falling back to raw FileReader:', compErr)
+    console.warn('[db.js] Org chart compression failed:', compErr)
   }
 
   return await new Promise((resolve, reject) => {
@@ -3623,7 +3608,14 @@ export const syncPendingReportsToFirestore = async (pendingReports) => {
           // 1. Ensure HTML narrative is strictly under Firestore 1MB limit
           if (cleanData.narrative && typeof cleanData.narrative === 'string') {
             cleanData.narrative = await ensureHtmlUnderFirestoreLimit(cleanData.narrative, {
-              storage: fstorage
+              academicYear: cleanData.academicYear,
+              eventId: cleanData.eventId
+            })
+          }
+          if (cleanData.submittedNarrative && typeof cleanData.submittedNarrative === 'string') {
+            cleanData.submittedNarrative = await ensureHtmlUnderFirestoreLimit(cleanData.submittedNarrative, {
+              academicYear: cleanData.academicYear,
+              eventId: cleanData.eventId
             })
           }
 
@@ -3893,10 +3885,21 @@ export const addReport = async (report, userId) => {
       if (sanitizedReport.narrative && typeof sanitizedReport.narrative === 'string') {
         try {
           sanitizedReport.narrative = await ensureHtmlUnderFirestoreLimit(sanitizedReport.narrative, {
-            storage: fstorage
+            academicYear: sanitizedReport.academicYear,
+            eventId: sanitizedReport.eventId
           })
         } catch (compErr) {
           console.warn('Narrative image pre-compression failed:', compErr)
+        }
+      }
+      if (sanitizedReport.submittedNarrative && typeof sanitizedReport.submittedNarrative === 'string') {
+        try {
+          sanitizedReport.submittedNarrative = await ensureHtmlUnderFirestoreLimit(sanitizedReport.submittedNarrative, {
+            academicYear: sanitizedReport.academicYear,
+            eventId: sanitizedReport.eventId
+          })
+        } catch (compErr) {
+          console.warn('Submitted narrative image pre-compression failed:', compErr)
         }
       }
 
@@ -4047,13 +4050,32 @@ export const updateReport = async (reportId, updates, userId) => {
     try {
       let sanitizedUpdates = { ...updates }
 
+      const hasCloudinaryDoc = Boolean(sanitizedUpdates.cloudinaryUrl || sanitizedUpdates.submittedSnapshotUrl)
+
       if (sanitizedUpdates.narrative && typeof sanitizedUpdates.narrative === 'string') {
         try {
           sanitizedUpdates.narrative = await ensureHtmlUnderFirestoreLimit(sanitizedUpdates.narrative, {
-            storage: fstorage
+            academicYear: sanitizedUpdates.academicYear,
+            eventId: sanitizedUpdates.eventId,
+            skipCloudinaryUpload: hasCloudinaryDoc
           })
         } catch (compErr) {
           console.warn('Narrative image pre-compression failed:', compErr)
+        }
+      }
+      if (sanitizedUpdates.submittedNarrative && typeof sanitizedUpdates.submittedNarrative === 'string') {
+        if (sanitizedUpdates.submittedNarrative === updates.narrative && sanitizedUpdates.narrative) {
+          sanitizedUpdates.submittedNarrative = sanitizedUpdates.narrative
+        } else {
+          try {
+            sanitizedUpdates.submittedNarrative = await ensureHtmlUnderFirestoreLimit(sanitizedUpdates.submittedNarrative, {
+              academicYear: sanitizedUpdates.academicYear,
+              eventId: sanitizedUpdates.eventId,
+              skipCloudinaryUpload: hasCloudinaryDoc
+            })
+          } catch (compErr) {
+            console.warn('Submitted narrative image pre-compression failed:', compErr)
+          }
         }
       }
 
@@ -4074,34 +4096,40 @@ export const updateReport = async (reportId, updates, userId) => {
 
       const dbUpdates = sanitizeForFirestore({ ...sanitizedUpdates, updatedAt: Timestamp.now() })
       let rep = null
-      try {
-        const reportDoc = await getDoc(doc(fdb, 'narrative_reports', reportId))
-        rep = reportDoc.exists() ? reportDoc.data() : null
-      } catch (getErr) {
-        console.warn('Failed to fetch existing report doc before update:', getErr)
-      }
-
-      if (rep && sanitizedUpdates.status && sanitizedUpdates.status !== rep.status) {
-        const history = [...(rep.history || [])]
-        history.push({
-          status: sanitizedUpdates.status,
-          changedBy: userId,
-          timestamp: Timestamp.now(),
-          notes: sanitizedUpdates.adminFeedback
-            ? `Returned: ${sanitizedUpdates.adminFeedback}`
-            : `Status changed to ${sanitizedUpdates.status}`
-        })
-        dbUpdates.history = history
-      }
-
-      await updateDoc(doc(fdb, 'narrative_reports', reportId), dbUpdates)
-
-      if (rep && (sanitizedUpdates.status === 'submitted' || sanitizedUpdates.status === 'approved') && rep.eventId) {
+      if (!dbUpdates.history) {
         try {
-          await updateDoc(doc(fdb, 'events', rep.eventId), { status: 'completed' })
-        } catch (evErr) {
-          console.warn('Failed to update event status to completed:', evErr)
+          const reportDoc = await getDoc(doc(fdb, 'narrative_reports', reportId))
+          rep = reportDoc.exists() ? reportDoc.data() : null
+        } catch (getErr) {
+          console.warn('Failed to fetch existing report doc before update:', getErr)
         }
+
+        if (rep && sanitizedUpdates.status && sanitizedUpdates.status !== rep.status) {
+          const history = [...(rep.history || [])]
+          history.push({
+            status: sanitizedUpdates.status,
+            changedBy: userId,
+            timestamp: Timestamp.now(),
+            notes: sanitizedUpdates.adminFeedback
+              ? `Returned: ${sanitizedUpdates.adminFeedback}`
+              : `Status changed to ${sanitizedUpdates.status}`
+          })
+          dbUpdates.history = history
+        }
+      }
+
+      await Promise.race([
+        setDoc(doc(fdb, 'narrative_reports', reportId), dbUpdates, { merge: true }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Firestore write timed out after 7s. Saving to local storage.')), 7000)
+        )
+      ])
+
+      const targetEventId = dbUpdates.eventId || rep?.eventId
+      if ((sanitizedUpdates.status === 'submitted' || sanitizedUpdates.status === 'approved') && targetEventId) {
+        updateDoc(doc(fdb, 'events', targetEventId), { status: 'completed' }).catch((evErr) =>
+          console.warn('Failed to update event status to completed:', evErr)
+        )
       }
 
       // Also mirror to local storage cache
@@ -4358,7 +4386,7 @@ if (typeof window !== 'undefined') {
 }
 
 // Simulated Storage / File Upload
-// Encodes loaded image file to base64 for Demo Mode, or uploads to Firebase Storage in Cloud Mode with fallback
+// Encodes loaded image file to Cloudinary in Cloud Mode, or base64 for Demo Mode or offline fallback
 export const uploadPhoto = async (academicYear, eventId, file) => {
   const readAsBase64 = () =>
     new Promise((resolve, reject) => {
@@ -4368,41 +4396,55 @@ export const uploadPhoto = async (academicYear, eventId, file) => {
       reader.onerror = (error) => reject(error)
     })
 
-  if (isDemoMode || !fstorage) {
+  if (isDemoMode) {
     return await readAsBase64()
   }
 
-  try {
-    const cleanFileName = `photo_${Date.now()}_${file.name.replace(/\s+/g, '_')}`
-    const storagePath = `narratives/AY_${academicYear.replace('/', '_')}/event_${eventId}/${cleanFileName}`
-    const storageRef = ref(fstorage, storagePath)
-    const uploadPromise = uploadBytes(storageRef, file).then(() => getDownloadURL(storageRef))
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Storage timeout')), 4000)
-    )
-    return await Promise.race([uploadPromise, timeoutPromise])
-  } catch (err) {
-    console.warn('Firebase Storage upload failed, falling back to Base64 data URL:', err)
-    return await readAsBase64()
+  // Primary: Cloudinary Storage via Electron Main Process
+  if (isCloudinaryAvailable()) {
+    try {
+      const cleanFileName = `photo_${Date.now()}_${(file?.name || 'photo.jpg').replace(/\s+/g, '_')}`
+      const cloudRes = await uploadDocumentToCloudinary(file, {
+        fileName: cleanFileName,
+        academicYear: (academicYear || '2026-2027').toString(),
+        eventId: (eventId || 'general').toString(),
+        isImage: true
+      })
+      if (cloudRes?.success && (cloudRes.secureUrl || cloudRes.url)) {
+        return cloudRes.secureUrl || cloudRes.url
+      }
+    } catch (err) {
+      console.warn('[db.js] Cloudinary photo upload failed, falling back to base64:', err)
+    }
   }
+
+  return await readAsBase64()
 }
 
 // Upload Narrative Report document (.docx or .pdf) to Cloudinary
 // Stores file in Cloudinary and returns URL + metadata. Falls back seamlessly if offline or unconfigured.
 export const uploadDocxReportFile = async (academicYear, eventId, file, options = {}) => {
-  const readAsBase64 = () =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.readAsDataURL(file)
-      reader.onload = () => resolve(reader.result)
-      reader.onerror = (error) => reject(error)
-    })
-
-  const fileName = file?.name || 'narrative_report.docx'
+  const fileName = options.fileName || file?.name || 'narrative_report.pdf'
   const lowerName = fileName.toLowerCase()
   const isPdf = lowerName.endsWith('.pdf')
   const isDocx = lowerName.endsWith('.docx') || lowerName.endsWith('.doc')
   const fileType = isPdf ? 'pdf' : (isDocx ? 'docx' : 'raw')
+
+  const readAsBase64 = () =>
+    new Promise((resolve, reject) => {
+      const blob =
+        file instanceof Blob || file instanceof File
+          ? file
+          : new Blob([file], {
+              type: isPdf
+                ? 'application/pdf'
+                : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            })
+      const reader = new FileReader()
+      reader.readAsDataURL(blob)
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = (error) => reject(error)
+    })
 
   // 1. Primary: Cloudinary Storage via Electron Main Process
   if (isCloudinaryAvailable()) {
@@ -4438,34 +4480,7 @@ export const uploadDocxReportFile = async (academicYear, eventId, file, options 
     }
   }
 
-  // 2. Secondary fallback: Firebase Storage (if configured)
-  if (!isDemoMode && fstorage) {
-    try {
-      const cleanFileName = `docx_${Date.now()}_${fileName.replace(/\s+/g, '_')}`
-      const ay = (academicYear || 'General').toString().replace('/', '_')
-      const ev = (eventId || 'unassigned').toString()
-      const storagePath = `narratives/AY_${ay}/event_${ev}/${cleanFileName}`
-      const storageRef = ref(fstorage, storagePath)
-
-      const uploadPromise = uploadBytes(storageRef, file).then(() => getDownloadURL(storageRef))
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Firebase Storage unavailable or timeout')), 4000)
-      )
-
-      const fbUrl = await Promise.race([uploadPromise, timeoutPromise])
-      return {
-        url: fbUrl,
-        originalDocxUrl: fbUrl,
-        originalDocxName: fileName,
-        originalDocxSize: file?.size,
-        fileType
-      }
-    } catch (fbErr) {
-      console.warn('[db.js] Firebase storage fallback notice:', fbErr?.message || fbErr)
-    }
-  }
-
-  // 3. Resilient fallback: Base64 data URL
+  // 2. Resilient fallback: Base64 data URL
   const b64 = await readAsBase64()
   return {
     url: b64,

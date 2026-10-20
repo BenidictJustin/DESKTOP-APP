@@ -7,7 +7,7 @@ import { ipcRenderer } from 'electron'
 const api = {
   checkInternet: () => ipcRenderer.invoke('check-internet'),
   logError: (msg) => ipcRenderer.invoke('log-error', { msg }),
-  fetchGoogleDoc: (url) => ipcRenderer.invoke('fetch-google-doc', { url }),
+  fetchGoogleDoc: (url, options) => ipcRenderer.invoke('fetch-google-doc', { url, ...(options || {}) }),
   convertDocxToPdfBuffer: (buffer) => ipcRenderer.invoke('convert-docx-to-pdf-buffer', { buffer }),
   exportHtmlToDocx: (data) => ipcRenderer.invoke('export-html-to-docx', data),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
