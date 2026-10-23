@@ -2963,6 +2963,9 @@ export const getDonations = async () => {
           dateOfDonation: data.dateOfDonation?.toDate
             ? data.dateOfDonation.toDate().toISOString()
             : data.dateOfDonation,
+          createdAt: data.createdAt?.toDate
+            ? data.createdAt.toDate().toISOString()
+            : data.createdAt || null,
           items: (data.items || []).map((item) => ({
             ...item,
             expiryDate: item.expiryDate?.toDate
@@ -3006,6 +3009,9 @@ export const subscribeDonations = (callback) => {
             dateOfDonation: data.dateOfDonation?.toDate
               ? data.dateOfDonation.toDate().toISOString()
               : data.dateOfDonation,
+            createdAt: data.createdAt?.toDate
+              ? data.createdAt.toDate().toISOString()
+              : data.createdAt || null,
             items: (data.items || []).map((item) => ({
               ...item,
               expiryDate: item.expiryDate?.toDate
@@ -3030,7 +3036,8 @@ export const addDonation = async (donation, userId) => {
     const newDonation = {
       ...donation,
       id: 'don-' + Math.random().toString(36).substr(2, 9),
-      dateOfDonation: donation.dateOfDonation || new Date().toISOString()
+      dateOfDonation: donation.dateOfDonation || new Date().toISOString(),
+      createdAt: donation.createdAt || new Date().toISOString()
     }
     donations.push(newDonation)
     saveLocalData(LOCAL_STORAGE_KEYS.DONATIONS, donations)
@@ -3093,7 +3100,8 @@ export const addDonation = async (donation, userId) => {
       ...donation,
       dateOfDonation: Timestamp.fromDate(new Date(donation.dateOfDonation)),
       items: dbItems,
-      receivedBy: userId
+      receivedBy: userId,
+      createdAt: donation.createdAt ? Timestamp.fromDate(new Date(donation.createdAt)) : Timestamp.now()
     })
 
     const donationId = docRef.id

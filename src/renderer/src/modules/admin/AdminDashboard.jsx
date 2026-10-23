@@ -223,6 +223,7 @@ export default function AdminDashboard({ user, onLogout }) {
   const [inventoryList, setInventoryList] = useState([])
   const [donorsList, setDonorsList] = useState([])
   const [donationsList, setDonationsList] = useState([])
+  const [donationSearchQuery, setDonationSearchQuery] = useState('')
   const [eventsList, setEventsList] = useState([])
   const [reportsList, setReportsList] = useState([])
   const [resetRequests, setResetRequests] = useState([])
@@ -336,8 +337,8 @@ export default function AdminDashboard({ user, onLogout }) {
   const [addStockSearch, setAddStockSearch] = useState('')
   const [showAddStockDropdown, setShowAddStockDropdown] = useState(false)
   const [addStockQty, setAddStockQty] = useState('')
-  const [addStockQtyGroup, setAddStockQtyGroup] = useState('')
-  const [addStockQtyPieces, setAddStockQtyPieces] = useState('')
+  const [addStockUnit, setAddStockUnit] = useState('pieces') // pieces | packs | boxes | bundles
+  const [addStockPiecesPerUnit, setAddStockPiecesPerUnit] = useState('')
   const [addStockExpiry, setAddStockExpiry] = useState('')
   const [addStockErrors, setAddStockErrors] = useState({})
 
@@ -366,6 +367,83 @@ export default function AdminDashboard({ user, onLogout }) {
       ) || null
     )
   }, [groupedInventory, batchDetailsItemKey])
+
+  // Sorted & filtered donations audit history: newest to oldest by actual transaction date/time
+  const sortedDonationsList = useMemo(() => {
+    const parseDateToMs = (val) => {
+      if (!val) return 0
+      if (typeof val === 'number') return val
+      if (val?.toDate && typeof val.toDate === 'function') {
+        const d = val.toDate()
+        return isNaN(d?.getTime()) ? 0 : d.getTime()
+      }
+      if (typeof val?.seconds === 'number') {
+        return val.seconds * 1000 + (val.nanoseconds ? val.nanoseconds / 1e6 : 0)
+      }
+      const d = new Date(val)
+      return isNaN(d.getTime()) ? 0 : d.getTime()
+    }
+
+    const getDayString = (val) => {
+      const ms = parseDateToMs(val)
+      if (!ms) return ''
+      return new Date(ms).toISOString().split('T')[0]
+    }
+
+    const query = (donationSearchQuery || '').toLowerCase().trim()
+    const filtered = query
+      ? donationsList.filter((d) => {
+          const donor = donorsList.find((donorObj) => donorObj.id === d.donorId)
+          const donorName = donor ? donor.name.toLowerCase() : ''
+          const purpose = (d.purpose || '').toLowerCase()
+          const description = (d.description || '').toLowerCase()
+          const dateStr = d.dateOfDonation
+            ? new Date(d.dateOfDonation).toLocaleDateString().toLowerCase()
+            : ''
+          const itemsMatch = (d.items || []).some(
+            (i) =>
+              (i.name || '').toLowerCase().includes(query) ||
+              (i.category || '').toLowerCase().includes(query) ||
+              (i.unit || '').toLowerCase().includes(query)
+          )
+          return (
+            donorName.includes(query) ||
+            purpose.includes(query) ||
+            description.includes(query) ||
+            dateStr.includes(query) ||
+            itemsMatch
+          )
+        })
+      : donationsList
+
+    return [...filtered].sort((a, b) => {
+      const timeA = parseDateToMs(a.dateOfDonation)
+      const timeB = parseDateToMs(b.dateOfDonation)
+
+      const dayA = getDayString(a.dateOfDonation)
+      const dayB = getDayString(b.dateOfDonation)
+
+      // If different calendar days, order by transaction date descending
+      if (dayA && dayB && dayA !== dayB) {
+        return timeB - timeA
+      }
+
+      // If same date, use creation timestamps as tie-breaker
+      const createdA = parseDateToMs(a.createdAt || a.timestamp || a.created_at)
+      const createdB = parseDateToMs(b.createdAt || b.timestamp || b.created_at)
+
+      if (createdB !== createdA) {
+        return createdB - createdA
+      }
+
+      // If transaction time differed on same day
+      if (timeB !== timeA) {
+        return timeB - timeA
+      }
+
+      return (b.id || '').localeCompare(a.id || '')
+    })
+  }, [donationsList, donorsList, donationSearchQuery])
 
   const [releaseItemId, setReleaseItemId] = useState('')
   const [releaseQty, setReleaseQty] = useState('')
@@ -1584,22 +1662,16 @@ export default function AdminDashboard({ user, onLogout }) {
       setAddStockSearch(
         `${item.name} (${item.category}) - ${displayStock(item.quantity, item.unit, item.groupUnit, item.piecesPerUnit)} in stock`
       )
-      setAddStockQty('')
-      setAddStockQtyGroup('')
-      setAddStockQtyPieces('')
-      setAddStockExpiry('')
-      setAddStockErrors({})
-      setIsAddStockModalOpen(true)
     } else {
       setAddStockItemId('')
       setAddStockSearch('')
-      setAddStockQty('')
-      setAddStockQtyGroup('')
-      setAddStockQtyPieces('')
-      setAddStockExpiry('')
-      setAddStockErrors({})
-      setIsAddStockModalOpen(true)
     }
+    setAddStockQty('')
+    setAddStockUnit('pieces')
+    setAddStockPiecesPerUnit('')
+    setAddStockExpiry('')
+    setAddStockErrors({})
+    setIsAddStockModalOpen(true)
   }
 
   const handleSaveAddStock = async (e) => {
@@ -1621,25 +1693,25 @@ export default function AdminDashboard({ user, onLogout }) {
       errors.itemId = 'Selected inventory item was not found.'
     }
 
+    // Resolve entered quantity → base pieces
+    const qtyNum = parseInt(addStockQty, 10) || 0
+    const isPacked = addStockUnit !== 'pieces'
+    const pPerUnit = isPacked ? (parseInt(addStockPiecesPerUnit, 10) || 0) : 1
+
+    if (isPacked && pPerUnit <= 0) {
+      errors.piecesPerUnit = 'Enter pieces per unit (must be > 0).'
+    }
+
     let addedBaseQty = 0
     if (targetItem) {
-      const hasGroup = targetItem.groupUnit && targetItem.groupUnit !== 'none' && targetItem.piecesPerUnit
-      const factor = parseInt(targetItem.piecesPerUnit, 10) || 12
-
-      if (hasGroup) {
-        const grp = parseInt(addStockQtyGroup, 10) || 0
-        const pcs = parseInt(addStockQtyPieces, 10) || 0
-        addedBaseQty = grp * factor + pcs
-      } else {
-        addedBaseQty = parseInt(addStockQty, 10) || 0
-      }
+      addedBaseQty = isPacked ? qtyNum * pPerUnit : qtyNum
 
       if (addStockExpiry && isPastDate(addStockExpiry)) {
         errors.expiry = DATE_ERROR_MESSAGES.EXPIRY_PAST
       }
     }
 
-    if (addedBaseQty <= 0) {
+    if (qtyNum <= 0) {
       errors.qty = 'Please enter a valid quantity greater than 0.'
     }
 
@@ -1660,7 +1732,7 @@ export default function AdminDashboard({ user, onLogout }) {
         ) ||
         targetItem
 
-      // 1. Retrieve existing batches without modifying their expiration dates
+      // 1. Retrieve existing batches
       const existingBatches =
         Array.isArray(targetDoc.batches) && targetDoc.batches.length > 0
           ? targetDoc.batches.filter((b) => b.quantity > 0)
@@ -1674,27 +1746,63 @@ export default function AdminDashboard({ user, onLogout }) {
                     targetDoc.receivedDate || targetDoc.createdAt || new Date().toISOString(),
                   unit: targetDoc.unit || targetItem.unit || 'pieces',
                   groupUnit: targetDoc.groupUnit || targetItem.groupUnit || 'none',
-                  piecesPerUnit: targetDoc.piecesPerUnit || targetItem.piecesPerUnit || null
+                  piecesPerUnit: targetDoc.piecesPerUnit || targetItem.piecesPerUnit || null,
+                  packagingEntries: []
                 }
               ]
             : []
 
-      // 2. Create distinct new stock batch
-      const newBatch = {
-        id: 'batch-' + Math.random().toString(36).substr(2, 9),
-        quantity: addedBaseQty,
-        expiryDate: addStockExpiry ? new Date(addStockExpiry).toISOString() : null,
-        receivedDate: new Date().toISOString(),
-        unit: targetItem.unit || targetDoc.unit || 'pieces',
-        groupUnit: targetItem.groupUnit || targetDoc.groupUnit || 'none',
-        piecesPerUnit: targetItem.piecesPerUnit || targetDoc.piecesPerUnit || null
+      // 2. Determine new batch expiry (normalise to YYYY-MM-DD for comparison)
+      const newExpiryIso = addStockExpiry ? new Date(addStockExpiry).toISOString() : null
+      const newExpiryDay = newExpiryIso ? newExpiryIso.split('T')[0] : null
+
+      // 3. Packaging entry for the incoming stock
+      const newPackagingEntry = {
+        qty: qtyNum,
+        unit: addStockUnit,                          // 'pieces' | 'packs' | 'boxes' | 'bundles'
+        piecesPerUnit: isPacked ? pPerUnit : null,
+        baseQty: addedBaseQty,                       // total in base unit for calculations
+        addedAt: new Date().toISOString()
       }
 
-      // 3. Append new batch to existing batches (existing batch expiration dates are fully preserved)
-      const updatedBatches = [...existingBatches, newBatch]
+      // 4. Try to find a matching existing batch (same expiry day → merge)
+      const matchIdx = existingBatches.findIndex((b) => {
+        const bDay = b.expiryDate ? b.expiryDate.split('T')[0] : null
+        return bDay === newExpiryDay  // both null = no-expiry batches also merge
+      })
+
+      let updatedBatches
+      if (matchIdx !== -1) {
+        // Merge: add quantity + append packaging entry
+        updatedBatches = existingBatches.map((b, idx) => {
+          if (idx !== matchIdx) return b
+          return {
+            ...b,
+            quantity: b.quantity + addedBaseQty,
+            packagingEntries: [
+              ...(Array.isArray(b.packagingEntries) ? b.packagingEntries : []),
+              newPackagingEntry
+            ]
+          }
+        })
+      } else {
+        // Different expiry → create separate batch
+        const newBatch = {
+          id: 'batch-' + Math.random().toString(36).substr(2, 9),
+          quantity: addedBaseQty,
+          expiryDate: newExpiryIso,
+          receivedDate: new Date().toISOString(),
+          unit: targetItem.unit || targetDoc.unit || 'pieces',
+          groupUnit: 'none',
+          piecesPerUnit: null,
+          packagingEntries: [newPackagingEntry]
+        }
+        updatedBatches = [...existingBatches, newBatch]
+      }
+
       const newQty = targetDoc.quantity + addedBaseQty
 
-      // 4. Determine earliest active expiry date for FEFO release and status indicator
+      // 5. Determine earliest active expiry for FEFO + status
       const earliestExpiry = getEarliestBatchExpiry(updatedBatches)
       const newStatus = computeInventoryStatus(newQty, earliestExpiry)
 
@@ -1711,23 +1819,27 @@ export default function AdminDashboard({ user, onLogout }) {
       )
 
       const expLog = addStockExpiry ? ` (Exp: ${new Date(addStockExpiry).toLocaleDateString()})` : ''
+      const packLog = isPacked
+        ? `${qtyNum} ${addStockUnit} × ${pPerUnit} pcs = ${addedBaseQty} pieces`
+        : `${addedBaseQty} pieces`
       await logInventoryTransaction(
         'added',
         targetItem.name,
         addedBaseQty,
         targetItem.unit || 'pieces',
-        `Stock replenished via Add Stock [Batch: +${addedBaseQty} ${formatUnit(addedBaseQty, targetItem.unit || 'pieces')}${expLog}]`
+        `Stock replenished via Add Stock [${packLog}${expLog}${matchIdx !== -1 ? ' – merged into existing batch' : ''}]`
       )
 
+      const mergedNote = matchIdx !== -1 ? ' (merged into existing batch)' : ''
       triggerSuccess(
-        `Added ${addedBaseQty} ${formatUnit(addedBaseQty, targetItem.unit || 'pieces')} to "${targetItem.name}". New total: ${newQty} ${formatUnit(newQty, targetItem.unit || 'pieces')}.`
+        `Added ${addedBaseQty} pieces to "${targetItem.name}"${mergedNote}. New total: ${newQty} ${formatUnit(newQty, targetItem.unit || 'pieces')}.`
       )
       setIsAddStockModalOpen(false)
       setAddStockItemId('')
       setAddStockSearch('')
       setAddStockQty('')
-      setAddStockQtyGroup('')
-      setAddStockQtyPieces('')
+      setAddStockUnit('pieces')
+      setAddStockPiecesPerUnit('')
       setAddStockExpiry('')
       setAddStockErrors({})
       loadData()
@@ -2227,7 +2339,8 @@ export default function AdminDashboard({ user, onLogout }) {
         dateOfDonation: new Date(donDate).toISOString(),
         purpose: donPurpose,
         description: donDesc,
-        items: processedItems
+        items: processedItems,
+        createdAt: new Date().toISOString()
       }
 
       await addDonation(payload, user.uid)
@@ -4655,7 +4768,6 @@ export default function AdminDashboard({ user, onLogout }) {
                                   </div>
                                   <div>
                                     <h3 className="font-bold text-navy-blue text-sm">Add Stock to Existing Item</h3>
-                                    <p className="text-[11px] text-gray-400">Replenish stock without creating duplicate records</p>
                                   </div>
                                 </div>
                                 <button
@@ -4665,8 +4777,8 @@ export default function AdminDashboard({ user, onLogout }) {
                                     setAddStockItemId('')
                                     setAddStockSearch('')
                                     setAddStockQty('')
-                                    setAddStockQtyGroup('')
-                                    setAddStockQtyPieces('')
+                                    setAddStockUnit('pieces')
+                                    setAddStockPiecesPerUnit('')
                                     setAddStockExpiry('')
                                     setAddStockErrors({})
                                   }}
@@ -4677,10 +4789,11 @@ export default function AdminDashboard({ user, onLogout }) {
                               </div>
 
                               <form onSubmit={handleSaveAddStock} className="space-y-4">
-                                {/* Select Item */}
+
+                                {/* 1. Item Name */}
                                 <div>
                                   <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                    Select Inventory Item <span className="text-red-500">*</span>
+                                    Item Name <span className="text-red-500">*</span>
                                   </label>
                                   <div className="relative">
                                     <input
@@ -4690,9 +4803,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                       onBlur={() => setTimeout(() => setShowAddStockDropdown(false), 200)}
                                       onChange={(e) => {
                                         setAddStockSearch(e.target.value)
-                                        if (!e.target.value) {
-                                          setAddStockItemId('')
-                                        }
+                                        if (!e.target.value) setAddStockItemId('')
                                       }}
                                       placeholder="Type to search existing item..."
                                       className={`w-full pl-2.5 pr-16 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${addStockErrors.itemId ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
@@ -4700,14 +4811,8 @@ export default function AdminDashboard({ user, onLogout }) {
                                     />
                                     <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center space-x-1">
                                       {addStockSearch && (
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setAddStockSearch('')
-                                            setAddStockItemId('')
-                                          }}
-                                          className="text-gray-400 hover:text-red-500 transition p-0.5 rounded cursor-pointer"
-                                        >
+                                        <button type="button" onClick={() => { setAddStockSearch(''); setAddStockItemId('') }}
+                                          className="text-gray-400 hover:text-red-500 transition p-0.5 rounded cursor-pointer">
                                           <X className="w-3.5 h-3.5" />
                                         </button>
                                       )}
@@ -4715,7 +4820,6 @@ export default function AdminDashboard({ user, onLogout }) {
                                         <ChevronRight className="w-4 h-4 transform rotate-90" />
                                       </div>
                                     </div>
-
                                     {showAddStockDropdown && (
                                       <div className="absolute z-60 w-full mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl max-h-56 overflow-y-auto">
                                         {groupedInventory
@@ -4727,34 +4831,22 @@ export default function AdminDashboard({ user, onLogout }) {
                                           .map((item) => {
                                             const optText = `${item.name} (${item.category}) - ${displayStock(item.quantity, item.unit, item.groupUnit, item.piecesPerUnit)} in stock`
                                             return (
-                                              <div
-                                                key={item.id}
+                                              <div key={item.id}
                                                 onMouseDown={(e) => e.preventDefault()}
                                                 onClick={() => {
                                                   setAddStockItemId(item.id)
                                                   setAddStockSearch(optText)
-                                                  setAddStockErrors((prev) => {
-                                                    const copy = { ...prev }
-                                                    delete copy.itemId
-                                                    return copy
-                                                  })
+                                                  setAddStockErrors((prev) => { const c = { ...prev }; delete c.itemId; return c })
                                                   setShowAddStockDropdown(false)
                                                 }}
                                                 className="p-2.5 text-xs text-navy-blue hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-none font-semibold text-left"
                                               >
                                                 <div className="flex justify-between items-center">
                                                   <span className="font-bold text-navy-blue">{item.name}</span>
-                                                  <span className="text-[10px] text-gray-400 font-normal capitalize">
-                                                    {item.category}
-                                                  </span>
+                                                  <span className="text-[10px] text-gray-400 font-normal capitalize">{item.category}</span>
                                                 </div>
                                                 <div className="text-[11px] text-gray-500 mt-0.5">
                                                   Current Stock: <span className="font-bold text-navy-blue">{displayStock(item.quantity, item.unit, item.groupUnit, item.piecesPerUnit)}</span>
-                                                  {item.expiryDate && (
-                                                    <span className="ml-2 text-gray-400">
-                                                      (Exp: {new Date(item.expiryDate).toLocaleDateString()})
-                                                    </span>
-                                                  )}
                                                 </div>
                                               </div>
                                             )
@@ -4764,9 +4856,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                           item.name.toLowerCase().includes(addStockSearch.toLowerCase()) ||
                                           (item.category || '').toLowerCase().includes(addStockSearch.toLowerCase())
                                         ).length === 0 && (
-                                          <div className="p-3 text-xs text-gray-400 text-center font-medium">
-                                            No matching inventory items
-                                          </div>
+                                          <div className="p-3 text-xs text-gray-400 text-center font-medium">No matching inventory items</div>
                                         )}
                                       </div>
                                     )}
@@ -4776,74 +4866,56 @@ export default function AdminDashboard({ user, onLogout }) {
                                   )}
                                 </div>
 
-                                {/* Selected Item Info & Inputs */}
+                                {/* 2. Current Stock (read-only) + rest of fields — always visible to keep modal layout and size consistent */}
                                 {(() => {
                                   const selected =
-                                    groupedInventory.find(
-                                      (i) => i.id === addStockItemId || i.key === addStockItemId
-                                    ) || inventoryList.find((i) => i.id === addStockItemId)
-                                  if (!selected) return null
+                                    groupedInventory.find((i) => i.id === addStockItemId || i.key === addStockItemId) ||
+                                    inventoryList.find((i) => i.id === addStockItemId)
 
-                                  const hasGroup = selected.groupUnit && selected.groupUnit !== 'none' && selected.piecesPerUnit
-                                  const pPerUnit = parseInt(selected.piecesPerUnit, 10) || 12
-                                  const groupName = selected.groupUnit === 'box' ? 'Boxes' : selected.groupUnit === 'bundle' ? 'Bundles' : 'Packs'
-                                  const expInfo = getExpirationInfo(selected.expiryDate)
+                                  const isPacked = addStockUnit !== 'pieces'
+                                  const pPerUnit = isPacked ? (parseInt(addStockPiecesPerUnit, 10) || 0) : 1
+                                  const qtyNum = parseInt(addStockQty, 10) || 0
+                                  const addedTotal = isPacked ? qtyNum * pPerUnit : qtyNum
+                                  const newTotalQty = selected ? selected.quantity + addedTotal : addedTotal
 
-                                  // Calculate preview of added stock
-                                  let addedTotal = 0
-                                  if (hasGroup) {
-                                    const grp = parseInt(addStockQtyGroup, 10) || 0
-                                    const pcs = parseInt(addStockQtyPieces, 10) || 0
-                                    addedTotal = grp * pPerUnit + pcs
-                                  } else {
-                                    addedTotal = parseInt(addStockQty, 10) || 0
-                                  }
-                                  const newTotalQty = selected.quantity + addedTotal
+                                  const newExpiryDay = addStockExpiry ? new Date(addStockExpiry).toISOString().split('T')[0] : null
+                                  const activeBatches = selected
+                                    ? (Array.isArray(selected.batches) && selected.batches.length > 0
+                                        ? selected.batches.filter((b) => b.quantity > 0)
+                                        : selected.quantity > 0
+                                          ? [{ id: 'init', quantity: selected.quantity, expiryDate: selected.expiryDate || null }]
+                                          : [])
+                                    : []
+                                  const mergeIdx = activeBatches.findIndex((b) => {
+                                    const bDay = b.expiryDate ? b.expiryDate.split('T')[0] : null
+                                    return bDay === newExpiryDay
+                                  })
+                                  const willMerge = Boolean(selected && (newExpiryDay !== null ? mergeIdx !== -1 : activeBatches.some((b) => !b.expiryDate)))
 
                                   return (
-                                    <div className="space-y-4 animate-fade-in">
-                                      {/* Item Details Summary Card */}
-                                      <div className="bg-navy-blue/5 border border-navy-blue/10 rounded-xl p-3 text-xs space-y-2">
-                                        <div className="flex justify-between items-center">
-                                          <span className="font-bold text-navy-blue text-sm">{selected.name}</span>
-                                          <span className="text-[10px] font-bold uppercase bg-white border border-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
-                                            {selected.category}
-                                          </span>
-                                        </div>
-                                        <div className="text-gray-600">
-                                          Current Total Stock:{' '}
-                                          <strong className="text-navy-blue">
-                                            {displayStock(selected.quantity, selected.unit, selected.groupUnit, selected.piecesPerUnit)}
-                                          </strong>
-                                          {' '}({selected.quantity} total {selected.unit || 'pieces'})
-                                        </div>
-
-                                        {/* Existing Batches List */}
-                                        {(() => {
-                                          const activeBatches = (Array.isArray(selected.batches) && selected.batches.length > 0)
-                                            ? selected.batches.filter((b) => b.quantity > 0)
-                                            : (selected.quantity > 0
-                                                ? [{
-                                                    id: `batch-${selected.id}-init`,
-                                                    quantity: selected.quantity,
-                                                    expiryDate: selected.expiryDate || null
-                                                  }]
-                                                : [])
-
-                                          if (activeBatches.length === 0) return null
-
-                                          return (
+                                    <>
+                                      {/* Current Stock Card */}
+                                      {selected ? (
+                                        <div className="bg-navy-blue/5 border border-navy-blue/10 rounded-xl p-3 text-xs space-y-2">
+                                          <div className="flex justify-between items-center">
+                                            <span className="font-bold text-navy-blue text-sm">{selected.name}</span>
+                                            <span className="text-[10px] font-bold uppercase bg-white border border-gray-200 text-gray-600 px-2 py-0.5 rounded-full">{selected.category}</span>
+                                          </div>
+                                          <div className="text-gray-600">
+                                            Current Stock:{' '}
+                                            <strong className="text-navy-blue">{displayStock(selected.quantity, selected.unit, selected.groupUnit, selected.piecesPerUnit)}</strong>
+                                            {' '}({selected.quantity} {selected.unit || 'pieces'})
+                                          </div>
+                                          {activeBatches.length > 0 && (
                                             <div className="bg-white/90 rounded-lg p-2 border border-navy-blue/10 space-y-1">
                                               <div className="text-[11px] font-bold text-navy-blue flex items-center justify-between">
-                                                <span>Current Batches ({activeBatches.length}):</span>
-                                                <span className="text-[10px] text-gray-400 font-normal">FEFO Tracked</span>
+                                                <span>Existing Batches ({activeBatches.length})</span>
+                                                <span className="text-[10px] text-gray-400 font-normal">FEFO</span>
                                               </div>
-                                              <div className="space-y-1 max-h-24 overflow-y-auto pr-1">
+                                              <div className="space-y-1 max-h-20 overflow-y-auto pr-1">
                                                 {activeBatches.map((b, idx) => (
                                                   <div key={b.id || idx} className="flex justify-between items-center text-[11px] text-gray-600 bg-gray-50/80 px-2 py-1 rounded">
-                                                    <span className="font-medium text-navy-blue">
-                                                      Batch {idx + 1}: {b.quantity} {formatUnit(b.quantity, selected.unit || 'pieces')}
-                                                    </span>
+                                                    <span className="font-medium text-navy-blue">Batch {idx + 1}: {b.quantity} {formatUnit(b.quantity, selected.unit || 'pieces')}</span>
                                                     <span className={b.expiryDate && getExpirationInfo(b.expiryDate).isNearExpiry ? 'text-red-500 font-bold' : 'text-gray-500'}>
                                                       {b.expiryDate ? `Exp: ${new Date(b.expiryDate).toLocaleDateString()}` : 'No Expiry'}
                                                     </span>
@@ -4851,115 +4923,104 @@ export default function AdminDashboard({ user, onLogout }) {
                                                 ))}
                                               </div>
                                             </div>
-                                          )
-                                        })()}
-
-                                        {selected.expiryDate && (
-                                          <div className={`flex items-center text-[11px] ${expInfo.isNearExpiry ? 'text-red-500 font-semibold' : 'text-gray-500'}`}>
-                                            <Clock className="w-3 h-3 mr-1" />
-                                            Earliest Expiry: {new Date(selected.expiryDate).toLocaleDateString()}
-                                            {expInfo.isExpired && <span className="ml-1 text-[10px] font-bold text-red-600 bg-red-100 px-1 rounded">Expired</span>}
-                                            {!expInfo.isExpired && expInfo.isNearExpiry && <span className="ml-1 text-[10px] font-bold text-red-600 bg-red-100 px-1 rounded">≤ 4 mos remaining</span>}
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <div className="bg-navy-blue/5 border border-dashed border-navy-blue/15 rounded-xl p-3 text-xs space-y-2">
+                                          <div className="flex justify-between items-center">
+                                            <span className="font-bold text-gray-400 text-sm">Select an Item</span>
+                                            <span className="text-[10px] font-bold uppercase bg-white/70 border border-gray-200 text-gray-400 px-2 py-0.5 rounded-full">No Category</span>
                                           </div>
+                                          <div className="text-gray-400">
+                                            Current Stock: <strong className="text-gray-400">—</strong>
+                                          </div>
+                                          <div className="bg-white/70 rounded-lg p-2.5 border border-navy-blue/10 text-center">
+                                            <p className="text-[11px] text-gray-400">Select an item above to view existing stock level and batch breakdown.</p>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* 3. Quantity to Add */}
+                                      <div>
+                                        <label className="block text-gray-700 text-xs font-semibold mb-1">
+                                          Quantity to Add <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={addStockQty}
+                                          onChange={(e) => {
+                                            if (/^\d*$/.test(e.target.value)) {
+                                              setAddStockQty(e.target.value)
+                                              setAddStockErrors((prev) => { const c = { ...prev }; delete c.qty; return c })
+                                            }
+                                          }}
+                                          placeholder="e.g. 10"
+                                          className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${addStockErrors.qty ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                          style={{ height: '40px' }}
+                                        />
+                                        {addStockErrors.qty && (
+                                          <p className="text-red-500 text-[10px] mt-1 font-semibold">{addStockErrors.qty}</p>
                                         )}
                                       </div>
 
-                                      {/* Stock Addition Inputs */}
-                                      {hasGroup ? (
-                                        <div className="space-y-3">
-                                          <label className="block text-gray-700 text-xs font-semibold">
-                                            Stock to Add ({groupName} & Pieces)
-                                          </label>
-                                          <div className="grid grid-cols-2 gap-3">
-                                            <div>
-                                              <label className="block text-gray-500 text-[11px] font-medium mb-1">
-                                                Add in {groupName}
-                                              </label>
-                                              <input
-                                                type="text"
-                                                value={addStockQtyGroup}
-                                                onChange={(e) => {
-                                                  if (/^\d*$/.test(e.target.value)) {
-                                                    setAddStockQtyGroup(e.target.value)
-                                                    setAddStockErrors((prev) => {
-                                                      const c = { ...prev }
-                                                      delete c.qty
-                                                      return c
-                                                    })
-                                                  }
-                                                }}
-                                                placeholder="0"
-                                                className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
-                                                style={{ height: '40px' }}
-                                              />
-                                              <p className="text-[10px] text-gray-400 mt-0.5">({pPerUnit} pieces per {selected.groupUnit})</p>
-                                            </div>
-                                            <div>
-                                              <label className="block text-gray-500 text-[11px] font-medium mb-1">
-                                                Add in {selected.unit || 'Pieces'}
-                                              </label>
-                                              <input
-                                                type="text"
-                                                value={addStockQtyPieces}
-                                                onChange={(e) => {
-                                                  if (/^\d*$/.test(e.target.value)) {
-                                                    setAddStockQtyPieces(e.target.value)
-                                                    setAddStockErrors((prev) => {
-                                                      const c = { ...prev }
-                                                      delete c.qty
-                                                      return c
-                                                    })
-                                                  }
-                                                }}
-                                                placeholder="0"
-                                                className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
-                                                style={{ height: '40px' }}
-                                              />
-                                              <p className="text-[10px] text-gray-400 mt-0.5">Individual units</p>
-                                            </div>
-                                          </div>
-                                        </div>
-                                      ) : (
-                                        <div>
+                                      {/* 4. Unit */}
+                                      <div>
+                                        <label className="block text-gray-700 text-xs font-semibold mb-1">Unit</label>
+                                        <select
+                                          value={addStockUnit}
+                                          onChange={(e) => {
+                                            setAddStockUnit(e.target.value)
+                                            setAddStockPiecesPerUnit('')
+                                            setAddStockErrors((prev) => { const c = { ...prev }; delete c.piecesPerUnit; return c })
+                                          }}
+                                          className="w-full p-2.5 text-xs bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue"
+                                          style={{ height: '40px' }}
+                                        >
+                                          <option value="pieces">Pieces</option>
+                                          <option value="packs">Packs</option>
+                                          <option value="boxes">Boxes</option>
+                                          <option value="bundles">Bundles</option>
+                                        </select>
+                                      </div>
+
+                                      {/* 5. Pieces per Unit (shown only when packed unit selected) */}
+                                      {isPacked && (
+                                        <div className="animate-fade-in">
                                           <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                            Quantity to Add ({selected.unit || 'Pieces'}) <span className="text-red-500">*</span>
+                                            Pieces per {addStockUnit.slice(0, 1).toUpperCase() + addStockUnit.slice(1, -1)}{' '}
+                                            <span className="text-red-500">*</span>
                                           </label>
                                           <input
                                             type="text"
-                                            value={addStockQty}
+                                            value={addStockPiecesPerUnit}
                                             onChange={(e) => {
                                               if (/^\d*$/.test(e.target.value)) {
-                                                setAddStockQty(e.target.value)
-                                                setAddStockErrors((prev) => {
-                                                  const c = { ...prev }
-                                                  delete c.qty
-                                                  return c
-                                                })
+                                                setAddStockPiecesPerUnit(e.target.value)
+                                                setAddStockErrors((prev) => { const c = { ...prev }; delete c.piecesPerUnit; return c })
                                               }
                                             }}
-                                            placeholder="e.g. 30"
-                                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${addStockErrors.qty ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
+                                            placeholder="e.g. 12"
+                                            className={`w-full p-2.5 text-xs bg-white border rounded-xl focus:outline-none focus:ring-2 focus:ring-navy-blue/15 font-semibold text-navy-blue ${addStockErrors.piecesPerUnit ? 'border-red-500 ring-2 ring-red-500/10' : 'border-gray-200'}`}
                                             style={{ height: '40px' }}
                                           />
+                                          {addStockErrors.piecesPerUnit && (
+                                            <p className="text-red-500 text-[10px] mt-1 font-semibold">{addStockErrors.piecesPerUnit}</p>
+                                          )}
+                                          {qtyNum > 0 && pPerUnit > 0 && (
+                                            <p className="text-[10px] text-gray-500 mt-1">
+                                              {qtyNum} {addStockUnit} × {pPerUnit} pieces = <strong className="text-navy-blue">{addedTotal} pieces</strong>
+                                            </p>
+                                          )}
                                         </div>
                                       )}
-                                      {addStockErrors.qty && (
-                                        <p className="text-red-500 text-[10px] font-semibold">{addStockErrors.qty}</p>
-                                      )}
 
-                                      {/* Expiration Date for New Stock Batch */}
+                                      {/* 6. Expiration Date */}
                                       <div>
                                         <label className="block text-gray-700 text-xs font-semibold mb-1">
-                                          Expiration Date (New Stock Batch){' '}
+                                          Expiration Date{' '}
                                           <span className="text-gray-400 font-normal">(Optional)</span>
                                         </label>
-                                        <div
-                                          className={
-                                            addStockErrors.expiry
-                                              ? 'border border-red-500 rounded-xl p-0.5 ring-2 ring-red-500/10'
-                                              : ''
-                                          }
-                                        >
+                                        <div className={addStockErrors.expiry ? 'border border-red-500 rounded-xl p-0.5 ring-2 ring-red-500/10' : ''}>
                                           <GlassDatePicker
                                             value={addStockExpiry ? addStockExpiry.split('T')[0] : ''}
                                             disabled={false}
@@ -4967,16 +5028,9 @@ export default function AdminDashboard({ user, onLogout }) {
                                             onChange={(val) => {
                                               setAddStockExpiry(val)
                                               if (val && isPastDate(val)) {
-                                                setAddStockErrors((prev) => ({
-                                                  ...prev,
-                                                  expiry: DATE_ERROR_MESSAGES.EXPIRY_PAST
-                                                }))
+                                                setAddStockErrors((prev) => ({ ...prev, expiry: DATE_ERROR_MESSAGES.EXPIRY_PAST }))
                                               } else {
-                                                setAddStockErrors((prev) => {
-                                                  const copy = { ...prev }
-                                                  delete copy.expiry
-                                                  return copy
-                                                })
+                                                setAddStockErrors((prev) => { const c = { ...prev }; delete c.expiry; return c })
                                               }
                                             }}
                                             showTime={false}
@@ -4986,39 +5040,37 @@ export default function AdminDashboard({ user, onLogout }) {
                                         {addStockErrors.expiry && (
                                           <p className="text-red-500 text-[10px] mt-1 font-semibold">{addStockErrors.expiry}</p>
                                         )}
-                                        <p className="text-[10px] text-gray-400 mt-1">
-                                          Applies exclusively to this new batch. Existing stock expiration dates are never changed.
-                                        </p>
                                       </div>
 
-                                      {/* Live Stock Calculation Preview */}
-                                      {addedTotal > 0 && (
+                                      {/* Live Preview */}
+                                      {selected && addedTotal > 0 && (
                                         <div className="bg-sig-green/10 border border-sig-green/20 rounded-xl p-3 text-xs space-y-1.5 animate-fade-in">
                                           <div className="flex justify-between text-gray-600">
                                             <span>Existing Stock:</span>
                                             <span className="font-semibold text-navy-blue">{selected.quantity} {selected.unit || 'pieces'}</span>
                                           </div>
                                           <div className="flex justify-between text-sig-green font-bold">
-                                            <span>+ New Stock Batch:</span>
+                                            <span>+ Adding:</span>
                                             <span>
-                                              +{addedTotal} {selected.unit || 'pieces'}
+                                              {isPacked
+                                                ? `${qtyNum} ${addStockUnit} × ${pPerUnit || '?'} pcs = +${addedTotal} pieces`
+                                                : `+${addedTotal} pieces`}
                                               {addStockExpiry ? ` (Exp: ${new Date(addStockExpiry).toLocaleDateString()})` : ''}
                                             </span>
                                           </div>
+                                          {willMerge && (
+                                            <div className="text-[10px] text-amber-600 font-semibold">⚡ Merging into Batch {mergeIdx !== -1 ? mergeIdx + 1 : ''}</div>
+                                          )}
+                                          {!willMerge && addStockExpiry && (
+                                            <div className="text-[10px] text-gray-500">New separate batch will be created.</div>
+                                          )}
                                           <div className="border-t border-sig-green/20 pt-1.5 flex justify-between items-center text-navy-blue font-extrabold text-sm">
-                                            <span>Resulting Total Stock:</span>
-                                            <span>
-                                              {displayStock(newTotalQty, selected.unit, selected.groupUnit, selected.piecesPerUnit)}
-                                              <span className="text-xs font-normal text-gray-500 ml-1">({newTotalQty} {selected.unit || 'pieces'})</span>
-                                            </span>
-                                          </div>
-                                          <div className="text-[10px] text-gray-500 flex items-center pt-0.5">
-                                            <span className="font-semibold text-sig-green mr-1">✓ Multi-Batch FEFO:</span>
-                                            <span>Batch expiration dates are preserved separately under this item.</span>
+                                            <span>New Total:</span>
+                                            <span>{newTotalQty} {selected.unit || 'pieces'}</span>
                                           </div>
                                         </div>
                                       )}
-                                    </div>
+                                    </>
                                   )
                                 })()}
 
@@ -5031,8 +5083,8 @@ export default function AdminDashboard({ user, onLogout }) {
                                       setAddStockItemId('')
                                       setAddStockSearch('')
                                       setAddStockQty('')
-                                      setAddStockQtyGroup('')
-                                      setAddStockQtyPieces('')
+                                      setAddStockUnit('pieces')
+                                      setAddStockPiecesPerUnit('')
                                       setAddStockExpiry('')
                                       setAddStockErrors({})
                                     }}
@@ -5882,9 +5934,31 @@ export default function AdminDashboard({ user, onLogout }) {
 
                       {/* Donations History log */}
                       <div className="bg-white rounded-3xl p-4 sm:p-6 shadow-sm border border-gray-100 min-w-0">
-                        <h3 className="font-bold text-navy-blue text-base border-b border-gray-100 pb-3 mb-4">
-                          Donation Audit History Logs
-                        </h3>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-4 border-b border-gray-100 gap-3">
+                          <h3 className="font-bold text-navy-blue text-base">
+                            Donation Audit History Logs
+                          </h3>
+                          <div className="relative w-full sm:w-72">
+                            <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                            <input
+                              type="text"
+                              value={donationSearchQuery}
+                              onChange={(e) => setDonationSearchQuery(e.target.value)}
+                              placeholder="Search by donor, purpose, item..."
+                              className="w-full pl-8 pr-7 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-navy-blue placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-navy-blue/15 focus:bg-white transition"
+                              style={{ height: '36px' }}
+                            />
+                            {donationSearchQuery && (
+                              <button
+                                type="button"
+                                onClick={() => setDonationSearchQuery('')}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-navy-blue p-0.5 rounded cursor-pointer"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
                         <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
                           <table className="w-full text-left border-collapse min-w-[500px]">
                             <thead>
@@ -5896,7 +5970,7 @@ export default function AdminDashboard({ user, onLogout }) {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-50 text-xs">
-                              {donationsList.map((d) => {
+                              {sortedDonationsList.map((d) => {
                                 const donor = donorsList.find((donorObj) => donorObj.id === d.donorId)
                                 return (
                                   <tr key={d.id} className="hover:bg-gray-50/50 transition">
@@ -5929,10 +6003,12 @@ export default function AdminDashboard({ user, onLogout }) {
                                   </tr>
                                 )
                               })}
-                              {donationsList.length === 0 && (
+                              {sortedDonationsList.length === 0 && (
                                 <tr>
                                   <td colSpan="4" className="text-center py-6 text-gray-400">
-                                    No donations logs available.
+                                    {donationSearchQuery
+                                      ? 'No matching donation records found.'
+                                      : 'No donations logs available.'}
                                   </td>
                                 </tr>
                               )}
