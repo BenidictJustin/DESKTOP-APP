@@ -4,7 +4,7 @@ import { AnimatedList, AnimatedListItem } from './motion/AnimatedList'
 import { Award, Compass, Shield, Users, Code } from 'lucide-react'
 
 export default function InfoModule() {
-  const [appVer, setAppVer] = useState('1.0.8')
+  const [appVer, setAppVer] = useState('1.0.9')
 
   useEffect(() => {
     if (window.api?.getAppVersion) {

@@ -11,25 +11,29 @@ import {
 } from 'lucide-react'
 import {
   DEFAULT_ORG_CHART,
+  normalizeOrgChartMembers,
   subscribeOrgChart,
   updateOrgChartMember,
   uploadOrgChartPhoto
 } from '../services/db'
+import AnimatedModal from './motion/AnimatedModal'
 
 export default function OrganizationalChart({ canEdit = false }) {
-  const [members, setMembers] = useState(DEFAULT_ORG_CHART)
+  const [members, setMembers] = useState(() => normalizeOrgChartMembers(DEFAULT_ORG_CHART))
   const [editingMember, setEditingMember] = useState(null)
   const [formName, setFormName] = useState('')
   const [formImage, setFormImage] = useState('')
   const [selectedFile, setSelectedFile] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [failedImages, setFailedImages] = useState({})
+  const [previewError, setPreviewError] = useState(false)
 
   // Real-time synchronization between Admin & Coordinator
   useEffect(() => {
     const unsubscribe = subscribeOrgChart((updatedMembers) => {
       if (Array.isArray(updatedMembers) && updatedMembers.length > 0) {
-        setMembers(updatedMembers)
+        setMembers(normalizeOrgChartMembers(updatedMembers))
       }
     })
     return () => {
@@ -42,8 +46,10 @@ export default function OrganizationalChart({ canEdit = false }) {
   const handleOpenEdit = (person) => {
     setEditingMember(person)
     setFormName(person.name || '')
-    setFormImage(person.imageUrl || '')
+    const isBroken = failedImages[person.id || person.role]
+    setFormImage(isBroken ? '' : (person.imageUrl || ''))
     setSelectedFile(null)
+    setPreviewError(false)
     setErrorMessage('')
   }
 
@@ -53,6 +59,7 @@ export default function OrganizationalChart({ canEdit = false }) {
     setFormName('')
     setFormImage('')
     setSelectedFile(null)
+    setPreviewError(false)
     setErrorMessage('')
   }
 
@@ -85,9 +92,10 @@ export default function OrganizationalChart({ canEdit = false }) {
     }
 
     setErrorMessage('')
+    setPreviewError(false)
     setSelectedFile(file)
 
-    // Local instant preview
+    // Local instant preview preserving aspect ratio (Department Card behavior)
     const reader = new FileReader()
     reader.onloadend = () => {
       setFormImage(reader.result)
@@ -98,6 +106,7 @@ export default function OrganizationalChart({ canEdit = false }) {
   const handleRemovePhoto = () => {
     setFormImage('')
     setSelectedFile(null)
+    setPreviewError(false)
     setErrorMessage('')
   }
 
@@ -113,20 +122,35 @@ export default function OrganizationalChart({ canEdit = false }) {
     try {
       let finalImageUrl = formImage
 
-      // If user selected a new file, upload using Cloudinary / project image storage
+      // If user selected a new file, compress to high-quality Data URL (matching Department Card)
       if (selectedFile) {
-        finalImageUrl = await uploadOrgChartPhoto(selectedFile)
+        try {
+          finalImageUrl = await uploadOrgChartPhoto(selectedFile)
+        } catch (uploadErr) {
+          console.error('Photo upload failed:', uploadErr)
+          throw new Error(uploadErr.message || 'Failed to process photo. Please try again.')
+        }
       }
 
-      await updateOrgChartMember(editingMember.id, {
+      await updateOrgChartMember(editingMember.id || editingMember.role, {
+        id: editingMember.id,
+        role: editingMember.role,
         name: formName.trim(),
         imageUrl: finalImageUrl
+      })
+
+      // Immediately clear failedImages flag for this member so new photo displays instantly
+      setFailedImages((prev) => {
+        const copy = { ...prev }
+        delete copy[editingMember.id]
+        delete copy[editingMember.role]
+        return copy
       })
 
       // Immediately update local UI
       setMembers((prev) =>
         prev.map((m) =>
-          m.id === editingMember.id
+          m.id === editingMember.id || m.role === editingMember.role
             ? { ...m, name: formName.trim(), imageUrl: finalImageUrl }
             : m
         )
@@ -157,11 +181,19 @@ export default function OrganizationalChart({ canEdit = false }) {
           const isLast = idx === members.length - 1
 
           return (
-            <React.Fragment key={person.id || person.name || idx}>
+            <React.Fragment key={person.id || person.role || idx}>
               {/* Person Card Node */}
-              <div className="group relative flex flex-col items-center text-center transition-all duration-200 hover:scale-[1.02] cursor-default max-w-sm w-full py-1">
-                {/* Avatar with Curved Partial Circular Accent Arc */}
-                <div className="relative w-20 h-20 flex items-center justify-center mb-2.5">
+              <div
+                onClick={() => {
+                  if (canEdit) handleOpenEdit(person)
+                }}
+                className={`group relative flex flex-col items-center text-center transition-all duration-200 hover:scale-[1.02] max-w-sm w-full py-1 ${
+                  canEdit ? 'cursor-pointer' : 'cursor-default'
+                }`}
+                title={canEdit ? `Click to edit ${person.role}` : undefined}
+              >
+                {/* Avatar with Curved Partial Circular Accent Arc (Sized to match Department Card logo: w-32 h-32) */}
+                <div className="relative w-28 h-28 flex items-center justify-center mb-3">
                   {/* Outer SVG Curved Partial Ring */}
                   <svg
                     className="absolute inset-0 w-full h-full -rotate-45 transition-transform duration-300 group-hover:rotate-0"
@@ -171,51 +203,41 @@ export default function OrganizationalChart({ canEdit = false }) {
                     <circle
                       cx="50"
                       cy="50"
-                      r="43"
+                      r="45"
                       fill="none"
                       stroke="#F1F5F9"
-                      strokeWidth="5"
+                      strokeWidth="3.5"
                     />
                     {/* Bold Curved Partial Arc Accent */}
                     <path
-                      d="M 50 7 A 43 43 0 0 1 93 50"
+                      d="M 50 5 A 45 45 0 0 1 95 50"
                       fill="none"
                       stroke="#0B2545"
-                      strokeWidth="6.5"
+                      strokeWidth="5"
                       strokeLinecap="round"
                     />
                   </svg>
 
-                  {/* Circular Profile Container */}
-                  <div className="w-14 h-14 rounded-full bg-gradient-to-b from-slate-100 to-slate-200/80 border-2 border-white shadow-xs flex items-center justify-center overflow-hidden">
-                    {person.imageUrl ? (
+                  {/* Circular Profile Container (object-cover prevents distortion, matching Department Card w-32 h-32 sizing) */}
+                  <div className="w-24 h-24 rounded-full bg-gradient-to-b from-slate-100 to-slate-200/80 border-3 border-white shadow-sm flex items-center justify-center overflow-hidden">
+                    {person.imageUrl && !failedImages[person.id || person.role] ? (
                       <img
                         src={person.imageUrl}
                         alt={person.name}
-                        className="w-full h-full object-cover"
+                        onError={() =>
+                          setFailedImages((prev) => ({
+                            ...prev,
+                            [person.id || person.role]: true
+                          }))
+                        }
+                        className="w-full h-full object-cover object-center"
                       />
                     ) : (
                       <div className="flex flex-col items-center justify-center">
-                        <User className="w-6 h-6 text-navy-blue/70" />
+                        <User className="w-14 h-14 text-navy-blue/70" />
                       </div>
                     )}
                   </div>
-
-                  {/* Admin Edit Floating Action Button */}
-                  {canEdit && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleOpenEdit(person)
-                      }}
-                      className="absolute -top-1 -right-1 z-10 w-7 h-7 rounded-full bg-navy-blue text-white shadow-md flex items-center justify-center hover:bg-navy-blue/90 hover:scale-110 active:scale-95 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 cursor-pointer border-2 border-white"
-                      title={`Edit ${person.role}`}
-                      aria-label={`Edit ${person.role}`}
-                    >
-                      <Pencil className="w-3.5 h-3.5 text-sig-green" />
-                    </button>
-                  )}
                 </div>
 
                 {/* Name */}
@@ -228,12 +250,15 @@ export default function OrganizationalChart({ canEdit = false }) {
                   {person.role}
                 </p>
 
-                {/* Admin Inline Edit Badge */}
+                {/* Admin Inline Edit Badge (Single clean edit trigger) */}
                 {canEdit && (
                   <button
                     type="button"
-                    onClick={() => handleOpenEdit(person)}
-                    className="mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 text-[11px] font-semibold text-navy-blue/75 hover:text-navy-blue bg-slate-100 hover:bg-slate-200/90 px-2.5 py-0.5 rounded-full cursor-pointer shadow-2xs"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleOpenEdit(person)
+                    }}
+                    className="mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 text-[11px] font-semibold text-navy-blue/75 hover:text-navy-blue bg-slate-100 hover:bg-slate-200/90 px-3 py-0.5 rounded-full cursor-pointer shadow-2xs"
                   >
                     <Pencil className="w-3 h-3 text-sig-green" />
                     <span>Edit</span>
@@ -252,14 +277,15 @@ export default function OrganizationalChart({ canEdit = false }) {
         })}
       </div>
 
-      {/* ── Admin Edit Modal ── */}
-      {editingMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-blue/40 backdrop-blur-xs animate-in fade-in duration-200">
-          <div
-            className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-gray-100 space-y-5 text-left font-poppins relative"
-            role="dialog"
-            aria-modal="true"
-          >
+      {/* ── Admin Edit Modal (Standard DommUnity CRUD Modal with AnimatedModal portal) ── */}
+      <AnimatedModal
+        isOpen={Boolean(editingMember)}
+        onClose={handleCloseEdit}
+        overlayClassName="fixed inset-0 z-[99999] flex items-center justify-center p-4 glass-modal-overlay select-none"
+        contentClassName="glass-modal rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-white/80 space-y-5 text-left font-poppins relative select-text"
+      >
+        {editingMember && (
+          <>
             {/* Header */}
             <div className="flex items-start justify-between pb-3 border-b border-gray-100">
               <div>
@@ -295,41 +321,20 @@ export default function OrganizationalChart({ canEdit = false }) {
               </div>
             )}
 
-            {/* Profile Photo Upload / Replace */}
+            {/* Profile Photo Upload / Replace — Sizing & aspect ratio behavior matching Department Card */}
             <div className="flex flex-col items-center justify-center p-4 bg-slate-50/80 rounded-2xl border border-dashed border-gray-200 space-y-3">
-              {/* Preview Frame */}
-              <div className="relative w-20 h-20 flex items-center justify-center">
-                <svg
-                  className="absolute inset-0 w-full h-full -rotate-45"
-                  viewBox="0 0 100 100"
-                >
-                  <circle
-                    cx="50"
-                    cy="50"
-                    r="43"
-                    fill="none"
-                    stroke="#E2E8F0"
-                    strokeWidth="5"
+              {/* Circular Preview Area */}
+              <div className="w-24 h-24 rounded-full border-3 border-gray-200 bg-white shadow-xs flex items-center justify-center overflow-hidden">
+                {formImage && !previewError ? (
+                  <img
+                    src={formImage}
+                    alt="Photo preview"
+                    onError={() => setPreviewError(true)}
+                    className="w-full h-full object-cover object-center"
                   />
-                  <path
-                    d="M 50 7 A 43 43 0 0 1 93 50"
-                    fill="none"
-                    stroke="#0B2545"
-                    strokeWidth="6.5"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <div className="w-14 h-14 rounded-full bg-white border-2 border-white shadow-xs flex items-center justify-center overflow-hidden">
-                  {formImage ? (
-                    <img
-                      src={formImage}
-                      alt="Preview"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <User className="w-6 h-6 text-navy-blue/60" />
-                  )}
-                </div>
+                ) : (
+                  <User className="w-12 h-12 text-navy-blue/60" />
+                )}
               </div>
 
               {/* Upload Controls */}
@@ -412,9 +417,9 @@ export default function OrganizationalChart({ canEdit = false }) {
                 )}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </AnimatedModal>
     </div>
   )
 }

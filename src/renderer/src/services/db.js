@@ -2049,20 +2049,47 @@ export const addOrganization = async (org) => {
 
 // --- ORGANIZATIONAL CHART SERVICES (Admin & Coordinator Synchronized) ---
 
+/**
+ * Normalizes member records to guarantee every entry has a valid id, role,
+ * name, and preserves any uploaded photo reference.
+ */
+export const normalizeOrgChartMembers = (members) => {
+  if (!Array.isArray(members) || members.length === 0) {
+    return DEFAULT_ORG_CHART
+  }
+  return DEFAULT_ORG_CHART.map((def, idx) => {
+    const found =
+      members.find((m) => m && m.id === def.id) ||
+      members.find(
+        (m) => m && m.role && m.role.trim().toUpperCase() === def.role.trim().toUpperCase()
+      ) ||
+      members[idx]
+
+    return {
+      ...def,
+      ...(found || {}),
+      id: def.id,
+      role: def.role,
+      name: (found?.name || def.name || '').trim(),
+      imageUrl: (found?.imageUrl || '').trim()
+    }
+  })
+}
+
 export const getOrgChart = async () => {
   if (isDemoMode) {
     const local = getLocalData(LOCAL_STORAGE_KEYS.ORG_CHART)
-    return Array.isArray(local) && local.length > 0 ? local : DEFAULT_ORG_CHART
+    return normalizeOrgChartMembers(local)
   } else {
     try {
       const docRef = doc(fdb, 'settings', 'org_chart')
       const snap = await getDoc(docRef)
       if (snap.exists() && Array.isArray(snap.data()?.members) && snap.data().members.length > 0) {
-        const members = snap.data().members
+        const members = normalizeOrgChartMembers(snap.data().members)
         saveLocalData(LOCAL_STORAGE_KEYS.ORG_CHART, members)
         return members
       } else {
-        const local = getLocalData(LOCAL_STORAGE_KEYS.ORG_CHART) || DEFAULT_ORG_CHART
+        const local = normalizeOrgChartMembers(getLocalData(LOCAL_STORAGE_KEYS.ORG_CHART))
         try {
           await setDoc(docRef, { members: local, updatedAt: Timestamp.now() }, { merge: true })
         } catch {}
@@ -2071,7 +2098,7 @@ export const getOrgChart = async () => {
     } catch (err) {
       console.warn('Firestore getOrgChart failed, falling back to local cache:', err?.message || err)
       const local = getLocalData(LOCAL_STORAGE_KEYS.ORG_CHART)
-      return Array.isArray(local) && local.length > 0 ? local : DEFAULT_ORG_CHART
+      return normalizeOrgChartMembers(local)
     }
   }
 }
@@ -2079,7 +2106,7 @@ export const getOrgChart = async () => {
 export const subscribeOrgChart = (callback) => {
   const fetchLocalAndCallback = () => {
     const data = getLocalData(LOCAL_STORAGE_KEYS.ORG_CHART)
-    callback(Array.isArray(data) && data.length > 0 ? data : DEFAULT_ORG_CHART)
+    callback(normalizeOrgChartMembers(data))
   }
 
   fetchLocalAndCallback()
@@ -2104,7 +2131,7 @@ export const subscribeOrgChart = (callback) => {
         docRef,
         (snap) => {
           if (snap.exists() && Array.isArray(snap.data()?.members) && snap.data().members.length > 0) {
-            const members = snap.data().members
+            const members = normalizeOrgChartMembers(snap.data().members)
             saveLocalData(LOCAL_STORAGE_KEYS.ORG_CHART, members)
             callback(members)
           } else {
@@ -2132,10 +2159,19 @@ export const subscribeOrgChart = (callback) => {
   }
 }
 
-export const updateOrgChartMember = async (id, updatedFields = {}) => {
-  const currentMembers = getLocalData(LOCAL_STORAGE_KEYS.ORG_CHART) || DEFAULT_ORG_CHART
+export const updateOrgChartMember = async (idOrRole, updatedFields = {}) => {
+  const currentMembers = normalizeOrgChartMembers(getLocalData(LOCAL_STORAGE_KEYS.ORG_CHART))
+  let matched = false
+
   const updatedMembers = currentMembers.map((member) => {
-    if (member.id === id || member.role === id) {
+    const isTarget =
+      (member.id && idOrRole && member.id === idOrRole) ||
+      (member.role && idOrRole && member.role.trim().toUpperCase() === String(idOrRole).trim().toUpperCase()) ||
+      (updatedFields.id && member.id === updatedFields.id) ||
+      (updatedFields.role && member.role && member.role.trim().toUpperCase() === String(updatedFields.role).trim().toUpperCase())
+
+    if (isTarget) {
+      matched = true
       const updated = { ...member }
       if (typeof updatedFields.name === 'string') {
         updated.name = updatedFields.name.trim()
@@ -2147,12 +2183,16 @@ export const updateOrgChartMember = async (id, updatedFields = {}) => {
         }
       }
       if (updatedFields.imageUrl !== undefined) {
-        updated.imageUrl = updatedFields.imageUrl || ''
+        updated.imageUrl = (updatedFields.imageUrl || '').trim()
       }
       return updated
     }
     return member
   })
+
+  if (!matched) {
+    console.warn(`[db.js] updateOrgChartMember: No matching member found for identifier "${idOrRole}"`)
+  }
 
   // 1. Save immediately to local storage cache for instant reactive responsiveness
   saveLocalData(LOCAL_STORAGE_KEYS.ORG_CHART, updatedMembers)
@@ -2175,7 +2215,8 @@ export const updateOrgChartMember = async (id, updatedFields = {}) => {
         { merge: true }
       )
     } catch (fsErr) {
-      console.warn('[db.js] Error updating org chart in Firestore, saved locally:', fsErr)
+      console.error('[db.js] Error updating org chart in Firestore:', fsErr)
+      throw new Error(`Failed to save to database: ${fsErr?.message || 'Database write error'}`)
     }
   }
 
@@ -2201,36 +2242,17 @@ export const uploadOrgChartPhoto = async (file) => {
     throw new Error('Image size exceeds 15MB limit. Please choose a smaller photo.')
   }
 
-  // 1. Primary: Cloudinary integration via Electron IPC
-  if (isCloudinaryAvailable()) {
-    try {
-      const res = await uploadDocumentToCloudinary(file, {
-        fileName: file.name || `org_chart_${Date.now()}.png`,
-        academicYear: 'org_chart',
-        eventId: 'profile',
-        userRole: 'admin',
-        accessMode: 'upload',
-        isImage: true
-      })
-      if (res && res.success && (res.secureUrl || res.url)) {
-        return res.secureUrl || res.url
-      }
-      if (res && res.error) {
-        console.warn('[db.js] Cloudinary returned error, attempting fallback:', res.error)
-      }
-    } catch (cloudErr) {
-      console.warn('[db.js] Cloudinary upload notice (will use fallback):', cloudErr?.message || cloudErr)
-    }
-  }
-
-  // 2. Secondary fallback: Compressed Base64 Data URL
+  // Optimize and compress to web-friendly JPEG data URL (matching Department Card logo behavior)
   try {
-    const compressed = await compressImage(file, { maxWidth: 500, maxHeight: 500, quality: 0.85 })
-    if (compressed) return compressed
+    const compressed = await compressImage(file, { maxWidth: 400, maxHeight: 400, quality: 0.85 })
+    if (compressed && compressed.startsWith('data:image/')) {
+      return compressed
+    }
   } catch (compErr) {
-    console.warn('[db.js] Org chart compression failed:', compErr)
+    console.warn('[db.js] Image compression fallback to FileReader:', compErr)
   }
 
+  // Fallback: Read as Data URL directly (exact same behavior as Department Card logo upload)
   return await new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(reader.result)
