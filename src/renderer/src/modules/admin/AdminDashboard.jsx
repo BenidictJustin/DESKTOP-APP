@@ -3610,7 +3610,7 @@ export default function AdminDashboard({ user, onLogout }) {
                                   <button
                                     type="button"
                                     onClick={() => setIsAddModalOpen(true)}
-                                    className="flex items-center space-x-1.5 bg-white text-navy-blue border border-navy-blue/30 hover:border-navy-blue hover:bg-navy-blue hover:text-white font-semibold py-2 px-4 rounded-full text-xs cursor-pointer transition shadow-xs"
+                                    className="flex items-center space-x-1.5 bg-navy-blue text-white border border-navy-blue hover:bg-white hover:text-sig-green hover:border-sig-green font-semibold py-2 px-4 rounded-full text-xs cursor-pointer transition shadow-xs"
                                   >
                                     <Plus className="w-3.5 h-3.5" />
                                     <span>Add Item</span>
